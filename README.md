@@ -44,6 +44,18 @@ python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
 
+## Build a Windows executable
+
+Run the included PowerShell build script from the repository root:
+
+```powershell
+.\build.ps1
+```
+
+If Python is not in `PATH`, pass it explicitly: `.\build.ps1 -PythonPath C:\path\to\python.exe`.
+
+The standalone application is written to `dist\Nenolink-AI-Marker.exe`. Python is not required on the computer that runs the resulting executable. Keep `dist\assets\badges\` beside the executable and add approved PNG badges there. The application discovers new badges dynamically when **Refresh badges** is clicked.
+
 ## Architecture and version 0.2
 
 Image processing lives outside the GUI in `nenolink_ai_marker/processor.py`. `MediaProcessor` defines the small processing boundary. A future FFmpeg-backed video processor can implement that boundary and be selected by media type without mixing FFmpeg commands into the GUI. Shared placement settings live in `MarkerSettings`.
@@ -51,4 +63,3 @@ Image processing lives outside the GUI in `nenolink_ai_marker/processor.py`. `Me
 ## AI disclosure
 
 See [AI_NOTICE.md](AI_NOTICE.md) for the project's AI-assisted development notice.
-

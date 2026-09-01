@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
@@ -11,7 +12,7 @@ from .config import ConfigStore
 from .models import MarkerSettings
 from .processor import ImageProcessor, SUPPORTED_EXTENSIONS, output_path
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
+ROOT_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent.parent
 BADGES_DIR = ROOT_DIR / "assets" / "badges"
 POSITION_LABELS = {
     "Top left": "top-left",
@@ -198,4 +199,3 @@ def run() -> None:
     ctk.set_appearance_mode("system")
     ctk.set_default_color_theme("blue")
     MarkerApp().mainloop()
-
