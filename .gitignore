@@ -1,9 +1,10 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
-.venv/
+.venv*/
+.pip-cache/
 dist/
 build/
 *.spec
+!Nenolink-AI-Marker.spec
 nenolink_ai_marker_config.json
-

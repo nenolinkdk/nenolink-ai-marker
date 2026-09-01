@@ -46,13 +46,21 @@ python -m pytest
 
 ## Build a Windows executable
 
-Run the included PowerShell build script from the repository root:
+Use a 64-bit Windows Python installation that includes Tcl/Tk. Verify the exact interpreter before building:
 
 ```powershell
-.\build.ps1
+& "C:\path\to\python.exe" -c "import tkinter; print(tkinter.TkVersion)"
 ```
 
-If Python is not in `PATH`, pass it explicitly: `.\build.ps1 -PythonPath C:\path\to\python.exe`.
+The command must complete successfully and print a Tk version (normally `8.6`). A minimal or embeddable Python distribution without a working Tcl/Tk runtime cannot produce this GUI build.
+
+Then run the build script from the repository root, passing that same interpreter explicitly:
+
+```powershell
+.\build.ps1 -PythonPath "C:\path\to\python.exe"
+```
+
+The script repeats the tkinter check in its isolated build environment, installs the pinned build requirements, deletes the old `build\` and `dist\` directories, builds from `Nenolink-AI-Marker.spec`, and launches the resulting GUI. The build fails unless a real application window appears during the smoke test.
 
 The standalone application is written to `dist\Nenolink-AI-Marker.exe`. Python is not required on the computer that runs the resulting executable. Keep `dist\assets\badges\` beside the executable and add approved PNG badges there. The application discovers new badges dynamically when **Refresh badges** is clicked.
 
