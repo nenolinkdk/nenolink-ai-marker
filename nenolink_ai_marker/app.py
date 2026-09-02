@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
 from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
@@ -10,10 +9,10 @@ from PIL import Image
 from .badges import BadgeRepository
 from .config import ConfigStore
 from .models import MarkerSettings
+from .paths import badge_directory
 from .processor import ImageProcessor, SUPPORTED_EXTENSIONS, output_path
 
-ROOT_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent.parent
-BADGES_DIR = ROOT_DIR / "assets" / "badges"
+BADGES_DIR = badge_directory()
 POSITION_LABELS = {
     "Top left": "top-left",
     "Top right": "top-right",
@@ -85,6 +84,9 @@ class MarkerApp(ctk.CTk):
         ctk.CTkButton(controls, text="Save marked images", command=self.save_images).grid(
             row=14, column=0, padx=18, pady=(18, 8), sticky="ew"
         )
+        ctk.CTkLabel(controls, text="© Henrik Nielsen · nenolink.com", text_color="gray60").grid(
+            row=15, column=0, padx=18, pady=(6, 16), sticky="w"
+        )
 
         preview_frame = ctk.CTkFrame(self)
         preview_frame.grid(row=0, column=1, padx=(8, 16), pady=16, sticky="nsew")
@@ -115,6 +117,10 @@ class MarkerApp(ctk.CTk):
         self.badge_menu.configure(values=values)
         if self.badge_var.get() not in badge_names:
             self.badge_var.set(badge_names[0] if badge_names else values[0])
+        if badge_names:
+            self.status_var.set(f"Found {len(badge_names)} badge(s) in {self.badges.directory}")
+        else:
+            self.status_var.set(f"No badge PNG files found. Folder searched: {self.badges.directory}")
         self.update_preview()
 
     def open_images(self) -> None:
@@ -146,7 +152,10 @@ class MarkerApp(ctk.CTk):
     def update_preview(self) -> None:
         selection = self._selection()
         if not selection:
-            self.preview_label.configure(image=None, text="Add approved PNG badges to assets/badges/\nand select one or more images.")
+            self.preview_label.configure(
+                image=None,
+                text=f"No badge PNG files available.\nFolder searched:\n{self.badges.directory}",
+            )
             return
         try:
             preview = self.processor.process(*selection, self.settings())

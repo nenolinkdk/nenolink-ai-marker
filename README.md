@@ -62,7 +62,17 @@ Then run the build script from the repository root, passing that same interprete
 
 The script repeats the tkinter check in its isolated build environment, installs the pinned build requirements, deletes the old `build\` and `dist\` directories, builds from `Nenolink-AI-Marker.spec`, and launches the resulting GUI. The build fails unless a real application window appears during the smoke test.
 
-The standalone application is written to `dist\Nenolink-AI-Marker.exe`. Python is not required on the computer that runs the resulting executable. Keep `dist\assets\badges\` beside the executable and add approved PNG badges there. The application discovers new badges dynamically when **Refresh badges** is clicked.
+The complete application is written to `dist\Nenolink-AI-Marker\`. Python is not required on the computer that runs it. Keep the folder structure intact:
+
+```text
+Nenolink-AI-Marker\
+  Nenolink-AI-Marker.exe
+  assets\
+    badges\
+      *.png
+```
+
+The badge folder remains external and editable. Add approved PNG badges beside the executable as shown above, then click **Refresh badges**. Badge paths are resolved from the application location, not the current working directory.
 
 ## Architecture and version 0.2
 
@@ -71,3 +81,5 @@ Image processing lives outside the GUI in `nenolink_ai_marker/processor.py`. `Me
 ## AI disclosure
 
 See [AI_NOTICE.md](AI_NOTICE.md) for the project's AI-assisted development notice.
+
+Copyright © Henrik Nielsen — [nenolink.com](https://nenolink.com)

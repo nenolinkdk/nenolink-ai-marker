@@ -49,11 +49,14 @@ foreach ($name in @("build", "dist")) {
 & $python -m PyInstaller --noconfirm --clean (Join-Path $projectRoot "Nenolink-AI-Marker.spec")
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller build failed." }
 
-$distBadges = Join-Path $projectRoot "dist\assets\badges"
+$packageRoot = Join-Path $projectRoot "dist\Nenolink-AI-Marker"
+$packagedExe = Join-Path $packageRoot "Nenolink-AI-Marker.exe"
+$distBadges = Join-Path $packageRoot "assets\badges"
 New-Item -ItemType Directory -Force -Path $distBadges | Out-Null
+Copy-Item -LiteralPath (Join-Path $projectRoot "dist\Nenolink-AI-Marker.exe") -Destination $packagedExe -Force
 Copy-Item -Path (Join-Path $projectRoot "assets\badges\*") -Destination $distBadges -Force
 
-& (Join-Path $projectRoot "scripts\windows-smoke-test.ps1") -ExePath (Join-Path $projectRoot "dist\Nenolink-AI-Marker.exe")
+& (Join-Path $projectRoot "scripts\windows-smoke-test.ps1") -ExePath $packagedExe
 if ($LASTEXITCODE -ne 0) { throw "The executable smoke test failed." }
 
-Write-Host "Built and launched successfully: $projectRoot\dist\Nenolink-AI-Marker.exe"
+Write-Host "Built and launched successfully: $packagedExe"
