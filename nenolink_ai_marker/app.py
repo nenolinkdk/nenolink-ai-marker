@@ -105,7 +105,7 @@ class MarkerApp(ctk.CTk):
 
         self.badge_label = ctk.CTkLabel(controls, text="")
         self.badge_label.grid(row=9, column=0, padx=18, sticky="w")
-        self.badge_menu = ctk.CTkOptionMenu(controls, variable=self.badge_var, values=["—"], command=lambda _: self.update_preview())
+        self.badge_menu = ctk.CTkOptionMenu(controls, variable=self.badge_var, values=["—"], command=self.select_badge)
         self.badge_menu.grid(row=10, column=0, padx=18, pady=(3, 8), sticky="ew")
         self.refresh_button = ctk.CTkButton(controls, text="", fg_color="transparent", border_width=1, command=self.refresh_badges)
         self.refresh_button.grid(row=11, column=0, padx=18, pady=(0, 12), sticky="ew")
@@ -187,6 +187,10 @@ class MarkerApp(ctk.CTk):
         self.refresh_badges()
         self._save_settings_safely()
 
+    def select_badge(self, _badge_name: str) -> None:
+        self.update_preview()
+        self._save_settings_safely()
+
     def browse_custom_badges(self) -> None:
         selected = filedialog.askdirectory(title=self.translator.text("dialog.custom_badges"))
         if selected:
@@ -203,13 +207,16 @@ class MarkerApp(ctk.CTk):
 
     def refresh_badges(self) -> None:
         self.badges = self.badge_sources.repository(self.badge_source_var.get(), self.custom_badge_var.get())
+        missing_custom = self.badge_sources.fallback_reason
+        if missing_custom:
+            self.badge_source_var.set("standard")
         badge_names = [path.name for path in self.badges.list_badges()]
         values = badge_names or [self.translator.text("badge.none")]
         self.badge_menu.configure(values=values)
         if self.badge_var.get() not in badge_names:
             self.badge_var.set(badge_names[0] if badge_names else values[0])
-        if self.badge_sources.fallback_reason:
-            self.status_var.set(self.translator.text("badge.custom_missing", folder=self.badge_sources.fallback_reason, fallback=self.badges.directory))
+        if missing_custom:
+            self.status_var.set(self.translator.text("badge.custom_missing", folder=missing_custom, fallback=self.badges.directory))
         elif badge_names:
             self.status_var.set(self.translator.text("badge.found", count=len(badge_names), folder=self.badges.directory))
         else:

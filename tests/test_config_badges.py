@@ -1,14 +1,27 @@
 from pathlib import Path
+import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from nenolink_ai_marker.badges import BadgeRepository, BadgeSourceManager
-from nenolink_ai_marker.config import ConfigStore
+from nenolink_ai_marker.config import ConfigStore, default_config_path
 from nenolink_ai_marker.models import MarkerSettings
 from nenolink_ai_marker.paths import application_root, badge_directory, locale_directory
 
 
 class ConfigAndBadgeTests(unittest.TestCase):
+    def test_missing_settings_file_returns_sensible_defaults(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings = ConfigStore(Path(directory) / "missing.json").load()
+            self.assertEqual(settings.language, "en")
+            self.assertEqual(settings.badge_source, "standard")
+            self.assertEqual(settings.custom_badge_folder, "")
+
+    def test_default_settings_path_uses_roaming_appdata(self):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"APPDATA": directory}):
+            self.assertEqual(default_config_path(), Path(directory) / "Nenolink" / "AI Marker" / "settings.json")
+
     def test_settings_round_trip(self):
         with tempfile.TemporaryDirectory() as directory:
             store = ConfigStore(Path(directory) / "settings.json")
@@ -103,7 +116,13 @@ class ConfigAndBadgeTests(unittest.TestCase):
                 custom_badge_folder="C:/badges",
             )
             store.save(expected)
-            self.assertEqual(store.load(), expected)
+            restarted_store = ConfigStore(store.path)
+            restored = restarted_store.load()
+            self.assertEqual(restored.language, "da")
+            self.assertEqual(restored.badge_source, "custom")
+            self.assertEqual(restored.custom_badge_folder, "C:/badges")
+            self.assertEqual(restored.badge_name, "custom.png")
+            self.assertEqual(restored, expected)
 
     def test_locale_resource_paths(self):
         module = Path("C:/project/nenolink_ai_marker/paths.py")

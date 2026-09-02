@@ -13,7 +13,7 @@ Nenolink AI Marker 0.2 is a multilingual Windows desktop application that applie
 - Switches the complete interface between 12 offline languages
 - Uses Nenolink standard badges or a user-selected badge folder
 - Saves as `originalname_ai.ext` and adds `_2`, `_3`, etc. if needed
-- Remembers the last settings in `%LOCALAPPDATA%\NenolinkAI Marker\config.json`
+- Remembers preferences in `%APPDATA%\Nenolink\AI Marker\settings.json`
 
 Video remains outside the current 0.2 image workflow; the processing boundary is prepared for a later FFmpeg processor.
 
@@ -85,6 +85,8 @@ The badge folder remains external and editable. Add approved PNG badges beside t
 **Nenolink standard badges** is the default source. The application scans `assets\badges\` dynamically and ignores non-PNG files. No individual badge filename is hard-coded.
 
 To use your own badges, select **Use custom badge folder** in Settings and click **Browse**. The selected folder is remembered between sessions. Files are read in place and are never copied, renamed or modified. You can switch back to standard badges at any time. If a saved custom folder disappears, the application reports the path and falls back gracefully to the standard badges.
+
+Language, badge source, custom folder, selected badge, position, size, opacity and margin are stored per Windows user in `%APPDATA%\Nenolink\AI Marker\settings.json`. Settings therefore survive application replacement and Windows restarts without requiring administrator rights. Older settings from the previous Local AppData location are read automatically and migrated on the next save.
 
 ## Languages
 
