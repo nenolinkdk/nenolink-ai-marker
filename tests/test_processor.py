@@ -36,6 +36,10 @@ class ProcessorTests(unittest.TestCase):
         (self.root / "photo_ai.png").touch()
         self.assertEqual(output_path(self.source), self.root / "photo_ai_2.png")
 
+    def test_output_path_uses_requested_safe_suffix(self):
+        self.assertEqual(output_path(self.source), self.root / "photo_ai.png")
+        self.assertEqual(output_path(self.source, filename_suffix="_published"), self.root / "photo_published.png")
+
     def test_rejects_video(self):
         with self.assertRaisesRegex(ValueError, "Unsupported"):
             ImageProcessor().process(self.root / "movie.mp4", self.badge, MarkerSettings())

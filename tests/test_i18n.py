@@ -49,7 +49,7 @@ class TranslationTests(unittest.TestCase):
         locales=Path(__file__).resolve().parent.parent/"locales"
         for code in LANGUAGES.values():
             data=json.loads((locales/f"{code}.json").read_text(encoding="utf-8"))
-            self.assertTrue({"button.reset","button.back","status.reset"}.issubset(data),code)
+            self.assertTrue({"button.reset","button.back","dialog.save_as","batch.filename_suffix","status.reset"}.issubset(data),code)
 
     def test_live_welcome_language_change_and_english_return(self):
         locales = Path(__file__).resolve().parent.parent / "locales"

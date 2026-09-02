@@ -88,11 +88,11 @@ def settings_position(position: str) -> str:
     return position if position in {"top-left", "top-right", "bottom-left", "bottom-right"} else "bottom-right"
 
 
-def output_path(source: Path, output_directory: Path | None = None) -> Path:
+def output_path(source: Path, output_directory: Path | None = None, filename_suffix: str = "_ai") -> Path:
     directory = output_directory or source.parent
-    candidate = directory / f"{source.stem}_ai{source.suffix}"
+    candidate = directory / f"{source.stem}{filename_suffix}{source.suffix}"
     counter = 2
     while candidate.exists() or candidate.resolve() == source.resolve():
-        candidate = directory / f"{source.stem}_ai_{counter}{source.suffix}"
+        candidate = directory / f"{source.stem}{filename_suffix}_{counter}{source.suffix}"
         counter += 1
     return candidate

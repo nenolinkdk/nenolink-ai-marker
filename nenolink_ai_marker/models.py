@@ -1,7 +1,13 @@
 from dataclasses import asdict, dataclass
 from typing import Literal
+import re
 
 Position = Literal["top-left", "top-right", "bottom-left", "bottom-right"]
+
+
+def validated_filename_suffix(value: object) -> str:
+    suffix = re.sub(r'[<>:"/\\|?*]', "", str(value or "").strip()).rstrip(". ")
+    return suffix if suffix else "_ai"
 
 
 @dataclass(slots=True)
@@ -24,6 +30,7 @@ class MarkerSettings:
     process_videos: bool = False
     skip_processed: bool = True
     video_mode: str = "overlay"
+    batch_filename_suffix: str = "_ai"
 
     def validated(self) -> "MarkerSettings":
         positions = {"top-left", "top-right", "bottom-left", "bottom-right"}
@@ -46,6 +53,7 @@ class MarkerSettings:
         self.process_videos = bool(self.process_videos)
         self.skip_processed = bool(self.skip_processed)
         self.video_mode = str(self.video_mode or "overlay")
+        self.batch_filename_suffix = validated_filename_suffix(self.batch_filename_suffix)
         return self
 
     def to_dict(self) -> dict[str, object]:

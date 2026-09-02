@@ -66,6 +66,7 @@ class ResourceAndBatchTests(unittest.TestCase):
         settings=MarkerSettings(output_subfolder="AI-marked")
         self.assertEqual(destination_root(settings,root),root/"AI-marked")
         self.assertEqual(destination_for(source,root,Path("D:/out"),True),Path("D:/out/nested/photo_ai.jpg"))
+        self.assertEqual(destination_for(source,root,Path("D:/out"),True,"_marked"),Path("D:/out/nested/photo_marked.jpg"))
         settings.output_preference="separate"; settings.output_folder="D:/chosen"
         self.assertEqual(destination_root(settings,root),Path("D:/chosen"))
 
@@ -77,6 +78,15 @@ class ResourceAndBatchTests(unittest.TestCase):
             result=BatchProcessor().process(scan,badge,settings)
             self.assertEqual(result.successful,1); self.assertEqual(result.skipped,1); self.assertEqual(len(result.errors),1)
             self.assertTrue((root/"out"/"good_ai.png").is_file())
+
+    def test_batch_custom_suffix_keeps_source_and_names_output(self):
+        with tempfile.TemporaryDirectory() as folder:
+            base=Path(folder); root=base/"input"; root.mkdir(); source=root/"photo.jpg"; badge=base/"badge.png"
+            Image.new("RGB",(20,20),"white").save(source); original=source.read_bytes(); Image.new("RGBA",(10,4),"red").save(badge)
+            result=BatchProcessor().process(scan_folder(root),badge,MarkerSettings(output_subfolder="out",batch_filename_suffix="_published"))
+            self.assertEqual(result.successful,1)
+            self.assertTrue((root/"out"/"photo_published.jpg").is_file())
+            self.assertEqual(source.read_bytes(),original)
 
     def test_missing_ffmpeg(self):
         with patch("shutil.which",return_value=None):self.assertIsNone(find_ffmpeg())

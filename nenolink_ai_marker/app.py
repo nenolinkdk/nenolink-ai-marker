@@ -19,7 +19,7 @@ from .guide import open_user_guide
 from .i18n import LANGUAGES, Translator
 from .models import MarkerSettings
 from .paths import badge_directory, locale_directory, localized_user_guide_path, welcome_image_path
-from .processor import ImageProcessor, SUPPORTED_EXTENSIONS, output_path
+from .processor import ImageProcessor, SUPPORTED_EXTENSIONS
 from .ui_state import show_welcome
 
 
@@ -56,7 +56,7 @@ class MarkerApp(ctk.CTk):
         self.language_var=ctk.StringVar(value=Translator.language_name(saved.language)); self.badge_source_var=ctk.StringVar(value=saved.badge_source)
         self.custom_badge_var=ctk.StringVar(value=saved.custom_badge_folder); self.input_folder_var=ctk.StringVar(value=saved.input_folder)
         self.output_preference_var=ctk.StringVar(value=saved.output_preference); self.output_folder_var=ctk.StringVar(value=saved.output_folder)
-        self.output_subfolder_var=ctk.StringVar(value=saved.output_subfolder); self.recursive_var=ctk.BooleanVar(value=saved.include_subfolders)
+        self.output_subfolder_var=ctk.StringVar(value=saved.output_subfolder); self.batch_suffix_var=ctk.StringVar(value=saved.batch_filename_suffix); self.recursive_var=ctk.BooleanVar(value=saved.include_subfolders)
         self.preserve_var=ctk.BooleanVar(value=saved.preserve_folder_structure); self.images_var=ctk.BooleanVar(value=saved.process_images)
         self.videos_var=ctk.BooleanVar(value=saved.process_videos); self.skip_var=ctk.BooleanVar(value=saved.skip_processed)
         self.status_var=ctk.StringVar(); self.badge_name_var=ctk.StringVar(); self.badge_description_var=ctk.StringVar(); self.badge_display_var=ctk.StringVar()
@@ -175,16 +175,18 @@ class MarkerApp(ctk.CTk):
         self.output_separate_radio=ctk.CTkRadioButton(tab,text="",variable=self.output_preference_var,value="separate",command=self.changed); self.output_separate_radio.grid(row=4,column=0,padx=16,pady=(8,4),sticky="w")
         ctk.CTkEntry(tab,textvariable=self.output_folder_var).grid(row=5,column=0,padx=36,pady=4,sticky="ew")
         self.choose_output_button=ctk.CTkButton(tab,text="",command=self.choose_output_folder); self.choose_output_button.grid(row=5,column=1,padx=10)
-        options=ctk.CTkFrame(tab,fg_color="transparent"); options.grid(row=6,column=0,columnspan=2,padx=16,pady=10,sticky="ew"); self.batch_checks=[]
+        self.batch_suffix_label=ctk.CTkLabel(tab,text=""); self.batch_suffix_label.grid(row=6,column=0,padx=16,pady=(8,2),sticky="w")
+        self.batch_suffix_entry=ctk.CTkEntry(tab,textvariable=self.batch_suffix_var); self.batch_suffix_entry.grid(row=7,column=0,padx=36,pady=(0,4),sticky="ew"); self.batch_suffix_entry.bind("<FocusOut>",self.changed)
+        options=ctk.CTkFrame(tab,fg_color="transparent"); options.grid(row=8,column=0,columnspan=2,padx=16,pady=10,sticky="ew"); self.batch_checks=[]
         for i,(key,var) in enumerate((("batch.recursive",self.recursive_var),("batch.preserve",self.preserve_var),("batch.images",self.images_var),("batch.videos",self.videos_var),("batch.skip",self.skip_var))):
             check=ctk.CTkCheckBox(options,text="",variable=var,command=self.changed); check.grid(row=i//3,column=i%3,padx=8,pady=6,sticky="w"); self.batch_checks.append((key,check))
-        buttons=ctk.CTkFrame(tab,fg_color="transparent"); buttons.grid(row=7,column=0,columnspan=2,padx=16,pady=8,sticky="w")
+        buttons=ctk.CTkFrame(tab,fg_color="transparent"); buttons.grid(row=9,column=0,columnspan=2,padx=16,pady=8,sticky="w")
         self.scan_button=ctk.CTkButton(buttons,text="",command=self.scan_input_folder); self.scan_button.grid(row=0,column=0,padx=(0,8))
         self.start_batch_button=ctk.CTkButton(buttons,text="",command=self.start_batch); self.start_batch_button.grid(row=0,column=1,padx=8)
         self.cancel_batch_button=ctk.CTkButton(buttons,text="",command=self.cancel_batch,state="disabled"); self.cancel_batch_button.grid(row=0,column=2,padx=8)
-        ctk.CTkLabel(tab,textvariable=self.scan_summary_var,justify="left",anchor="w").grid(row=8,column=0,columnspan=2,padx=16,pady=6,sticky="ew")
-        self.progress=ctk.CTkProgressBar(tab); self.progress.set(0); self.progress.grid(row=9,column=0,columnspan=2,padx=16,pady=8,sticky="ew")
-        ctk.CTkLabel(tab,textvariable=self.progress_text_var,justify="left",anchor="w").grid(row=10,column=0,columnspan=2,padx=16,pady=6,sticky="ew")
+        ctk.CTkLabel(tab,textvariable=self.scan_summary_var,justify="left",anchor="w").grid(row=10,column=0,columnspan=2,padx=16,pady=6,sticky="ew")
+        self.progress=ctk.CTkProgressBar(tab); self.progress.set(0); self.progress.grid(row=11,column=0,columnspan=2,padx=16,pady=8,sticky="ew")
+        ctk.CTkLabel(tab,textvariable=self.progress_text_var,justify="left",anchor="w").grid(row=12,column=0,columnspan=2,padx=16,pady=6,sticky="ew")
 
     def apply_translations(self) -> None:
         t=self.translator.text; self.title(f"Nenolink AI Marker {__version__} - {t('app.window')}"); self.guide_button.configure(text=t("button.user_guide")); self.reset_button.configure(text=t("button.reset")); self.batch_back_button.configure(text=t("button.back")); self.badges_back_button.configure(text=t("button.back"))
@@ -199,7 +201,7 @@ class MarkerApp(ctk.CTk):
         self.single_badge_label.configure(text="2. "+t("badge")); self.badge_source_heading.configure(text=t("badge.source_label")); self.standard_badge_radio.configure(text=t("badge.source_standard")); self.custom_badge_radio.configure(text=t("badge.source_custom")); self.custom_folder_label.configure(text=t("badge.custom_path")+":"); self.custom_entry.configure(placeholder_text=t("badge.custom_path"))
         self.position_display_to_value={t("position.top_left"):"top-left",t("position.top_right"):"top-right",t("position.bottom_left"):"bottom-left",t("position.bottom_right"):"bottom-right"}; self.position_menu.configure(values=list(self.position_display_to_value)); self.position_display_var.set(next((label for label,value in self.position_display_to_value.items() if value==self.position_var.get()),t("position.bottom_right")))
         self.choose_badge_folder_button.configure(text=t("button.choose_badge_folder")); self.refresh_button.configure(text=t("badge.refresh")); self.badge_gallery_title.configure(text=t("badge.gallery")); self.badge_help.configure(text=t("badge.help")); self._show_badge_source_controls()
-        self.input_label.configure(text=t("batch.input")); self.choose_input_button.configure(text=t("button.choose_input")); self.choose_output_button.configure(text=t("button.choose_output")); self.output_subfolder_radio.configure(text=t("batch.output_subfolder")); self.output_separate_radio.configure(text=t("batch.output_separate"))
+        self.input_label.configure(text=t("batch.input")); self.choose_input_button.configure(text=t("button.choose_input")); self.choose_output_button.configure(text=t("button.choose_output")); self.output_subfolder_radio.configure(text=t("batch.output_subfolder")); self.output_separate_radio.configure(text=t("batch.output_separate")); self.batch_suffix_label.configure(text=t("batch.filename_suffix"))
         self.welcome_title.configure(text=t("welcome.title")); self.welcome_tagline.configure(text=t("welcome.tagline")); self.welcome_description1.configure(text=t("welcome.description1")); self.welcome_description2.configure(text=t("welcome.description2"))
         for key,check in self.batch_checks: check.configure(text=t(key))
         self.scan_button.configure(text=t("button.scan_folder")); self.start_batch_button.configure(text=t("button.start_batch")); self.cancel_batch_button.configure(text=t("button.cancel_batch"))
@@ -212,6 +214,7 @@ class MarkerApp(ctk.CTk):
         self.sources=[]; self.preview_photo=None
         self.badge_source_var.set("standard"); self.custom_badge_var.set(custom_folder); self.badge_var.set(defaults.badge_name); self.position_var.set(defaults.position)
         self.size_var.set(defaults.size_percent); self.margin_var.set(defaults.margin); self.opacity_var.set(defaults.opacity)
+        self.batch_suffix_var.set(defaults.batch_filename_suffix)
         self.scan=None; self.cancel_event.clear(); self.scan_summary_var.set(""); self.progress_text_var.set(""); self.progress.set(0)
         self.refresh_badges(False); self.apply_translations(); self.file_label.configure(text=self.translator.text("files.none")); self.render_start_view(); self.after(150,self._finish_reset_view); self.status_var.set(self.translator.text("status.reset")); self._save()
     def changed(self,*_):
@@ -294,11 +297,12 @@ class MarkerApp(ctk.CTk):
     def save_images(self):
         badge=self.badges.find(self.badge_var.get())
         if not self.sources or not badge:messagebox.showwarning(self.translator.text("warning.title"),self.translator.text("warning.nothing_to_save")); return
-        folder=filedialog.askdirectory(title=self.translator.text("dialog.output_folder"))
-        if not folder:return
         saved=[]; failures=[]
         for source in self.sources:
-            try:target=output_path(source,Path(folder)); self.processor.save(self.processor.process(source,badge,self.settings()),target); saved.append(target)
+            suggested=source.with_name(f"{source.stem}_ai{source.suffix}")
+            selected=filedialog.asksaveasfilename(title=self.translator.text("dialog.save_as"),initialdir=str(source.parent),initialfile=suggested.name,defaultextension=source.suffix,filetypes=[(self.translator.text("files.supported"),f"*{source.suffix}"),(self.translator.text("files.all"),"*.*")],confirmoverwrite=True)
+            if not selected:continue
+            try:target=Path(selected); self.processor.save(self.processor.process(source,badge,self.settings()),target); saved.append(target)
             except (OSError,ValueError) as error:failures.append(f"{source.name}: {error}")
         summary=self.translator.text("process.summary",saved=len(saved),total=len(self.sources)); self.status_var.set(summary)
         (messagebox.showerror if failures else messagebox.showinfo)(self.translator.text("error.completed") if failures else self.translator.text("complete.title"),summary+("\n\n"+"\n".join(failures[:8]) if failures else ""))
@@ -335,18 +339,18 @@ class MarkerApp(ctk.CTk):
     def _write_hotfix_verification(self):
         """Exercise the real packaged widgets for release verification only."""
         report_path=Path(os.environ["NENOLINK_VERIFY_REPORT"])
-        initial_badge_settings={"source":self.badge_source_var.get(),"folder":self.custom_badge_var.get(),"selection":self.badge_var.get(),"status":self.status_var.get(),"count":len(self.badges.display_badges()),"custom_controls_visible":self.custom_controls.winfo_manager()=="grid"}
+        initial_badge_settings={"source":self.badge_source_var.get(),"folder":self.custom_badge_var.get(),"selection":self.badge_var.get(),"batch_suffix":self.batch_suffix_var.get(),"status":self.status_var.get(),"count":len(self.badges.display_badges()),"custom_controls_visible":self.custom_controls.winfo_manager()=="grid"}
         tab_switching={}
         for key,frame in (("single",self.single_tab),("batch",self.batch_tab),("badges",self.settings_tab)):
             self.show_tab(key); self.update(); time.sleep(.15); self.update()
             tab_switching[key]={"selected":self.tabs.get()==self.tab_names[key],"visible":bool(frame.winfo_ismapped()),"other_visible":any(bool(other.winfo_ismapped()) for other in (self.single_tab,self.batch_tab,self.settings_tab) if other is not frame)}
         self.sources=[Path(os.environ.get("NENOLINK_VERIFY_IMAGE","preserved-image.png"))]
         self.badge_var.set("ai-translation.png"); self.position_var.set("top-left"); self.size_var.set(33); self.margin_var.set(27); self.opacity_var.set(81)
-        self.input_folder_var.set(r"C:\verification\batch-input"); self.badge_source_var.set("standard")
+        self.input_folder_var.set(r"C:\verification\batch-input"); self.batch_suffix_var.set("_published"); self.badge_source_var.set("standard")
         self.show_tab("badges"); self.update(); self.badges_back_button.invoke(); self.update(); time.sleep(.15); self.update()
         badges_back_preserved=self.tabs.get()==self.tab_names["single"] and self.badge_var.get()=="ai-translation.png" and len(self.sources)==1 and self.position_var.get()=="top-left" and self.size_var.get()==33 and self.margin_var.get()==27 and self.opacity_var.get()==81
         self.show_tab("batch"); self.update(); self.batch_back_button.invoke(); self.update(); time.sleep(.15); self.update()
-        batch_back_preserved=self.tabs.get()==self.tab_names["single"] and self.input_folder_var.get()==r"C:\verification\batch-input" and self.badge_var.get()=="ai-translation.png" and len(self.sources)==1
+        batch_back_preserved=self.tabs.get()==self.tab_names["single"] and self.input_folder_var.get()==r"C:\verification\batch-input" and self.batch_suffix_var.get()=="_published" and self.badge_var.get()=="ai-translation.png" and len(self.sources)==1
         self.show_tab("single")
         welcome_before_image=self.welcome_frame.winfo_manager()=="grid" and self.preview_label.winfo_manager()==""
         welcome_illustration=bool(self.welcome_image and self.welcome_photo)
@@ -393,11 +397,11 @@ class MarkerApp(ctk.CTk):
         payload["back_navigation"]={"badges_preserved":badges_back_preserved,"batch_preserved":batch_back_preserved,"english_label":english["back"],"danish_label":danish["back"]}
         if os.environ.get("NENOLINK_VERIFY_RESET_LANGUAGE")=="da":self.change_language("Dansk")
         retained_custom_folder=self.custom_badge_var.get(); self.reset_application(); self.update(); time.sleep(.2); self.update()
-        payload["reset_verification"]={"source":self.badge_source_var.get(),"selection":self.badge_var.get(),"folder_retained":self.custom_badge_var.get()==retained_custom_folder,"position":self.position_var.get(),"size":self.size_var.get(),"margin":self.margin_var.get(),"opacity":self.opacity_var.get(),"sources":len(self.sources),"scan_cleared":self.scan is None,"single_selected":self.tabs.get()==self.tab_names["single"],"welcome":self.welcome_frame.winfo_manager()=="grid","welcome_mapped":bool(self.welcome_frame.winfo_ismapped()),"welcome_title":self.welcome_title.cget("text"),"welcome_illustration":bool(self.welcome_photo and self.welcome_illustration.winfo_ismapped()),"preview_hidden":not bool(self.preview_label.winfo_ismapped()),"status":self.status_var.get()}
+        payload["reset_verification"]={"source":self.badge_source_var.get(),"selection":self.badge_var.get(),"folder_retained":self.custom_badge_var.get()==retained_custom_folder,"position":self.position_var.get(),"size":self.size_var.get(),"margin":self.margin_var.get(),"opacity":self.opacity_var.get(),"batch_suffix":self.batch_suffix_var.get(),"sources":len(self.sources),"scan_cleared":self.scan is None,"single_selected":self.tabs.get()==self.tab_names["single"],"welcome":self.welcome_frame.winfo_manager()=="grid","welcome_mapped":bool(self.welcome_frame.winfo_ismapped()),"welcome_title":self.welcome_title.cget("text"),"welcome_illustration":bool(self.welcome_photo and self.welcome_illustration.winfo_ismapped()),"preview_hidden":not bool(self.preview_label.winfo_ismapped()),"status":self.status_var.get()}
         report_path.write_text(json.dumps(payload,indent=2),encoding="utf-8"); self.destroy()
 
     def settings(self):
-        return MarkerSettings(badge_name=self.badge_var.get(),position=self.position_var.get(),size_percent=self.size_var.get(),margin=self.margin_var.get(),opacity=self.opacity_var.get(),language=self.translator.language,badge_source=self.badge_source_var.get(),custom_badge_folder=self.custom_badge_var.get(),input_folder=self.input_folder_var.get(),output_preference=self.output_preference_var.get(),output_folder=self.output_folder_var.get(),output_subfolder=self.output_subfolder_var.get(),include_subfolders=self.recursive_var.get(),preserve_folder_structure=self.preserve_var.get(),process_images=self.images_var.get(),process_videos=self.videos_var.get(),skip_processed=self.skip_var.get(),video_mode="overlay").validated()
+        return MarkerSettings(badge_name=self.badge_var.get(),position=self.position_var.get(),size_percent=self.size_var.get(),margin=self.margin_var.get(),opacity=self.opacity_var.get(),language=self.translator.language,badge_source=self.badge_source_var.get(),custom_badge_folder=self.custom_badge_var.get(),input_folder=self.input_folder_var.get(),output_preference=self.output_preference_var.get(),output_folder=self.output_folder_var.get(),output_subfolder=self.output_subfolder_var.get(),include_subfolders=self.recursive_var.get(),preserve_folder_structure=self.preserve_var.get(),process_images=self.images_var.get(),process_videos=self.videos_var.get(),skip_processed=self.skip_var.get(),video_mode="overlay",batch_filename_suffix=self.batch_suffix_var.get()).validated()
     def _save(self):
         try:self.config_store.save(self.settings())
         except OSError:pass

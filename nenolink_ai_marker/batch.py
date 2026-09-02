@@ -63,13 +63,15 @@ def destination_root(settings: MarkerSettings, input_root: Path) -> Path:
     return input_root / settings.output_subfolder
 
 
-def destination_for(source: Path, input_root: Path, output_root: Path, preserve: bool) -> Path:
+def destination_for(source: Path, input_root: Path, output_root: Path, preserve: bool, filename_suffix: str = "_ai") -> Path:
     relative_parent = source.relative_to(input_root).parent if preserve else Path()
-    return output_root / relative_parent / f"{source.stem}_ai{source.suffix}"
+    return output_root / relative_parent / f"{source.stem}{filename_suffix}{source.suffix}"
 
 
-def appears_processed(path: Path) -> bool:
-    return path.stem.casefold().endswith("_ai") or "_ai_" in path.stem.casefold()
+def appears_processed(path: Path, filename_suffix: str = "_ai") -> bool:
+    suffix = filename_suffix.casefold()
+    stem = path.stem.casefold()
+    return stem.endswith(suffix) or f"{suffix}_" in stem
 
 
 def find_ffmpeg() -> str | None:
@@ -92,9 +94,9 @@ class BatchProcessor:
             if cancelled():
                 result.cancelled = True
                 break
-            target = destination_for(source, scan.root, output_root, settings.preserve_folder_structure)
+            target = destination_for(source, scan.root, output_root, settings.preserve_folder_structure, settings.batch_filename_suffix)
             try:
-                if (settings.skip_processed and appears_processed(source)) or target.exists():
+                if (settings.skip_processed and appears_processed(source, settings.batch_filename_suffix)) or target.exists():
                     result.skipped += 1
                 elif source.suffix.lower() in SUPPORTED_EXTENSIONS:
                     image = self.image_processor.process(source, badge, settings)

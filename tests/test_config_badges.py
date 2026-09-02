@@ -75,6 +75,14 @@ class ConfigAndBadgeTests(unittest.TestCase):
     def test_default_badge_is_ai_assisted(self):
         self.assertEqual(MarkerSettings().badge_name, "ai-assisted.png")
 
+    def test_batch_suffix_is_persistent_and_invalid_values_are_safe(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store=ConfigStore(Path(directory)/"settings.json")
+            store.save(MarkerSettings(batch_filename_suffix="_published"))
+            self.assertEqual(store.load().batch_filename_suffix,"_published")
+        self.assertEqual(MarkerSettings(batch_filename_suffix="").validated().batch_filename_suffix,"_ai")
+        self.assertEqual(MarkerSettings(batch_filename_suffix='<>:"/\\|?*').validated().batch_filename_suffix,"_ai")
+
     def test_empty_badge_directory(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
