@@ -30,6 +30,14 @@ class TranslationTests(unittest.TestCase):
             self.assertTrue(keys.issubset(data), code)
             self.assertNotIn("Text unavailable", [data[key] for key in keys])
 
+    def test_position_values_are_localized_human_readable_labels(self):
+        locales = Path(__file__).resolve().parent.parent / "locales"
+        keys = {"position.top_left", "position.top_right", "position.bottom_left", "position.bottom_right"}
+        for code in LANGUAGES.values():
+            data = json.loads((locales / f"{code}.json").read_text(encoding="utf-8"))
+            self.assertTrue(keys.issubset(data), code)
+            self.assertTrue(all("-" not in data[key] for key in keys), code)
+
     def test_live_welcome_language_change_and_english_return(self):
         locales = Path(__file__).resolve().parent.parent / "locales"
         translator = Translator(locales,"en")

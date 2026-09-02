@@ -40,7 +40,7 @@ class MarkerApp(ctk.CTk):
             os.environ["TCL_LIBRARY"]=str(tcl); os.environ["TK_LIBRARY"]=str(tk)
         boot(f"Tk paths ready: {os.environ.get('TCL_LIBRARY')}")
         super().__init__(); boot("CTk initialized")
-        self.geometry("1180x800"); self.minsize(980, 700)
+        self.geometry("1280x720"); self.minsize(980, 680)
         self.processor = ImageProcessor(); self.batch_processor = BatchProcessor(self.processor)
         self.config_store = ConfigStore(); saved = self.config_store.load()
         self.translator = Translator(locale_directory(), saved.language)
@@ -50,6 +50,7 @@ class MarkerApp(ctk.CTk):
         self.cancel_event = threading.Event(); self.preview_photo = None; self.badge_photo = None; self.single_badge_photo = None; self.welcome_photo = None; self.welcome_image = None
         self.gallery_photos = []; self.gallery_buttons = {}; self.badge_display_to_file = {}
         self.badge_var=ctk.StringVar(value=saved.badge_name); self.position_var=ctk.StringVar(value=saved.position)
+        self.position_display_var=ctk.StringVar()
         self.size_var=ctk.IntVar(value=saved.size_percent); self.margin_var=ctk.IntVar(value=saved.margin); self.opacity_var=ctk.IntVar(value=saved.opacity)
         self.language_var=ctk.StringVar(value=Translator.language_name(saved.language)); self.badge_source_var=ctk.StringVar(value=saved.badge_source)
         self.custom_badge_var=ctk.StringVar(value=saved.custom_badge_folder); self.input_folder_var=ctk.StringVar(value=saved.input_folder)
@@ -77,12 +78,14 @@ class MarkerApp(ctk.CTk):
         self.tab_names={"single":"Single image","batch":"Folder batch","badges":"Badge settings"}
         self.single_tab=self.tabs.add(self.tab_names["single"]); self.batch_tab=self.tabs.add(self.tab_names["batch"]); self.settings_tab=self.tabs.add(self.tab_names["badges"])
         self._single_ui(); self._batch_ui(); self._settings_ui()
-        ctk.CTkLabel(self,text="(c) Copyright Henrik Nielsen - nenolink.com",text_color="gray60").grid(row=2,column=0,padx=20,pady=(0,10),sticky="w")
+        footer=ctk.CTkFrame(self,corner_radius=0,fg_color="transparent"); footer.grid(row=2,column=0,padx=20,pady=(0,8),sticky="ew"); footer.grid_columnconfigure(1,weight=1)
+        ctk.CTkLabel(footer,text="(c) Copyright Henrik Nielsen - nenolink.com",text_color="gray60").grid(row=0,column=0,sticky="w")
+        self.status_label=ctk.CTkLabel(footer,textvariable=self.status_var,text_color="gray60",anchor="e"); self.status_label.grid(row=0,column=1,padx=(20,0),sticky="ew")
 
     def _single_ui(self) -> None:
         tab=self.single_tab; tab.grid_columnconfigure(1,weight=1); tab.grid_rowconfigure(0,weight=1)
-        left=ctk.CTkFrame(tab,width=330); left.grid(row=0,column=0,padx=(4,8),pady=4,sticky="ns"); left.grid_columnconfigure(0,weight=1)
-        self.open_button=ctk.CTkButton(left,text="",command=self.open_images); self.open_button.grid(row=0,column=0,padx=16,pady=(18,8),sticky="ew")
+        left=ctk.CTkFrame(tab,width=310); left.grid(row=0,column=0,padx=(4,8),pady=4,sticky="ns"); left.grid_columnconfigure(0,weight=1)
+        self.open_button=ctk.CTkButton(left,text="",command=self.open_images); self.open_button.grid(row=0,column=0,padx=16,pady=(14,6),sticky="ew")
         self.file_label=ctk.CTkLabel(left,text="",wraplength=280,justify="left"); self.file_label.grid(row=1,column=0,padx=16,pady=6,sticky="w")
         self.single_badge_label=ctk.CTkLabel(left,text="",font=ctk.CTkFont(weight="bold")); self.single_badge_label.grid(row=2,column=0,padx=16,pady=(12,2),sticky="w")
         self.badge_menu=ctk.CTkOptionMenu(left,variable=self.badge_display_var,values=["—"],command=self.select_badge_display); self.badge_menu.grid(row=3,column=0,padx=16,pady=4,sticky="ew")
@@ -90,7 +93,7 @@ class MarkerApp(ctk.CTk):
         self.single_badge_preview_label=ctk.CTkLabel(badge_preview,text="",width=110,height=54); self.single_badge_preview_label.grid(row=0,column=0,padx=8,pady=8)
         self.single_badge_name_label=ctk.CTkLabel(badge_preview,textvariable=self.badge_name_var,font=ctk.CTkFont(weight="bold"),anchor="w"); self.single_badge_name_label.grid(row=0,column=1,padx=(4,8),pady=8,sticky="ew")
         self.position_label=ctk.CTkLabel(left,text=""); self.position_label.grid(row=5,column=0,padx=16,pady=(8,2),sticky="w")
-        self.position_menu=ctk.CTkOptionMenu(left,variable=self.position_var,values=["top-left","top-right","bottom-left","bottom-right"],command=self.changed); self.position_menu.grid(row=6,column=0,padx=16,pady=4,sticky="ew")
+        self.position_menu=ctk.CTkOptionMenu(left,variable=self.position_display_var,values=["—"],command=self.change_position_display); self.position_menu.grid(row=6,column=0,padx=16,pady=4,sticky="ew")
         self.size_label=self._slider(left,self.size_var,1,100,7); self.margin_label=self._slider(left,self.margin_var,0,250,9); self.opacity_label=self._slider(left,self.opacity_var,0,100,11)
         self.process_button=ctk.CTkButton(left,text="",command=self.save_images); self.process_button.grid(row=13,column=0,padx=16,pady=14,sticky="ew")
         right=ctk.CTkFrame(tab); right.grid(row=0,column=1,padx=(8,4),pady=4,sticky="nsew"); right.grid_columnconfigure(0,weight=1); right.grid_rowconfigure(0,weight=1)
@@ -103,7 +106,6 @@ class MarkerApp(ctk.CTk):
         self.welcome_illustration=ctk.CTkLabel(self.welcome_frame,text="",anchor="center"); self.welcome_illustration.grid(row=4,column=0,padx=12,pady=(4,12),sticky="nsew")
         self._load_welcome_image(self._boot)
         self.welcome_frame.bind("<Configure>",self._resize_welcome)
-        ctk.CTkLabel(right,textvariable=self.status_var,wraplength=650).grid(row=1,column=0,padx=12,pady=(0,12),sticky="ew")
 
     def _load_welcome_image(self,diagnostic):
         path=welcome_image_path()
@@ -172,9 +174,10 @@ class MarkerApp(ctk.CTk):
         for key,translation_key in (("single","tab.single"),("batch","tab.batch"),("badges","tab.badges")):
             new=t(translation_key); old=self.tab_names[key]
             if old != new:self.tabs.rename(old,new); self.tab_names[key]=new
-        self.open_button.configure(text=t("button.open_images")); self.process_button.configure(text=t("button.process")); self.file_label.configure(text=t("files.none") if not self.sources else t("files.selected",count=len(self.sources),name=self.sources[0].name))
-        self.position_label.configure(text=t("position")); self.size_label.configure(text=t("size.value",value=self.size_var.get())); self.margin_label.configure(text=t("margin.value",value=self.margin_var.get())); self.opacity_label.configure(text=t("opacity.value",value=self.opacity_var.get()))
-        self.single_badge_label.configure(text=t("badge")); self.badge_source_heading.configure(text=t("badge.source_label")); self.standard_badge_radio.configure(text=t("badge.source_standard")); self.custom_badge_radio.configure(text=t("badge.source_custom")); self.custom_folder_label.configure(text=t("badge.custom_path")+":"); self.custom_entry.configure(placeholder_text=t("badge.custom_path"))
+        self.open_button.configure(text="1. "+t("button.open_images")); self.process_button.configure(text=t("button.process")); self.file_label.configure(text=t("files.none") if not self.sources else t("files.selected",count=len(self.sources),name=self.sources[0].name))
+        self.position_label.configure(text="3. "+t("position")); self.size_label.configure(text="4. "+t("size.value",value=self.size_var.get())); self.margin_label.configure(text="5. "+t("margin.value",value=self.margin_var.get())); self.opacity_label.configure(text="6. "+t("opacity.value",value=self.opacity_var.get()))
+        self.single_badge_label.configure(text="2. "+t("badge")); self.badge_source_heading.configure(text=t("badge.source_label")); self.standard_badge_radio.configure(text=t("badge.source_standard")); self.custom_badge_radio.configure(text=t("badge.source_custom")); self.custom_folder_label.configure(text=t("badge.custom_path")+":"); self.custom_entry.configure(placeholder_text=t("badge.custom_path"))
+        self.position_display_to_value={t("position.top_left"):"top-left",t("position.top_right"):"top-right",t("position.bottom_left"):"bottom-left",t("position.bottom_right"):"bottom-right"}; self.position_menu.configure(values=list(self.position_display_to_value)); self.position_display_var.set(next((label for label,value in self.position_display_to_value.items() if value==self.position_var.get()),t("position.bottom_right")))
         self.choose_badge_folder_button.configure(text=t("button.choose_badge_folder")); self.refresh_button.configure(text=t("badge.refresh")); self.badge_gallery_title.configure(text=t("badge.gallery")); self.badge_help.configure(text=t("badge.help")); self._show_badge_source_controls()
         self.input_label.configure(text=t("batch.input")); self.choose_input_button.configure(text=t("button.choose_input")); self.choose_output_button.configure(text=t("button.choose_output")); self.output_subfolder_radio.configure(text=t("batch.output_subfolder")); self.output_separate_radio.configure(text=t("batch.output_separate"))
         self.welcome_title.configure(text=t("welcome.title")); self.welcome_tagline.configure(text=t("welcome.tagline")); self.welcome_description1.configure(text=t("welcome.description1")); self.welcome_description2.configure(text=t("welcome.description2"))
@@ -183,7 +186,8 @@ class MarkerApp(ctk.CTk):
 
     def change_language(self,name): self.translator.set_language(LANGUAGES.get(name,"en")); self.apply_translations(); self._save()
     def changed(self,*_):
-        self.size_label.configure(text=self.translator.text("size.value",value=self.size_var.get())); self.margin_label.configure(text=self.translator.text("margin.value",value=self.margin_var.get())); self.opacity_label.configure(text=self.translator.text("opacity.value",value=self.opacity_var.get())); self.update_preview(); self._save()
+        self.size_label.configure(text="4. "+self.translator.text("size.value",value=self.size_var.get())); self.margin_label.configure(text="5. "+self.translator.text("margin.value",value=self.margin_var.get())); self.opacity_label.configure(text="6. "+self.translator.text("opacity.value",value=self.opacity_var.get())); self.update_preview(); self._save()
+    def change_position_display(self,label): self.position_var.set(self.position_display_to_value[label]); self.changed()
     def change_badge_source(self): self._show_badge_source_controls(); self.refresh_badges(); self._save()
     def _show_badge_source_controls(self):
         if self.badge_source_var.get()=="custom":self.custom_controls.grid()
