@@ -13,7 +13,7 @@ from PIL import Image
 
 from . import __version__
 from .badges import BadgeSourceManager, choose_badge_selection
-from .batch import BatchProcessor, BatchResult, FolderScan, destination_root, is_above_recommended_size, scan_folder
+from .batch import BatchProcessor, BatchResult, FolderScan, VIDEO_EXTENSIONS, destination_root, is_above_recommended_size, scan_folder
 from .config import ConfigStore
 from .guide import open_user_guide
 from .i18n import LANGUAGES, Translator
@@ -195,7 +195,7 @@ class MarkerApp(ctk.CTk):
             new=t(translation_key); old=self.tab_names[key]
             if old != new:self.tabs.rename(old,new); self.tab_names[key]=new
         self.tabs.set(self.tab_names[current_key])
-        self.open_button.configure(text="1. "+t("button.open_images")); self.process_button.configure(text=t("button.process")); self.file_label.configure(text=t("files.none") if not self.sources else t("files.selected",count=len(self.sources),name=self.sources[0].name))
+        self.open_button.configure(text="1. "+t("button.open_media")); self.process_button.configure(text=t("button.process_video") if self.sources and self.sources[0].suffix.lower() in VIDEO_EXTENSIONS else t("button.process")); self.file_label.configure(text=t("files.none") if not self.sources else t("files.selected",count=len(self.sources),name=self.sources[0].name))
         self.file_size_guidance.configure(text=t("files.size_guidance")); self.batch_size_guidance.configure(text=t("files.size_guidance_short"))
         self.position_label.configure(text="3. "+t("position")); self.size_label.configure(text="4. "+t("size.value",value=self.size_var.get())); self.margin_label.configure(text="5. "+t("margin.value",value=self.margin_var.get())); self.opacity_label.configure(text="6. "+t("opacity.value",value=self.opacity_var.get()))
         self.single_badge_label.configure(text="2. "+t("badge")); self.badge_source_heading.configure(text=t("badge.source_label")); self.standard_badge_radio.configure(text=t("badge.source_standard")); self.custom_badge_radio.configure(text=t("badge.source_custom")); self.custom_folder_label.configure(text=t("badge.custom_path")+":"); self.custom_entry.configure(placeholder_text=t("badge.custom_path"))
@@ -276,17 +276,19 @@ class MarkerApp(ctk.CTk):
         except OSError as error:self.single_badge_preview_label.configure(image=None,text=str(error))
 
     def open_images(self):
-        selected=filedialog.askopenfilenames(title=self.translator.text("dialog.open_images"),filetypes=[(self.translator.text("files.supported"),"*.jpg *.jpeg *.png *.webp"),(self.translator.text("files.all"),"*.*")])
+        selected=filedialog.askopenfilenames(title=self.translator.text("dialog.open_media"),filetypes=[(self.translator.text("files.supported_media"),"*.jpg *.jpeg *.png *.webp *.mp4 *.mov *.mkv *.avi *.webm"),(self.translator.text("files.all"),"*.*")])
         if selected:
-            candidates=[Path(p) for p in selected if Path(p).suffix.lower() in SUPPORTED_EXTENSIONS]
+            candidates=[Path(p) for p in selected if Path(p).suffix.lower() in SUPPORTED_EXTENSIONS|VIDEO_EXTENSIONS]
             if any(is_above_recommended_size(p) for p in candidates) and not messagebox.askokcancel(self.translator.text("warning.large_title"),self.translator.text("warning.large_file")):return
-            self.sources=candidates; self.file_label.configure(text=self.translator.text("files.selected",count=len(self.sources),name=self.sources[0].name) if self.sources else self.translator.text("files.none_supported")); self.update_preview()
+            self.sources=candidates; self.file_label.configure(text=self.translator.text("files.selected",count=len(self.sources),name=self.sources[0].name) if self.sources else self.translator.text("files.none_supported")); self.process_button.configure(text=self.translator.text("button.process_video") if self.sources and self.sources[0].suffix.lower() in VIDEO_EXTENSIONS else self.translator.text("button.process")); self.update_preview()
 
     def update_preview(self):
         badge=self.badges.find(self.badge_var.get())
         if show_welcome(self.sources):self.preview_photo=None; self._show_welcome(); return
         self._show_preview()
         if not badge:self.preview_label.configure(image=None,text=self.translator.text("badge.none")); return
+        if self.sources[0].suffix.lower() in VIDEO_EXTENSIONS:
+            self.preview_photo=None; self.preview_label.configure(image=None,text=self.translator.text("preview.video_selected",name=self.sources[0].name)); self.status_var.set(self.translator.text("preview.video_selected",name=self.sources[0].name)); return
         try:
             image=self.processor.process(self.sources[0],badge,self.settings()); image.thumbnail((720,600),Image.Resampling.LANCZOS); self.preview_photo=ctk.CTkImage(light_image=image,dark_image=image,size=image.size); self.preview_label.configure(image=self.preview_photo,text=""); self.status_var.set(self.translator.text("preview.showing",name=self.sources[0].name))
         except (OSError,ValueError) as error:self.status_var.set(self.translator.text("error.preview",error=error))
@@ -300,11 +302,20 @@ class MarkerApp(ctk.CTk):
         saved=[]; failures=[]
         for source in self.sources:
             suggested=source.with_name(f"{source.stem}_ai{source.suffix}")
-            selected=filedialog.asksaveasfilename(title=self.translator.text("dialog.save_as"),initialdir=str(source.parent),initialfile=suggested.name,defaultextension=source.suffix,filetypes=[(self.translator.text("files.supported"),f"*{source.suffix}"),(self.translator.text("files.all"),"*.*")],confirmoverwrite=True)
+            is_video=source.suffix.lower() in VIDEO_EXTENSIONS
+            formats=" ".join(f"*{extension}" for extension in sorted(VIDEO_EXTENSIONS)) if is_video else f"*{source.suffix}"
+            selected=filedialog.asksaveasfilename(title=self.translator.text("dialog.save_video_as" if is_video else "dialog.save_as"),initialdir=str(source.parent),initialfile=suggested.name,defaultextension=source.suffix,filetypes=[(self.translator.text("files.supported_videos" if is_video else "files.supported"),formats),(self.translator.text("files.all"),"*.*")],confirmoverwrite=True)
             if not selected:continue
-            try:target=Path(selected); self.processor.save(self.processor.process(source,badge,self.settings()),target); saved.append(target)
+            try:
+                target=Path(selected)
+                if is_video:
+                    if target.suffix.lower() not in VIDEO_EXTENSIONS:raise ValueError(self.translator.text("error.unsupported_video_output",extension=target.suffix or "—"))
+                    self.batch_processor.process_video(source,badge,target,self.settings())
+                else:self.processor.save(self.processor.process(source,badge,self.settings()),target)
+                saved.append(target)
             except (OSError,ValueError) as error:failures.append(f"{source.name}: {error}")
-        summary=self.translator.text("process.summary",saved=len(saved),total=len(self.sources)); self.status_var.set(summary)
+        only_video=bool(saved) and all(path.suffix.lower() in VIDEO_EXTENSIONS for path in self.sources)
+        summary=self.translator.text("video.saved_name",name=saved[-1].name) if only_video and not failures else self.translator.text("process.summary",saved=len(saved),total=len(self.sources)); self.status_var.set(summary)
         (messagebox.showerror if failures else messagebox.showinfo)(self.translator.text("error.completed") if failures else self.translator.text("complete.title"),summary+("\n\n"+"\n".join(failures[:8]) if failures else ""))
 
     def choose_input_folder(self):

@@ -103,7 +103,7 @@ class BatchProcessor:
                     self.image_processor.save(image, target)
                     result.successful += 1
                 else:
-                    self._process_video(source, badge, target, settings)
+                    self.process_video(source, badge, target, settings)
                     result.successful += 1
             except (OSError, ValueError, subprocess.SubprocessError) as error:
                 result.errors.append(f"{source.name}: {error}")
@@ -111,7 +111,7 @@ class BatchProcessor:
         return result
 
     @staticmethod
-    def _process_video(source: Path, badge: Path, target: Path, settings: MarkerSettings) -> None:
+    def process_video(source: Path, badge: Path, target: Path, settings: MarkerSettings) -> None:
         ffmpeg = find_ffmpeg()
         if not ffmpeg:
             raise ValueError("FFmpeg was not found. Install FFmpeg and add it to PATH to process videos.")
@@ -127,11 +127,11 @@ class BatchProcessor:
         filter_graph = (
             f"[1:v][0:v]scale2ref=w=main_w*{width}:h=ow/mdar[scaled][video];"
             f"[scaled]format=rgba,colorchannelmixer=aa={alpha}[badge];"
-            f"[video][badge]overlay={positions[settings.position]}"
+            f"[video][badge]overlay={positions[settings.position]}:shortest=1[outv]"
         )
         completed = subprocess.run(
-            [ffmpeg, "-y", "-i", str(source), "-i", str(badge), "-filter_complex", filter_graph,
-             "-c:v", "libx264", "-crf", "18", "-preset", "medium", "-c:a", "copy", str(target)],
+            [ffmpeg, "-y", "-i", str(source), "-loop", "1", "-i", str(badge), "-filter_complex", filter_graph,
+             "-map", "[outv]", "-map", "0:a?", "-c:v", "libx264", "-crf", "18", "-preset", "medium", "-c:a", "copy", str(target)],
             capture_output=True, text=True,
         )
         if completed.returncode:

@@ -67,6 +67,8 @@ class ResourceAndBatchTests(unittest.TestCase):
         self.assertEqual(destination_root(settings,root),root/"AI-marked")
         self.assertEqual(destination_for(source,root,Path("D:/out"),True),Path("D:/out/nested/photo_ai.jpg"))
         self.assertEqual(destination_for(source,root,Path("D:/out"),True,"_marked"),Path("D:/out/nested/photo_marked.jpg"))
+        video=root/"nested"/"interview.mov"
+        self.assertEqual(destination_for(video,root,Path("D:/out"),True),Path("D:/out/nested/interview_ai.mov"))
         settings.output_preference="separate"; settings.output_folder="D:/chosen"
         self.assertEqual(destination_root(settings,root),Path("D:/chosen"))
 
@@ -90,6 +92,15 @@ class ResourceAndBatchTests(unittest.TestCase):
 
     def test_missing_ffmpeg(self):
         with patch("shutil.which",return_value=None):self.assertIsNone(find_ffmpeg())
+
+    def test_video_processing_maps_filtered_video_and_loops_badge(self):
+        completed=type("Completed",(),{"returncode":0,"stderr":""})()
+        with patch("nenolink_ai_marker.batch.shutil.which",return_value="C:/ffmpeg.exe"), patch("nenolink_ai_marker.batch.subprocess.run",return_value=completed) as run:
+            BatchProcessor.process_video(Path("input.mp4"),Path("badge.png"),Path("output.mp4"),MarkerSettings())
+        command=run.call_args.args[0]
+        self.assertIn("-loop",command); self.assertIn("[outv]",command)
+        self.assertEqual(command[command.index("-map")+1],"[outv]")
+        self.assertIn("shortest=1",command[command.index("-filter_complex")+1])
 
 
 if __name__=="__main__":unittest.main()
