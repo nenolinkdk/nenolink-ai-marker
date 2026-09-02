@@ -82,5 +82,7 @@
   "files.size_guidance_short": "Aanbevolen: afbeeldingen tot 50 MB; video’s tot 2 GB",
   "warning.large_title": "Groot bestand",
   "warning.large_file": "Dit bestand is groter dan aanbevolen. De verwerking kan meer tijd, geheugen en tijdelijke schijfruimte vereisen. Doorgaan?",
-  "batch.oversized": "Bestanden boven de aanbevolen grootte: {count}"
+  "batch.oversized": "Bestanden boven de aanbevolen grootte: {count}",
+  "button.reset": "Opnieuw instellen",
+  "status.reset": "Instellingen opnieuw ingesteld"
 }

@@ -82,5 +82,7 @@
   "files.size_guidance_short": "Recomendado: imagens até 50 MB; vídeos até 2 GB",
   "warning.large_title": "Ficheiro grande",
   "warning.large_file": "Este ficheiro é maior do que o tamanho recomendado. O processamento poderá exigir mais tempo, memória e espaço temporário em disco. Continuar?",
-  "batch.oversized": "Ficheiros acima do tamanho recomendado: {count}"
+  "batch.oversized": "Ficheiros acima do tamanho recomendado: {count}",
+  "button.reset": "Repor",
+  "status.reset": "Definições repostas"
 }

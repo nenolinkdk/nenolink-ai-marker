@@ -82,5 +82,7 @@
   "files.size_guidance_short": "Recommandé : images jusqu’à 50 Mo ; vidéos jusqu’à 2 Go",
   "warning.large_title": "Fichier volumineux",
   "warning.large_file": "Ce fichier dépasse la taille recommandée. Le traitement peut nécessiter davantage de temps, de mémoire et d’espace disque temporaire. Continuer ?",
-  "batch.oversized": "Fichiers dépassant la taille recommandée : {count}"
+  "batch.oversized": "Fichiers dépassant la taille recommandée : {count}",
+  "button.reset": "Réinitialiser",
+  "status.reset": "Paramètres réinitialisés"
 }

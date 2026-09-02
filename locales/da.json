@@ -82,5 +82,7 @@
   "files.size_guidance_short": "Anbefalet: billeder op til 50 MB; videoer op til 2 GB",
   "warning.large_title": "Stor fil",
   "warning.large_file": "Denne fil er større end den anbefalede størrelse. Behandlingen kan kræve mere tid, hukommelse og midlertidig diskplads. Vil du fortsætte?",
-  "batch.oversized": "Filer over anbefalet størrelse: {count}"
+  "batch.oversized": "Filer over anbefalet størrelse: {count}",
+  "button.reset": "Nulstil",
+  "status.reset": "Indstillinger nulstillet"
 }

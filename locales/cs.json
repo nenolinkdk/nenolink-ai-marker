@@ -82,5 +82,7 @@
   "files.size_guidance_short": "Doporučeno: obrázky do 50 MB; videa do 2 GB",
   "warning.large_title": "Velký soubor",
   "warning.large_file": "Tento soubor je větší než doporučená velikost. Zpracování může vyžadovat více času, paměti a dočasného místa na disku. Pokračovat?",
-  "batch.oversized": "Soubory nad doporučenou velikostí: {count}"
+  "batch.oversized": "Soubory nad doporučenou velikostí: {count}",
+  "button.reset": "Obnovit",
+  "status.reset": "Nastavení bylo obnoveno"
 }

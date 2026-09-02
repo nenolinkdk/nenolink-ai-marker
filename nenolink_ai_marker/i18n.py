@@ -15,6 +15,7 @@ LANGUAGES = {
 DEFAULT_ENGLISH = {
     "app.window": "AI disclosure badges", "language": "Language", "menu.settings": "Badge Source",
     "button.user_guide": "User Guide (PDF)", "tab.single": "Single File",
+    "button.reset": "Reset", "status.reset": "Settings reset",
     "tab.batch": "Batch Processing", "tab.badges": "Badges",
     "button.open_images": "Choose Image", "files.none": "No file selected",
     "position": "Badge Position", "size.value": "Badge Size: {value}%",

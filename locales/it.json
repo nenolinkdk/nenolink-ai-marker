@@ -82,5 +82,7 @@
   "files.size_guidance_short": "Consigliato: immagini fino a 50 MB; video fino a 2 GB",
   "warning.large_title": "File di grandi dimensioni",
   "warning.large_file": "Questo file supera le dimensioni consigliate. L’elaborazione potrebbe richiedere più tempo, memoria e spazio temporaneo su disco. Continuare?",
-  "batch.oversized": "File oltre le dimensioni consigliate: {count}"
+  "batch.oversized": "File oltre le dimensioni consigliate: {count}",
+  "button.reset": "Ripristina",
+  "status.reset": "Impostazioni ripristinate"
 }
