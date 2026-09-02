@@ -56,6 +56,10 @@ DEFAULT_ENGLISH = {
     "batch.progress": "Current: {name} | Completed: {completed}/{total} | Successful: {success} | Skipped: {skipped} | Errors: {errors}",
     "batch.done": "Batch complete. Successful: {success}, skipped: {skipped}, errors: {errors}.",
     "batch.cancelled": "Batch cancelled.",
+    "welcome.title": "Welcome to Nenolink AI Marker",
+    "welcome.tagline": "Make AI use visible. Build trust.",
+    "welcome.description1": "Clearly show when and how artificial intelligence has been used in images and videos.",
+    "welcome.description2": "Choose a badge, place it on your content, and help make AI use more transparent.",
 }
 
 

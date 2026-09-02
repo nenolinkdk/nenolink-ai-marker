@@ -14,6 +14,7 @@ $localeFiles = @(Get-ChildItem -Path (Join-Path $installRoot "locales") -File -F
 if (-not $EmbeddedResources) {
     if ($badgeFiles.Count -ne 10) { throw "Packaged badge folder must contain exactly 10 PNG files; found $($badgeFiles.Count)." }
     if (-not (Test-Path -LiteralPath (Join-Path $installRoot "assets\badges\badges.json"))) { throw "Packaged badge metadata is missing." }
+    if (-not (Test-Path -LiteralPath (Join-Path $installRoot "assets\ui\welcome-europe.png"))) { throw "Packaged welcome illustration is missing." }
     if ($localeFiles.Count -lt 12) { throw "Packaged locale folder contains only $($localeFiles.Count) JSON files." }
     if (-not (Test-Path -LiteralPath (Join-Path $installRoot "docs\Nenolink-AI-Marker-User-Guide-EN.pdf"))) { throw "Packaged PDF guide is missing." }
 }
@@ -36,7 +37,7 @@ try {
         $launchedProcesses = @(Get-Process -Name $processName -ErrorAction SilentlyContinue | Where-Object { $_.Id -notin $existingIds })
         if (Test-Path -LiteralPath $verifyReport) {
             $report = Get-Content -LiteralPath $verifyReport -Raw | ConvertFrom-Json
-            if ($report.translation_keys_visible -or $report.badges_found -ne 10 -or -not $report.badge_selector_visible -or $report.gallery_badges -ne 10 -or -not $report.gallery_selection_persisted -or -not $report.badges_tab_is_distinct -or -not $report.friendly_status) { throw "Packaged GUI verification report failed." }
+            if ($report.translation_keys_visible -or -not $report.welcome_before_image -or -not $report.welcome_illustration -or $report.badges_found -ne 10 -or -not $report.badge_selector_visible -or $report.gallery_badges -ne 10 -or -not $report.gallery_selection_persisted -or -not $report.badges_tab_is_distinct -or -not $report.friendly_status) { throw "Packaged GUI verification report failed." }
             $windowFound = $true
             break
         }

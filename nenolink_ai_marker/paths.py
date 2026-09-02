@@ -47,5 +47,13 @@ def docs_directory(**kwargs: object) -> Path:
     return resource_directory(Path("docs"), **kwargs)
 
 
+def ui_directory(**kwargs: object) -> Path:
+    return resource_directory(Path("assets") / "ui", **kwargs)
+
+
+def welcome_image_path(**kwargs: object) -> Path:
+    return ui_directory(**kwargs) / "welcome-europe.png"
+
+
 def user_guide_path(**kwargs: object) -> Path:
     return docs_directory(**kwargs) / "Nenolink-AI-Marker-User-Guide-EN.pdf"

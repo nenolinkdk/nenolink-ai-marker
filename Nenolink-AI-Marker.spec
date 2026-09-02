@@ -25,6 +25,7 @@ a = Analysis(
         (str(tcl_library), "_tcl_data"), (str(tk_library), "_tk_data"),
         (str(project_root / "locales"), "locales"),
         (str(project_root / "assets" / "badges"), "assets/badges"),
+        (str(project_root / "assets" / "ui"), "assets/ui"),
         (str(project_root / "docs"), "docs"),
     ],
     hiddenimports=["tkinter", "tkinter.filedialog", "tkinter.messagebox"],

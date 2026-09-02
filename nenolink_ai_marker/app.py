@@ -17,8 +17,9 @@ from .config import ConfigStore
 from .guide import open_user_guide
 from .i18n import LANGUAGES, Translator
 from .models import MarkerSettings
-from .paths import badge_directory, locale_directory, user_guide_path
+from .paths import badge_directory, locale_directory, user_guide_path, welcome_image_path
 from .processor import ImageProcessor, SUPPORTED_EXTENSIONS, output_path
+from .ui_state import show_welcome
 
 
 class MarkerApp(ctk.CTk):
@@ -27,6 +28,7 @@ class MarkerApp(ctk.CTk):
         def boot(message):
             if boot_log:
                 with open(boot_log,"a",encoding="utf-8") as stream:stream.write(message+"\n")
+        self._boot=boot
         boot("MarkerApp init started")
         if getattr(sys, "frozen", False):
             bundle=Path(sys._MEIPASS)  # type: ignore[attr-defined]
@@ -45,7 +47,7 @@ class MarkerApp(ctk.CTk):
         self.badge_sources = BadgeSourceManager(badge_directory())
         self.badges = self.badge_sources.repository(saved.badge_source, saved.custom_badge_folder)
         self.sources: list[Path] = []; self.scan: FolderScan | None = None
-        self.cancel_event = threading.Event(); self.preview_photo = None; self.badge_photo = None; self.single_badge_photo = None
+        self.cancel_event = threading.Event(); self.preview_photo = None; self.badge_photo = None; self.single_badge_photo = None; self.welcome_photo = None; self.welcome_image = None
         self.gallery_photos = []; self.gallery_buttons = {}; self.badge_display_to_file = {}
         self.badge_var=ctk.StringVar(value=saved.badge_name); self.position_var=ctk.StringVar(value=saved.position)
         self.size_var=ctk.IntVar(value=saved.size_percent); self.margin_var=ctk.IntVar(value=saved.margin); self.opacity_var=ctk.IntVar(value=saved.opacity)
@@ -90,8 +92,36 @@ class MarkerApp(ctk.CTk):
         self.size_label=self._slider(left,self.size_var,1,100,7); self.margin_label=self._slider(left,self.margin_var,0,250,9); self.opacity_label=self._slider(left,self.opacity_var,0,100,11)
         self.process_button=ctk.CTkButton(left,text="",command=self.save_images); self.process_button.grid(row=13,column=0,padx=16,pady=14,sticky="ew")
         right=ctk.CTkFrame(tab); right.grid(row=0,column=1,padx=(8,4),pady=4,sticky="nsew"); right.grid_columnconfigure(0,weight=1); right.grid_rowconfigure(0,weight=1)
-        self.preview_label=ctk.CTkLabel(right,text=""); self.preview_label.grid(row=0,column=0,padx=12,pady=12,sticky="nsew")
+        self.preview_label=ctk.CTkLabel(right,text="")
+        self.welcome_frame=ctk.CTkFrame(right,fg_color="transparent"); self.welcome_frame.grid(row=0,column=0,padx=18,pady=14,sticky="nsew"); self.welcome_frame.grid_columnconfigure(0,weight=1); self.welcome_frame.grid_rowconfigure(4,weight=1)
+        self.welcome_title=ctk.CTkLabel(self.welcome_frame,text="",font=ctk.CTkFont(size=28,weight="bold")); self.welcome_title.grid(row=0,column=0,padx=12,pady=(12,4))
+        self.welcome_tagline=ctk.CTkLabel(self.welcome_frame,text="",font=ctk.CTkFont(size=18,weight="bold"),text_color=("#2469a0","#65b6ef")); self.welcome_tagline.grid(row=1,column=0,padx=12,pady=(0,10))
+        self.welcome_description1=ctk.CTkLabel(self.welcome_frame,text="",wraplength=720,justify="center"); self.welcome_description1.grid(row=2,column=0,padx=18,pady=2)
+        self.welcome_description2=ctk.CTkLabel(self.welcome_frame,text="",wraplength=720,justify="center"); self.welcome_description2.grid(row=3,column=0,padx=18,pady=(2,10))
+        self.welcome_illustration=ctk.CTkLabel(self.welcome_frame,text="",anchor="center"); self.welcome_illustration.grid(row=4,column=0,padx=12,pady=(4,12),sticky="nsew")
+        self._load_welcome_image(self._boot)
+        self.welcome_frame.bind("<Configure>",self._resize_welcome)
         ctk.CTkLabel(right,textvariable=self.status_var,wraplength=650).grid(row=1,column=0,padx=12,pady=(0,12),sticky="ew")
+
+    def _load_welcome_image(self,diagnostic):
+        path=welcome_image_path()
+        try:
+            with Image.open(path) as opened:self.welcome_image=opened.convert("RGBA")
+        except OSError as error:
+            diagnostic(f"Welcome illustration unavailable at {path}: {error}")
+            self.welcome_illustration.configure(text="◇")
+
+    def _resize_welcome(self,event=None):
+        if self.welcome_image is None:return
+        width=max(240,(event.width if event else self.welcome_frame.winfo_width())-48); height=max(135,(event.height if event else self.welcome_frame.winfo_height())-210)
+        ratio=min(width/self.welcome_image.width,height/self.welcome_image.height); size=(max(1,int(self.welcome_image.width*ratio)),max(1,int(self.welcome_image.height*ratio)))
+        self.welcome_photo=ctk.CTkImage(light_image=self.welcome_image,dark_image=self.welcome_image,size=size); self.welcome_illustration.configure(image=self.welcome_photo,text="")
+
+    def _show_welcome(self):
+        self.preview_label.grid_remove(); self.welcome_frame.grid(row=0,column=0,padx=18,pady=14,sticky="nsew"); self._resize_welcome()
+
+    def _show_preview(self):
+        self.welcome_frame.grid_remove(); self.preview_label.grid(row=0,column=0,padx=12,pady=12,sticky="nsew")
 
     def _slider(self,parent,var,start,end,row):
         label=ctk.CTkLabel(parent,text=""); label.grid(row=row,column=0,padx=16,pady=(8,0),sticky="w")
@@ -141,6 +171,7 @@ class MarkerApp(ctk.CTk):
         self.single_badge_label.configure(text=t("badge")); self.badge_source_heading.configure(text=t("badge.source_label")); self.badge_source_value.configure(text=t("badge.source_standard") if self.badge_source_var.get()=="standard" else t("badge.source_custom")); self.custom_entry.configure(placeholder_text=t("badge.custom_path"))
         self.choose_badge_folder_button.configure(text=t("button.choose_badge_folder")); self.refresh_button.configure(text=t("badge.refresh")); self.badge_gallery_title.configure(text=t("badge.gallery"))
         self.input_label.configure(text=t("batch.input")); self.choose_input_button.configure(text=t("button.choose_input")); self.choose_output_button.configure(text=t("button.choose_output")); self.output_subfolder_radio.configure(text=t("batch.output_subfolder")); self.output_separate_radio.configure(text=t("batch.output_separate"))
+        self.welcome_title.configure(text=t("welcome.title")); self.welcome_tagline.configure(text=t("welcome.tagline")); self.welcome_description1.configure(text=t("welcome.description1")); self.welcome_description2.configure(text=t("welcome.description2"))
         for key,check in self.batch_checks: check.configure(text=t(key))
         self.scan_button.configure(text=t("button.scan_folder")); self.start_batch_button.configure(text=t("button.start_batch")); self.cancel_batch_button.configure(text=t("button.cancel_batch"))
 
@@ -205,10 +236,15 @@ class MarkerApp(ctk.CTk):
 
     def update_preview(self):
         badge=self.badges.find(self.badge_var.get())
-        if not self.sources or not badge:self.preview_label.configure(image=None,text=self.translator.text("preview.select_image")); return
+        if show_welcome(self.sources):self.preview_photo=None; self._show_welcome(); return
+        self._show_preview()
+        if not badge:self.preview_label.configure(image=None,text=self.translator.text("badge.none")); return
         try:
             image=self.processor.process(self.sources[0],badge,self.settings()); image.thumbnail((720,600),Image.Resampling.LANCZOS); self.preview_photo=ctk.CTkImage(light_image=image,dark_image=image,size=image.size); self.preview_label.configure(image=self.preview_photo,text=""); self.status_var.set(self.translator.text("preview.showing",name=self.sources[0].name))
         except (OSError,ValueError) as error:self.status_var.set(self.translator.text("error.preview",error=error))
+
+    def clear_images(self):
+        self.sources=[]; self.file_label.configure(text=self.translator.text("files.none")); self.update_preview()
 
     def save_images(self):
         badge=self.badges.find(self.badge_var.get())
@@ -253,6 +289,8 @@ class MarkerApp(ctk.CTk):
     def _write_hotfix_verification(self):
         """Exercise the real packaged widgets for release verification only."""
         report_path=Path(os.environ["NENOLINK_VERIFY_REPORT"])
+        welcome_before_image=self.welcome_frame.winfo_manager()=="grid" and self.preview_label.winfo_manager()==""
+        welcome_illustration=bool(self.welcome_image and self.welcome_photo)
         self.change_language("English"); self.update()
         english={"title":self.title(),"tabs":list(self.tab_names.values()),"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text"),"process":self.process_button.cget("text"),"position":self.position_label.cget("text")}
         self.change_language("Dansk"); self.update(); danish={"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text"),"tabs":list(self.tab_names.values())}
@@ -274,7 +312,7 @@ class MarkerApp(ctk.CTk):
         if os.environ.get("NENOLINK_VERIFY_OPEN_GUIDE") == "1":
             try:open_user_guide(guide); guide_opened=True
             except OSError:guide_opened=False
-        payload={"english":english,"danish":danish,"german":german,"french":french,"badges_found":len(badge_names),"badge_selector_visible":self.badge_menu.winfo_manager()=="grid","badge_selector_values":list(self.badge_menu.cget("values")),"gallery_badges":len(self.gallery_buttons),"gallery_selection_persisted":gallery_selection_persisted,"badges_tab_is_distinct":self.badge_source_frame.master is self.settings_tab,"selected_badges":selected,"image_preview":bool(self.preview_photo),"selected_badge_written":selected_badge_written,"friendly_status":("_MEI" not in self.status_var.get() and "assets" not in self.status_var.get()),"process_button_state":self.process_button.cget("state"),"guide_exists":guide.is_file(),"guide_opened":guide_opened,"translation_keys_visible":any("." in str(value) and " " not in str(value) for group in (english,danish,german,french) for value in group.values() if isinstance(value,str))}
+        payload={"english":english,"danish":danish,"german":german,"french":french,"welcome_before_image":welcome_before_image,"welcome_illustration":welcome_illustration,"welcome_hidden_after_image":(not sample or self.welcome_frame.winfo_manager()==""),"badges_found":len(badge_names),"badge_selector_visible":self.badge_menu.winfo_manager()=="grid","badge_selector_values":list(self.badge_menu.cget("values")),"gallery_badges":len(self.gallery_buttons),"gallery_selection_persisted":gallery_selection_persisted,"badges_tab_is_distinct":self.badge_source_frame.master is self.settings_tab,"selected_badges":selected,"image_preview":bool(self.preview_photo),"selected_badge_written":selected_badge_written,"friendly_status":("_MEI" not in self.status_var.get() and "assets" not in self.status_var.get()),"process_button_state":self.process_button.cget("state"),"guide_exists":guide.is_file(),"guide_opened":guide_opened,"translation_keys_visible":any("." in str(value) and " " not in str(value) for group in (english,danish,german,french) for value in group.values() if isinstance(value,str))}
         report_path.write_text(json.dumps(payload,indent=2),encoding="utf-8"); self.destroy()
 
     def settings(self):

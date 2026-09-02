@@ -7,7 +7,7 @@ from unittest.mock import patch
 from nenolink_ai_marker.badges import BadgeRepository, BadgeSourceManager, EXPECTED_STANDARD_BADGES
 from nenolink_ai_marker.config import ConfigStore, default_config_path
 from nenolink_ai_marker.models import MarkerSettings
-from nenolink_ai_marker.paths import application_root, badge_directory, locale_directory
+from nenolink_ai_marker.paths import application_root, badge_directory, locale_directory, welcome_image_path
 
 
 class ConfigAndBadgeTests(unittest.TestCase):
@@ -151,6 +151,12 @@ class ConfigAndBadgeTests(unittest.TestCase):
             executable = Path("C:/Standalone/Nenolink-AI-Marker.exe")
             self.assertEqual(locale_directory(frozen=True, executable=executable, bundle_root=bundle), bundle / "locales")
             self.assertEqual(badge_directory(frozen=True, executable=executable, bundle_root=bundle), bundle / "assets" / "badges")
+
+    def test_welcome_image_uses_source_and_packaged_resource_roots(self):
+        module = Path("C:/project/nenolink_ai_marker/paths.py")
+        self.assertEqual(welcome_image_path(frozen=False,module_file=module),Path("C:/project/assets/ui/welcome-europe.png"))
+        executable = Path("C:/Apps/Nenolink-AI-Marker/Nenolink-AI-Marker.exe")
+        self.assertEqual(welcome_image_path(frozen=True,executable=executable),Path("C:/Apps/Nenolink-AI-Marker/assets/ui/welcome-europe.png"))
 
 
 if __name__ == "__main__":

@@ -73,5 +73,9 @@
   "batch.cancelled": "Batch cancelled.",
   "guide.missing": "User Guide could not be found.",
   "badge_not_found": "Badge not found",
-  "error.title": "Error"
+  "error.title": "Error",
+  "welcome.title": "Welcome to Nenolink AI Marker",
+  "welcome.tagline": "Make AI use visible. Build trust.",
+  "welcome.description1": "Clearly show when and how artificial intelligence has been used in images and videos.",
+  "welcome.description2": "Choose a badge, place it on your content, and help make AI use more transparent."
 }
