@@ -130,6 +130,16 @@ class ConfigAndBadgeTests(unittest.TestCase):
         executable = Path("C:/Apps/Nenolink-AI-Marker/Nenolink-AI-Marker.exe")
         self.assertEqual(locale_directory(frozen=True, executable=executable), Path("C:/Apps/Nenolink-AI-Marker/locales"))
 
+    def test_packaged_resources_fall_back_to_embedded_bundle(self):
+        with tempfile.TemporaryDirectory() as directory:
+            bundle = Path(directory)
+            (bundle / "locales").mkdir()
+            (bundle / "assets" / "badges").mkdir(parents=True)
+            (bundle / "docs").mkdir()
+            executable = Path("C:/Standalone/Nenolink-AI-Marker.exe")
+            self.assertEqual(locale_directory(frozen=True, executable=executable, bundle_root=bundle), bundle / "locales")
+            self.assertEqual(badge_directory(frozen=True, executable=executable, bundle_root=bundle), bundle / "assets" / "badges")
+
 
 if __name__ == "__main__":
     unittest.main()

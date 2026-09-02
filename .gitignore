@@ -2,6 +2,16 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv*/
+.python-official/
+.python-build/
+.python-msi/
+.installer-profile/
+core/
+exe/
+lib/
+pip/
+tcltk/
+python-3.12.10-amd64.exe
 .pip-cache/
 dist/
 build/

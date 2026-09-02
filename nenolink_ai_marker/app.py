@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
+import os
+import shutil
+import sys
 import threading
 from tkinter import filedialog, messagebox
 import customtkinter as ctk
@@ -19,7 +23,21 @@ from .processor import ImageProcessor, SUPPORTED_EXTENSIONS, output_path
 
 class MarkerApp(ctk.CTk):
     def __init__(self) -> None:
-        super().__init__()
+        boot_log=os.environ.get("NENOLINK_BOOT_LOG")
+        def boot(message):
+            if boot_log:
+                with open(boot_log,"a",encoding="utf-8") as stream:stream.write(message+"\n")
+        boot("MarkerApp init started")
+        if getattr(sys, "frozen", False):
+            bundle=Path(sys._MEIPASS)  # type: ignore[attr-defined]
+            override=os.environ.get("NENOLINK_RUNTIME_ROOT")
+            local=Path(override) if override else Path(os.environ.get("LOCALAPPDATA",Path.home()/"AppData"/"Local"))/"Nenolink"/"AI Marker"/"tk-runtime-8.6.13"
+            tcl=local/"tcl8.6"; tk=local/"tk8.6"
+            if not (tcl/"init.tcl").is_file():shutil.copytree(bundle/"_tcl_data",tcl,dirs_exist_ok=True)
+            if not (tk/"tk.tcl").is_file():shutil.copytree(bundle/"_tk_data",tk,dirs_exist_ok=True)
+            os.environ["TCL_LIBRARY"]=str(tcl); os.environ["TK_LIBRARY"]=str(tk)
+        boot(f"Tk paths ready: {os.environ.get('TCL_LIBRARY')}")
+        super().__init__(); boot("CTk initialized")
         self.geometry("1180x800"); self.minsize(980, 700)
         self.processor = ImageProcessor(); self.batch_processor = BatchProcessor(self.processor)
         self.config_store = ConfigStore(); saved = self.config_store.load()
@@ -38,7 +56,11 @@ class MarkerApp(ctk.CTk):
         self.videos_var=ctk.BooleanVar(value=saved.process_videos); self.skip_var=ctk.BooleanVar(value=saved.skip_processed)
         self.status_var=ctk.StringVar(); self.badge_name_var=ctk.StringVar(); self.badge_description_var=ctk.StringVar()
         self.scan_summary_var=ctk.StringVar(); self.progress_text_var=ctk.StringVar()
-        self._build_ui(); self.apply_translations(); self.refresh_badges(False); self.protocol("WM_DELETE_WINDOW", self.destroy)
+        self._build_ui(); boot("UI built"); self.apply_translations(); self.refresh_badges(False); boot("resources loaded"); self.protocol("WM_DELETE_WINDOW", self.destroy)
+        if os.environ.get("NENOLINK_VERIFY_FILE_DIALOG") == "1":
+            self.after(800, self.open_images)
+        if os.environ.get("NENOLINK_VERIFY_REPORT"):
+            self.after(800, self._write_hotfix_verification)
 
     def _build_ui(self) -> None:
         self.grid_columnconfigure(0,weight=1); self.grid_rowconfigure(1,weight=1)
@@ -200,6 +222,27 @@ class MarkerApp(ctk.CTk):
     def open_guide(self):
         try:open_user_guide(user_guide_path())
         except (OSError,FileNotFoundError) as error:messagebox.showerror(self.translator.text("error.title"),self.translator.text("guide.missing",error=error))
+
+    def _write_hotfix_verification(self):
+        """Exercise the real packaged widgets for release verification only."""
+        report_path=Path(os.environ["NENOLINK_VERIFY_REPORT"])
+        self.change_language("English"); self.update()
+        english={"title":self.title(),"tabs":list(self.tab_names.values()),"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text"),"process":self.process_button.cget("text"),"position":self.position_label.cget("text")}
+        self.change_language("Dansk"); self.update(); danish={"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text"),"tabs":list(self.tab_names.values())}
+        self.change_language("Deutsch"); self.update(); german={"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text")}
+        self.change_language("Français"); self.update(); french={"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text")}
+        self.change_language("English"); badge_names=[p.name for p in self.badges.list_badges()]
+        selected=[]
+        for name in badge_names[:3]:
+            self.badge_var.set(name); self.select_badge(); self.update(); selected.append({"file":name,"display":self.badge_name_var.get(),"preview":bool(self.badge_photo)})
+        sample=os.environ.get("NENOLINK_VERIFY_IMAGE")
+        if sample:self.sources=[Path(sample)]; self.update_preview(); self.update()
+        guide=user_guide_path(); guide_opened=False
+        if os.environ.get("NENOLINK_VERIFY_OPEN_GUIDE") == "1":
+            try:open_user_guide(guide); guide_opened=True
+            except OSError:guide_opened=False
+        payload={"english":english,"danish":danish,"german":german,"french":french,"badges_found":len(badge_names),"selected_badges":selected,"image_preview":bool(self.preview_photo),"process_button_state":self.process_button.cget("state"),"guide_exists":guide.is_file(),"guide_opened":guide_opened,"translation_keys_visible":any("." in str(value) and " " not in str(value) for group in (english,danish,german,french) for value in group.values() if isinstance(value,str))}
+        report_path.write_text(json.dumps(payload,indent=2),encoding="utf-8"); self.destroy()
 
     def settings(self):
         return MarkerSettings(badge_name=self.badge_var.get(),position=self.position_var.get(),size_percent=self.size_var.get(),margin=self.margin_var.get(),opacity=self.opacity_var.get(),language=self.translator.language,badge_source=self.badge_source_var.get(),custom_badge_folder=self.custom_badge_var.get(),input_folder=self.input_folder_var.get(),output_preference=self.output_preference_var.get(),output_folder=self.output_folder_var.get(),output_subfolder=self.output_subfolder_var.get(),include_subfolders=self.recursive_var.get(),preserve_folder_structure=self.preserve_var.get(),process_images=self.images_var.get(),process_videos=self.videos_var.get(),skip_processed=self.skip_var.get(),video_mode="overlay").validated()

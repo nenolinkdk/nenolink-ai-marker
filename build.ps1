@@ -29,6 +29,7 @@ $tkInfo = & $python -c "import sys, tkinter; from pathlib import Path; t=tkinter
 if ($LASTEXITCODE -ne 0 -or $tkInfo.Count -lt 4) { throw "tkinter failed inside the build environment." }
 $env:NENOLINK_TCL_LIBRARY = $tkInfo[2]
 $env:NENOLINK_TK_LIBRARY = $tkInfo[3]
+$env:NENOLINK_PYTHON_BIN = Split-Path -Parent $sourcePython
 Write-Host "Python: $($tkInfo[0])"
 Write-Host "Tkinter/Tk: $($tkInfo[1])"
 Write-Host "Tcl library: $env:NENOLINK_TCL_LIBRARY"
@@ -62,7 +63,10 @@ Copy-Item -Path (Join-Path $projectRoot "assets\badges\*") -Destination $distBad
 Copy-Item -Path (Join-Path $projectRoot "locales\*.json") -Destination $distLocales -Force
 Copy-Item -Path (Join-Path $projectRoot "docs\*") -Destination $distDocs -Force
 
-& (Join-Path $projectRoot "scripts\windows-smoke-test.ps1") -ExePath $packagedExe
+$verifiedRuntimeRoot = Split-Path -Parent $env:NENOLINK_TCL_LIBRARY
+& (Join-Path $projectRoot "scripts\windows-smoke-test.ps1") -ExePath $packagedExe -RuntimeRoot $verifiedRuntimeRoot
 if ($LASTEXITCODE -ne 0) { throw "The executable smoke test failed." }
+& (Join-Path $projectRoot "scripts\windows-smoke-test.ps1") -ExePath (Join-Path $projectRoot "dist\Nenolink-AI-Marker.exe") -RuntimeRoot $verifiedRuntimeRoot -EmbeddedResources
+if ($LASTEXITCODE -ne 0) { throw "The standalone executable embedded-resource smoke test failed." }
 
 Write-Host "Built and launched successfully: $packagedExe"

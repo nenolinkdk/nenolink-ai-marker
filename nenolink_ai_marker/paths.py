@@ -18,16 +18,33 @@ def application_root(
     return source_file.parent.parent
 
 
+def bundled_root(*, bundle_root: str | Path | None = None) -> Path | None:
+    """Return PyInstaller's extracted resource root, when available."""
+    value = bundle_root if bundle_root is not None else getattr(sys, "_MEIPASS", None)
+    return Path(value).resolve() if value else None
+
+
+def resource_directory(relative: Path, **kwargs: object) -> Path:
+    """Prefer editable files beside the app, then use the embedded fallback."""
+    bundle = kwargs.pop("bundle_root", None)
+    external = application_root(**kwargs) / relative
+    if external.is_dir():
+        return external
+    embedded_root = bundled_root(bundle_root=bundle)
+    embedded = embedded_root / relative if embedded_root else None
+    return embedded if embedded and embedded.is_dir() else external
+
+
 def badge_directory(**kwargs: object) -> Path:
-    return application_root(**kwargs) / "assets" / "badges"
+    return resource_directory(Path("assets") / "badges", **kwargs)
 
 
 def locale_directory(**kwargs: object) -> Path:
-    return application_root(**kwargs) / "locales"
+    return resource_directory(Path("locales"), **kwargs)
 
 
 def docs_directory(**kwargs: object) -> Path:
-    return application_root(**kwargs) / "docs"
+    return resource_directory(Path("docs"), **kwargs)
 
 
 def user_guide_path(**kwargs: object) -> Path:

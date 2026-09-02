@@ -1,9 +1,16 @@
 import os
+import sys
 from pathlib import Path
 
 project_root = Path(SPECPATH)
 tcl_library = Path(os.environ["NENOLINK_TCL_LIBRARY"])
 tk_library = Path(os.environ["NENOLINK_TK_LIBRARY"])
+python_bin = Path(os.environ["NENOLINK_PYTHON_BIN"])
+python_runtime_binaries = [
+    (str(candidate), ".")
+    for name in ("libiconv-2.dll", "libintl-8.dll")
+    if (candidate := python_bin / name).is_file()
+]
 
 if not (tcl_library / "init.tcl").is_file():
     raise SystemExit(f"Tcl runtime is incomplete: {tcl_library}")
@@ -13,10 +20,15 @@ if not (tk_library / "tk.tcl").is_file():
 a = Analysis(
     [str(project_root / "main.py")],
     pathex=[str(project_root)],
-    binaries=[],
-    datas=[(str(tcl_library), "_tcl_data"), (str(tk_library), "_tk_data")],
+    binaries=python_runtime_binaries,
+    datas=[
+        (str(tcl_library), "_tcl_data"), (str(tk_library), "_tk_data"),
+        (str(project_root / "locales"), "locales"),
+        (str(project_root / "assets" / "badges"), "assets/badges"),
+        (str(project_root / "docs"), "docs"),
+    ],
     hiddenimports=["tkinter", "tkinter.filedialog", "tkinter.messagebox"],
-    hookspath=[], hooksconfig={}, runtime_hooks=[], excludes=[], noarchive=False, optimize=0,
+    hookspath=[], hooksconfig={}, runtime_hooks=[str(project_root / "scripts" / "pyi-runtime-tk.py")], excludes=[], noarchive=False, optimize=0,
 )
 pyz = PYZ(a.pure)
 exe = EXE(
