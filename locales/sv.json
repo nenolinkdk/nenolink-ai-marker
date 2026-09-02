@@ -19,6 +19,8 @@
   "position.top_right": "Övre höger",
   "position.bottom_left": "Nedre vänster",
   "position.bottom_right": "Nedre höger",
+  "position.center": "Centrerad",
+  "error.video_component_missing": "Videobearbetning är inte tillgänglig eftersom den nödvändiga videokomponenten inte kunde hittas. Installera om eller reparera Nenolink AI Marker.",
   "size.value": "Storlek (% av bildbredd): {value}",
   "margin.value": "Marginal (pixlar): {value}",
   "opacity.value": "Opacitet (%): {value}",

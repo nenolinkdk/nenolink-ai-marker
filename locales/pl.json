@@ -19,6 +19,8 @@
   "position.top_right": "Prawy górny róg",
   "position.bottom_left": "Lewy dolny róg",
   "position.bottom_right": "Prawy dolny róg",
+  "position.center": "Środek",
+  "error.video_component_missing": "Przetwarzanie wideo jest niedostępne, ponieważ nie znaleziono wymaganego komponentu wideo. Zainstaluj ponownie lub napraw Nenolink AI Marker.",
   "size.value": "Rozmiar (% szerokości): {value}",
   "margin.value": "Margines (piksele): {value}",
   "opacity.value": "Krycie (%): {value}",

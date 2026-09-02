@@ -27,6 +27,8 @@
   "position.top_right": "Top right",
   "position.bottom_left": "Bottom left",
   "position.bottom_right": "Bottom right",
+  "position.center": "Center",
+  "error.video_component_missing": "Video processing is unavailable because the required video component could not be found. Reinstall or repair Nenolink AI Marker.",
   "size.value": "Badge Size: {value}%",
   "margin.value": "Margin: {value} px",
   "opacity.value": "Opacity: {value}%",

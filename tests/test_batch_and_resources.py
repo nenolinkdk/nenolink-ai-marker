@@ -91,7 +91,12 @@ class ResourceAndBatchTests(unittest.TestCase):
             self.assertEqual(source.read_bytes(),original)
 
     def test_missing_ffmpeg(self):
-        with patch("shutil.which",return_value=None):self.assertIsNone(find_ffmpeg())
+        with patch("nenolink_ai_marker.batch.Path.is_file",return_value=False), patch("shutil.which",return_value=None):self.assertIsNone(find_ffmpeg())
+
+    def test_application_local_ffmpeg_is_preferred(self):
+        found=find_ffmpeg()
+        self.assertIsNotNone(found)
+        self.assertTrue(str(found).endswith("tools\\ffmpeg\\ffmpeg.exe"))
 
     def test_video_processing_maps_filtered_video_and_loops_badge(self):
         completed=type("Completed",(),{"returncode":0,"stderr":""})()

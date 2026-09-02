@@ -32,7 +32,7 @@ class TranslationTests(unittest.TestCase):
 
     def test_position_values_are_localized_human_readable_labels(self):
         locales = Path(__file__).resolve().parent.parent / "locales"
-        keys = {"position.top_left", "position.top_right", "position.bottom_left", "position.bottom_right"}
+        keys = {"position.top_left", "position.top_right", "position.bottom_left", "position.bottom_right", "position.center"}
         for code in LANGUAGES.values():
             data = json.loads((locales / f"{code}.json").read_text(encoding="utf-8"))
             self.assertTrue(keys.issubset(data), code)

@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 import shutil
 import subprocess
+import os
+import sys
 from typing import Callable
 
 from .models import MarkerSettings
@@ -75,6 +77,14 @@ def appears_processed(path: Path, filename_suffix: str = "_ai") -> bool:
 
 
 def find_ffmpeg() -> str | None:
+    roots=[]
+    if getattr(sys,"frozen",False):roots.append(Path(sys.executable).resolve().parent)
+    roots.append(Path(__file__).resolve().parents[1])
+    for root in roots:
+        for candidate in (root/"ffmpeg.exe",root/"tools"/"ffmpeg"/"ffmpeg.exe"):
+            if candidate.is_file():return str(candidate)
+    configured=os.environ.get("NENOLINK_FFMPEG_PATH","").strip()
+    if configured and Path(configured).is_file():return configured
     return shutil.which("ffmpeg")
 
 
@@ -114,12 +124,13 @@ class BatchProcessor:
     def process_video(source: Path, badge: Path, target: Path, settings: MarkerSettings) -> None:
         ffmpeg = find_ffmpeg()
         if not ffmpeg:
-            raise ValueError("FFmpeg was not found. Install FFmpeg and add it to PATH to process videos.")
+            raise ValueError("Video processing is unavailable because the required video component could not be found. Reinstall or repair Nenolink AI Marker.")
         positions = {
             "top-left": f"{settings.margin}:{settings.margin}",
             "top-right": f"W-w-{settings.margin}:{settings.margin}",
             "bottom-left": f"{settings.margin}:H-h-{settings.margin}",
             "bottom-right": f"W-w-{settings.margin}:H-h-{settings.margin}",
+            "center": "(W-w)/2:(H-h)/2",
         }
         target.parent.mkdir(parents=True, exist_ok=True)
         width = max(1, settings.size_percent) / 100

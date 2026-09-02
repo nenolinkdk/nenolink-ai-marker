@@ -18,6 +18,8 @@ if (-not $EmbeddedResources) {
     if ($localeFiles.Count -lt 12) { throw "Packaged locale folder contains only $($localeFiles.Count) JSON files." }
     if (-not (Test-Path -LiteralPath (Join-Path $installRoot "docs\Nenolink-AI-Marker-User-Guide-EN.pdf"))) { throw "Packaged PDF guide is missing." }
     if (-not (Test-Path -LiteralPath (Join-Path $installRoot "docs\Nenolink-AI-Marker-User-Guide-DA.pdf"))) { throw "Packaged Danish PDF guide is missing." }
+    if (-not (Test-Path -LiteralPath (Join-Path $installRoot "tools\ffmpeg\ffmpeg.exe"))) { throw "Packaged FFmpeg component is missing." }
+    if (-not (Test-Path -LiteralPath (Join-Path $installRoot "THIRD_PARTY_NOTICES\FFMPEG.md"))) { throw "Packaged FFmpeg notice is missing." }
 }
 $processName = [System.IO.Path]::GetFileNameWithoutExtension($resolvedExe)
 $existingIds = @(Get-Process -Name $processName -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)

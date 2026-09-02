@@ -19,6 +19,8 @@
   "position.top_right": "In alto a destra",
   "position.bottom_left": "In basso a sinistra",
   "position.bottom_right": "In basso a destra",
+  "position.center": "Centro",
+  "error.video_component_missing": "L’elaborazione video non è disponibile perché il componente video richiesto non è stato trovato. Reinstallare o riparare Nenolink AI Marker.",
   "size.value": "Dimensione (% larghezza): {value}",
   "margin.value": "Margine (pixel): {value}",
   "opacity.value": "Opacità (%): {value}",

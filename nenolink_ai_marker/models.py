@@ -2,7 +2,7 @@ from dataclasses import asdict, dataclass
 from typing import Literal
 import re
 
-Position = Literal["top-left", "top-right", "bottom-left", "bottom-right"]
+Position = Literal["top-left", "top-right", "bottom-left", "bottom-right", "center"]
 
 
 def validated_filename_suffix(value: object) -> str:
@@ -33,7 +33,7 @@ class MarkerSettings:
     batch_filename_suffix: str = "_ai"
 
     def validated(self) -> "MarkerSettings":
-        positions = {"top-left", "top-right", "bottom-left", "bottom-right"}
+        positions = {"top-left", "top-right", "bottom-left", "bottom-right", "center"}
         if self.position not in positions:
             self.position = "bottom-right"
         self.size_percent = min(100, max(1, int(self.size_percent)))

@@ -21,6 +21,8 @@
   "position.top_right": "Øverst til højre",
   "position.bottom_left": "Nederst til venstre",
   "position.bottom_right": "Nederst til højre",
+  "position.center": "Centreret",
+  "error.video_component_missing": "Videobehandling er ikke tilgængelig, fordi den nødvendige videokomponent ikke blev fundet. Geninstaller eller reparer Nenolink AI Marker.",
   "size.value": "Størrelse (% af billedbredde): {value}",
   "margin.value": "Margen (pixels): {value}",
   "opacity.value": "Gennemsigtighed (%): {value}",

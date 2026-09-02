@@ -19,6 +19,8 @@
   "position.top_right": "En haut à droite",
   "position.bottom_left": "En bas à gauche",
   "position.bottom_right": "En bas à droite",
+  "position.center": "Centre",
+  "error.video_component_missing": "Le traitement vidéo est indisponible car le composant vidéo requis est introuvable. Réinstallez ou réparez Nenolink AI Marker.",
   "size.value": "Taille (% de la largeur) : {value}",
   "margin.value": "Marge (pixels) : {value}",
   "opacity.value": "Opacité (%) : {value}",

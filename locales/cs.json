@@ -19,6 +19,8 @@
   "position.top_right": "Vpravo nahoře",
   "position.bottom_left": "Vlevo dole",
   "position.bottom_right": "Vpravo dole",
+  "position.center": "Střed",
+  "error.video_component_missing": "Zpracování videa není dostupné, protože požadovaná video komponenta nebyla nalezena. Přeinstalujte nebo opravte Nenolink AI Marker.",
   "size.value": "Velikost (% šířky): {value}",
   "margin.value": "Okraj (pixely): {value}",
   "opacity.value": "Krytí (%): {value}",

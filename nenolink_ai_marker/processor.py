@@ -35,6 +35,7 @@ class ImageProcessor:
             "top-right": (right, top),
             "bottom-left": (left, bottom),
             "bottom-right": (right, bottom),
+            "center": (max(0,(image_width-badge_width)//2),max(0,(image_height-badge_height)//2)),
         }
         return positions[settings_position(position)]
 
@@ -85,7 +86,7 @@ class ImageProcessor:
 
 
 def settings_position(position: str) -> str:
-    return position if position in {"top-left", "top-right", "bottom-left", "bottom-right"} else "bottom-right"
+    return position if position in {"top-left", "top-right", "bottom-left", "bottom-right", "center"} else "bottom-right"
 
 
 def output_path(source: Path, output_directory: Path | None = None, filename_suffix: str = "_ai") -> Path:

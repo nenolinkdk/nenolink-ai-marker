@@ -19,6 +19,8 @@
   "position.top_right": "Rechtsboven",
   "position.bottom_left": "Linksonder",
   "position.bottom_right": "Rechtsonder",
+  "position.center": "Midden",
+  "error.video_component_missing": "Videoverwerking is niet beschikbaar omdat het vereiste video-onderdeel niet is gevonden. Installeer of herstel Nenolink AI Marker opnieuw.",
   "size.value": "Grootte (% beeldbreedte): {value}",
   "margin.value": "Marge (pixels): {value}",
   "opacity.value": "Dekking (%): {value}",

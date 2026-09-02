@@ -56,15 +56,21 @@ $distBadges = Join-Path $packageRoot "assets\badges"
 $distUi = Join-Path $packageRoot "assets\ui"
 $distLocales = Join-Path $packageRoot "locales"
 $distDocs = Join-Path $packageRoot "docs"
+$distFfmpeg = Join-Path $packageRoot "tools\ffmpeg"
+$distNotices = Join-Path $packageRoot "THIRD_PARTY_NOTICES"
 New-Item -ItemType Directory -Force -Path $distBadges | Out-Null
 New-Item -ItemType Directory -Force -Path $distUi | Out-Null
 New-Item -ItemType Directory -Force -Path $distLocales | Out-Null
 New-Item -ItemType Directory -Force -Path $distDocs | Out-Null
+New-Item -ItemType Directory -Force -Path $distFfmpeg | Out-Null
+New-Item -ItemType Directory -Force -Path $distNotices | Out-Null
 Copy-Item -LiteralPath (Join-Path $projectRoot "dist\Nenolink-AI-Marker.exe") -Destination $packagedExe -Force
 Copy-Item -Path (Join-Path $projectRoot "assets\badges\*") -Destination $distBadges -Force
 Copy-Item -Path (Join-Path $projectRoot "assets\ui\*") -Destination $distUi -Force
 Copy-Item -Path (Join-Path $projectRoot "locales\*.json") -Destination $distLocales -Force
 Copy-Item -Path (Join-Path $projectRoot "docs\*") -Destination $distDocs -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "tools\ffmpeg\ffmpeg.exe") -Destination (Join-Path $distFfmpeg "ffmpeg.exe") -Force
+Copy-Item -Path (Join-Path $projectRoot "THIRD_PARTY_NOTICES\*") -Destination $distNotices -Force
 
 $verifiedRuntimeRoot = Split-Path -Parent $env:NENOLINK_TCL_LIBRARY
 & (Join-Path $projectRoot "scripts\windows-smoke-test.ps1") -ExePath $packagedExe -RuntimeRoot $verifiedRuntimeRoot

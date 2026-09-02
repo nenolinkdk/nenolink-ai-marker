@@ -19,6 +19,8 @@
   "position.top_right": "Oben rechts",
   "position.bottom_left": "Unten links",
   "position.bottom_right": "Unten rechts",
+  "position.center": "Mitte",
+  "error.video_component_missing": "Die Videoverarbeitung ist nicht verfügbar, da die erforderliche Videokomponente nicht gefunden wurde. Installieren oder reparieren Sie Nenolink AI Marker erneut.",
   "size.value": "Größe (% der Bildbreite): {value}",
   "margin.value": "Rand (Pixel): {value}",
   "opacity.value": "Deckkraft (%): {value}",
