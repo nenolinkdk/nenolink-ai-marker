@@ -5,13 +5,22 @@ from unittest.mock import patch
 from PIL import Image
 
 from nenolink_ai_marker.badges import BadgeRepository, EXPECTED_STANDARD_BADGES
-from nenolink_ai_marker.batch import BatchProcessor, destination_for, destination_root, find_ffmpeg, scan_folder
+from nenolink_ai_marker.batch import BatchProcessor, RECOMMENDED_IMAGE_BYTES, RECOMMENDED_VIDEO_BYTES, destination_for, destination_root, find_ffmpeg, is_above_recommended_size, scan_folder
 from nenolink_ai_marker.guide import open_user_guide
 from nenolink_ai_marker.models import MarkerSettings
 from nenolink_ai_marker.paths import docs_directory, localized_user_guide_path, user_guide_path
 
 
 class ResourceAndBatchTests(unittest.TestCase):
+    def test_scan_identifies_but_keeps_files_above_recommended_size(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory); image=root/"large.jpg"; video=root/"large.mp4"
+            with image.open("wb") as stream:stream.truncate(RECOMMENDED_IMAGE_BYTES+1)
+            with video.open("wb") as stream:stream.truncate(RECOMMENDED_VIDEO_BYTES+1)
+            scan=scan_folder(root)
+            self.assertEqual(len(scan.oversized),2)
+            self.assertIn(image,scan.images); self.assertIn(video,scan.videos)
+            self.assertTrue(is_above_recommended_size(image)); self.assertTrue(is_above_recommended_size(video))
     def test_exact_standard_badge_set_and_metadata(self):
         root=Path(__file__).resolve().parents[1]/"assets"/"badges"
         repo=BadgeRepository(root)

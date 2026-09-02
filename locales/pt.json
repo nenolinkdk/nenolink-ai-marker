@@ -77,5 +77,10 @@
   "badge.source_standard": "Selos padrão da Nenolink",
   "badge.source_custom": "Pasta de selos personalizados",
   "badge.loaded_standard": "{count} selos padrão carregados",
-  "badge.loaded_custom": "{count} selos personalizados carregados"
+  "badge.loaded_custom": "{count} selos personalizados carregados",
+  "files.size_guidance": "Imagens: recomendado até 50 MB\nVídeos: recomendado até 2 GB\nOs limites práticos dependem da resolução, codec, duração e da memória e espaço em disco disponíveis.",
+  "files.size_guidance_short": "Recomendado: imagens até 50 MB; vídeos até 2 GB",
+  "warning.large_title": "Ficheiro grande",
+  "warning.large_file": "Este ficheiro é maior do que o tamanho recomendado. O processamento poderá exigir mais tempo, memória e espaço temporário em disco. Continuar?",
+  "batch.oversized": "Ficheiros acima do tamanho recomendado: {count}"
 }

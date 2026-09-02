@@ -110,6 +110,8 @@ Officiel kilde: Forordning (EU) 2024/1689, artikel 50, EUR-Lex: https://eur-lex.
 
 ## 24. Filkompatibilitet og behandlingsgrænser
 
+Som praktisk vejledning anbefales billeder op til 50 MB og videoer op til 2 GB. Det er anbefalinger, ikke garanterede tekniske maksimumgrænser; større filer kan stadig fungere.
+
 Ikke alle billed- eller videofiler kan nødvendigvis behandles. Kompatibilitet og praktiske behandlingsgrænser afhænger af filformat, codec, opløsning, varighed, filstørrelse, om filen er beskadiget eller korrupt, usædvanlig kodning, tilgængelig RAM, CPU-ydelse, ledig diskplads og plads til midlertidig behandling. Videobehandling afhænger også af den installerede FFmpeg-version, og om FFmpeg understøtter filens container, codecs og kodning.
 
 Der fastsættes ikke en bestemt maksimal filstørrelse. En fil, der virker på én computer, kan fejle eller tage betydeligt længere tid på en anden, fordi de praktiske grænser delvist afhænger af brugerens computer og tilgængelige ressourcer. Bevar originalfiler, og kontrollér hvert behandlet output før offentliggørelse eller distribution.

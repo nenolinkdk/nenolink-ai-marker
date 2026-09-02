@@ -77,5 +77,10 @@
   "badge.source_standard": "Nenolinks standardmärken",
   "badge.source_custom": "Mapp med anpassade märken",
   "badge.loaded_standard": "{count} standardmärken inlästa",
-  "badge.loaded_custom": "{count} anpassade märken inlästa"
+  "badge.loaded_custom": "{count} anpassade märken inlästa",
+  "files.size_guidance": "Bilder: rekommenderat upp till 50 MB\nVideor: rekommenderat upp till 2 GB\nPraktiska gränser beror på upplösning, kodek, längd samt tillgängligt minne och diskutrymme.",
+  "files.size_guidance_short": "Rekommenderat: bilder upp till 50 MB; videor upp till 2 GB",
+  "warning.large_title": "Stor fil",
+  "warning.large_file": "Filen är större än rekommenderat. Bearbetningen kan kräva mer tid, minne och tillfälligt diskutrymme. Fortsätta?",
+  "batch.oversized": "Filer över rekommenderad storlek: {count}"
 }

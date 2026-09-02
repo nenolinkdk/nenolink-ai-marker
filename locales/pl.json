@@ -77,5 +77,10 @@
   "badge.source_standard": "Standardowe oznaczenia Nenolink",
   "badge.source_custom": "Folder niestandardowych oznaczeń",
   "badge.loaded_standard": "Wczytano standardowe oznaczenia: {count}",
-  "badge.loaded_custom": "Wczytano niestandardowe oznaczenia: {count}"
+  "badge.loaded_custom": "Wczytano niestandardowe oznaczenia: {count}",
+  "files.size_guidance": "Obrazy: zalecane do 50 MB\nFilmy: zalecane do 2 GB\nPraktyczne limity zależą od rozdzielczości, kodeka, czasu trwania oraz dostępnej pamięci i miejsca na dysku.",
+  "files.size_guidance_short": "Zalecane: obrazy do 50 MB; filmy do 2 GB",
+  "warning.large_title": "Duży plik",
+  "warning.large_file": "Ten plik jest większy niż zalecany. Przetwarzanie może wymagać więcej czasu, pamięci i tymczasowego miejsca na dysku. Kontynuować?",
+  "batch.oversized": "Pliki powyżej zalecanego rozmiaru: {count}"
 }

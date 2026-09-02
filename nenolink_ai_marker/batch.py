@@ -10,6 +10,13 @@ from .models import MarkerSettings
 from .processor import ImageProcessor, SUPPORTED_EXTENSIONS
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".webm"}
+RECOMMENDED_IMAGE_BYTES = 50 * 1024 * 1024
+RECOMMENDED_VIDEO_BYTES = 2 * 1024 * 1024 * 1024
+
+def is_above_recommended_size(path: Path) -> bool:
+    limit = RECOMMENDED_IMAGE_BYTES if path.suffix.lower() in SUPPORTED_EXTENSIONS else RECOMMENDED_VIDEO_BYTES
+    try:return path.stat().st_size > limit
+    except OSError:return False
 
 
 @dataclass(slots=True)
@@ -21,6 +28,9 @@ class FolderScan:
 
     def selected(self, settings: MarkerSettings) -> list[Path]:
         return (self.images if settings.process_images else []) + (self.videos if settings.process_videos else [])
+
+    @property
+    def oversized(self) -> list[Path]: return [p for p in self.images+self.videos if is_above_recommended_size(p)]
 
 
 @dataclass(slots=True)

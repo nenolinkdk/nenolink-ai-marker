@@ -77,5 +77,10 @@
   "badge.source_standard": "Badge standard Nenolink",
   "badge.source_custom": "Cartella badge personalizzati",
   "badge.loaded_standard": "{count} badge standard caricati",
-  "badge.loaded_custom": "{count} badge personalizzati caricati"
+  "badge.loaded_custom": "{count} badge personalizzati caricati",
+  "files.size_guidance": "Immagini: consigliate fino a 50 MB\nVideo: consigliati fino a 2 GB\nI limiti pratici dipendono da risoluzione, codec, durata, memoria e spazio su disco disponibili.",
+  "files.size_guidance_short": "Consigliato: immagini fino a 50 MB; video fino a 2 GB",
+  "warning.large_title": "File di grandi dimensioni",
+  "warning.large_file": "Questo file supera le dimensioni consigliate. L’elaborazione potrebbe richiedere più tempo, memoria e spazio temporaneo su disco. Continuare?",
+  "batch.oversized": "File oltre le dimensioni consigliate: {count}"
 }

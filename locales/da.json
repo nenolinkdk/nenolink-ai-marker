@@ -77,5 +77,10 @@
   "badge.source_standard": "Nenolink Standard Badges",
   "badge.source_custom": "Brugerdefineret badge-mappe",
   "badge.loaded_standard": "{count} standardbadges indlæst",
-  "badge.loaded_custom": "{count} brugerdefinerede badges indlæst"
+  "badge.loaded_custom": "{count} brugerdefinerede badges indlæst",
+  "files.size_guidance": "Billeder: anbefalet op til 50 MB\nVideoer: anbefalet op til 2 GB\nDe praktiske grænser afhænger af opløsning, codec, varighed samt ledig hukommelse og diskplads.",
+  "files.size_guidance_short": "Anbefalet: billeder op til 50 MB; videoer op til 2 GB",
+  "warning.large_title": "Stor fil",
+  "warning.large_file": "Denne fil er større end den anbefalede størrelse. Behandlingen kan kræve mere tid, hukommelse og midlertidig diskplads. Vil du fortsætte?",
+  "batch.oversized": "Filer over anbefalet størrelse: {count}"
 }

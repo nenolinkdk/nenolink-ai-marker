@@ -12,7 +12,7 @@ from PIL import Image
 
 from . import __version__
 from .badges import BadgeSourceManager, choose_badge_selection
-from .batch import BatchProcessor, BatchResult, FolderScan, destination_root, scan_folder
+from .batch import BatchProcessor, BatchResult, FolderScan, destination_root, is_above_recommended_size, scan_folder
 from .config import ConfigStore
 from .guide import open_user_guide
 from .i18n import LANGUAGES, Translator
@@ -87,15 +87,16 @@ class MarkerApp(ctk.CTk):
         left=ctk.CTkFrame(tab,width=310); left.grid(row=0,column=0,padx=(4,8),pady=4,sticky="ns"); left.grid_columnconfigure(0,weight=1)
         self.open_button=ctk.CTkButton(left,text="",command=self.open_images); self.open_button.grid(row=0,column=0,padx=16,pady=(14,6),sticky="ew")
         self.file_label=ctk.CTkLabel(left,text="",wraplength=280,justify="left"); self.file_label.grid(row=1,column=0,padx=16,pady=6,sticky="w")
-        self.single_badge_label=ctk.CTkLabel(left,text="",font=ctk.CTkFont(weight="bold")); self.single_badge_label.grid(row=2,column=0,padx=16,pady=(12,2),sticky="w")
-        self.badge_menu=ctk.CTkOptionMenu(left,variable=self.badge_display_var,values=["—"],command=self.select_badge_display); self.badge_menu.grid(row=3,column=0,padx=16,pady=4,sticky="ew")
-        badge_preview=ctk.CTkFrame(left); badge_preview.grid(row=4,column=0,padx=16,pady=6,sticky="ew"); badge_preview.grid_columnconfigure(1,weight=1)
+        self.file_size_guidance=ctk.CTkLabel(left,text="",wraplength=280,justify="left",text_color="gray60"); self.file_size_guidance.grid(row=2,column=0,padx=16,pady=(0,4),sticky="w")
+        self.single_badge_label=ctk.CTkLabel(left,text="",font=ctk.CTkFont(weight="bold")); self.single_badge_label.grid(row=3,column=0,padx=16,pady=(6,2),sticky="w")
+        self.badge_menu=ctk.CTkOptionMenu(left,variable=self.badge_display_var,values=["—"],command=self.select_badge_display); self.badge_menu.grid(row=4,column=0,padx=16,pady=4,sticky="ew")
+        badge_preview=ctk.CTkFrame(left); badge_preview.grid(row=5,column=0,padx=16,pady=6,sticky="ew"); badge_preview.grid_columnconfigure(1,weight=1)
         self.single_badge_preview_label=ctk.CTkLabel(badge_preview,text="",width=110,height=54); self.single_badge_preview_label.grid(row=0,column=0,padx=8,pady=8)
         self.single_badge_name_label=ctk.CTkLabel(badge_preview,textvariable=self.badge_name_var,font=ctk.CTkFont(weight="bold"),anchor="w"); self.single_badge_name_label.grid(row=0,column=1,padx=(4,8),pady=8,sticky="ew")
-        self.position_label=ctk.CTkLabel(left,text=""); self.position_label.grid(row=5,column=0,padx=16,pady=(8,2),sticky="w")
-        self.position_menu=ctk.CTkOptionMenu(left,variable=self.position_display_var,values=["—"],command=self.change_position_display); self.position_menu.grid(row=6,column=0,padx=16,pady=4,sticky="ew")
-        self.size_label=self._slider(left,self.size_var,1,100,7); self.margin_label=self._slider(left,self.margin_var,0,250,9); self.opacity_label=self._slider(left,self.opacity_var,0,100,11)
-        self.process_button=ctk.CTkButton(left,text="",command=self.save_images); self.process_button.grid(row=13,column=0,padx=16,pady=14,sticky="ew")
+        self.position_label=ctk.CTkLabel(left,text=""); self.position_label.grid(row=6,column=0,padx=16,pady=(8,2),sticky="w")
+        self.position_menu=ctk.CTkOptionMenu(left,variable=self.position_display_var,values=["—"],command=self.change_position_display); self.position_menu.grid(row=7,column=0,padx=16,pady=4,sticky="ew")
+        self.size_label=self._slider(left,self.size_var,1,100,8); self.margin_label=self._slider(left,self.margin_var,0,250,10); self.opacity_label=self._slider(left,self.opacity_var,0,100,12)
+        self.process_button=ctk.CTkButton(left,text="",command=self.save_images); self.process_button.grid(row=14,column=0,padx=16,pady=12,sticky="ew")
         right=ctk.CTkFrame(tab); right.grid(row=0,column=1,padx=(8,4),pady=4,sticky="nsew"); right.grid_columnconfigure(0,weight=1); right.grid_rowconfigure(0,weight=1)
         self.preview_label=ctk.CTkLabel(right,text="")
         self.welcome_frame=ctk.CTkFrame(right,fg_color="transparent"); self.welcome_frame.grid(row=0,column=0,padx=18,pady=14,sticky="nsew"); self.welcome_frame.grid_columnconfigure(0,weight=1); self.welcome_frame.grid_rowconfigure(4,weight=1)
@@ -151,6 +152,7 @@ class MarkerApp(ctk.CTk):
     def _batch_ui(self) -> None:
         tab=self.batch_tab; tab.grid_columnconfigure(0,weight=1)
         self.input_label=ctk.CTkLabel(tab,text=""); self.input_label.grid(row=0,column=0,padx=16,pady=(18,2),sticky="w")
+        self.batch_size_guidance=ctk.CTkLabel(tab,text="",justify="left",text_color="gray60"); self.batch_size_guidance.grid(row=0,column=1,padx=10,pady=(18,2),sticky="e")
         ctk.CTkEntry(tab,textvariable=self.input_folder_var).grid(row=1,column=0,padx=16,pady=4,sticky="ew")
         self.choose_input_button=ctk.CTkButton(tab,text="",command=self.choose_input_folder); self.choose_input_button.grid(row=1,column=1,padx=10)
         self.output_subfolder_radio=ctk.CTkRadioButton(tab,text="",variable=self.output_preference_var,value="subfolder",command=self.changed); self.output_subfolder_radio.grid(row=2,column=0,padx=16,pady=(12,4),sticky="w")
@@ -175,6 +177,7 @@ class MarkerApp(ctk.CTk):
             new=t(translation_key); old=self.tab_names[key]
             if old != new:self.tabs.rename(old,new); self.tab_names[key]=new
         self.open_button.configure(text="1. "+t("button.open_images")); self.process_button.configure(text=t("button.process")); self.file_label.configure(text=t("files.none") if not self.sources else t("files.selected",count=len(self.sources),name=self.sources[0].name))
+        self.file_size_guidance.configure(text=t("files.size_guidance")); self.batch_size_guidance.configure(text=t("files.size_guidance_short"))
         self.position_label.configure(text="3. "+t("position")); self.size_label.configure(text="4. "+t("size.value",value=self.size_var.get())); self.margin_label.configure(text="5. "+t("margin.value",value=self.margin_var.get())); self.opacity_label.configure(text="6. "+t("opacity.value",value=self.opacity_var.get()))
         self.single_badge_label.configure(text="2. "+t("badge")); self.badge_source_heading.configure(text=t("badge.source_label")); self.standard_badge_radio.configure(text=t("badge.source_standard")); self.custom_badge_radio.configure(text=t("badge.source_custom")); self.custom_folder_label.configure(text=t("badge.custom_path")+":"); self.custom_entry.configure(placeholder_text=t("badge.custom_path"))
         self.position_display_to_value={t("position.top_left"):"top-left",t("position.top_right"):"top-right",t("position.bottom_left"):"bottom-left",t("position.bottom_right"):"bottom-right"}; self.position_menu.configure(values=list(self.position_display_to_value)); self.position_display_var.set(next((label for label,value in self.position_display_to_value.items() if value==self.position_var.get()),t("position.bottom_right")))
@@ -245,7 +248,10 @@ class MarkerApp(ctk.CTk):
 
     def open_images(self):
         selected=filedialog.askopenfilenames(title=self.translator.text("dialog.open_images"),filetypes=[(self.translator.text("files.supported"),"*.jpg *.jpeg *.png *.webp"),(self.translator.text("files.all"),"*.*")])
-        if selected:self.sources=[Path(p) for p in selected if Path(p).suffix.lower() in SUPPORTED_EXTENSIONS]; self.file_label.configure(text=self.translator.text("files.selected",count=len(self.sources),name=self.sources[0].name) if self.sources else self.translator.text("files.none_supported")); self.update_preview()
+        if selected:
+            candidates=[Path(p) for p in selected if Path(p).suffix.lower() in SUPPORTED_EXTENSIONS]
+            if any(is_above_recommended_size(p) for p in candidates) and not messagebox.askokcancel(self.translator.text("warning.large_title"),self.translator.text("warning.large_file")):return
+            self.sources=candidates; self.file_label.configure(text=self.translator.text("files.selected",count=len(self.sources),name=self.sources[0].name) if self.sources else self.translator.text("files.none_supported")); self.update_preview()
 
     def update_preview(self):
         badge=self.badges.find(self.badge_var.get())
@@ -281,7 +287,8 @@ class MarkerApp(ctk.CTk):
         root=Path(self.input_folder_var.get()).expanduser()
         if not root.is_dir():messagebox.showwarning(self.translator.text("warning.title"),self.translator.text("batch.invalid_input",folder=root)); return
         self.scan=scan_folder(root,self.recursive_var.get()); selected=self.scan.selected(self.settings()); out=destination_root(self.settings(),root)
-        self.scan_summary_var.set(self.translator.text("batch.scan_summary",images=len(self.scan.images),videos=len(self.scan.videos),unsupported=len(self.scan.unsupported),total=len(selected),output=out)); self._save()
+        summary=self.translator.text("batch.scan_summary",images=len(self.scan.images),videos=len(self.scan.videos),unsupported=len(self.scan.unsupported),total=len(selected),output=out)
+        self.scan_summary_var.set(summary+"\n"+self.translator.text("batch.oversized",count=len(self.scan.oversized))); self._save()
     def start_batch(self):
         badge=self.badges.find(self.badge_var.get())
         if not self.scan or not badge:messagebox.showwarning(self.translator.text("warning.title"),self.translator.text("batch.scan_first")); return

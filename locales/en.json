@@ -79,5 +79,10 @@
   "welcome.description2": "Choose a badge, place it on your content, and help make AI use more transparent.",
   "badge.help": "Use Nenolink Standard Badges or select a folder containing your own badge images.\n\nUse clear filenames, for example:\nmy-company-ai-assisted.png\n\nThe filename is used as the display name for custom badges.\n\nSupported formats: PNG, JPG, JPEG and WEBP.\nTransparent PNG is recommended.",
   "badge.custom_missing": "Custom badge folder could not be found.",
-  "badge.custom_empty": "No supported badge images found in this folder."
+  "badge.custom_empty": "No supported badge images found in this folder.",
+  "files.size_guidance": "Images: recommended up to 50 MB\nVideos: recommended up to 2 GB\nPractical limits depend on resolution, codec, duration, memory and disk space.",
+  "files.size_guidance_short": "Recommended: images up to 50 MB; videos up to 2 GB",
+  "warning.large_title": "Large file",
+  "warning.large_file": "This file is larger than the recommended size. Processing may require more time, memory and temporary disk space. Continue?",
+  "batch.oversized": "Files above recommended size: {count}"
 }

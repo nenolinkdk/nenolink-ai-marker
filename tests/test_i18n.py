@@ -38,6 +38,13 @@ class TranslationTests(unittest.TestCase):
             self.assertTrue(keys.issubset(data), code)
             self.assertTrue(all("-" not in data[key] for key in keys), code)
 
+    def test_file_size_guidance_is_translated_in_every_locale(self):
+        locales=Path(__file__).resolve().parent.parent/"locales"
+        keys={"files.size_guidance","files.size_guidance_short","warning.large_file","batch.oversized"}
+        for code in LANGUAGES.values():
+            data=json.loads((locales/f"{code}.json").read_text(encoding="utf-8"))
+            self.assertTrue(keys.issubset(data),code)
+
     def test_live_welcome_language_change_and_english_return(self):
         locales = Path(__file__).resolve().parent.parent / "locales"
         translator = Translator(locales,"en")

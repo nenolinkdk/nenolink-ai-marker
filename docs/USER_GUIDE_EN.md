@@ -110,6 +110,8 @@ Official source: Regulation (EU) 2024/1689, Article 50, EUR-Lex: https://eur-lex
 
 ## 24. File compatibility and processing limits
 
+As practical guidance, images up to 50 MB and videos up to 2 GB are recommended. These are recommendations, not guaranteed technical maximums; larger files may still work.
+
 Not every image or video file can necessarily be processed. Compatibility and practical processing limits depend on the file format, codec, resolution, duration, file size, whether the file is damaged or corrupt, unusual encoding, available RAM, CPU performance, available disk space, and temporary processing space. Video processing also depends on the installed FFmpeg version and whether FFmpeg supports the file's container, codecs, and encoding.
 
 No fixed maximum file size is defined. A file that works on one computer may fail or take substantially longer on another because practical limits depend partly on the user's computer and available resources. Keep original files and review every processed output before publication or distribution.
