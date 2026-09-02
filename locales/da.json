@@ -1,0 +1,20 @@
+{
+  "app.window": "Oplysningsmærker til billeder", "language": "Sprog", "menu.settings": "Indstillinger",
+  "button.open_images": "Åbn billeder", "button.browse": "Gennemse", "button.process": "Gem mærkede billeder",
+  "badge": "Mærke", "badge.standard": "Brug Nenolinks standardmærker", "badge.custom": "Brug egen mærkemappe",
+  "badge.custom_path": "Egen mærkemappe", "badge.refresh": "Opdater mærker", "badge.none": "Ingen mærker fundet",
+  "badge.found": "Fandt {count} mærke(r) i {folder}", "badge.not_found": "Ingen PNG-mærker fundet. Søgt mappe: {folder}",
+  "badge.not_found_preview": "Ingen PNG-mærker tilgængelige.\nSøgt mappe:\n{folder}",
+  "badge.custom_missing": "Den valgte mærkemappe er ikke tilgængelig: {folder}. Bruger standardmærker fra {fallback}.",
+  "position": "Placering", "position.top_left": "Øverst til venstre", "position.top_right": "Øverst til højre",
+  "position.bottom_left": "Nederst til venstre", "position.bottom_right": "Nederst til højre",
+  "size.value": "Størrelse (% af billedbredde): {value}", "margin.value": "Margen (pixels): {value}", "opacity.value": "Gennemsigtighed (%): {value}",
+  "files.none": "Ingen billeder valgt", "files.none_supported": "Ingen understøttede billeder valgt",
+  "files.selected": "{count} billede(r) valgt\n{name}", "files.supported": "Understøttede billeder", "files.all": "Alle filer",
+  "dialog.open_images": "Åbn billeder", "dialog.output_folder": "Vælg outputmappe", "dialog.custom_badges": "Vælg egen mærkemappe",
+  "preview.select_image": "Vælg et eller flere billeder til forhåndsvisning.", "preview.showing": "Forhåndsviser {name}",
+  "error.preview": "Fejl i forhåndsvisning: {error}", "error.settings": "Indstillinger kunne ikke gemmes: {error}",
+  "warning.title": "Intet at gemme", "warning.nothing_to_save": "Vælg først billeder og et godkendt mærke.",
+  "process.summary": "Gemte {saved} af {total} billede(r). Originalerne blev ikke ændret.",
+  "error.completed": "Færdig med fejl", "complete.title": "Færdig"
+}

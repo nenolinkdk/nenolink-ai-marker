@@ -1,0 +1,16 @@
+{
+  "app.window": "Offenlegungsabzeichen für Bilder", "language": "Sprache", "menu.settings": "Einstellungen",
+  "button.open_images": "Bilder öffnen", "button.browse": "Durchsuchen", "button.process": "Markierte Bilder speichern",
+  "badge": "Abzeichen", "badge.standard": "Nenolink-Standardabzeichen verwenden", "badge.custom": "Eigenen Abzeichenordner verwenden",
+  "badge.custom_path": "Eigener Abzeichenordner", "badge.refresh": "Abzeichen aktualisieren", "badge.none": "Keine Abzeichen gefunden",
+  "badge.found": "{count} Abzeichen in {folder} gefunden", "badge.not_found": "Keine PNG-Abzeichen gefunden. Durchsuchter Ordner: {folder}",
+  "badge.not_found_preview": "Keine PNG-Abzeichen verfügbar.\nDurchsuchter Ordner:\n{folder}",
+  "badge.custom_missing": "Eigener Abzeichenordner nicht verfügbar: {folder}. Standardabzeichen aus {fallback} werden verwendet.",
+  "position": "Position", "position.top_left": "Oben links", "position.top_right": "Oben rechts", "position.bottom_left": "Unten links", "position.bottom_right": "Unten rechts",
+  "size.value": "Größe (% der Bildbreite): {value}", "margin.value": "Rand (Pixel): {value}", "opacity.value": "Deckkraft (%): {value}",
+  "files.none": "Keine Bilder ausgewählt", "files.none_supported": "Keine unterstützten Bilder ausgewählt", "files.selected": "{count} Bild(er) ausgewählt\n{name}",
+  "files.supported": "Unterstützte Bilder", "files.all": "Alle Dateien", "dialog.open_images": "Bilder öffnen", "dialog.output_folder": "Ausgabeordner wählen", "dialog.custom_badges": "Eigenen Abzeichenordner wählen",
+  "preview.select_image": "Wählen Sie Bilder für die Vorschau.", "preview.showing": "Vorschau von {name}", "error.preview": "Vorschaufehler: {error}",
+  "error.settings": "Einstellungen konnten nicht gespeichert werden: {error}", "warning.title": "Nichts zu speichern", "warning.nothing_to_save": "Wählen Sie zuerst Bilder und ein genehmigtes Abzeichen.",
+  "process.summary": "{saved} von {total} Bild(ern) gespeichert. Originale wurden nicht verändert.", "error.completed": "Mit Fehlern abgeschlossen", "complete.title": "Fertig"
+}

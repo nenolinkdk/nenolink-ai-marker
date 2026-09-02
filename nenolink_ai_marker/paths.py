@@ -20,3 +20,7 @@ def application_root(
 
 def badge_directory(**kwargs: object) -> Path:
     return application_root(**kwargs) / "assets" / "badges"
+
+
+def locale_directory(**kwargs: object) -> Path:
+    return application_root(**kwargs) / "locales"

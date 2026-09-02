@@ -1,0 +1,20 @@
+{
+  "app.window": "Image disclosure badges", "language": "Language", "menu.settings": "Settings",
+  "button.open_images": "Open images", "button.browse": "Browse", "button.process": "Save marked images",
+  "badge": "Badge", "badge.standard": "Use Nenolink standard badges", "badge.custom": "Use custom badge folder",
+  "badge.custom_path": "Custom badge folder", "badge.refresh": "Refresh badges", "badge.none": "No badges found",
+  "badge.found": "Found {count} badge(s) in {folder}", "badge.not_found": "No badge PNG files found. Folder searched: {folder}",
+  "badge.not_found_preview": "No badge PNG files available.\nFolder searched:\n{folder}",
+  "badge.custom_missing": "Custom badge folder is unavailable: {folder}. Using standard badges from {fallback}.",
+  "position": "Position", "position.top_left": "Top left", "position.top_right": "Top right",
+  "position.bottom_left": "Bottom left", "position.bottom_right": "Bottom right",
+  "size.value": "Size (% of image width): {value}", "margin.value": "Margin (pixels): {value}", "opacity.value": "Opacity (%): {value}",
+  "files.none": "No images selected", "files.none_supported": "No supported images selected",
+  "files.selected": "{count} image(s) selected\n{name}", "files.supported": "Supported images", "files.all": "All files",
+  "dialog.open_images": "Open images", "dialog.output_folder": "Choose output folder", "dialog.custom_badges": "Choose custom badge folder",
+  "preview.select_image": "Select one or more images to preview.", "preview.showing": "Previewing {name}",
+  "error.preview": "Preview error: {error}", "error.settings": "Settings could not be saved: {error}",
+  "warning.title": "Nothing to save", "warning.nothing_to_save": "Select images and an approved badge first.",
+  "process.summary": "Saved {saved} of {total} image(s). Originals were not changed.",
+  "error.completed": "Completed with errors", "complete.title": "Complete"
+}

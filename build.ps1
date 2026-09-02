@@ -52,9 +52,12 @@ if ($LASTEXITCODE -ne 0) { throw "PyInstaller build failed." }
 $packageRoot = Join-Path $projectRoot "dist\Nenolink-AI-Marker"
 $packagedExe = Join-Path $packageRoot "Nenolink-AI-Marker.exe"
 $distBadges = Join-Path $packageRoot "assets\badges"
+$distLocales = Join-Path $packageRoot "locales"
 New-Item -ItemType Directory -Force -Path $distBadges | Out-Null
+New-Item -ItemType Directory -Force -Path $distLocales | Out-Null
 Copy-Item -LiteralPath (Join-Path $projectRoot "dist\Nenolink-AI-Marker.exe") -Destination $packagedExe -Force
 Copy-Item -Path (Join-Path $projectRoot "assets\badges\*") -Destination $distBadges -Force
+Copy-Item -Path (Join-Path $projectRoot "locales\*.json") -Destination $distLocales -Force
 
 & (Join-Path $projectRoot "scripts\windows-smoke-test.ps1") -ExePath $packagedExe
 if ($LASTEXITCODE -ne 0) { throw "The executable smoke test failed." }

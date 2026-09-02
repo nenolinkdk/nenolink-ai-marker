@@ -1,6 +1,6 @@
 # Nenolink AI Marker
 
-Nenolink AI Marker 0.1 is a Windows desktop application that applies approved Nenolink AI disclosure badges to images. It supports individual images and batches while always preserving the original files.
+Nenolink AI Marker 0.2 is a multilingual Windows desktop application that applies approved AI disclosure badges to images. It supports individual images and batches while always preserving the original files.
 
 ## Features
 
@@ -10,10 +10,12 @@ Nenolink AI Marker 0.1 is a Windows desktop application that applies approved Ne
 - Adjusts badge size, pixel margin and opacity
 - Shows a preview before saving
 - Processes multiple selected images in one batch
+- Switches the complete interface between 12 offline languages
+- Uses Nenolink standard badges or a user-selected badge folder
 - Saves as `originalname_ai.ext` and adds `_2`, `_3`, etc. if needed
 - Remembers the last settings in `%LOCALAPPDATA%\NenolinkAI Marker\config.json`
 
-Video is intentionally not supported in version 0.1.
+Video remains outside the current 0.2 image workflow; the processing boundary is prepared for a later FFmpeg processor.
 
 ## Install and run on Windows
 
@@ -26,7 +28,7 @@ python -m pip install -r requirements.txt
 python main.py
 ```
 
-Copy approved, transparent PNG badge files into `assets\badges\`, then click **Refresh badges** in the application. Badge assets are not bundled in this repository.
+Standard badges are read from `assets\badges\`. Click **Refresh badges** after changing the folder.
 
 ## Use
 
@@ -70,9 +72,32 @@ Nenolink-AI-Marker\
   assets\
     badges\
       *.png
+  locales\
+    en.json
+    da.json
+    ...
 ```
 
 The badge folder remains external and editable. Add approved PNG badges beside the executable as shown above, then click **Refresh badges**. Badge paths are resolved from the application location, not the current working directory.
+
+## Standard and custom badges
+
+**Nenolink standard badges** is the default source. The application scans `assets\badges\` dynamically and ignores non-PNG files. No individual badge filename is hard-coded.
+
+To use your own badges, select **Use custom badge folder** in Settings and click **Browse**. The selected folder is remembered between sessions. Files are read in place and are never copied, renamed or modified. You can switch back to standard badges at any time. If a saved custom folder disappears, the application reports the path and falls back gracefully to the standard badges.
+
+## Languages
+
+The interface includes English, Dansk, Deutsch, Français, Español, Italiano, Português, Nederlands, Svenska, Norsk, Polski and Čeština. The selected language is remembered locally. Everything works offline, missing keys fall back to English, and badge filenames are never translated.
+
+Translation files live in `locales\` beside the source application or packaged EXE. To add a translation:
+
+1. Copy `locales\en.json` to a new locale code, for example `fi.json`.
+2. Translate values only; keep the stable JSON keys unchanged.
+3. Add the language name and code to `LANGUAGES` in `nenolink_ai_marker\i18n.py`.
+4. Run the tests and rebuild the Windows package.
+
+The architecture is ready for a separate Markdown user guide under `docs\` later.
 
 ## Architecture and version 0.2
 

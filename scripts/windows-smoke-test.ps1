@@ -6,6 +6,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 $resolvedExe = (Resolve-Path -LiteralPath $ExePath).Path
+$installRoot = Split-Path -Parent $resolvedExe
+$badgeFiles = @(Get-ChildItem -Path (Join-Path $installRoot "assets\badges") -File -Filter "*.png" -ErrorAction SilentlyContinue)
+$localeFiles = @(Get-ChildItem -Path (Join-Path $installRoot "locales") -File -Filter "*.json" -ErrorAction SilentlyContinue)
+if ($badgeFiles.Count -eq 0) { throw "Packaged badge folder contains no PNG files." }
+if ($localeFiles.Count -lt 12) { throw "Packaged locale folder contains only $($localeFiles.Count) JSON files." }
 $processName = [System.IO.Path]::GetFileNameWithoutExtension($resolvedExe)
 $existingIds = @(Get-Process -Name $processName -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
 $process = Start-Process -FilePath $resolvedExe -WorkingDirectory $WorkingDirectory -PassThru
@@ -22,7 +27,7 @@ try {
         if ($launchedProcesses | Where-Object { $_.MainWindowHandle -ne 0 }) { $windowFound = $true; break }
     }
     if (-not $windowFound) { throw "No application window appeared within $TimeoutSeconds seconds." }
-    Write-Host "Smoke test passed from working directory '$WorkingDirectory': application window launched successfully."
+    Write-Host "Smoke test passed from '$WorkingDirectory': window launched with $($badgeFiles.Count) badges and $($localeFiles.Count) locales."
 }
 finally {
     $launchedProcesses = @(Get-Process -Name $processName -ErrorAction SilentlyContinue | Where-Object { $_.Id -notin $existingIds })

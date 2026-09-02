@@ -1,0 +1,15 @@
+{
+  "app.window": "Badges de divulgation pour images", "language": "Langue", "menu.settings": "Paramètres",
+  "button.open_images": "Ouvrir des images", "button.browse": "Parcourir", "button.process": "Enregistrer les images marquées",
+  "badge": "Badge", "badge.standard": "Utiliser les badges standard Nenolink", "badge.custom": "Utiliser un dossier de badges personnalisé",
+  "badge.custom_path": "Dossier de badges personnalisé", "badge.refresh": "Actualiser les badges", "badge.none": "Aucun badge trouvé",
+  "badge.found": "{count} badge(s) trouvé(s) dans {folder}", "badge.not_found": "Aucun badge PNG trouvé. Dossier recherché : {folder}",
+  "badge.not_found_preview": "Aucun badge PNG disponible.\nDossier recherché :\n{folder}", "badge.custom_missing": "Dossier personnalisé indisponible : {folder}. Badges standard utilisés depuis {fallback}.",
+  "position": "Position", "position.top_left": "En haut à gauche", "position.top_right": "En haut à droite", "position.bottom_left": "En bas à gauche", "position.bottom_right": "En bas à droite",
+  "size.value": "Taille (% de la largeur) : {value}", "margin.value": "Marge (pixels) : {value}", "opacity.value": "Opacité (%) : {value}",
+  "files.none": "Aucune image sélectionnée", "files.none_supported": "Aucune image prise en charge sélectionnée", "files.selected": "{count} image(s) sélectionnée(s)\n{name}",
+  "files.supported": "Images prises en charge", "files.all": "Tous les fichiers", "dialog.open_images": "Ouvrir des images", "dialog.output_folder": "Choisir le dossier de sortie", "dialog.custom_badges": "Choisir le dossier de badges",
+  "preview.select_image": "Sélectionnez des images à prévisualiser.", "preview.showing": "Aperçu de {name}", "error.preview": "Erreur d’aperçu : {error}",
+  "error.settings": "Impossible d’enregistrer les paramètres : {error}", "warning.title": "Rien à enregistrer", "warning.nothing_to_save": "Sélectionnez d’abord des images et un badge approuvé.",
+  "process.summary": "{saved} image(s) sur {total} enregistrée(s). Les originaux n’ont pas été modifiés.", "error.completed": "Terminé avec des erreurs", "complete.title": "Terminé"
+}
