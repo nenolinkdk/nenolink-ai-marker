@@ -1,4 +1,4 @@
-# Nenolink AI Marker 0.3
+# Nenolink AI Marker 0.3.1
 
 Windows desktop software for adding visible Nenolink AI disclosure badges to images and videos. Version 0.3 adds the official ten-badge library, metadata-backed badge preview, folder scanning and batch processing, optional FFmpeg video overlay, persistent batch settings, and an offline English PDF guide.
 

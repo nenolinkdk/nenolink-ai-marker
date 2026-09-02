@@ -1,12 +1,14 @@
 # Nenolink AI Marker - User Guide
 
-Version 0.3 | (c) Henrik Nielsen, nenolink.com
+Version 0.3.1 | (c) Henrik Nielsen, nenolink.com
 
 ## 1. What Nenolink AI Marker does
 
 Nenolink AI Marker adds a visible disclosure badge to images and, when FFmpeg is installed, videos. It supports individual images and repeatable folder batches. Originals are never intentionally overwritten; output names end in `_ai`.
 
 The Nenolink badge system is a practical transparency system. Choose wording that accurately describes how AI was involved in the specific content or workflow.
+
+> **Legal notice:** Nenolink AI Marker is a practical transparency and labelling tool. Its badges and documentation are not legal advice, certification, regulatory approval, or a guarantee of compliance with the EU AI Act or any other requirement. Users remain responsible for choosing appropriate disclosures, reviewing output, and complying with applicable laws, contracts, platform rules, and professional requirements. See the full Legal Notice and Disclaimer near the end of this guide.
 
 ## 2. Installation and first start
 
@@ -105,6 +107,31 @@ Official source: Regulation (EU) 2024/1689, Article 50, EUR-Lex: https://eur-lex
 ## 24. Limitations and user responsibility
 
 You are responsible for selecting an accurate badge, obtaining rights to source media and badge artwork, reviewing outputs, retaining originals, and meeting applicable contractual, platform, accessibility, privacy, intellectual-property, consumer-protection, and AI rules. Visible overlays can be cropped or removed. The tool does not embed cryptographic provenance and does not verify whether content was made with AI.
+
+## Legal Notice and Disclaimer
+
+Nenolink AI Marker is a software tool designed to assist users in providing transparent information about the use of artificial intelligence in digital content and production processes.
+
+The badges, descriptions, recommendations, and documentation provided with the software constitute a practical transparency and labelling system developed by Nenolink. They do not constitute legal advice, certification, regulatory approval, or a guarantee of compliance with Regulation (EU) 2024/1689 (the EU Artificial Intelligence Act) or any other applicable law or regulation.
+
+Not every Nenolink AI badge corresponds to a specific legal labelling requirement. Some badges are provided voluntarily to support greater transparency about how AI has been used.
+
+The appropriate disclosure or labelling requirements depend on the content, the AI system involved, the user's role, the context in which the content is published, and applicable legislation.
+
+Users remain responsible for determining whether and how their content must be labelled and for complying with applicable laws, contractual obligations, platform rules, and professional requirements.
+
+References to the EU AI Act and other regulatory material are provided for general informational purposes. Legislation, regulatory guidance, and interpretations may change over time. Users should consult current official sources and, where necessary, obtain appropriate professional or legal advice.
+
+Nenolink does not warrant that applying a badge with Nenolink AI Marker will by itself satisfy any particular legal, regulatory, or contractual disclosure requirement.
+
+Software output should be reviewed by the user before publication or distribution.
+
+Nenolink AI Marker must not be presented as:
+
+- an EU-certified compliance tool;
+- an automated EU AI Act compliance system;
+- legal advice; or
+- a guarantee that content has been correctly classified.
 
 ## 25. Troubleshooting
 

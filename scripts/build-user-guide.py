@@ -26,11 +26,13 @@ def main():
     styles.add(ParagraphStyle(name="H2x",parent=styles["Heading2"],fontSize=13,leading=16,textColor=colors.HexColor("#7A0D18"),spaceBefore=9,spaceAfter=5,keepWithNext=True))
     styles.add(ParagraphStyle(name="Bodyx",parent=styles["BodyText"],fontSize=9.2,leading=13.2,spaceAfter=6))
     styles.add(ParagraphStyle(name="Bulletx",parent=styles["Bodyx"],leftIndent=12,firstLineIndent=-7,bulletIndent=3))
-    story=[Spacer(1,55*mm),Paragraph("Nenolink AI Marker",styles["CoverTitle"]),Paragraph("User Guide - Version 0.3",ParagraphStyle(name="Sub",parent=styles["Heading2"],alignment=TA_CENTER,textColor=colors.HexColor("#555555"))),Spacer(1,12*mm),Paragraph("A practical guide to visible AI disclosure badges for images and video.",ParagraphStyle(name="Intro",parent=styles["Bodyx"],alignment=TA_CENTER,fontSize=12,leading=18)),Spacer(1,70*mm),Paragraph("(c) Henrik Nielsen - nenolink.com",ParagraphStyle(name="Credit",parent=styles["Bodyx"],alignment=TA_CENTER)),PageBreak()]
+    styles.add(ParagraphStyle(name="Notice",parent=styles["Bodyx"],leftIndent=10,rightIndent=10,borderColor=colors.HexColor("#B81424"),borderWidth=1,borderPadding=8,backColor=colors.HexColor("#FFF3F4"),spaceBefore=5,spaceAfter=10))
+    story=[Spacer(1,55*mm),Paragraph("Nenolink AI Marker",styles["CoverTitle"]),Paragraph("User Guide - Version 0.3.1",ParagraphStyle(name="Sub",parent=styles["Heading2"],alignment=TA_CENTER,textColor=colors.HexColor("#555555"))),Spacer(1,12*mm),Paragraph("A practical guide to visible AI disclosure badges for images and video.",ParagraphStyle(name="Intro",parent=styles["Bodyx"],alignment=TA_CENTER,fontSize=12,leading=18)),Spacer(1,70*mm),Paragraph("(c) Henrik Nielsen - nenolink.com",ParagraphStyle(name="Credit",parent=styles["Bodyx"],alignment=TA_CENTER)),PageBreak()]
     for raw in SOURCE.read_text(encoding="utf-8").splitlines()[4:]:
         line=raw.strip()
         if not line: continue
-        if line.startswith("### "): story.append(Paragraph(inline(line[4:]),styles["H2x"]))
+        if line.startswith("> "): story.append(Paragraph(inline(line[2:]),styles["Notice"]))
+        elif line.startswith("### "): story.append(Paragraph(inline(line[4:]),styles["H2x"]))
         elif line.startswith("## "): story.append(Paragraph(inline(line[3:]),styles["H1x"]))
         elif line.startswith("- "): story.append(Paragraph("- "+inline(line[2:]),styles["Bulletx"]))
         else: story.append(Paragraph(inline(line),styles["Bodyx"]))
