@@ -66,5 +66,9 @@
   "batch.done": "Batch complete. Successful: {success}, skipped: {skipped}, errors: {errors}.",
   "batch.cancelled": "Batch cancelled.",
   "guide.missing": "The local user guide could not be opened. {error}",
-  "error.title": "Error"
+  "error.title": "Error",
+  "welcome.title": "Velkommen til Nenolink AI Marker",
+  "welcome.tagline": "Gjør bruken av KI synlig. Skap tillit.",
+  "welcome.description1": "Vis tydelig når og hvordan kunstig intelligens er brukt i bilder og videoer.",
+  "welcome.description2": "Velg et merke, plasser det på innholdet ditt, og bidra til å gjøre bruken av KI mer gjennomsiktig."
 }

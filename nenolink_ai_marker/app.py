@@ -17,7 +17,7 @@ from .config import ConfigStore
 from .guide import open_user_guide
 from .i18n import LANGUAGES, Translator
 from .models import MarkerSettings
-from .paths import badge_directory, locale_directory, user_guide_path, welcome_image_path
+from .paths import badge_directory, locale_directory, localized_user_guide_path, welcome_image_path
 from .processor import ImageProcessor, SUPPORTED_EXTENSIONS, output_path
 from .ui_state import show_welcome
 
@@ -283,7 +283,7 @@ class MarkerApp(ctk.CTk):
         if result.errors:messagebox.showerror(self.translator.text("error.completed"),text+"\n\n"+"\n".join(result.errors[:8]))
     def cancel_batch(self):self.cancel_event.set()
     def open_guide(self):
-        try:open_user_guide(user_guide_path())
+        try:open_user_guide(localized_user_guide_path(self.translator.language))
         except (OSError,FileNotFoundError) as error:messagebox.showerror(self.translator.text("error.title"),self.translator.text("guide.missing",error=error))
 
     def _write_hotfix_verification(self):
@@ -292,9 +292,9 @@ class MarkerApp(ctk.CTk):
         welcome_before_image=self.welcome_frame.winfo_manager()=="grid" and self.preview_label.winfo_manager()==""
         welcome_illustration=bool(self.welcome_image and self.welcome_photo)
         self.change_language("English"); self.update()
-        english={"title":self.title(),"tabs":list(self.tab_names.values()),"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text"),"process":self.process_button.cget("text"),"position":self.position_label.cget("text")}
-        self.change_language("Dansk"); self.update(); danish={"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text"),"tabs":list(self.tab_names.values())}
-        self.change_language("Deutsch"); self.update(); german={"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text")}
+        english={"title":self.title(),"tabs":list(self.tab_names.values()),"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text"),"process":self.process_button.cget("text"),"position":self.position_label.cget("text"),"welcome_title":self.welcome_title.cget("text"),"welcome_tagline":self.welcome_tagline.cget("text"),"welcome_description1":self.welcome_description1.cget("text"),"welcome_description2":self.welcome_description2.cget("text")}
+        self.change_language("Dansk"); self.update(); danish={"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text"),"tabs":list(self.tab_names.values()),"welcome_title":self.welcome_title.cget("text"),"welcome_tagline":self.welcome_tagline.cget("text"),"welcome_description1":self.welcome_description1.cget("text"),"welcome_description2":self.welcome_description2.cget("text")}
+        self.change_language("Deutsch"); self.update(); german={"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text"),"welcome_title":self.welcome_title.cget("text"),"welcome_tagline":self.welcome_tagline.cget("text"),"welcome_description1":self.welcome_description1.cget("text"),"welcome_description2":self.welcome_description2.cget("text")}
         self.change_language("Français"); self.update(); french={"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text")}
         self.change_language("English"); badge_names=[p.name for p in self.badges.display_badges()]
         selected=[]
@@ -308,11 +308,13 @@ class MarkerApp(ctk.CTk):
             assisted=self.processor.process(Path(sample),self.badges.find("ai-assisted.png"),self.settings())
             selected_badge_written=translation.tobytes()!=assisted.tobytes() and self.badge_var.get()=="ai-translation.png"
         self.select_gallery_badge("ai-software.png"); gallery_selection_persisted=self.badge_var.get()=="ai-software.png" and self.badge_display_var.get()=="AI Software"
-        guide=user_guide_path(); guide_opened=False
+        guide_paths={code:localized_user_guide_path(code) for code in ("da","en","fr")}
+        guide_language=os.environ.get("NENOLINK_VERIFY_GUIDE_LANGUAGE","en").lower()
+        guide=localized_user_guide_path(guide_language); guide_opened=False
         if os.environ.get("NENOLINK_VERIFY_OPEN_GUIDE") == "1":
             try:open_user_guide(guide); guide_opened=True
             except OSError:guide_opened=False
-        payload={"english":english,"danish":danish,"german":german,"french":french,"welcome_before_image":welcome_before_image,"welcome_illustration":welcome_illustration,"welcome_hidden_after_image":(not sample or self.welcome_frame.winfo_manager()==""),"badges_found":len(badge_names),"badge_selector_visible":self.badge_menu.winfo_manager()=="grid","badge_selector_values":list(self.badge_menu.cget("values")),"gallery_badges":len(self.gallery_buttons),"gallery_selection_persisted":gallery_selection_persisted,"badges_tab_is_distinct":self.badge_source_frame.master is self.settings_tab,"selected_badges":selected,"image_preview":bool(self.preview_photo),"selected_badge_written":selected_badge_written,"friendly_status":("_MEI" not in self.status_var.get() and "assets" not in self.status_var.get()),"process_button_state":self.process_button.cget("state"),"guide_exists":guide.is_file(),"guide_opened":guide_opened,"translation_keys_visible":any("." in str(value) and " " not in str(value) for group in (english,danish,german,french) for value in group.values() if isinstance(value,str))}
+        payload={"english":english,"danish":danish,"german":german,"french":french,"welcome_before_image":welcome_before_image,"welcome_illustration":welcome_illustration,"welcome_hidden_after_image":(not sample or self.welcome_frame.winfo_manager()==""),"badges_found":len(badge_names),"badge_selector_visible":self.badge_menu.winfo_manager()=="grid","badge_selector_values":list(self.badge_menu.cget("values")),"gallery_badges":len(self.gallery_buttons),"gallery_selection_persisted":gallery_selection_persisted,"badges_tab_is_distinct":self.badge_source_frame.master is self.settings_tab,"selected_badges":selected,"image_preview":bool(self.preview_photo),"selected_badge_written":selected_badge_written,"friendly_status":("_MEI" not in self.status_var.get() and "assets" not in self.status_var.get()),"process_button_state":self.process_button.cget("state"),"guide_language":guide_language,"guide_filename":guide.name,"guide_paths":{code:path.name for code,path in guide_paths.items()},"guide_exists":guide.is_file(),"guide_opened":guide_opened,"translation_keys_visible":any("." in str(value) and " " not in str(value) for group in (english,danish,german,french) for value in group.values() if isinstance(value,str))}
         report_path.write_text(json.dumps(payload,indent=2),encoding="utf-8"); self.destroy()
 
     def settings(self):

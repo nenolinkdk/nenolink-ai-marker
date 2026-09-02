@@ -8,7 +8,7 @@ from nenolink_ai_marker.badges import BadgeRepository, EXPECTED_STANDARD_BADGES
 from nenolink_ai_marker.batch import BatchProcessor, destination_for, destination_root, find_ffmpeg, scan_folder
 from nenolink_ai_marker.guide import open_user_guide
 from nenolink_ai_marker.models import MarkerSettings
-from nenolink_ai_marker.paths import docs_directory, user_guide_path
+from nenolink_ai_marker.paths import docs_directory, localized_user_guide_path, user_guide_path
 
 
 class ResourceAndBatchTests(unittest.TestCase):
@@ -26,6 +26,20 @@ class ResourceAndBatchTests(unittest.TestCase):
         self.assertEqual(docs_directory(frozen=False,module_file=module),Path("C:/project/docs"))
         exe=Path("C:/Apps/Nenolink-AI-Marker/Nenolink-AI-Marker.exe")
         self.assertEqual(user_guide_path(frozen=True,executable=exe),Path("C:/Apps/Nenolink-AI-Marker/docs/Nenolink-AI-Marker-User-Guide-EN.pdf"))
+
+    def test_localized_guide_paths_and_english_fallback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory); docs=root/"docs"; docs.mkdir()
+            english=docs/"Nenolink-AI-Marker-User-Guide-EN.pdf"; danish=docs/"Nenolink-AI-Marker-User-Guide-DA.pdf"
+            english.touch(); danish.touch(); executable=root/"Nenolink-AI-Marker.exe"
+            self.assertEqual(localized_user_guide_path("da",frozen=True,executable=executable),danish)
+            self.assertEqual(localized_user_guide_path("en",frozen=True,executable=executable),english)
+            self.assertEqual(localized_user_guide_path("fr",frozen=True,executable=executable),english)
+
+    def test_missing_all_guides_returns_english_path_for_graceful_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory); (root/"docs").mkdir(); executable=root/"Nenolink-AI-Marker.exe"
+            self.assertEqual(localized_user_guide_path("da",frozen=True,executable=executable),root/"docs"/"Nenolink-AI-Marker-User-Guide-EN.pdf")
 
     def test_missing_user_guide(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -14,6 +14,25 @@ class TranslationTests(unittest.TestCase):
             data = json.loads((locales / f"{code}.json").read_text(encoding="utf-8"))
             self.assertEqual(data["app.window"], Translator(locales, code).text("app.window"))
 
+    def test_welcome_keys_and_guide_button_exist_in_every_locale(self):
+        locales = Path(__file__).resolve().parent.parent / "locales"
+        keys = {"welcome.title", "welcome.tagline", "welcome.description1", "welcome.description2", "button.user_guide"}
+        for code in LANGUAGES.values():
+            data = json.loads((locales / f"{code}.json").read_text(encoding="utf-8"))
+            self.assertTrue(keys.issubset(data),code)
+            self.assertNotIn("Text unavailable",[data[key] for key in keys])
+
+    def test_live_welcome_language_change_and_english_return(self):
+        locales = Path(__file__).resolve().parent.parent / "locales"
+        translator = Translator(locales,"en")
+        self.assertEqual(translator.text("welcome.title"),"Welcome to Nenolink AI Marker")
+        translator.set_language("da")
+        self.assertEqual(translator.text("welcome.title"),"Velkommen til Nenolink AI Marker")
+        translator.set_language("de")
+        self.assertEqual(translator.text("welcome.title"),"Willkommen bei Nenolink AI Marker")
+        translator.set_language("en")
+        self.assertEqual(translator.text("welcome.title"),"Welcome to Nenolink AI Marker")
+
     def test_missing_key_falls_back_to_english(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

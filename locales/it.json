@@ -66,5 +66,9 @@
   "batch.done": "Batch complete. Successful: {success}, skipped: {skipped}, errors: {errors}.",
   "batch.cancelled": "Batch cancelled.",
   "guide.missing": "The local user guide could not be opened. {error}",
-  "error.title": "Error"
+  "error.title": "Error",
+  "welcome.title": "Benvenuto in Nenolink AI Marker",
+  "welcome.tagline": "Rendi visibile l'uso dell'IA. Crea fiducia.",
+  "welcome.description1": "Mostra chiaramente quando e come l'intelligenza artificiale è stata utilizzata nelle immagini e nei video.",
+  "welcome.description2": "Scegli un badge, posizionalo sui tuoi contenuti e contribuisci a rendere più trasparente l'uso dell'IA."
 }

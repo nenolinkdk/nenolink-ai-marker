@@ -57,3 +57,11 @@ def welcome_image_path(**kwargs: object) -> Path:
 
 def user_guide_path(**kwargs: object) -> Path:
     return docs_directory(**kwargs) / "Nenolink-AI-Marker-User-Guide-EN.pdf"
+
+
+def localized_user_guide_path(language: str, **kwargs: object) -> Path:
+    """Return a localized guide when present, otherwise the English guide."""
+    docs = docs_directory(**kwargs)
+    localized = docs / f"Nenolink-AI-Marker-User-Guide-{language.upper()}.pdf"
+    english = docs / "Nenolink-AI-Marker-User-Guide-EN.pdf"
+    return localized if localized.is_file() else english

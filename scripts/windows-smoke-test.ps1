@@ -17,17 +17,21 @@ if (-not $EmbeddedResources) {
     if (-not (Test-Path -LiteralPath (Join-Path $installRoot "assets\ui\welcome-europe.png"))) { throw "Packaged welcome illustration is missing." }
     if ($localeFiles.Count -lt 12) { throw "Packaged locale folder contains only $($localeFiles.Count) JSON files." }
     if (-not (Test-Path -LiteralPath (Join-Path $installRoot "docs\Nenolink-AI-Marker-User-Guide-EN.pdf"))) { throw "Packaged PDF guide is missing." }
+    if (-not (Test-Path -LiteralPath (Join-Path $installRoot "docs\Nenolink-AI-Marker-User-Guide-DA.pdf"))) { throw "Packaged Danish PDF guide is missing." }
 }
 $processName = [System.IO.Path]::GetFileNameWithoutExtension($resolvedExe)
 $existingIds = @(Get-Process -Name $processName -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
 $previousRuntimeRoot = $env:NENOLINK_RUNTIME_ROOT
 $previousVerifyReport = $env:NENOLINK_VERIFY_REPORT
+$previousVerifyGuideLanguage = $env:NENOLINK_VERIFY_GUIDE_LANGUAGE
 $env:NENOLINK_RUNTIME_ROOT = if ($RuntimeRoot) { $RuntimeRoot } else { Join-Path $WorkingDirectory "Nenolink-AI-Marker-Smoke-Runtime" }
 $verifyReport = Join-Path $WorkingDirectory "Nenolink-AI-Marker-Smoke-$([Guid]::NewGuid().ToString('N')).json"
 $env:NENOLINK_VERIFY_REPORT = $verifyReport
+$env:NENOLINK_VERIFY_GUIDE_LANGUAGE = "da"
 $process = Start-Process -FilePath $resolvedExe -WorkingDirectory $WorkingDirectory -PassThru
 $env:NENOLINK_RUNTIME_ROOT = $previousRuntimeRoot
 $env:NENOLINK_VERIFY_REPORT = $previousVerifyReport
+$env:NENOLINK_VERIFY_GUIDE_LANGUAGE = $previousVerifyGuideLanguage
 $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
 $windowFound = $false
 $launchedProcesses = @()
@@ -37,7 +41,7 @@ try {
         $launchedProcesses = @(Get-Process -Name $processName -ErrorAction SilentlyContinue | Where-Object { $_.Id -notin $existingIds })
         if (Test-Path -LiteralPath $verifyReport) {
             $report = Get-Content -LiteralPath $verifyReport -Raw | ConvertFrom-Json
-            if ($report.translation_keys_visible -or -not $report.welcome_before_image -or -not $report.welcome_illustration -or $report.badges_found -ne 10 -or -not $report.badge_selector_visible -or $report.gallery_badges -ne 10 -or -not $report.gallery_selection_persisted -or -not $report.badges_tab_is_distinct -or -not $report.friendly_status) { throw "Packaged GUI verification report failed." }
+            if ($report.translation_keys_visible -or -not $report.welcome_before_image -or -not $report.welcome_illustration -or $report.badges_found -ne 10 -or -not $report.badge_selector_visible -or $report.gallery_badges -ne 10 -or -not $report.gallery_selection_persisted -or -not $report.badges_tab_is_distinct -or -not $report.friendly_status -or $report.guide_filename -ne "Nenolink-AI-Marker-User-Guide-DA.pdf" -or $report.guide_paths.fr -ne "Nenolink-AI-Marker-User-Guide-EN.pdf" -or $report.danish.welcome_title -ne "Velkommen til Nenolink AI Marker" -or $report.german.welcome_title -ne "Willkommen bei Nenolink AI Marker") { throw "Packaged GUI verification report failed." }
             $windowFound = $true
             break
         }

@@ -1,6 +1,10 @@
 # Nenolink AI Marker - User Guide
 
-Version 0.3.1 | (c) Henrik Nielsen, nenolink.com
+Application version: 0.4.0<br>
+Document language: English<br>
+Updated: 2 September 2026<br>
+Publisher: Nenolink<br>
+Denmark
 
 ## 1. What Nenolink AI Marker does
 
@@ -104,7 +108,13 @@ Nenolink AI Marker adds a visible badge. A visible badge is not the same as ever
 
 Official source: Regulation (EU) 2024/1689, Article 50, EUR-Lex: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689
 
-## 24. Limitations and user responsibility
+## 24. File compatibility and processing limits
+
+Not every image or video file can necessarily be processed. Compatibility and practical processing limits depend on the file format, codec, resolution, duration, file size, whether the file is damaged or corrupt, unusual encoding, available RAM, CPU performance, available disk space, and temporary processing space. Video processing also depends on the installed FFmpeg version and whether FFmpeg supports the file's container, codecs, and encoding.
+
+No fixed maximum file size is defined. A file that works on one computer may fail or take substantially longer on another because practical limits depend partly on the user's computer and available resources. Keep original files and review every processed output before publication or distribution.
+
+## 25. Limitations and user responsibility
 
 You are responsible for selecting an accurate badge, obtaining rights to source media and badge artwork, reviewing outputs, retaining originals, and meeting applicable contractual, platform, accessibility, privacy, intellectual-property, consumer-protection, and AI rules. Visible overlays can be cropped or removed. The tool does not embed cryptographic provenance and does not verify whether content was made with AI.
 
@@ -133,12 +143,15 @@ Nenolink AI Marker must not be presented as:
 - legal advice; or
 - a guarantee that content has been correctly classified.
 
-## 25. Troubleshooting
+## 26. Troubleshooting
 
 - **No badges found:** Confirm that PNG files are directly inside the folder shown in the message, then click **Refresh Badges**.
 - **Custom folder missing:** Reconnect the drive or choose a replacement folder. Standard badges remain available.
 - **Image will not open:** Confirm it is a valid JPG, JPEG, PNG, or WebP, not merely renamed.
-- **Video fails:** Run `ffmpeg -version` in Command Prompt and ensure FFmpeg is on `PATH`.
+- **Large or complex file fails:** Close other demanding applications, confirm sufficient RAM and free disk space, and try a smaller-resolution copy while retaining the original.
+- **Damaged or unusually encoded file:** Open and re-export a copy in a common format with a trusted editor, then process the copy. Never discard the original.
+- **Video fails:** Run `ffmpeg -version` in Command Prompt, ensure FFmpeg is on `PATH`, and confirm that FFmpeg supports the container and codecs. Very long, high-resolution, or unusually encoded videos can require substantial CPU, RAM, disk, and temporary space.
+- **Processing stops or the disk fills:** Free disk space, including space used for temporary processing, then retry. Review the resulting file completely before publication or distribution.
 - **PDF guide does not open:** Confirm `docs\Nenolink-AI-Marker-User-Guide-EN.pdf` remains beside the application structure and that Windows has a default PDF viewer.
 - **Unexpected output location:** Scan again after changing input or output settings and read the displayed destination.
 - **Existing output skipped:** Rename or move the existing `_ai` file. The application does not overwrite it.
