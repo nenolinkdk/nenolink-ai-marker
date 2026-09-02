@@ -14,7 +14,6 @@
   "badge.found": "Nalezeno {count} odznaků v {folder}",
   "badge.not_found": "Nebyly nalezeny odznaky PNG. Prohledaná složka: {folder}",
   "badge.not_found_preview": "Nejsou dostupné odznaky PNG.\nProhledaná složka:\n{folder}",
-  "badge.custom_missing": "Vlastní složka není dostupná: {folder}. Používají se standardní odznaky z {fallback}.",
   "position": "Pozice",
   "position.top_left": "Vlevo nahoře",
   "position.top_right": "Vpravo nahoře",
@@ -70,5 +69,13 @@
   "welcome.title": "Vítejte v Nenolink AI Marker",
   "welcome.tagline": "Zviditelněte využití AI. Budujte důvěru.",
   "welcome.description1": "Jasně ukažte, kdy a jak byla umělá inteligence použita v obrázcích a videích.",
-  "welcome.description2": "Vyberte odznak, umístěte jej na svůj obsah a pomozte zprůhlednit využití AI."
+  "welcome.description2": "Vyberte odznak, umístěte jej na svůj obsah a pomozte zprůhlednit využití AI.",
+  "badge.help": "Použijte standardní odznaky Nenolink nebo vyberte složku s vlastními obrázky odznaků.\n\nPoužívejte srozumitelné názvy souborů, například:\nmy-company-ai-assisted.png\n\nNázev souboru se používá jako zobrazovaný název vlastního odznaku.\n\nPodporované formáty: PNG, JPG, JPEG a WEBP.\nDoporučuje se průhledný PNG.",
+  "badge.custom_missing": "Složku s vlastními odznaky se nepodařilo najít.",
+  "badge.custom_empty": "V této složce nebyly nalezeny žádné podporované obrázky odznaků.",
+  "badge.source_label": "Zdroj odznaků",
+  "badge.source_standard": "Standardní odznaky Nenolink",
+  "badge.source_custom": "Složka s vlastními odznaky",
+  "badge.loaded_standard": "Načteno standardních odznaků: {count}",
+  "badge.loaded_custom": "Načteno vlastních odznaků: {count}"
 }

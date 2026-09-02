@@ -11,7 +11,7 @@ import customtkinter as ctk
 from PIL import Image
 
 from . import __version__
-from .badges import BadgeSourceManager
+from .badges import BadgeSourceManager, choose_badge_selection
 from .batch import BatchProcessor, BatchResult, FolderScan, destination_root, scan_folder
 from .config import ConfigStore
 from .guide import open_user_guide
@@ -62,6 +62,8 @@ class MarkerApp(ctk.CTk):
         self._build_ui(); boot("UI built"); self.apply_translations(); self.refresh_badges(False); boot("resources loaded"); self.protocol("WM_DELETE_WINDOW", self.destroy)
         if os.environ.get("NENOLINK_VERIFY_FILE_DIALOG") == "1":
             self.after(800, self.open_images)
+        if os.environ.get("NENOLINK_VERIFY_BADGE_FOLDER_DIALOG") == "1":
+            self.after(800, self.browse_custom_badges)
         if os.environ.get("NENOLINK_VERIFY_REPORT"):
             self.after(800, self._write_hotfix_verification)
 
@@ -130,12 +132,16 @@ class MarkerApp(ctk.CTk):
 
     def _settings_ui(self) -> None:
         tab=self.settings_tab; tab.grid_columnconfigure(0,weight=1); tab.grid_rowconfigure(3,weight=1)
-        source=ctk.CTkFrame(tab); self.badge_source_frame=source; source.grid(row=0,column=0,padx=16,pady=(14,6),sticky="ew"); source.grid_columnconfigure(1,weight=1)
-        self.badge_source_heading=ctk.CTkLabel(source,text="",font=ctk.CTkFont(weight="bold")); self.badge_source_heading.grid(row=0,column=0,padx=(12,6),pady=12,sticky="w")
-        self.badge_source_value=ctk.CTkLabel(source,text=""); self.badge_source_value.grid(row=0,column=1,padx=6,pady=12,sticky="w")
-        self.choose_badge_folder_button=ctk.CTkButton(source,text="",command=self.browse_custom_badges); self.choose_badge_folder_button.grid(row=0,column=2,padx=6,pady=8)
-        self.refresh_button=ctk.CTkButton(source,text="",command=self.refresh_badges); self.refresh_button.grid(row=0,column=3,padx=(6,12),pady=8)
-        self.custom_entry=ctk.CTkEntry(tab,textvariable=self.custom_badge_var); self.custom_entry.grid(row=1,column=0,padx=16,pady=4,sticky="ew")
+        source=ctk.CTkFrame(tab); self.badge_source_frame=source; source.grid(row=0,column=0,padx=16,pady=(14,6),sticky="ew"); source.grid_columnconfigure(0,weight=1)
+        self.badge_source_heading=ctk.CTkLabel(source,text="",font=ctk.CTkFont(weight="bold")); self.badge_source_heading.grid(row=0,column=0,padx=12,pady=(10,4),sticky="w")
+        self.standard_badge_radio=ctk.CTkRadioButton(source,text="",variable=self.badge_source_var,value="standard",command=self.change_badge_source); self.standard_badge_radio.grid(row=1,column=0,padx=16,pady=4,sticky="w")
+        self.custom_badge_radio=ctk.CTkRadioButton(source,text="",variable=self.badge_source_var,value="custom",command=self.change_badge_source); self.custom_badge_radio.grid(row=2,column=0,padx=16,pady=4,sticky="w")
+        self.custom_controls=ctk.CTkFrame(source,fg_color="transparent"); self.custom_controls.grid(row=3,column=0,padx=16,pady=(4,10),sticky="ew"); self.custom_controls.grid_columnconfigure(0,weight=1)
+        self.custom_folder_label=ctk.CTkLabel(self.custom_controls,text=""); self.custom_folder_label.grid(row=0,column=0,columnspan=2,sticky="w")
+        self.custom_entry=ctk.CTkEntry(self.custom_controls,textvariable=self.custom_badge_var); self.custom_entry.grid(row=1,column=0,padx=(0,8),pady=4,sticky="ew")
+        self.choose_badge_folder_button=ctk.CTkButton(self.custom_controls,text="",command=self.browse_custom_badges); self.choose_badge_folder_button.grid(row=1,column=1,padx=4,pady=4)
+        self.refresh_button=ctk.CTkButton(self.custom_controls,text="",command=self.refresh_badges); self.refresh_button.grid(row=1,column=2,padx=(4,0),pady=4)
+        self.badge_help=ctk.CTkLabel(tab,text="",justify="left",anchor="w",wraplength=1050); self.badge_help.grid(row=1,column=0,padx=20,pady=4,sticky="ew")
         self.badge_gallery_title=ctk.CTkLabel(tab,text="",font=ctk.CTkFont(size=18,weight="bold")); self.badge_gallery_title.grid(row=2,column=0,padx=16,pady=(10,2),sticky="w")
         self.gallery=ctk.CTkScrollableFrame(tab); self.gallery.grid(row=3,column=0,padx=16,pady=(4,14),sticky="nsew")
         for column in range(5): self.gallery.grid_columnconfigure(column,weight=1)
@@ -168,8 +174,8 @@ class MarkerApp(ctk.CTk):
             if old != new:self.tabs.rename(old,new); self.tab_names[key]=new
         self.open_button.configure(text=t("button.open_images")); self.process_button.configure(text=t("button.process")); self.file_label.configure(text=t("files.none") if not self.sources else t("files.selected",count=len(self.sources),name=self.sources[0].name))
         self.position_label.configure(text=t("position")); self.size_label.configure(text=t("size.value",value=self.size_var.get())); self.margin_label.configure(text=t("margin.value",value=self.margin_var.get())); self.opacity_label.configure(text=t("opacity.value",value=self.opacity_var.get()))
-        self.single_badge_label.configure(text=t("badge")); self.badge_source_heading.configure(text=t("badge.source_label")); self.badge_source_value.configure(text=t("badge.source_standard") if self.badge_source_var.get()=="standard" else t("badge.source_custom")); self.custom_entry.configure(placeholder_text=t("badge.custom_path"))
-        self.choose_badge_folder_button.configure(text=t("button.choose_badge_folder")); self.refresh_button.configure(text=t("badge.refresh")); self.badge_gallery_title.configure(text=t("badge.gallery"))
+        self.single_badge_label.configure(text=t("badge")); self.badge_source_heading.configure(text=t("badge.source_label")); self.standard_badge_radio.configure(text=t("badge.source_standard")); self.custom_badge_radio.configure(text=t("badge.source_custom")); self.custom_folder_label.configure(text=t("badge.custom_path")+":"); self.custom_entry.configure(placeholder_text=t("badge.custom_path"))
+        self.choose_badge_folder_button.configure(text=t("button.choose_badge_folder")); self.refresh_button.configure(text=t("badge.refresh")); self.badge_gallery_title.configure(text=t("badge.gallery")); self.badge_help.configure(text=t("badge.help")); self._show_badge_source_controls()
         self.input_label.configure(text=t("batch.input")); self.choose_input_button.configure(text=t("button.choose_input")); self.choose_output_button.configure(text=t("button.choose_output")); self.output_subfolder_radio.configure(text=t("batch.output_subfolder")); self.output_separate_radio.configure(text=t("batch.output_separate"))
         self.welcome_title.configure(text=t("welcome.title")); self.welcome_tagline.configure(text=t("welcome.tagline")); self.welcome_description1.configure(text=t("welcome.description1")); self.welcome_description2.configure(text=t("welcome.description2"))
         for key,check in self.batch_checks: check.configure(text=t(key))
@@ -178,7 +184,10 @@ class MarkerApp(ctk.CTk):
     def change_language(self,name): self.translator.set_language(LANGUAGES.get(name,"en")); self.apply_translations(); self._save()
     def changed(self,*_):
         self.size_label.configure(text=self.translator.text("size.value",value=self.size_var.get())); self.margin_label.configure(text=self.translator.text("margin.value",value=self.margin_var.get())); self.opacity_label.configure(text=self.translator.text("opacity.value",value=self.opacity_var.get())); self.update_preview(); self._save()
-    def change_badge_source(self): self.refresh_badges(); self._save()
+    def change_badge_source(self): self._show_badge_source_controls(); self.refresh_badges(); self._save()
+    def _show_badge_source_controls(self):
+        if self.badge_source_var.get()=="custom":self.custom_controls.grid()
+        else:self.custom_controls.grid_remove()
     def select_badge(self):
         self.badge_display_var.set(self.badges.display_name(self.badge_var.get()))
         self.update_badge_preview(); self.update_gallery_selection(); self.update_preview(); self._save()
@@ -193,17 +202,17 @@ class MarkerApp(ctk.CTk):
 
     def refresh_badges(self,show_dialog=True):
         self.badges=self.badge_sources.repository(self.badge_source_var.get(),self.custom_badge_var.get()); missing=self.badge_sources.fallback_reason
-        if missing:self.badge_source_var.set("standard")
         names=[p.name for p in self.badges.display_badges()]
         displays=[self.badges.display_name(name) for name in names]; self.badge_display_to_file=dict(zip(displays,names)); self.badge_menu.configure(values=displays or [self.translator.text("badge.none")])
-        if self.badge_var.get() not in names:self.badge_var.set(names[0] if names else self.translator.text("badge.none"))
-        if missing:text=self.translator.text("badge.custom_missing",folder=missing,fallback=self.badges.directory)
+        self.badge_var.set(choose_badge_selection(self.badge_source_var.get(),names,self.badge_var.get()))
+        if missing:text=self.translator.text("badge.custom_missing")
         elif names and self.badge_source_var.get()=="standard":text=self.translator.text("badge.loaded_standard",count=len(names))
         elif names:text=self.translator.text("badge.loaded_custom",count=len(names))
+        elif self.badge_source_var.get()=="custom":text=self.translator.text("badge.custom_empty")
         else:text=self.translator.text("badge.not_found",folder=self.badges.directory)
         self.status_var.set(text)
         if show_dialog and (missing or not names):messagebox.showwarning(self.translator.text("warning.title"),text)
-        self.badge_source_value.configure(text=self.translator.text("badge.source_standard") if self.badge_source_var.get()=="standard" else self.translator.text("badge.source_custom")); self.rebuild_badge_gallery(); self.select_badge()
+        self._show_badge_source_controls(); self.rebuild_badge_gallery(); self.select_badge()
 
     def rebuild_badge_gallery(self):
         for widget in self.gallery.winfo_children():widget.destroy()
@@ -227,7 +236,7 @@ class MarkerApp(ctk.CTk):
         try:
             with Image.open(badge) as opened:image=opened.convert("RGBA")
             image.thumbnail((110,54),Image.Resampling.LANCZOS); self.single_badge_photo=ctk.CTkImage(light_image=image,dark_image=image,size=image.size); self.badge_photo=self.single_badge_photo; self.single_badge_preview_label.configure(image=self.single_badge_photo,text="")
-            info=self.badges.metadata(badge.name); self.badge_name_var.set(info.display_name if info else badge.stem.replace("-"," ").title()); self.badge_description_var.set(info.description if info else self.translator.text("badge.custom_description"))
+            info=self.badges.metadata(badge.name); self.badge_name_var.set(info.display_name if info else self.badges.display_name(badge.name)); self.badge_description_var.set(info.description if info else self.translator.text("badge.custom_description"))
         except OSError as error:self.single_badge_preview_label.configure(image=None,text=str(error))
 
     def open_images(self):
@@ -289,6 +298,7 @@ class MarkerApp(ctk.CTk):
     def _write_hotfix_verification(self):
         """Exercise the real packaged widgets for release verification only."""
         report_path=Path(os.environ["NENOLINK_VERIFY_REPORT"])
+        initial_badge_settings={"source":self.badge_source_var.get(),"folder":self.custom_badge_var.get(),"selection":self.badge_var.get(),"status":self.status_var.get(),"count":len(self.badges.display_badges()),"custom_controls_visible":self.custom_controls.winfo_manager()=="grid"}
         welcome_before_image=self.welcome_frame.winfo_manager()=="grid" and self.preview_label.winfo_manager()==""
         welcome_illustration=bool(self.welcome_image and self.welcome_photo)
         self.change_language("English"); self.update()
@@ -296,7 +306,7 @@ class MarkerApp(ctk.CTk):
         self.change_language("Dansk"); self.update(); danish={"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text"),"tabs":list(self.tab_names.values()),"welcome_title":self.welcome_title.cget("text"),"welcome_tagline":self.welcome_tagline.cget("text"),"welcome_description1":self.welcome_description1.cget("text"),"welcome_description2":self.welcome_description2.cget("text")}
         self.change_language("Deutsch"); self.update(); german={"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text"),"welcome_title":self.welcome_title.cget("text"),"welcome_tagline":self.welcome_tagline.cget("text"),"welcome_description1":self.welcome_description1.cget("text"),"welcome_description2":self.welcome_description2.cget("text")}
         self.change_language("Français"); self.update(); french={"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text")}
-        self.change_language("English"); badge_names=[p.name for p in self.badges.display_badges()]
+        self.change_language("English"); self.badge_source_var.set("standard"); self.refresh_badges(False); badge_names=[p.name for p in self.badges.display_badges()]
         selected=[]
         for name in ("ai-assisted.png","ai-generated.png","ai-translation.png"):
             self.badge_var.set(name); self.select_badge(); self.update(); selected.append({"file":name,"display":self.badge_name_var.get(),"preview":bool(self.badge_photo)})
@@ -308,13 +318,26 @@ class MarkerApp(ctk.CTk):
             assisted=self.processor.process(Path(sample),self.badges.find("ai-assisted.png"),self.settings())
             selected_badge_written=translation.tobytes()!=assisted.tobytes() and self.badge_var.get()=="ai-translation.png"
         self.select_gallery_badge("ai-software.png"); gallery_selection_persisted=self.badge_var.get()=="ai-software.png" and self.badge_display_var.get()=="AI Software"
+        custom_verification=None
+        custom_folder=os.environ.get("NENOLINK_VERIFY_CUSTOM_BADGES")
+        if custom_folder:
+            self.custom_badge_var.set(custom_folder); self.badge_source_var.set("custom"); self.refresh_badges(False); self.update()
+            custom_paths=self.badges.display_badges(); custom_names=[path.name for path in custom_paths]
+            custom_displays=[self.badges.display_name(path.name) for path in custom_paths]
+            if custom_paths:
+                chosen=custom_paths[-1]; self.select_gallery_badge(chosen.name); self.update()
+                if sample:self.sources=[Path(sample)]; self.update_preview(); self.update()
+                output=report_path.with_name("verified-custom-output.png")
+                processed=self.processor.process(Path(sample),chosen,self.settings()) if sample else None
+                if processed is not None:self.processor.save(processed,output)
+                custom_verification={"files":custom_names,"displays":custom_displays,"selected":self.badge_var.get(),"selector_values":list(self.badge_menu.cget("values")),"gallery_badges":len(self.gallery_buttons),"preview":bool(self.preview_photo),"output_saved":output.is_file(),"status":self.status_var.get(),"source_controls_visible":self.custom_controls.winfo_manager()=="grid"}
         guide_paths={code:localized_user_guide_path(code) for code in ("da","en","fr")}
         guide_language=os.environ.get("NENOLINK_VERIFY_GUIDE_LANGUAGE","en").lower()
         guide=localized_user_guide_path(guide_language); guide_opened=False
         if os.environ.get("NENOLINK_VERIFY_OPEN_GUIDE") == "1":
             try:open_user_guide(guide); guide_opened=True
             except OSError:guide_opened=False
-        payload={"english":english,"danish":danish,"german":german,"french":french,"welcome_before_image":welcome_before_image,"welcome_illustration":welcome_illustration,"welcome_hidden_after_image":(not sample or self.welcome_frame.winfo_manager()==""),"badges_found":len(badge_names),"badge_selector_visible":self.badge_menu.winfo_manager()=="grid","badge_selector_values":list(self.badge_menu.cget("values")),"gallery_badges":len(self.gallery_buttons),"gallery_selection_persisted":gallery_selection_persisted,"badges_tab_is_distinct":self.badge_source_frame.master is self.settings_tab,"selected_badges":selected,"image_preview":bool(self.preview_photo),"selected_badge_written":selected_badge_written,"friendly_status":("_MEI" not in self.status_var.get() and "assets" not in self.status_var.get()),"process_button_state":self.process_button.cget("state"),"guide_language":guide_language,"guide_filename":guide.name,"guide_paths":{code:path.name for code,path in guide_paths.items()},"guide_exists":guide.is_file(),"guide_opened":guide_opened,"translation_keys_visible":any("." in str(value) and " " not in str(value) for group in (english,danish,german,french) for value in group.values() if isinstance(value,str))}
+        payload={"english":english,"danish":danish,"german":german,"french":french,"initial_badge_settings":initial_badge_settings,"welcome_before_image":welcome_before_image,"welcome_illustration":welcome_illustration,"welcome_hidden_after_image":(not sample or self.welcome_frame.winfo_manager()==""),"badges_found":len(badge_names),"badge_selector_visible":self.badge_menu.winfo_manager()=="grid","badge_selector_values":list(self.badge_menu.cget("values")),"gallery_badges":len(self.gallery_buttons),"gallery_selection_persisted":gallery_selection_persisted,"badges_tab_is_distinct":self.badge_source_frame.master is self.settings_tab,"selected_badges":selected,"image_preview":bool(self.preview_photo),"selected_badge_written":selected_badge_written,"custom_verification":custom_verification,"friendly_status":("_MEI" not in self.status_var.get() and "assets" not in self.status_var.get()),"process_button_state":self.process_button.cget("state"),"guide_language":guide_language,"guide_filename":guide.name,"guide_paths":{code:path.name for code,path in guide_paths.items()},"guide_exists":guide.is_file(),"guide_opened":guide_opened,"translation_keys_visible":any("." in str(value) and " " not in str(value) for group in (english,danish,german,french) for value in group.values() if isinstance(value,str))}
         report_path.write_text(json.dumps(payload,indent=2),encoding="utf-8"); self.destroy()
 
     def settings(self):

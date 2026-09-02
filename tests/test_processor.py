@@ -44,6 +44,27 @@ class ProcessorTests(unittest.TestCase):
         result = ImageProcessor().process(self.source, self.badge, MarkerSettings(position="top-left", margin=2000))
         self.assertEqual(result.getpixel((49, 49))[:3], (255, 0, 0))
 
+    def test_custom_webp_badge_is_used_for_preview_processing(self):
+        custom = self.root / "company-ai-badge.webp"
+        Image.new("RGB", (100, 50), "blue").save(custom, "WEBP", lossless=True)
+        result = ImageProcessor().process(
+            self.source, custom,
+            MarkerSettings(position="top-left", size_percent=20, margin=0, opacity=100),
+        )
+        red, green, blue, _ = result.getpixel((1, 1))
+        self.assertGreater(blue, 240)
+        self.assertLess(red, 15)
+
+    def test_custom_jpeg_badge_can_be_saved_to_final_output(self):
+        custom = self.root / "company-ai-badge.jpg"
+        target = self.root / "processed.png"
+        Image.new("RGB", (100, 50), "green").save(custom, "JPEG", quality=100)
+        processor = ImageProcessor()
+        processor.save(processor.process(self.source, custom, MarkerSettings(size_percent=20, margin=0)), target)
+        self.assertTrue(target.is_file())
+        with Image.open(target) as result:
+            self.assertGreater(result.getpixel((199, 99))[1], 100)
+
 
 if __name__ == "__main__":
     unittest.main()

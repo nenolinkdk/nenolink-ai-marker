@@ -14,7 +14,6 @@
   "badge.found": "Znaleziono {count} odznak(i) w {folder}",
   "badge.not_found": "Nie znaleziono odznak PNG. Przeszukany folder: {folder}",
   "badge.not_found_preview": "Brak odznak PNG.\nPrzeszukany folder:\n{folder}",
-  "badge.custom_missing": "Własny folder jest niedostępny: {folder}. Używane są standardowe odznaki z {fallback}.",
   "position": "Pozycja",
   "position.top_left": "Lewy górny róg",
   "position.top_right": "Prawy górny róg",
@@ -70,5 +69,13 @@
   "welcome.title": "Witamy w Nenolink AI Marker",
   "welcome.tagline": "Pokaż wykorzystanie AI. Buduj zaufanie.",
   "welcome.description1": "Wyraźnie pokazuj, kiedy i w jaki sposób sztuczna inteligencja została wykorzystana w obrazach i filmach.",
-  "welcome.description2": "Wybierz oznaczenie, umieść je na swojej treści i pomóż zwiększać przejrzystość wykorzystania AI."
+  "welcome.description2": "Wybierz oznaczenie, umieść je na swojej treści i pomóż zwiększać przejrzystość wykorzystania AI.",
+  "badge.help": "Użyj standardowych oznaczeń Nenolink lub wybierz folder zawierający własne obrazy oznaczeń.\n\nUżywaj czytelnych nazw plików, na przykład:\nmy-company-ai-assisted.png\n\nNazwa pliku jest używana jako nazwa wyświetlana niestandardowego oznaczenia.\n\nObsługiwane formaty: PNG, JPG, JPEG i WEBP.\nZalecany jest przezroczysty PNG.",
+  "badge.custom_missing": "Nie znaleziono folderu z niestandardowymi oznaczeniami.",
+  "badge.custom_empty": "W tym folderze nie znaleziono obsługiwanych obrazów oznaczeń.",
+  "badge.source_label": "Źródło oznaczeń",
+  "badge.source_standard": "Standardowe oznaczenia Nenolink",
+  "badge.source_custom": "Folder niestandardowych oznaczeń",
+  "badge.loaded_standard": "Wczytano standardowe oznaczenia: {count}",
+  "badge.loaded_custom": "Wczytano niestandardowe oznaczenia: {count}"
 }

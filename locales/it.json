@@ -14,7 +14,6 @@
   "badge.found": "Trovati {count} badge in {folder}",
   "badge.not_found": "Nessun badge PNG trovato. Cartella cercata: {folder}",
   "badge.not_found_preview": "Nessun badge PNG disponibile.\nCartella cercata:\n{folder}",
-  "badge.custom_missing": "Cartella personalizzata non disponibile: {folder}. Uso dei badge standard da {fallback}.",
   "position": "Posizione",
   "position.top_left": "In alto a sinistra",
   "position.top_right": "In alto a destra",
@@ -70,5 +69,13 @@
   "welcome.title": "Benvenuto in Nenolink AI Marker",
   "welcome.tagline": "Rendi visibile l'uso dell'IA. Crea fiducia.",
   "welcome.description1": "Mostra chiaramente quando e come l'intelligenza artificiale è stata utilizzata nelle immagini e nei video.",
-  "welcome.description2": "Scegli un badge, posizionalo sui tuoi contenuti e contribuisci a rendere più trasparente l'uso dell'IA."
+  "welcome.description2": "Scegli un badge, posizionalo sui tuoi contenuti e contribuisci a rendere più trasparente l'uso dell'IA.",
+  "badge.help": "Usa i badge standard Nenolink oppure seleziona una cartella contenente le tue immagini badge.\n\nUsa nomi di file chiari, ad esempio:\nmy-company-ai-assisted.png\n\nIl nome del file viene usato come nome visualizzato per i badge personalizzati.\n\nFormati supportati: PNG, JPG, JPEG e WEBP.\nÈ consigliato il formato PNG trasparente.",
+  "badge.custom_missing": "La cartella dei badge personalizzati non è stata trovata.",
+  "badge.custom_empty": "In questa cartella non sono state trovate immagini badge supportate.",
+  "badge.source_label": "Origine badge",
+  "badge.source_standard": "Badge standard Nenolink",
+  "badge.source_custom": "Cartella badge personalizzati",
+  "badge.loaded_standard": "{count} badge standard caricati",
+  "badge.loaded_custom": "{count} badge personalizzati caricati"
 }

@@ -14,7 +14,6 @@
   "badge.found": "{count} Abzeichen in {folder} gefunden",
   "badge.not_found": "Keine PNG-Abzeichen gefunden. Durchsuchter Ordner: {folder}",
   "badge.not_found_preview": "Keine PNG-Abzeichen verfügbar.\nDurchsuchter Ordner:\n{folder}",
-  "badge.custom_missing": "Eigener Abzeichenordner nicht verfügbar: {folder}. Standardabzeichen aus {fallback} werden verwendet.",
   "position": "Position",
   "position.top_left": "Oben links",
   "position.top_right": "Oben rechts",
@@ -70,5 +69,13 @@
   "welcome.title": "Willkommen bei Nenolink AI Marker",
   "welcome.tagline": "KI-Nutzung sichtbar machen. Vertrauen schaffen.",
   "welcome.description1": "Zeigen Sie deutlich, wann und wie künstliche Intelligenz in Bildern und Videos eingesetzt wurde.",
-  "welcome.description2": "Wählen Sie ein Badge, platzieren Sie es auf Ihrem Inhalt und tragen Sie dazu bei, den Einsatz von KI transparenter zu machen."
+  "welcome.description2": "Wählen Sie ein Badge, platzieren Sie es auf Ihrem Inhalt und tragen Sie dazu bei, den Einsatz von KI transparenter zu machen.",
+  "badge.help": "Verwenden Sie die Nenolink-Standard-Badges oder wählen Sie einen Ordner mit eigenen Badge-Bildern.\n\nVerwenden Sie eindeutige Dateinamen, zum Beispiel:\nmy-company-ai-assisted.png\n\nDer Dateiname wird als Anzeigename für benutzerdefinierte Badges verwendet.\n\nUnterstützte Formate: PNG, JPG, JPEG und WEBP.\nTransparentes PNG wird empfohlen.",
+  "badge.custom_missing": "Der Ordner mit benutzerdefinierten Badges wurde nicht gefunden.",
+  "badge.custom_empty": "In diesem Ordner wurden keine unterstützten Badge-Bilder gefunden.",
+  "badge.source_label": "Badge-Quelle",
+  "badge.source_standard": "Nenolink-Standard-Badges",
+  "badge.source_custom": "Ordner mit benutzerdefinierten Badges",
+  "badge.loaded_standard": "{count} Standard-Badges geladen",
+  "badge.loaded_custom": "{count} benutzerdefinierte Badges geladen"
 }

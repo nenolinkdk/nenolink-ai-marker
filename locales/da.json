@@ -14,7 +14,6 @@
   "badge.found": "Fandt {count} mærke(r) i {folder}",
   "badge.not_found": "Ingen PNG-mærker fundet. Søgt mappe: {folder}",
   "badge.not_found_preview": "Ingen PNG-mærker tilgængelige.\nSøgt mappe:\n{folder}",
-  "badge.custom_missing": "Den valgte mærkemappe er ikke tilgængelig: {folder}. Bruger standardmærker fra {fallback}.",
   "position": "Placering",
   "position.top_left": "Øverst til venstre",
   "position.top_right": "Øverst til højre",
@@ -70,5 +69,13 @@
   "welcome.title": "Velkommen til Nenolink AI Marker",
   "welcome.tagline": "Gør brugen af AI synlig. Skab tillid.",
   "welcome.description1": "Vis tydeligt, hvornår og hvordan kunstig intelligens er blevet anvendt i billeder og videoer.",
-  "welcome.description2": "Vælg et badge, placer det på dit indhold, og hjælp med at gøre brugen af AI mere gennemsigtig."
+  "welcome.description2": "Vælg et badge, placer det på dit indhold, og hjælp med at gøre brugen af AI mere gennemsigtig.",
+  "badge.help": "Brug Nenolink Standard Badges, eller vælg en mappe med dine egne badge-billeder.\n\nBrug tydelige filnavne, for eksempel:\nmy-company-ai-assisted.png\n\nFilnavnet bruges som visningsnavn for brugerdefinerede badges.\n\nUnderstøttede formater: PNG, JPG, JPEG og WEBP.\nTransparent PNG anbefales.",
+  "badge.custom_missing": "Mappen med brugerdefinerede badges blev ikke fundet.",
+  "badge.custom_empty": "Der blev ikke fundet understøttede badge-billeder i denne mappe.",
+  "badge.source_label": "Badge-kilde",
+  "badge.source_standard": "Nenolink Standard Badges",
+  "badge.source_custom": "Brugerdefineret badge-mappe",
+  "badge.loaded_standard": "{count} standardbadges indlæst",
+  "badge.loaded_custom": "{count} brugerdefinerede badges indlæst"
 }

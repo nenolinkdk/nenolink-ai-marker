@@ -14,7 +14,6 @@
   "badge.found": "Hittade {count} märke(n) i {folder}",
   "badge.not_found": "Inga PNG-märken hittades. Genomsökt mapp: {folder}",
   "badge.not_found_preview": "Inga PNG-märken tillgängliga.\nGenomsökt mapp:\n{folder}",
-  "badge.custom_missing": "Anpassad mapp är inte tillgänglig: {folder}. Standardmärken från {fallback} används.",
   "position": "Placering",
   "position.top_left": "Övre vänster",
   "position.top_right": "Övre höger",
@@ -70,5 +69,13 @@
   "welcome.title": "Välkommen till Nenolink AI Marker",
   "welcome.tagline": "Gör användningen av AI synlig. Skapa förtroende.",
   "welcome.description1": "Visa tydligt när och hur artificiell intelligens har använts i bilder och videor.",
-  "welcome.description2": "Välj ett märke, placera det på ditt innehåll och bidra till att göra användningen av AI mer transparent."
+  "welcome.description2": "Välj ett märke, placera det på ditt innehåll och bidra till att göra användningen av AI mer transparent.",
+  "badge.help": "Använd Nenolinks standardmärken eller välj en mapp med egna märkesbilder.\n\nAnvänd tydliga filnamn, till exempel:\nmy-company-ai-assisted.png\n\nFilnamnet används som visningsnamn för anpassade märken.\n\nFormat som stöds: PNG, JPG, JPEG och WEBP.\nTransparent PNG rekommenderas.",
+  "badge.custom_missing": "Mappen med anpassade märken kunde inte hittas.",
+  "badge.custom_empty": "Inga märkesbilder i format som stöds hittades i den här mappen.",
+  "badge.source_label": "Märkeskälla",
+  "badge.source_standard": "Nenolinks standardmärken",
+  "badge.source_custom": "Mapp med anpassade märken",
+  "badge.loaded_standard": "{count} standardmärken inlästa",
+  "badge.loaded_custom": "{count} anpassade märken inlästa"
 }

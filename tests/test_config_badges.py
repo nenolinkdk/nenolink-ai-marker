@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from nenolink_ai_marker.badges import BadgeRepository, BadgeSourceManager, EXPECTED_STANDARD_BADGES
+from nenolink_ai_marker.badges import BadgeRepository, BadgeSourceManager, EXPECTED_STANDARD_BADGES, choose_badge_selection, custom_badge_display_name
 from nenolink_ai_marker.config import ConfigStore, default_config_path
 from nenolink_ai_marker.models import MarkerSettings
 from nenolink_ai_marker.paths import application_root, badge_directory, locale_directory, welcome_image_path
@@ -40,17 +40,37 @@ class ConfigAndBadgeTests(unittest.TestCase):
             root = Path(directory)
             (root / "B.png").touch()
             (root / "a.PNG").touch()
-            (root / "ignore.jpg").touch()
-            self.assertEqual([p.name for p in BadgeRepository(root).list_badges()], ["a.PNG", "B.png"])
+            (root / "photo.jpg").touch()
+            (root / "portrait.JPEG").touch()
+            (root / "label.webp").touch()
+            (root / "ignore.txt").touch()
+            self.assertEqual(
+                [p.name for p in BadgeRepository(root).list_badges()],
+                ["a.PNG", "B.png", "label.webp", "photo.jpg", "portrait.JPEG"],
+            )
+
+    def test_custom_filename_becomes_readable_display_name(self):
+        self.assertEqual(custom_badge_display_name("my-company-ai-assisted.png"), "My Company AI Assisted")
+        self.assertEqual(custom_badge_display_name("human_reviewed_red.png"), "Human Reviewed Red")
+        self.assertEqual(custom_badge_display_name("ai-generated-company-x.webp"), "AI Generated Company X")
 
     def test_standard_badges_use_documented_ui_order_and_names(self):
-        repository = BadgeRepository(Path("assets/badges"))
+        repository = BadgeRepository(Path("assets/badges"), standard=True)
         self.assertEqual([path.name for path in repository.display_badges()], list(EXPECTED_STANDARD_BADGES))
         self.assertEqual(
             [repository.display_name(path.name) for path in repository.display_badges()],
             ["AI Assisted", "AI Generated", "AI Modified", "Human Reviewed", "AI Image",
              "AI Video", "AI Audio", "AI Software", "AI Translation", "AI Localization"],
         )
+
+    def test_standard_gallery_ignores_nonstandard_image_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "ai-assisted.png").touch(); (root / "unofficial.jpg").touch()
+            self.assertEqual(
+                [path.name for path in BadgeRepository(root, standard=True).display_badges()],
+                ["ai-assisted.png"],
+            )
 
     def test_default_badge_is_ai_assisted(self):
         self.assertEqual(MarkerSettings().badge_name, "ai-assisted.png")
@@ -102,14 +122,40 @@ class ConfigAndBadgeTests(unittest.TestCase):
             self.assertEqual([p.name for p in manager.repository("custom", str(custom)).list_badges()], ["custom.png"])
             self.assertEqual([p.name for p in manager.repository("standard", str(custom)).list_badges()], ["standard.png"])
 
-    def test_missing_custom_folder_falls_back_to_standard(self):
+    def test_missing_custom_folder_stays_custom_and_reports_missing(self):
         with tempfile.TemporaryDirectory() as directory:
             standard = Path(directory) / "standard"; standard.mkdir()
             (standard / "standard.png").touch()
             manager = BadgeSourceManager(standard)
             repository = manager.repository("custom", str(Path(directory) / "missing"))
-            self.assertEqual(repository.directory, standard)
+            self.assertEqual(repository.directory, Path(directory) / "missing")
+            self.assertEqual(repository.list_badges(), [])
             self.assertTrue(manager.fallback_reason)
+
+    def test_empty_custom_folder_returns_no_badges(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "notes.txt").touch()
+            manager = BadgeSourceManager(root / "standard")
+            self.assertEqual(manager.repository("custom", str(root)).list_badges(), [])
+            self.assertFalse(manager.fallback_reason)
+
+    def test_source_switching_restores_standard_repository(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); standard = root / "standard"; custom = root / "custom"
+            standard.mkdir(); custom.mkdir()
+            (standard / "ai-assisted.png").touch(); (custom / "my-ai.webp").touch()
+            manager = BadgeSourceManager(standard)
+            self.assertEqual(manager.repository("custom", str(custom)).list_badges()[0].name, "my-ai.webp")
+            self.assertEqual(manager.repository("standard", str(custom)).list_badges()[0].name, "ai-assisted.png")
+
+    def test_badge_selection_fallback_rules(self):
+        standard = ["ai-generated.png", "ai-assisted.png"]
+        custom = ["company-one.jpg", "company-two.webp"]
+        self.assertEqual(choose_badge_selection("standard", standard, "missing.png"), "ai-assisted.png")
+        self.assertEqual(choose_badge_selection("custom", custom, "missing.png"), "company-one.jpg")
+        self.assertEqual(choose_badge_selection("custom", custom, "company-two.webp"), "company-two.webp")
+        self.assertEqual(choose_badge_selection("custom", [], "missing.png"), "")
 
     def test_refresh_discovers_new_badge(self):
         with tempfile.TemporaryDirectory() as directory:

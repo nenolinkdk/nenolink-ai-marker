@@ -14,7 +14,6 @@
   "badge.found": "Encontrados {count} selo(s) em {folder}",
   "badge.not_found": "Nenhum selo PNG encontrado. Pasta pesquisada: {folder}",
   "badge.not_found_preview": "Nenhum selo PNG disponível.\nPasta pesquisada:\n{folder}",
-  "badge.custom_missing": "Pasta personalizada indisponível: {folder}. A usar selos padrão de {fallback}.",
   "position": "Posição",
   "position.top_left": "Superior esquerda",
   "position.top_right": "Superior direita",
@@ -70,5 +69,13 @@
   "welcome.title": "Bem-vindo ao Nenolink AI Marker",
   "welcome.tagline": "Torne visível a utilização da IA. Promova a confiança.",
   "welcome.description1": "Mostre claramente quando e como a inteligência artificial foi utilizada em imagens e vídeos.",
-  "welcome.description2": "Escolha um selo, coloque-o no seu conteúdo e ajude a tornar mais transparente a utilização da IA."
+  "welcome.description2": "Escolha um selo, coloque-o no seu conteúdo e ajude a tornar mais transparente a utilização da IA.",
+  "badge.help": "Utilize os selos padrão da Nenolink ou selecione uma pasta com as suas próprias imagens de selos.\n\nUtilize nomes de ficheiro claros, por exemplo:\nmy-company-ai-assisted.png\n\nO nome do ficheiro é utilizado como nome de apresentação dos selos personalizados.\n\nFormatos suportados: PNG, JPG, JPEG e WEBP.\nRecomenda-se PNG transparente.",
+  "badge.custom_missing": "Não foi possível encontrar a pasta de selos personalizados.",
+  "badge.custom_empty": "Não foram encontradas imagens de selos suportadas nesta pasta.",
+  "badge.source_label": "Origem dos selos",
+  "badge.source_standard": "Selos padrão da Nenolink",
+  "badge.source_custom": "Pasta de selos personalizados",
+  "badge.loaded_standard": "{count} selos padrão carregados",
+  "badge.loaded_custom": "{count} selos personalizados carregados"
 }

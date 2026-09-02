@@ -22,6 +22,14 @@ class TranslationTests(unittest.TestCase):
             self.assertTrue(keys.issubset(data),code)
             self.assertNotIn("Text unavailable",[data[key] for key in keys])
 
+    def test_custom_badge_help_and_status_keys_exist_in_every_locale(self):
+        locales = Path(__file__).resolve().parent.parent / "locales"
+        keys = {"badge.help", "badge.custom_missing", "badge.custom_empty", "badge.loaded_custom"}
+        for code in LANGUAGES.values():
+            data = json.loads((locales / f"{code}.json").read_text(encoding="utf-8"))
+            self.assertTrue(keys.issubset(data), code)
+            self.assertNotIn("Text unavailable", [data[key] for key in keys])
+
     def test_live_welcome_language_change_and_english_return(self):
         locales = Path(__file__).resolve().parent.parent / "locales"
         translator = Translator(locales,"en")
