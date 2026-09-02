@@ -31,6 +31,16 @@ class BadgeRepository:
             key=lambda path: path.name.casefold(),
         )
 
+    def display_badges(self) -> list[Path]:
+        """Return standard badges in the documented UI order, then any extras."""
+        badges = self.list_badges()
+        rank = {name: index for index, name in enumerate(EXPECTED_STANDARD_BADGES)}
+        return sorted(badges, key=lambda path: (rank.get(path.name, len(rank)), path.name.casefold()))
+
+    def display_name(self, name: str) -> str:
+        info = self.metadata(name)
+        return info.display_name if info else Path(name).stem.replace("-", " ").title()
+
     def find(self, name: str) -> Path | None:
         return next((path for path in self.list_badges() if path.name == name), None)
 

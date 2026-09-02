@@ -6,7 +6,7 @@ Position = Literal["top-left", "top-right", "bottom-left", "bottom-right"]
 
 @dataclass(slots=True)
 class MarkerSettings:
-    badge_name: str = ""
+    badge_name: str = "ai-assisted.png"
     position: Position = "bottom-right"
     size_percent: int = 20
     margin: int = 20

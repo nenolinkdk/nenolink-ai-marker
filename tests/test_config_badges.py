@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from nenolink_ai_marker.badges import BadgeRepository, BadgeSourceManager
+from nenolink_ai_marker.badges import BadgeRepository, BadgeSourceManager, EXPECTED_STANDARD_BADGES
 from nenolink_ai_marker.config import ConfigStore, default_config_path
 from nenolink_ai_marker.models import MarkerSettings
 from nenolink_ai_marker.paths import application_root, badge_directory, locale_directory
@@ -42,6 +42,18 @@ class ConfigAndBadgeTests(unittest.TestCase):
             (root / "a.PNG").touch()
             (root / "ignore.jpg").touch()
             self.assertEqual([p.name for p in BadgeRepository(root).list_badges()], ["a.PNG", "B.png"])
+
+    def test_standard_badges_use_documented_ui_order_and_names(self):
+        repository = BadgeRepository(Path("assets/badges"))
+        self.assertEqual([path.name for path in repository.display_badges()], list(EXPECTED_STANDARD_BADGES))
+        self.assertEqual(
+            [repository.display_name(path.name) for path in repository.display_badges()],
+            ["AI Assisted", "AI Generated", "AI Modified", "Human Reviewed", "AI Image",
+             "AI Video", "AI Audio", "AI Software", "AI Translation", "AI Localization"],
+        )
+
+    def test_default_badge_is_ai_assisted(self):
+        self.assertEqual(MarkerSettings().badge_name, "ai-assisted.png")
 
     def test_empty_badge_directory(self):
         with tempfile.TemporaryDirectory() as directory:

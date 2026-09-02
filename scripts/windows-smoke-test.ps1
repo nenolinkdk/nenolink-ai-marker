@@ -36,7 +36,7 @@ try {
         $launchedProcesses = @(Get-Process -Name $processName -ErrorAction SilentlyContinue | Where-Object { $_.Id -notin $existingIds })
         if (Test-Path -LiteralPath $verifyReport) {
             $report = Get-Content -LiteralPath $verifyReport -Raw | ConvertFrom-Json
-            if ($report.translation_keys_visible -or $report.badges_found -lt 1) { throw "Packaged GUI verification report failed." }
+            if ($report.translation_keys_visible -or $report.badges_found -ne 10 -or -not $report.badge_selector_visible -or $report.gallery_badges -ne 10 -or -not $report.gallery_selection_persisted -or -not $report.badges_tab_is_distinct -or -not $report.friendly_status) { throw "Packaged GUI verification report failed." }
             $windowFound = $true
             break
         }
@@ -57,6 +57,6 @@ finally {
     }
     Start-Sleep -Milliseconds 500
     foreach ($launchedProcess in @(Get-Process -Name $processName -ErrorAction SilentlyContinue | Where-Object { $_.Id -notin $existingIds })) {
-        Stop-Process -Id $launchedProcess.Id -Force
+        Stop-Process -Id $launchedProcess.Id -Force -ErrorAction SilentlyContinue
     }
 }
