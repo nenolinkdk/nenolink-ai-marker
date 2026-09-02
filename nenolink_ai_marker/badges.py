@@ -1,4 +1,22 @@
+from dataclasses import dataclass
+import json
 from pathlib import Path
+
+
+EXPECTED_STANDARD_BADGES = (
+    "ai-assisted.png", "ai-generated.png", "ai-modified.png", "human-reviewed.png",
+    "ai-image.png", "ai-video.png", "ai-audio.png", "ai-software.png",
+    "ai-translation.png", "ai-localization.png",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class BadgeInfo:
+    id: str
+    filename: str
+    display_name: str
+    category: str
+    description: str
 
 
 class BadgeRepository:
@@ -15,6 +33,21 @@ class BadgeRepository:
 
     def find(self, name: str) -> Path | None:
         return next((path for path in self.list_badges() if path.name == name), None)
+
+    def metadata(self, name: str) -> BadgeInfo | None:
+        metadata_path = self.directory / "badges.json"
+        try:
+            payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+            entries = payload.get("badges", payload) if isinstance(payload, dict) else payload
+            for item in entries:
+                if item.get("filename") == name:
+                    return BadgeInfo(
+                        str(item["id"]), name, str(item["display_name"]),
+                        str(item["category"]), str(item["description"]),
+                    )
+        except (OSError, ValueError, TypeError, KeyError):
+            return None
+        return None
 
 
 class BadgeSourceManager:

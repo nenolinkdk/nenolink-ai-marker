@@ -24,3 +24,11 @@ def badge_directory(**kwargs: object) -> Path:
 
 def locale_directory(**kwargs: object) -> Path:
     return application_root(**kwargs) / "locales"
+
+
+def docs_directory(**kwargs: object) -> Path:
+    return application_root(**kwargs) / "docs"
+
+
+def user_guide_path(**kwargs: object) -> Path:
+    return docs_directory(**kwargs) / "Nenolink-AI-Marker-User-Guide-EN.pdf"

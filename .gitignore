@@ -8,3 +8,6 @@ build/
 *.spec
 !Nenolink-AI-Marker.spec
 nenolink_ai_marker_config.json
+tmp/
+badge-contact-sheet.png
+.git-pdf-check.bin

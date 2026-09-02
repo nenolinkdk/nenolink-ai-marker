@@ -9,8 +9,10 @@ $resolvedExe = (Resolve-Path -LiteralPath $ExePath).Path
 $installRoot = Split-Path -Parent $resolvedExe
 $badgeFiles = @(Get-ChildItem -Path (Join-Path $installRoot "assets\badges") -File -Filter "*.png" -ErrorAction SilentlyContinue)
 $localeFiles = @(Get-ChildItem -Path (Join-Path $installRoot "locales") -File -Filter "*.json" -ErrorAction SilentlyContinue)
-if ($badgeFiles.Count -eq 0) { throw "Packaged badge folder contains no PNG files." }
+if ($badgeFiles.Count -ne 10) { throw "Packaged badge folder must contain exactly 10 PNG files; found $($badgeFiles.Count)." }
+if (-not (Test-Path -LiteralPath (Join-Path $installRoot "assets\badges\badges.json"))) { throw "Packaged badge metadata is missing." }
 if ($localeFiles.Count -lt 12) { throw "Packaged locale folder contains only $($localeFiles.Count) JSON files." }
+if (-not (Test-Path -LiteralPath (Join-Path $installRoot "docs\Nenolink-AI-Marker-User-Guide-EN.pdf"))) { throw "Packaged PDF guide is missing." }
 $processName = [System.IO.Path]::GetFileNameWithoutExtension($resolvedExe)
 $existingIds = @(Get-Process -Name $processName -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
 $process = Start-Process -FilePath $resolvedExe -WorkingDirectory $WorkingDirectory -PassThru

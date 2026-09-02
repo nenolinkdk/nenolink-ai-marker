@@ -1,0 +1,62 @@
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+from PIL import Image
+
+from nenolink_ai_marker.badges import BadgeRepository, EXPECTED_STANDARD_BADGES
+from nenolink_ai_marker.batch import BatchProcessor, destination_for, destination_root, find_ffmpeg, scan_folder
+from nenolink_ai_marker.guide import open_user_guide
+from nenolink_ai_marker.models import MarkerSettings
+from nenolink_ai_marker.paths import docs_directory, user_guide_path
+
+
+class ResourceAndBatchTests(unittest.TestCase):
+    def test_exact_standard_badge_set_and_metadata(self):
+        root=Path(__file__).resolve().parents[1]/"assets"/"badges"
+        repo=BadgeRepository(root)
+        self.assertEqual(set(p.name for p in repo.list_badges()),set(EXPECTED_STANDARD_BADGES))
+        self.assertEqual(len(repo.list_badges()),10)
+        for name in EXPECTED_STANDARD_BADGES:
+            self.assertIsNotNone(repo.metadata(name))
+            with Image.open(root/name) as image:self.assertEqual(image.mode,"RGBA")
+
+    def test_docs_paths_source_and_packaged(self):
+        module=Path("C:/project/nenolink_ai_marker/paths.py")
+        self.assertEqual(docs_directory(frozen=False,module_file=module),Path("C:/project/docs"))
+        exe=Path("C:/Apps/Nenolink-AI-Marker/Nenolink-AI-Marker.exe")
+        self.assertEqual(user_guide_path(frozen=True,executable=exe),Path("C:/Apps/Nenolink-AI-Marker/docs/Nenolink-AI-Marker-User-Guide-EN.pdf"))
+
+    def test_missing_user_guide(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaises(FileNotFoundError):open_user_guide(Path(folder)/"missing.pdf")
+
+    def test_folder_scanning_and_recursive_scanning(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder); (root/"a.jpg").touch(); (root/"b.mp4").touch(); (root/"note.txt").touch(); (root/"sub").mkdir(); (root/"sub"/"c.png").touch()
+            flat=scan_folder(root); recursive=scan_folder(root,True)
+            self.assertEqual((len(flat.images),len(flat.videos),len(flat.unsupported)),(1,1,1))
+            self.assertEqual(len(recursive.images),2)
+
+    def test_output_roots_structure_and_naming(self):
+        root=Path("C:/input"); source=root/"nested"/"photo.jpg"
+        settings=MarkerSettings(output_subfolder="AI-marked")
+        self.assertEqual(destination_root(settings,root),root/"AI-marked")
+        self.assertEqual(destination_for(source,root,Path("D:/out"),True),Path("D:/out/nested/photo_ai.jpg"))
+        settings.output_preference="separate"; settings.output_folder="D:/chosen"
+        self.assertEqual(destination_root(settings,root),Path("D:/chosen"))
+
+    def test_skip_processed_and_error_isolation(self):
+        with tempfile.TemporaryDirectory() as folder:
+            base=Path(folder); root=base/"input"; root.mkdir(); good=root/"good.png"; corrupt=root/"bad.png"; done=root/"done_ai.png"; badge=base/"badge.png"
+            Image.new("RGB",(20,20),"white").save(good); corrupt.write_text("bad"); Image.new("RGB",(20,20),"white").save(done); Image.new("RGBA",(10,4),"red").save(badge)
+            scan=scan_folder(root); settings=MarkerSettings(output_subfolder="out",skip_processed=True)
+            result=BatchProcessor().process(scan,badge,settings)
+            self.assertEqual(result.successful,1); self.assertEqual(result.skipped,1); self.assertEqual(len(result.errors),1)
+            self.assertTrue((root/"out"/"good_ai.png").is_file())
+
+    def test_missing_ffmpeg(self):
+        with patch("shutil.which",return_value=None):self.assertIsNone(find_ffmpeg())
+
+
+if __name__=="__main__":unittest.main()

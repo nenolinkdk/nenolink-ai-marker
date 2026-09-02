@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "badges": [
+    {"id":"ai-assisted","filename":"ai-assisted.png","display_name":"AI Assisted","category":"Main disclosure","description":"AI contributed to the work while a person remained substantially involved."},
+    {"id":"ai-generated","filename":"ai-generated.png","display_name":"AI Generated","category":"Main disclosure","description":"The content was generated primarily by an AI system."},
+    {"id":"ai-modified","filename":"ai-modified.png","display_name":"AI Modified","category":"Main disclosure","description":"Existing content was materially changed with AI assistance."},
+    {"id":"human-reviewed","filename":"human-reviewed.png","display_name":"Human Reviewed","category":"Main disclosure","description":"A person reviewed the AI-related output before publication."},
+    {"id":"ai-image","filename":"ai-image.png","display_name":"AI Image","category":"Media and workflow","description":"AI was used to generate or materially modify image content."},
+    {"id":"ai-video","filename":"ai-video.png","display_name":"AI Video","category":"Media and workflow","description":"AI was used to generate or materially modify video content."},
+    {"id":"ai-audio","filename":"ai-audio.png","display_name":"AI Audio","category":"Media and workflow","description":"AI was used to generate or materially modify audio content."},
+    {"id":"ai-software","filename":"ai-software.png","display_name":"AI Software","category":"Media and workflow","description":"AI assisted with software or source-code production."},
+    {"id":"ai-translation","filename":"ai-translation.png","display_name":"AI Translation","category":"Media and workflow","description":"AI was used to translate content between languages."},
+    {"id":"ai-localization","filename":"ai-localization.png","display_name":"AI Localization","category":"Media and workflow","description":"AI assisted adaptation for a locale, market or culture."}
+  ]
+}
