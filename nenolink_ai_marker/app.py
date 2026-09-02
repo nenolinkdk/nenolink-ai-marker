@@ -7,6 +7,7 @@ import shutil
 import sys
 import threading
 import time
+import subprocess
 from tkinter import filedialog, messagebox
 import customtkinter as ctk
 from PIL import Image
@@ -406,6 +407,24 @@ class MarkerApp(ctk.CTk):
             try:open_user_guide(guide); guide_opened=True
             except OSError:guide_opened=False
         payload={"english":english,"danish":danish,"german":german,"french":french,"initial_badge_settings":initial_badge_settings,"welcome_before_image":welcome_before_image,"welcome_illustration":welcome_illustration,"welcome_hidden_after_image":(not sample or self.welcome_frame.winfo_manager()==""),"badges_found":len(badge_names),"badge_selector_visible":self.badge_menu.winfo_manager()=="grid","badge_selector_values":list(self.badge_menu.cget("values")),"gallery_badges":len(self.gallery_buttons),"gallery_selection_persisted":gallery_selection_persisted,"badges_tab_is_distinct":self.badge_source_frame.master is self.settings_tab,"selected_badges":selected,"image_preview":bool(self.preview_photo),"selected_badge_written":selected_badge_written,"custom_verification":custom_verification,"friendly_status":("_MEI" not in self.status_var.get() and "assets" not in self.status_var.get()),"process_button_state":self.process_button.cget("state"),"guide_language":guide_language,"guide_filename":guide.name,"guide_paths":{code:path.name for code,path in guide_paths.items()},"guide_exists":guide.is_file(),"guide_opened":guide_opened,"translation_keys_visible":any("." in str(value) and " " not in str(value) for group in (english,danish,german,french) for value in group.values() if isinstance(value,str))}
+        ffmpeg_path=find_ffmpeg(); payload["ffmpeg_found"]=bool(ffmpeg_path); payload["ffmpeg_path"]=ffmpeg_path
+        video_source=os.environ.get("NENOLINK_VERIFY_VIDEO")
+        if video_source and ffmpeg_path:
+            video_source_path=Path(video_source); video_root=report_path.with_name("packaged-video-verification")
+            if video_root.exists():shutil.rmtree(video_root)
+            video_root.mkdir(parents=True,exist_ok=True)
+            standard=self.badge_sources.repository("standard")
+            settings_a=MarkerSettings(badge_name="ai-localization.png",position="top-left",size_percent=20,margin=40,opacity=100)
+            settings_b=MarkerSettings(badge_name="ai-generated.png",position="bottom-right",size_percent=30,margin=60,opacity=50)
+            output_a=video_root/f"{video_source_path.stem}_ai.mp4"; output_b=video_root/f"{video_source_path.stem}_test_b.mp4"
+            self.batch_processor.process_video(video_source_path,standard.find(settings_a.badge_name),output_a,settings_a)
+            self.batch_processor.process_video(video_source_path,standard.find(settings_b.badge_name),output_b,settings_b)
+            batch_input=video_root/"batch-input"; batch_output=video_root/"batch-output"; batch_input.mkdir(exist_ok=True)
+            shutil.copy2(video_source_path,batch_input/"clip01.mp4"); shutil.copy2(video_source_path,batch_input/"clip02.mp4")
+            batch_settings=MarkerSettings(badge_name="ai-generated.png",position="bottom-right",size_percent=30,margin=60,opacity=50,process_images=False,process_videos=True,output_preference="separate",output_folder=str(batch_output),batch_filename_suffix="_ai")
+            batch_result=self.batch_processor.process(scan_folder(batch_input),standard.find(batch_settings.badge_name),batch_settings)
+            version=subprocess.run([ffmpeg_path,"-version"],capture_output=True,text=True).stdout.splitlines()[0]
+            payload["video_verification"]={"ffmpeg_version":version,"suggested_name":f"{video_source_path.stem}_ai{video_source_path.suffix}","test_a":str(output_a),"test_b":str(output_b),"test_a_exists":output_a.is_file(),"test_b_exists":output_b.is_file(),"a_settings":{"badge":settings_a.badge_name,"position":settings_a.position,"size":settings_a.size_percent,"margin":settings_a.margin,"opacity":settings_a.opacity},"b_settings":{"badge":settings_b.badge_name,"position":settings_b.position,"size":settings_b.size_percent,"margin":settings_b.margin,"opacity":settings_b.opacity},"batch_successful":batch_result.successful,"batch_outputs":sorted(path.name for path in batch_output.glob("*.mp4"))}
         payload["tab_switching"]=tab_switching
         payload["back_navigation"]={"badges_preserved":badges_back_preserved,"batch_preserved":batch_back_preserved,"english_label":english["back"],"danish_label":danish["back"]}
         if os.environ.get("NENOLINK_VERIFY_RESET_LANGUAGE")=="da":self.change_language("Dansk")

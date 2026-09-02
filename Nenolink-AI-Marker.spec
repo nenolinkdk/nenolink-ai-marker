@@ -11,6 +11,10 @@ python_runtime_binaries = [
     for name in ("libiconv-2.dll", "libintl-8.dll")
     if (candidate := python_bin / name).is_file()
 ]
+ffmpeg_binary = project_root / "tools" / "ffmpeg" / "ffmpeg.exe"
+if not ffmpeg_binary.is_file():
+    raise SystemExit(f"Bundled FFmpeg is missing: {ffmpeg_binary}")
+python_runtime_binaries.append((str(ffmpeg_binary), "tools/ffmpeg"))
 
 if not (tcl_library / "init.tcl").is_file():
     raise SystemExit(f"Tcl runtime is incomplete: {tcl_library}")
