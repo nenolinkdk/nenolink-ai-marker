@@ -84,5 +84,6 @@
   "warning.large_file": "Dit bestand is groter dan aanbevolen. De verwerking kan meer tijd, geheugen en tijdelijke schijfruimte vereisen. Doorgaan?",
   "batch.oversized": "Bestanden boven de aanbevolen grootte: {count}",
   "button.reset": "Opnieuw instellen",
+  "button.back": "← Terug",
   "status.reset": "Instellingen opnieuw ingesteld"
 }

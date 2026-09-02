@@ -84,5 +84,6 @@
   "warning.large_file": "Ten plik jest większy niż zalecany. Przetwarzanie może wymagać więcej czasu, pamięci i tymczasowego miejsca na dysku. Kontynuować?",
   "batch.oversized": "Pliki powyżej zalecanego rozmiaru: {count}",
   "button.reset": "Resetuj",
+  "button.back": "← Wstecz",
   "status.reset": "Ustawienia zresetowane"
 }

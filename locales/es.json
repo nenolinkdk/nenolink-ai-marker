@@ -84,5 +84,6 @@
   "warning.large_file": "Este archivo supera el tamaño recomendado. El procesamiento puede requerir más tiempo, memoria y espacio temporal en disco. ¿Continuar?",
   "batch.oversized": "Archivos por encima del tamaño recomendado: {count}",
   "button.reset": "Restablecer",
+  "button.back": "← Atrás",
   "status.reset": "Configuración restablecida"
 }

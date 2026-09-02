@@ -84,5 +84,6 @@
   "warning.large_file": "Filen är större än rekommenderat. Bearbetningen kan kräva mer tid, minne och tillfälligt diskutrymme. Fortsätta?",
   "batch.oversized": "Filer över rekommenderad storlek: {count}",
   "button.reset": "Återställ",
+  "button.back": "← Tillbaka",
   "status.reset": "Inställningarna har återställts"
 }

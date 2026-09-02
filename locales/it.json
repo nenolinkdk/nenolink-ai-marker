@@ -84,5 +84,6 @@
   "warning.large_file": "Questo file supera le dimensioni consigliate. L’elaborazione potrebbe richiedere più tempo, memoria e spazio temporaneo su disco. Continuare?",
   "batch.oversized": "File oltre le dimensioni consigliate: {count}",
   "button.reset": "Ripristina",
+  "button.back": "← Indietro",
   "status.reset": "Impostazioni ripristinate"
 }

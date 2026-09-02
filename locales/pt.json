@@ -84,5 +84,6 @@
   "warning.large_file": "Este ficheiro é maior do que o tamanho recomendado. O processamento poderá exigir mais tempo, memória e espaço temporário em disco. Continuar?",
   "batch.oversized": "Ficheiros acima do tamanho recomendado: {count}",
   "button.reset": "Repor",
+  "button.back": "← Voltar",
   "status.reset": "Definições repostas"
 }

@@ -32,3 +32,11 @@ def test_render_start_view_restores_localized_welcome_state():
     app.welcome_description2.configure.assert_called_once_with(text="da:welcome.description2")
     app._show_welcome.assert_called_once_with()
     app.welcome_frame.lift.assert_called_once_with()
+
+
+def test_back_navigation_only_selects_single_file_tab():
+    app = SimpleNamespace(show_tab=Mock())
+
+    MarkerApp.navigate_home(app)
+
+    app.show_tab.assert_called_once_with("single")

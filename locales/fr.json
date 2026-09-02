@@ -84,5 +84,6 @@
   "warning.large_file": "Ce fichier dépasse la taille recommandée. Le traitement peut nécessiter davantage de temps, de mémoire et d’espace disque temporaire. Continuer ?",
   "batch.oversized": "Fichiers dépassant la taille recommandée : {count}",
   "button.reset": "Réinitialiser",
+  "button.back": "← Retour",
   "status.reset": "Paramètres réinitialisés"
 }

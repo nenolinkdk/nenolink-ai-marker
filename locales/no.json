@@ -84,5 +84,6 @@
   "warning.large_file": "Filen er større enn anbefalt. Behandlingen kan kreve mer tid, minne og midlertidig diskplass. Fortsette?",
   "batch.oversized": "Filer over anbefalt størrelse: {count}",
   "button.reset": "Tilbakestill",
+  "button.back": "← Tilbake",
   "status.reset": "Innstillingene er tilbakestilt"
 }

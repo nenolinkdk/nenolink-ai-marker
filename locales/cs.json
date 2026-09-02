@@ -84,5 +84,6 @@
   "warning.large_file": "Tento soubor je větší než doporučená velikost. Zpracování může vyžadovat více času, paměti a dočasného místa na disku. Pokračovat?",
   "batch.oversized": "Soubory nad doporučenou velikostí: {count}",
   "button.reset": "Obnovit",
+  "button.back": "← Zpět",
   "status.reset": "Nastavení bylo obnoveno"
 }

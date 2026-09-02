@@ -84,5 +84,6 @@
   "warning.large_file": "Diese Datei ist größer als empfohlen. Die Verarbeitung kann mehr Zeit, Arbeitsspeicher und temporären Speicherplatz benötigen. Fortfahren?",
   "batch.oversized": "Dateien über der empfohlenen Größe: {count}",
   "button.reset": "Zurücksetzen",
+  "button.back": "← Zurück",
   "status.reset": "Einstellungen zurückgesetzt"
 }

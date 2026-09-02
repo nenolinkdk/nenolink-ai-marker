@@ -86,5 +86,6 @@
   "warning.large_file": "This file is larger than the recommended size. Processing may require more time, memory and temporary disk space. Continue?",
   "batch.oversized": "Files above recommended size: {count}",
   "button.reset": "Reset",
+  "button.back": "← Back",
   "status.reset": "Settings reset"
 }

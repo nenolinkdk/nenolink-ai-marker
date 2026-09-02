@@ -149,6 +149,7 @@ class MarkerApp(ctk.CTk):
     def _settings_ui(self) -> None:
         tab=self.settings_tab; tab.grid_columnconfigure(0,weight=1); tab.grid_rowconfigure(3,weight=1)
         source=ctk.CTkFrame(tab); self.badge_source_frame=source; source.grid(row=0,column=0,padx=16,pady=(14,6),sticky="ew"); source.grid_columnconfigure(0,weight=1)
+        self.badges_back_button=ctk.CTkButton(tab,text="",command=self.navigate_home,width=110); self.badges_back_button.grid(row=0,column=1,padx=(0,16),pady=(14,6),sticky="ne")
         self.badge_source_heading=ctk.CTkLabel(source,text="",font=ctk.CTkFont(weight="bold")); self.badge_source_heading.grid(row=0,column=0,padx=12,pady=(10,4),sticky="w")
         self.standard_badge_radio=ctk.CTkRadioButton(source,text="",variable=self.badge_source_var,value="standard",command=self.change_badge_source); self.standard_badge_radio.grid(row=1,column=0,padx=16,pady=4,sticky="w")
         self.custom_badge_radio=ctk.CTkRadioButton(source,text="",variable=self.badge_source_var,value="custom",command=self.change_badge_source); self.custom_badge_radio.grid(row=2,column=0,padx=16,pady=4,sticky="w")
@@ -168,6 +169,7 @@ class MarkerApp(ctk.CTk):
         self.batch_size_guidance=ctk.CTkLabel(tab,text="",justify="left",text_color="gray60"); self.batch_size_guidance.grid(row=0,column=1,padx=10,pady=(18,2),sticky="e")
         ctk.CTkEntry(tab,textvariable=self.input_folder_var).grid(row=1,column=0,padx=16,pady=4,sticky="ew")
         self.choose_input_button=ctk.CTkButton(tab,text="",command=self.choose_input_folder); self.choose_input_button.grid(row=1,column=1,padx=10)
+        self.batch_back_button=ctk.CTkButton(tab,text="",command=self.navigate_home,width=110); self.batch_back_button.grid(row=0,column=2,padx=(0,16),pady=(18,2),sticky="ne")
         self.output_subfolder_radio=ctk.CTkRadioButton(tab,text="",variable=self.output_preference_var,value="subfolder",command=self.changed); self.output_subfolder_radio.grid(row=2,column=0,padx=16,pady=(12,4),sticky="w")
         ctk.CTkEntry(tab,textvariable=self.output_subfolder_var).grid(row=3,column=0,padx=36,pady=4,sticky="ew")
         self.output_separate_radio=ctk.CTkRadioButton(tab,text="",variable=self.output_preference_var,value="separate",command=self.changed); self.output_separate_radio.grid(row=4,column=0,padx=16,pady=(8,4),sticky="w")
@@ -185,7 +187,7 @@ class MarkerApp(ctk.CTk):
         ctk.CTkLabel(tab,textvariable=self.progress_text_var,justify="left",anchor="w").grid(row=10,column=0,columnspan=2,padx=16,pady=6,sticky="ew")
 
     def apply_translations(self) -> None:
-        t=self.translator.text; self.title(f"Nenolink AI Marker {__version__} - {t('app.window')}"); self.guide_button.configure(text=t("button.user_guide")); self.reset_button.configure(text=t("button.reset"))
+        t=self.translator.text; self.title(f"Nenolink AI Marker {__version__} - {t('app.window')}"); self.guide_button.configure(text=t("button.user_guide")); self.reset_button.configure(text=t("button.reset")); self.batch_back_button.configure(text=t("button.back")); self.badges_back_button.configure(text=t("button.back"))
         current_key=next((key for key,name in self.tab_names.items() if name==self.tabs.get()),"single")
         for key,translation_key in (("single","tab.single"),("batch","tab.batch"),("badges","tab.badges")):
             new=t(translation_key); old=self.tab_names[key]
@@ -204,6 +206,7 @@ class MarkerApp(ctk.CTk):
 
     def change_language(self,name): self.translator.set_language(LANGUAGES.get(name,"en")); self.apply_translations(); self._save()
     def show_tab(self,key): self.tabs.set(self.tab_names[key])
+    def navigate_home(self): self.show_tab("single")
     def reset_application(self):
         defaults=MarkerSettings(); custom_folder=self.custom_badge_var.get()
         self.sources=[]; self.preview_photo=None
@@ -337,12 +340,19 @@ class MarkerApp(ctk.CTk):
         for key,frame in (("single",self.single_tab),("batch",self.batch_tab),("badges",self.settings_tab)):
             self.show_tab(key); self.update(); time.sleep(.15); self.update()
             tab_switching[key]={"selected":self.tabs.get()==self.tab_names[key],"visible":bool(frame.winfo_ismapped()),"other_visible":any(bool(other.winfo_ismapped()) for other in (self.single_tab,self.batch_tab,self.settings_tab) if other is not frame)}
+        self.sources=[Path(os.environ.get("NENOLINK_VERIFY_IMAGE","preserved-image.png"))]
+        self.badge_var.set("ai-translation.png"); self.position_var.set("top-left"); self.size_var.set(33); self.margin_var.set(27); self.opacity_var.set(81)
+        self.input_folder_var.set(r"C:\verification\batch-input"); self.badge_source_var.set("standard")
+        self.show_tab("badges"); self.update(); self.badges_back_button.invoke(); self.update(); time.sleep(.15); self.update()
+        badges_back_preserved=self.tabs.get()==self.tab_names["single"] and self.badge_var.get()=="ai-translation.png" and len(self.sources)==1 and self.position_var.get()=="top-left" and self.size_var.get()==33 and self.margin_var.get()==27 and self.opacity_var.get()==81
+        self.show_tab("batch"); self.update(); self.batch_back_button.invoke(); self.update(); time.sleep(.15); self.update()
+        batch_back_preserved=self.tabs.get()==self.tab_names["single"] and self.input_folder_var.get()==r"C:\verification\batch-input" and self.badge_var.get()=="ai-translation.png" and len(self.sources)==1
         self.show_tab("single")
         welcome_before_image=self.welcome_frame.winfo_manager()=="grid" and self.preview_label.winfo_manager()==""
         welcome_illustration=bool(self.welcome_image and self.welcome_photo)
         self.change_language("English"); self.update()
-        english={"title":self.title(),"tabs":list(self.tab_names.values()),"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text"),"process":self.process_button.cget("text"),"position":self.position_label.cget("text"),"welcome_title":self.welcome_title.cget("text"),"welcome_tagline":self.welcome_tagline.cget("text"),"welcome_description1":self.welcome_description1.cget("text"),"welcome_description2":self.welcome_description2.cget("text")}
-        self.change_language("Dansk"); self.update(); danish={"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text"),"tabs":list(self.tab_names.values()),"welcome_title":self.welcome_title.cget("text"),"welcome_tagline":self.welcome_tagline.cget("text"),"welcome_description1":self.welcome_description1.cget("text"),"welcome_description2":self.welcome_description2.cget("text")}
+        english={"title":self.title(),"tabs":list(self.tab_names.values()),"guide":self.guide_button.cget("text"),"back":self.badges_back_button.cget("text"),"choose":self.open_button.cget("text"),"process":self.process_button.cget("text"),"position":self.position_label.cget("text"),"welcome_title":self.welcome_title.cget("text"),"welcome_tagline":self.welcome_tagline.cget("text"),"welcome_description1":self.welcome_description1.cget("text"),"welcome_description2":self.welcome_description2.cget("text")}
+        self.change_language("Dansk"); self.update(); danish={"guide":self.guide_button.cget("text"),"back":self.badges_back_button.cget("text"),"choose":self.open_button.cget("text"),"tabs":list(self.tab_names.values()),"welcome_title":self.welcome_title.cget("text"),"welcome_tagline":self.welcome_tagline.cget("text"),"welcome_description1":self.welcome_description1.cget("text"),"welcome_description2":self.welcome_description2.cget("text")}
         self.change_language("Deutsch"); self.update(); german={"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text"),"welcome_title":self.welcome_title.cget("text"),"welcome_tagline":self.welcome_tagline.cget("text"),"welcome_description1":self.welcome_description1.cget("text"),"welcome_description2":self.welcome_description2.cget("text")}
         self.change_language("Français"); self.update(); french={"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text")}
         self.change_language("English"); self.badge_source_var.set("standard"); self.refresh_badges(False); badge_names=[p.name for p in self.badges.display_badges()]
@@ -369,7 +379,9 @@ class MarkerApp(ctk.CTk):
                 output=report_path.with_name("verified-custom-output.png")
                 processed=self.processor.process(Path(sample),chosen,self.settings()) if sample else None
                 if processed is not None:self.processor.save(processed,output)
-                custom_verification={"files":custom_names,"displays":custom_displays,"selected":self.badge_var.get(),"selector_values":list(self.badge_menu.cget("values")),"gallery_badges":len(self.gallery_buttons),"preview":bool(self.preview_photo),"output_saved":output.is_file(),"status":self.status_var.get(),"source_controls_visible":self.custom_controls.winfo_manager()=="grid"}
+                selected_custom=self.badge_var.get(); retained_custom=self.custom_badge_var.get(); retained_sources=list(self.sources); self.show_tab("badges"); self.update(); self.badges_back_button.invoke(); self.update(); time.sleep(.15); self.update()
+                custom_back_preserved=self.tabs.get()==self.tab_names["single"] and self.badge_source_var.get()=="custom" and self.badge_var.get()==selected_custom and self.custom_badge_var.get()==retained_custom and self.sources==retained_sources
+                custom_verification={"files":custom_names,"displays":custom_displays,"selected":self.badge_var.get(),"selector_values":list(self.badge_menu.cget("values")),"gallery_badges":len(self.gallery_buttons),"preview":bool(self.preview_photo),"output_saved":output.is_file(),"status":self.status_var.get(),"source_controls_visible":self.custom_controls.winfo_manager()=="grid","back_preserved":custom_back_preserved}
         guide_paths={code:localized_user_guide_path(code) for code in ("da","en","fr")}
         guide_language=os.environ.get("NENOLINK_VERIFY_GUIDE_LANGUAGE","en").lower()
         guide=localized_user_guide_path(guide_language); guide_opened=False
@@ -378,6 +390,7 @@ class MarkerApp(ctk.CTk):
             except OSError:guide_opened=False
         payload={"english":english,"danish":danish,"german":german,"french":french,"initial_badge_settings":initial_badge_settings,"welcome_before_image":welcome_before_image,"welcome_illustration":welcome_illustration,"welcome_hidden_after_image":(not sample or self.welcome_frame.winfo_manager()==""),"badges_found":len(badge_names),"badge_selector_visible":self.badge_menu.winfo_manager()=="grid","badge_selector_values":list(self.badge_menu.cget("values")),"gallery_badges":len(self.gallery_buttons),"gallery_selection_persisted":gallery_selection_persisted,"badges_tab_is_distinct":self.badge_source_frame.master is self.settings_tab,"selected_badges":selected,"image_preview":bool(self.preview_photo),"selected_badge_written":selected_badge_written,"custom_verification":custom_verification,"friendly_status":("_MEI" not in self.status_var.get() and "assets" not in self.status_var.get()),"process_button_state":self.process_button.cget("state"),"guide_language":guide_language,"guide_filename":guide.name,"guide_paths":{code:path.name for code,path in guide_paths.items()},"guide_exists":guide.is_file(),"guide_opened":guide_opened,"translation_keys_visible":any("." in str(value) and " " not in str(value) for group in (english,danish,german,french) for value in group.values() if isinstance(value,str))}
         payload["tab_switching"]=tab_switching
+        payload["back_navigation"]={"badges_preserved":badges_back_preserved,"batch_preserved":batch_back_preserved,"english_label":english["back"],"danish_label":danish["back"]}
         if os.environ.get("NENOLINK_VERIFY_RESET_LANGUAGE")=="da":self.change_language("Dansk")
         retained_custom_folder=self.custom_badge_var.get(); self.reset_application(); self.update(); time.sleep(.2); self.update()
         payload["reset_verification"]={"source":self.badge_source_var.get(),"selection":self.badge_var.get(),"folder_retained":self.custom_badge_var.get()==retained_custom_folder,"position":self.position_var.get(),"size":self.size_var.get(),"margin":self.margin_var.get(),"opacity":self.opacity_var.get(),"sources":len(self.sources),"scan_cleared":self.scan is None,"single_selected":self.tabs.get()==self.tab_names["single"],"welcome":self.welcome_frame.winfo_manager()=="grid","welcome_mapped":bool(self.welcome_frame.winfo_ismapped()),"welcome_title":self.welcome_title.cget("text"),"welcome_illustration":bool(self.welcome_photo and self.welcome_illustration.winfo_ismapped()),"preview_hidden":not bool(self.preview_label.winfo_ismapped()),"status":self.status_var.get()}
