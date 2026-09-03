@@ -86,6 +86,7 @@
   "files.size_guidance_short": "Zalecane: obrazy do 50 MB; filmy do 2 GB",
   "warning.large_title": "Duży plik",
   "warning.large_file": "Ten plik jest większy niż zalecany. Przetwarzanie może wymagać więcej czasu, pamięci i tymczasowego miejsca na dysku. Kontynuować?",
+  "warning.metadata_failed": "Plik został prawidłowo oznaczony, ale nie udało się zapisać metadanych AI Marker.",
   "batch.oversized": "Pliki powyżej zalecanego rozmiaru: {count}",
   "button.reset": "Resetuj",
   "button.back": "← Wstecz",

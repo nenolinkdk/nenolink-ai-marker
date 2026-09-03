@@ -86,6 +86,7 @@
   "files.size_guidance_short": "Anbefalt: bilder opptil 50 MB; videoer opptil 2 GB",
   "warning.large_title": "Stor fil",
   "warning.large_file": "Filen er større enn anbefalt. Behandlingen kan kreve mer tid, minne og midlertidig diskplass. Fortsette?",
+  "warning.metadata_failed": "Filen ble merket, men AI Marker-metadata kunne ikke skrives.",
   "batch.oversized": "Filer over anbefalt størrelse: {count}",
   "button.reset": "Tilbakestill",
   "button.back": "← Tilbake",

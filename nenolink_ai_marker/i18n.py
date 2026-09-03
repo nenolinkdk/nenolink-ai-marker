@@ -42,6 +42,7 @@ DEFAULT_ENGLISH = {
     "files.size_guidance": "Images: recommended up to 50 MB\nVideos: recommended up to 2 GB\nPractical limits depend on resolution, codec, duration, memory and disk space.",
     "files.size_guidance_short": "Recommended: images up to 50 MB; videos up to 2 GB",
     "warning.large_title": "Large file", "warning.large_file": "This file is larger than the recommended size. Processing may require more time, memory and temporary disk space. Continue?",
+    "warning.metadata_failed": "The file was marked successfully, but AI Marker metadata could not be written.",
     "batch.oversized": "Files above recommended size: {count}",
     "files.selected": "{count} file(s) selected - {name}", "files.supported": "Supported images",
     "files.all": "All files", "files.supported_media": "Supported images and videos", "files.supported_videos": "Supported videos", "dialog.open_images": "Choose Image", "dialog.open_media": "Choose Image or Video",

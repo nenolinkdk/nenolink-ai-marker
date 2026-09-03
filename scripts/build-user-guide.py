@@ -10,8 +10,8 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
 
 ROOT = Path(__file__).resolve().parent.parent
 GUIDES = {
-    "EN": {"source": ROOT/"docs"/"USER_GUIDE_EN.md", "output": ROOT/"docs"/"Nenolink-AI-Marker-User-Guide-EN.pdf", "guide": "User Guide", "version": "Application version: 0.4.0", "language": "Document language: English", "updated": "Updated: 2 September 2026", "publisher": "Publisher: Nenolink", "intro": "A practical guide to visible AI disclosure badges for images and video.", "page": "Page", "font_size": 8.8, "leading": 12.4, "space_after": 5.2},
-    "DA": {"source": ROOT/"docs"/"USER_GUIDE_DA.md", "output": ROOT/"docs"/"Nenolink-AI-Marker-User-Guide-DA.pdf", "guide": "Brugervejledning", "version": "Applikationsversion: 0.4.0", "language": "Dokumentsprog: Dansk", "updated": "Opdateret: 2. september 2026", "publisher": "Udgiver: Nenolink", "intro": "En praktisk vejledning til synlige AI-oplysningsbadges på billeder og video.", "page": "Side", "font_size": 8.7, "leading": 12.1, "space_after": 5.0},
+    "EN": {"source": ROOT/"docs"/"USER_GUIDE_EN.md", "output": ROOT/"docs"/"Nenolink-AI-Marker-User-Guide-EN.pdf", "guide": "User Guide", "version": "Application version: 0.5.0", "language": "Document language: English", "updated": "Updated: 3 September 2026", "publisher": "Publisher: Nenolink", "intro": "A practical guide to visible AI disclosure badges for images and video.", "page": "Page", "font_size": 8.8, "leading": 12.4, "space_after": 5.2},
+    "DA": {"source": ROOT/"docs"/"USER_GUIDE_DA.md", "output": ROOT/"docs"/"Nenolink-AI-Marker-User-Guide-DA.pdf", "guide": "Brugervejledning", "version": "Applikationsversion: 0.5.0", "language": "Dokumentsprog: Dansk", "updated": "Opdateret: 3. september 2026", "publisher": "Udgiver: Nenolink", "intro": "En praktisk vejledning til synlige AI-oplysningsbadges på billeder og video.", "page": "Side", "font_size": 8.7, "leading": 12.1, "space_after": 5.0},
 }
 
 def inline(text):

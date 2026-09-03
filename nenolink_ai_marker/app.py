@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import hashlib
 import json
 import os
 import shutil
@@ -18,6 +19,7 @@ from .batch import BatchProcessor, BatchResult, FolderScan, VIDEO_EXTENSIONS, de
 from .config import ConfigStore
 from .guide import open_user_guide
 from .i18n import LANGUAGES, Translator
+from .metadata import marker_metadata
 from .models import MarkerSettings
 from .paths import badge_directory, locale_directory, localized_user_guide_path, welcome_image_path
 from .processor import ImageProcessor, SUPPORTED_EXTENSIONS
@@ -370,7 +372,9 @@ class MarkerApp(ctk.CTk):
     def save_images(self):
         badge=self.badges.find(self.badge_var.get())
         if not self.sources or not badge:messagebox.showwarning(self.translator.text("warning.title"),self.translator.text("warning.nothing_to_save")); return
-        saved=[]; failures=[]
+        saved=[]; failures=[]; metadata_warnings=[]
+        display_var=getattr(self,"badge_name_var",None)
+        metadata=marker_metadata(self.badge_var.get(),display_var.get() if display_var else None)
         for source in self.sources:
             suggested=source.with_name(f"{source.stem}_ai{source.suffix}")
             is_video=source.suffix.lower() in VIDEO_EXTENSIONS
@@ -382,13 +386,15 @@ class MarkerApp(ctk.CTk):
                 if is_video:
                     if target.suffix.lower() not in VIDEO_EXTENSIONS:raise ValueError(self.translator.text("error.unsupported_video_output",extension=target.suffix or "—"))
                     if not find_ffmpeg():raise ValueError(self.translator.text("error.video_component_missing"))
-                    self.batch_processor.process_video(source,badge,target,self.settings())
-                else:self.processor.save(self.processor.process(source,badge,self.settings()),target)
+                    metadata_written=self.batch_processor.process_video(source,badge,target,self.settings(),metadata)
+                else:metadata_written=self.processor.save(self.processor.process(source,badge,self.settings()),target,metadata)
                 saved.append(target)
+                if not metadata_written:metadata_warnings.append(source.name)
             except (OSError,ValueError) as error:failures.append(f"{source.name}: {error}")
         only_video=bool(saved) and all(path.suffix.lower() in VIDEO_EXTENSIONS for path in self.sources)
         summary=self.translator.text("video.saved_name",name=saved[-1].name) if only_video and not failures else self.translator.text("process.summary",saved=len(saved),total=len(self.sources)); self.status_var.set(summary)
-        (messagebox.showerror if failures else messagebox.showinfo)(self.translator.text("error.completed") if failures else self.translator.text("complete.title"),summary+("\n\n"+"\n".join(failures[:8]) if failures else ""))
+        warning=("\n\n"+self.translator.text("warning.metadata_failed")) if metadata_warnings else ""
+        (messagebox.showerror if failures else messagebox.showinfo)(self.translator.text("error.completed") if failures else self.translator.text("complete.title"),summary+("\n\n"+"\n".join(failures[:8]) if failures else "")+warning)
 
     def choose_input_folder(self):
         value=filedialog.askdirectory(title=self.translator.text("button.choose_input"))
@@ -415,6 +421,7 @@ class MarkerApp(ctk.CTk):
     def _batch_done(self,result:BatchResult):
         self.start_batch_button.configure(state="normal"); self.cancel_batch_button.configure(state="disabled"); text=self.translator.text("batch.done",success=result.successful,skipped=result.skipped,errors=len(result.errors)); self.progress_text_var.set((self.translator.text("batch.cancelled")+"\n" if result.cancelled else "")+text)
         if result.errors:messagebox.showerror(self.translator.text("error.completed"),text+"\n\n"+"\n".join(result.errors[:8]))
+        elif result.metadata_warnings:messagebox.showwarning(self.translator.text("warning.title"),text+"\n\n"+self.translator.text("warning.metadata_failed"))
     def cancel_batch(self):self.cancel_event.set()
     def open_guide(self):
         try:open_user_guide(localized_user_guide_path(self.translator.language))
@@ -450,10 +457,25 @@ class MarkerApp(ctk.CTk):
         sample=os.environ.get("NENOLINK_VERIFY_IMAGE")
         if sample:self.sources=[Path(sample)]; self.update_preview(); self.update()
         selected_badge_written=False
+        image_metadata_verification=None
         if sample:
-            translation=self.processor.process(Path(sample),self.badges.find("ai-translation.png"),self.settings())
+            sample_path=Path(sample); sample_hash=hashlib.sha256(sample_path.read_bytes()).hexdigest()
+            translation=self.processor.process(sample_path,self.badges.find("ai-translation.png"),self.settings())
             assisted=self.processor.process(Path(sample),self.badges.find("ai-assisted.png"),self.settings())
             selected_badge_written=translation.tobytes()!=assisted.tobytes() and self.badge_var.get()=="ai-translation.png"
+            metadata_root=report_path.with_name("packaged-metadata-verification")
+            if metadata_root.exists():shutil.rmtree(metadata_root)
+            metadata_root.mkdir(parents=True)
+            localization=self.processor.process(sample_path,self.badges.find("ai-localization.png"),self.settings())
+            metadata=marker_metadata("ai-localization.png","AI Localization")
+            jpeg_output=metadata_root/"sample_ai.jpg"; png_output=metadata_root/"sample_ai.png"; webp_output=metadata_root/"sample_ai.webp"
+            jpeg_written=self.processor.save(localization,jpeg_output,metadata)
+            png_written=self.processor.save(localization,png_output,metadata)
+            webp_written=self.processor.save(localization,webp_output,metadata)
+            with Image.open(jpeg_output) as checked:jpeg_exif=checked.getexif(); jpeg_values={"software":jpeg_exif.get(305),"description":jpeg_exif.get(270)}
+            with Image.open(png_output) as checked:png_values={key:checked.info.get(key) for key in ("Software","AI Label","Marker Version","NenolinkAIMarker")}
+            with Image.open(webp_output) as checked:webp_exif=checked.getexif(); webp_values={"software":webp_exif.get(305),"description":webp_exif.get(270)}
+            image_metadata_verification={"source_sha256_before":sample_hash,"source_sha256_after":hashlib.sha256(sample_path.read_bytes()).hexdigest(),"jpeg":{"path":str(jpeg_output),"written":jpeg_written,"values":jpeg_values},"png":{"path":str(png_output),"written":png_written,"values":png_values},"webp":{"path":str(webp_output),"written":webp_written,"values":webp_values}}
         self.select_gallery_badge("ai-software.png"); gallery_selection_persisted=self.badge_var.get()=="ai-software.png" and self.badge_display_var.get()=="AI Software"
         custom_verification=None
         custom_folder=os.environ.get("NENOLINK_VERIFY_CUSTOM_BADGES")
@@ -466,17 +488,20 @@ class MarkerApp(ctk.CTk):
                 if sample:self.sources=[Path(sample)]; self.update_preview(); self.update()
                 output=report_path.with_name("verified-custom-output.png")
                 processed=self.processor.process(Path(sample),chosen,self.settings()) if sample else None
-                if processed is not None:self.processor.save(processed,output)
+                if processed is not None:self.processor.save(processed,output,marker_metadata(chosen.name,self.badges.display_name(chosen.name)))
+                custom_metadata=None
+                if output.is_file():
+                    with Image.open(output) as checked:custom_metadata={key:checked.info.get(key) for key in ("Software","AI Label","Marker Version","NenolinkAIMarker")}
                 selected_custom=self.badge_var.get(); retained_custom=self.custom_badge_var.get(); retained_sources=list(self.sources); self.show_tab("badges"); self.update(); self.badges_back_button.invoke(); self.update(); time.sleep(.15); self.update()
                 custom_back_preserved=self.tabs.get()==self.tab_names["single"] and self.badge_source_var.get()=="custom" and self.badge_var.get()==selected_custom and self.custom_badge_var.get()==retained_custom and self.sources==retained_sources
-                custom_verification={"files":custom_names,"displays":custom_displays,"selected":self.badge_var.get(),"selector_values":list(self.badge_menu.cget("values")),"gallery_badges":len(self.gallery_buttons),"preview":bool(self.preview_photo),"output_saved":output.is_file(),"status":self.status_var.get(),"source_controls_visible":self.custom_controls.winfo_manager()=="grid","back_preserved":custom_back_preserved}
+                custom_verification={"files":custom_names,"displays":custom_displays,"selected":self.badge_var.get(),"selector_values":list(self.badge_menu.cget("values")),"gallery_badges":len(self.gallery_buttons),"preview":bool(self.preview_photo),"output_saved":output.is_file(),"metadata":custom_metadata,"status":self.status_var.get(),"source_controls_visible":self.custom_controls.winfo_manager()=="grid","back_preserved":custom_back_preserved}
         guide_paths={code:localized_user_guide_path(code) for code in ("da","en","fr")}
         guide_language=os.environ.get("NENOLINK_VERIFY_GUIDE_LANGUAGE","en").lower()
         guide=localized_user_guide_path(guide_language); guide_opened=False
         if os.environ.get("NENOLINK_VERIFY_OPEN_GUIDE") == "1":
             try:open_user_guide(guide); guide_opened=True
             except OSError:guide_opened=False
-        payload={"english":english,"danish":danish,"german":german,"french":french,"initial_badge_settings":initial_badge_settings,"welcome_before_image":welcome_before_image,"welcome_illustration":welcome_illustration,"welcome_hidden_after_image":(not sample or self.welcome_frame.winfo_manager()==""),"badges_found":len(badge_names),"badge_selector_visible":self.badge_menu.winfo_manager()=="grid","badge_selector_values":list(self.badge_menu.cget("values")),"gallery_badges":len(self.gallery_buttons),"gallery_selection_persisted":gallery_selection_persisted,"badges_tab_is_distinct":self.badge_source_frame.master is self.settings_tab,"selected_badges":selected,"image_preview":bool(self.preview_photo),"selected_badge_written":selected_badge_written,"custom_verification":custom_verification,"friendly_status":("_MEI" not in self.status_var.get() and "assets" not in self.status_var.get()),"process_button_state":self.process_button.cget("state"),"guide_language":guide_language,"guide_filename":guide.name,"guide_paths":{code:path.name for code,path in guide_paths.items()},"guide_exists":guide.is_file(),"guide_opened":guide_opened,"translation_keys_visible":any("." in str(value) and " " not in str(value) for group in (english,danish,german,french) for value in group.values() if isinstance(value,str))}
+        payload={"version":__version__,"english":english,"danish":danish,"german":german,"french":french,"initial_badge_settings":initial_badge_settings,"welcome_before_image":welcome_before_image,"welcome_illustration":welcome_illustration,"welcome_hidden_after_image":(not sample or self.welcome_frame.winfo_manager()==""),"badges_found":len(badge_names),"badge_selector_visible":self.badge_menu.winfo_manager()=="grid","badge_selector_values":list(self.badge_menu.cget("values")),"gallery_badges":len(self.gallery_buttons),"gallery_selection_persisted":gallery_selection_persisted,"badges_tab_is_distinct":self.badge_source_frame.master is self.settings_tab,"selected_badges":selected,"image_preview":bool(self.preview_photo),"selected_badge_written":selected_badge_written,"image_metadata_verification":image_metadata_verification,"custom_verification":custom_verification,"friendly_status":("_MEI" not in self.status_var.get() and "assets" not in self.status_var.get()),"process_button_state":self.process_button.cget("state"),"guide_language":guide_language,"guide_filename":guide.name,"guide_paths":{code:path.name for code,path in guide_paths.items()},"guide_exists":guide.is_file(),"guide_opened":guide_opened,"translation_keys_visible":any("." in str(value) and " " not in str(value) for group in (english,danish,german,french) for value in group.values() if isinstance(value,str))}
         ffmpeg_path=find_ffmpeg(); payload["ffmpeg_found"]=bool(ffmpeg_path); payload["ffmpeg_path"]=ffmpeg_path
         video_source=os.environ.get("NENOLINK_VERIFY_VIDEO")
         if video_source and ffmpeg_path:
@@ -500,19 +525,21 @@ class MarkerApp(ctk.CTk):
             standard=self.badge_sources.repository("standard")
             settings_a=MarkerSettings(badge_name="ai-localization.png",position="top-left",size_percent=20,margin=40,opacity=100,video_mode="permanent")
             settings_b=MarkerSettings(badge_name="ai-generated.png",position="bottom-right",size_percent=30,margin=60,opacity=50,video_mode="beginning",video_duration=5)
-            settings_c=MarkerSettings(badge_name="ai-translation.png",position="top-right",size_percent=25,margin=30,opacity=75,video_mode="end",video_duration=5)
+            settings_c=MarkerSettings(badge_name="ai-generated.png",position="top-right",size_percent=25,margin=30,opacity=75,video_mode="end",video_duration=5)
             settings_d=MarkerSettings(badge_name="ai-assisted.png",position="bottom-left",size_percent=18,margin=25,opacity=85,video_mode="end",video_duration=10)
             output_a=video_root/f"{video_source_path.stem}_ai.mp4"; output_b=video_root/f"{video_source_path.stem}_beginning.mp4"; output_c=video_root/f"{video_source_path.stem}_end5.mp4"; output_d=video_root/f"{video_source_path.stem}_end10.mp4"
             self.batch_processor.process_video(video_source_path,standard.find(settings_a.badge_name),output_a,settings_a)
             self.batch_processor.process_video(video_source_path,standard.find(settings_b.badge_name),output_b,settings_b)
             self.batch_processor.process_video(video_source_path,standard.find(settings_c.badge_name),output_c,settings_c)
             self.batch_processor.process_video(video_source_path,standard.find(settings_d.badge_name),output_d,settings_d)
+            mov_output=video_root/f"{video_source_path.stem}_ai.mov"
+            self.batch_processor.process_video(video_source_path,standard.find(settings_c.badge_name),mov_output,settings_c)
             batch_input=video_root/"batch-input"; batch_output=video_root/"batch-output"; batch_input.mkdir(exist_ok=True)
             shutil.copy2(video_source_path,batch_input/"clip01.mp4"); shutil.copy2(video_source_path,batch_input/"clip02.mp4")
-            batch_settings=MarkerSettings(badge_name="ai-translation.png",position="top-right",size_percent=25,margin=30,opacity=75,process_images=False,process_videos=True,output_preference="separate",output_folder=str(batch_output),batch_filename_suffix="_ai",video_mode="end",video_duration=5)
+            batch_settings=MarkerSettings(badge_name="ai-generated.png",position="top-right",size_percent=25,margin=30,opacity=75,process_images=False,process_videos=True,output_preference="separate",output_folder=str(batch_output),batch_filename_suffix="_ai",video_mode="end",video_duration=5)
             batch_result=self.batch_processor.process(scan_folder(batch_input),standard.find(batch_settings.badge_name),batch_settings)
             version=subprocess.run([ffmpeg_path,"-version"],capture_output=True,text=True,**hidden_subprocess_kwargs()).stdout.splitlines()[0]
-            payload["video_verification"]={"ffmpeg_version":version,"suggested_name":f"{video_source_path.stem}_ai{video_source_path.suffix}","outputs":{"permanent":str(output_a),"beginning5":str(output_b),"end5":str(output_c),"end10":str(output_d)},"all_outputs_exist":all(path.is_file() for path in (output_a,output_b,output_c,output_d)),"settings":[{"badge":s.badge_name,"mode":s.video_mode,"duration":s.video_duration,"position":s.position,"size":s.size_percent,"margin":s.margin,"opacity":s.opacity} for s in (settings_a,settings_b,settings_c,settings_d)],"batch_mode":batch_settings.video_mode,"batch_duration":batch_settings.video_duration,"batch_successful":batch_result.successful,"batch_outputs":sorted(path.name for path in batch_output.glob("*.mp4"))}
+            payload["video_verification"]={"ffmpeg_version":version,"suggested_name":f"{video_source_path.stem}_ai{video_source_path.suffix}","outputs":{"permanent":str(output_a),"beginning5":str(output_b),"end5":str(output_c),"end10":str(output_d),"mov":str(mov_output)},"all_outputs_exist":all(path.is_file() for path in (output_a,output_b,output_c,output_d,mov_output)),"settings":[{"badge":s.badge_name,"mode":s.video_mode,"duration":s.video_duration,"position":s.position,"size":s.size_percent,"margin":s.margin,"opacity":s.opacity} for s in (settings_a,settings_b,settings_c,settings_d)],"batch_mode":batch_settings.video_mode,"batch_duration":batch_settings.video_duration,"batch_badge":batch_settings.badge_name,"batch_successful":batch_result.successful,"batch_metadata_warnings":batch_result.metadata_warnings,"batch_outputs":sorted(path.name for path in batch_output.glob("*.mp4"))}
         payload["tab_switching"]=tab_switching
         payload["back_navigation"]={"badges_preserved":badges_back_preserved,"batch_preserved":batch_back_preserved,"english_label":english["back"],"danish_label":danish["back"]}
         if os.environ.get("NENOLINK_VERIFY_RESET_LANGUAGE")=="da":self.change_language("Dansk")

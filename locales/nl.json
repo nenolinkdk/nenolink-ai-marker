@@ -86,6 +86,7 @@
   "files.size_guidance_short": "Aanbevolen: afbeeldingen tot 50 MB; video’s tot 2 GB",
   "warning.large_title": "Groot bestand",
   "warning.large_file": "Dit bestand is groter dan aanbevolen. De verwerking kan meer tijd, geheugen en tijdelijke schijfruimte vereisen. Doorgaan?",
+  "warning.metadata_failed": "Het bestand is met succes gemarkeerd, maar de AI Marker-metagegevens konden niet worden geschreven.",
   "batch.oversized": "Bestanden boven de aanbevolen grootte: {count}",
   "button.reset": "Opnieuw instellen",
   "button.back": "← Terug",

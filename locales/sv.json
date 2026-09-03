@@ -86,6 +86,7 @@
   "files.size_guidance_short": "Rekommenderat: bilder upp till 50 MB; videor upp till 2 GB",
   "warning.large_title": "Stor fil",
   "warning.large_file": "Filen är större än rekommenderat. Bearbetningen kan kräva mer tid, minne och tillfälligt diskutrymme. Fortsätta?",
+  "warning.metadata_failed": "Filen märktes korrekt, men AI Marker-metadata kunde inte skrivas.",
   "batch.oversized": "Filer över rekommenderad storlek: {count}",
   "button.reset": "Återställ",
   "button.back": "← Tillbaka",

@@ -1,6 +1,6 @@
 # Nenolink AI Marker - Brugervejledning
 
-Applikationsversion: 0.4.0  
+Applikationsversion: 0.5.0<br>
 Dokumentsprog: Dansk  
 Opdateret: 2. september 2026  
 Udgiver: Nenolink  
@@ -11,6 +11,12 @@ Danmark
 Nenolink AI Marker tilføjer et synligt oplysningsbadge til billeder og, når FFmpeg er installeret, videoer. Programmet understøtter enkelte billeder og gentagelige mappebehandlinger. Originaler overskrives aldrig bevidst; outputnavne slutter med `_ai`.
 
 Nenolinks badgesystem er et praktisk transparenssystem. Vælg den formulering, der præcist beskriver, hvordan AI indgik i det konkrete indhold eller arbejdsforløb.
+
+## AI Marker-metadata
+
+Nenolink AI Marker tilføjer automatisk minimale maskinlæsbare metadata til behandlede filer. De identificerer Nenolink AI Marker som softwaren, registrerer det valgte AI-mærke og markeringsversionen. Metadata supplerer det synlige badge; det synlige badge er fortsat den primære menneskeligt læsbare oplysning.
+
+Metadata er ikke et bevis på ægthed, er ikke manipulationssikre og garanterer ikke juridisk eller lovgivningsmæssig overholdelse. Redigeringssoftware, websites og sociale medieplatforme kan ændre eller fjerne metadata. Kontrollér hvert behandlet output før offentliggørelse, og behold originalfilen.
 
 > **Juridisk meddelelse:** Nenolink AI Marker er et praktisk værktøj til transparens og mærkning. Dets badges og dokumentation er ikke juridisk rådgivning, certificering, myndighedsgodkendelse eller en garanti for overholdelse af EU's AI-forordning eller andre krav. Brugeren er ansvarlig for at vælge passende oplysninger, kontrollere output og overholde gældende lovgivning, aftaler, platformregler og faglige krav. Se den fulde Juridiske meddelelse og ansvarsfraskrivelse sidst i vejledningen.
 

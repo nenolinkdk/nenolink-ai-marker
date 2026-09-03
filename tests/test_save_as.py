@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from nenolink_ai_marker.app import MarkerApp
+from nenolink_ai_marker.metadata import marker_metadata
 
 
 def test_single_file_save_as_suggests_ai_name_and_uses_edited_filename(tmp_path):
@@ -22,7 +23,7 @@ def test_single_file_save_as_suggests_ai_name_and_uses_edited_filename(tmp_path)
     assert dialog.call_args.kwargs["initialdir"]==str(tmp_path)
     assert dialog.call_args.kwargs["defaultextension"]==".jpg"
     assert dialog.call_args.kwargs["confirmoverwrite"] is True
-    processor.save.assert_called_once_with(processed,Path(chosen))
+    processor.save.assert_called_once_with(processed,Path(chosen),marker_metadata("ai-assisted.png"))
 
 
 def test_single_video_save_as_preserves_extension_and_uses_edited_name(tmp_path):
@@ -43,6 +44,6 @@ def test_single_video_save_as_preserves_extension_and_uses_edited_name(tmp_path)
     assert dialog.call_args.kwargs["initialfile"]=="testvideo_ai.mp4"
     assert dialog.call_args.kwargs["defaultextension"]==".mp4"
     assert dialog.call_args.kwargs["confirmoverwrite"] is True
-    batch_processor.process_video.assert_called_once_with(source,badge,Path(chosen),settings)
+    batch_processor.process_video.assert_called_once_with(source,badge,Path(chosen),settings,marker_metadata("ai-video.png"))
     status_var.set.assert_called_once_with("Video saved successfully: testvideo_demo.mov")
     assert source.read_bytes()==b"original-video"

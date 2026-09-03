@@ -10,6 +10,7 @@ import re
 from typing import Callable
 
 from .models import MarkerSettings
+from .metadata import MarkerMetadata, marker_metadata
 from .processor import ImageProcessor, SUPPORTED_EXTENSIONS
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".webm"}
@@ -41,6 +42,7 @@ class BatchResult:
     successful: int = 0
     skipped: int = 0
     errors: list[str] = field(default_factory=list)
+    metadata_warnings: list[str] = field(default_factory=list)
     cancelled: bool = False
 
 
@@ -130,6 +132,7 @@ class BatchProcessor:
         progress: Callable[[Path, int, int, BatchResult], None] = lambda *_: None,
     ) -> BatchResult:
         files = scan.selected(settings)
+        metadata = marker_metadata(badge.name)
         output_root = destination_root(settings, scan.root)
         result = BatchResult()
         for index, source in enumerate(files, 1):
@@ -142,10 +145,12 @@ class BatchProcessor:
                     result.skipped += 1
                 elif source.suffix.lower() in SUPPORTED_EXTENSIONS:
                     image = self.image_processor.process(source, badge, settings)
-                    self.image_processor.save(image, target)
+                    if not self.image_processor.save(image, target, metadata):
+                        result.metadata_warnings.append(source.name)
                     result.successful += 1
                 else:
-                    self.process_video(source, badge, target, settings)
+                    if not self.process_video(source, badge, target, settings, metadata):
+                        result.metadata_warnings.append(source.name)
                     result.successful += 1
             except (OSError, ValueError, subprocess.SubprocessError) as error:
                 result.errors.append(f"{source.name}: {error}")
@@ -153,7 +158,10 @@ class BatchProcessor:
         return result
 
     @staticmethod
-    def process_video(source: Path, badge: Path, target: Path, settings: MarkerSettings) -> None:
+    def process_video(
+        source: Path, badge: Path, target: Path, settings: MarkerSettings,
+        metadata: MarkerMetadata | None = None,
+    ) -> bool:
         ffmpeg = find_ffmpeg()
         if not ffmpeg:
             raise ValueError("Video processing is unavailable because the required video component could not be found. Reinstall or repair Nenolink AI Marker.")
@@ -177,10 +185,33 @@ class BatchProcessor:
             f"[scaled]format=rgba,colorchannelmixer=aa={alpha}[badge];"
             f"[video][badge]overlay={positions[settings.position]}:shortest=1{enable}[outv]"
         )
+        metadata = metadata or marker_metadata(badge.name)
+        base_command = [
+            ffmpeg, "-y", "-i", str(source), "-loop", "1", "-i", str(badge),
+            "-filter_complex", filter_graph, "-map", "[outv]", "-map", "0:a?",
+            "-c:v", "libx264", "-crf", "18", "-preset", "medium", "-c:a", "copy",
+        ]
+        metadata_options = [
+            "-metadata", f"software={metadata.software}",
+            "-metadata", f"ai_label={metadata.ai_label}",
+            "-metadata", f"marker_version={metadata.marker_version}",
+            "-metadata", f"nenolink_ai_marker={metadata.identifier}",
+            "-metadata", f"comment={metadata.description}",
+        ]
+        if target.suffix.lower() in {".mp4", ".mov"}:
+            metadata_options += ["-movflags", "use_metadata_tags"]
         completed = subprocess.run(
-            [ffmpeg, "-y", "-i", str(source), "-loop", "1", "-i", str(badge), "-filter_complex", filter_graph,
-             "-map", "[outv]", "-map", "0:a?", "-c:v", "libx264", "-crf", "18", "-preset", "medium", "-c:a", "copy", str(target)],
-            capture_output=True, text=True, **hidden_subprocess_kwargs(),
+            base_command + metadata_options + [str(target)], capture_output=True, text=True,
+            **hidden_subprocess_kwargs(),
         )
         if completed.returncode:
+            retry = subprocess.run(
+                base_command + [str(target)], capture_output=True, text=True,
+                **hidden_subprocess_kwargs(),
+            )
+            if not retry.returncode:
+                return False
+            completed = retry
+        if completed.returncode:
             raise ValueError(completed.stderr.strip().splitlines()[-1] if completed.stderr else "FFmpeg failed")
+        return True

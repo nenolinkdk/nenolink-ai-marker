@@ -1,8 +1,9 @@
 from pathlib import Path
 from typing import Protocol
 
-from PIL import Image
+from PIL import Image, PngImagePlugin
 
+from .metadata import MarkerMetadata
 from .models import MarkerSettings
 
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
@@ -72,17 +73,57 @@ class ImageProcessor:
         )
         return result
 
-    def save(self, image: Image.Image, destination: Path) -> None:
+    def save(self, image: Image.Image, destination: Path, metadata: MarkerMetadata | None = None) -> bool:
+        """Save an image and return whether requested AI Marker metadata was written.
+
+        If a format encoder rejects metadata, retry the otherwise valid visible
+        output without metadata instead of losing the user's marked file.
+        """
         destination.parent.mkdir(parents=True, exist_ok=True)
         suffix = destination.suffix.lower()
-        if suffix in {".jpg", ".jpeg"}:
-            image.convert("RGB").save(destination, format="JPEG", quality=95)
-        elif suffix == ".png":
-            image.save(destination, format="PNG")
-        elif suffix == ".webp":
-            image.save(destination, format="WEBP", quality=95)
-        else:
+        if suffix not in SUPPORTED_EXTENSIONS:
             raise ValueError(f"Unsupported output type: {suffix}")
+
+        def write(include_metadata: bool) -> None:
+            if suffix in {".jpg", ".jpeg"}:
+                options = {"format": "JPEG", "quality": 95}
+                if include_metadata and metadata:
+                    exif = Image.Exif()
+                    exif[270] = metadata.description
+                    exif[305] = metadata.software
+                    exif[37510] = b"ASCII\x00\x00\x00" + metadata.description.encode("utf-8")
+                    options["exif"] = exif
+                    options["xmp"] = metadata.xmp
+                image.convert("RGB").save(destination, **options)
+            elif suffix == ".png":
+                options = {"format": "PNG"}
+                if include_metadata and metadata:
+                    pnginfo = PngImagePlugin.PngInfo()
+                    pnginfo.add_text("Software", metadata.software)
+                    pnginfo.add_text("AI Label", metadata.ai_label)
+                    pnginfo.add_text("Marker Version", metadata.marker_version)
+                    pnginfo.add_text("NenolinkAIMarker", metadata.identifier)
+                    options["pnginfo"] = pnginfo
+                image.save(destination, **options)
+            else:
+                options = {"format": "WEBP", "quality": 95}
+                if include_metadata and metadata:
+                    exif = Image.Exif()
+                    exif[270] = metadata.description
+                    exif[305] = metadata.software
+                    options["exif"] = exif.tobytes()
+                    options["xmp"] = metadata.xmp
+                image.save(destination, **options)
+
+        if metadata:
+            try:
+                write(True)
+                return True
+            except (OSError, ValueError, TypeError):
+                write(False)
+                return False
+        write(False)
+        return False
 
 
 def settings_position(position: str) -> str:
