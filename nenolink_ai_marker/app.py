@@ -19,6 +19,7 @@ from .batch import BatchProcessor, BatchResult, FolderScan, VIDEO_EXTENSIONS, de
 from .config import ConfigStore
 from .guide import open_user_guide
 from .i18n import LANGUAGES, Translator
+from .inspection import INSPECT_EXTENSIONS, InspectionResult, human_file_size, inspect_file
 from .metadata import marker_metadata
 from .models import MarkerSettings
 from .paths import badge_directory, locale_directory, localized_user_guide_path, welcome_image_path
@@ -72,6 +73,7 @@ class MarkerApp(ctk.CTk):
         self.badge_sources = BadgeSourceManager(badge_directory())
         self.badges = self.badge_sources.repository(saved.badge_source, saved.custom_badge_folder)
         self.sources: list[Path] = []; self.scan: FolderScan | None = None
+        self.inspection_path: Path | None = None; self.inspection_result: InspectionResult | None = None; self.inspection_error = ""
         self._reset_after_id = None
         self.cancel_event = threading.Event(); self.preview_photo = None; self.badge_photo = None; self.single_badge_photo = None; self.welcome_photo = None; self.welcome_image = None
         self.gallery_photos = []; self.gallery_buttons = {}; self.badge_display_to_file = {}
@@ -87,6 +89,7 @@ class MarkerApp(ctk.CTk):
         self.video_mode_var=ctk.StringVar(value=saved.video_mode); self.video_mode_display_var=ctk.StringVar(); self.video_duration_var=ctk.IntVar(value=saved.video_duration)
         self.status_var=ctk.StringVar(); self.badge_name_var=ctk.StringVar(); self.badge_description_var=ctk.StringVar(); self.badge_display_var=ctk.StringVar()
         self.scan_summary_var=ctk.StringVar(); self.progress_text_var=ctk.StringVar()
+        self.inspect_file_var=ctk.StringVar(); self.inspect_format_var=ctk.StringVar(); self.inspect_status_var=ctk.StringVar(); self.inspect_software_var=ctk.StringVar(); self.inspect_label_var=ctk.StringVar(); self.inspect_version_var=ctk.StringVar(); self.inspect_message_var=ctk.StringVar()
         self._build_ui(); boot("UI built"); self.apply_translations(); self.refresh_badges(False); boot("resources loaded"); self.protocol("WM_DELETE_WINDOW", self.destroy)
         if os.environ.get("NENOLINK_VERIFY_FILE_DIALOG") == "1":
             self.after(800, self.open_images)
@@ -103,9 +106,9 @@ class MarkerApp(ctk.CTk):
         self.reset_button=ctk.CTkButton(header,text="",command=self.reset_application,width=100); self.reset_button.grid(row=0,column=3,padx=8)
         self.guide_button=ctk.CTkButton(header,text="",command=self.open_guide,width=170); self.guide_button.grid(row=0,column=4,padx=(8,20))
         self.tabs=ctk.CTkTabview(self); self.tabs.grid(row=1,column=0,padx=16,pady=12,sticky="nsew")
-        self.tab_names={"single":self.translator.text("tab.single"),"batch":self.translator.text("tab.batch"),"badges":self.translator.text("tab.badges")}
-        self.single_tab=self.tabs.add(self.tab_names["single"]); self.batch_tab=self.tabs.add(self.tab_names["batch"]); self.settings_tab=self.tabs.add(self.tab_names["badges"])
-        self._single_ui(); self._batch_ui(); self._settings_ui()
+        self.tab_names={"single":self.translator.text("tab.single"),"batch":self.translator.text("tab.batch"),"badges":self.translator.text("tab.badges"),"inspect":self.translator.text("tab.inspect")}
+        self.single_tab=self.tabs.add(self.tab_names["single"]); self.batch_tab=self.tabs.add(self.tab_names["batch"]); self.settings_tab=self.tabs.add(self.tab_names["badges"]); self.inspect_tab=self.tabs.add(self.tab_names["inspect"])
+        self._single_ui(); self._batch_ui(); self._settings_ui(); self._inspect_ui()
         footer=ctk.CTkFrame(self,corner_radius=0,fg_color="transparent"); footer.grid(row=2,column=0,padx=20,pady=(0,8),sticky="ew"); footer.grid_columnconfigure(1,weight=1)
         ctk.CTkLabel(footer,text="(c) Copyright Henrik Nielsen - nenolink.com",text_color="gray60").grid(row=0,column=0,sticky="w")
         self.status_label=ctk.CTkLabel(footer,textvariable=self.status_var,text_color="gray60",anchor="e"); self.status_label.grid(row=0,column=1,padx=(20,0),sticky="ew")
@@ -242,10 +245,36 @@ class MarkerApp(ctk.CTk):
         self.progress=ctk.CTkProgressBar(progress_section); self.progress.set(0); self.progress.grid(row=2,column=0,padx=12,pady=6,sticky="ew")
         ctk.CTkLabel(progress_section,textvariable=self.progress_text_var,justify="left",anchor="w",wraplength=1050).grid(row=3,column=0,padx=12,pady=(3,8),sticky="ew")
 
+    def _inspect_ui(self) -> None:
+        tab=self.inspect_tab; tab.grid_columnconfigure(0,weight=1); tab.grid_rowconfigure(1,weight=1)
+        self.inspect_title=ctk.CTkLabel(tab,text="",font=ctk.CTkFont(size=20,weight="bold")); self.inspect_title.grid(row=0,column=0,padx=20,pady=(14,4),sticky="w")
+        self.inspect_back_button=ctk.CTkButton(tab,text="",command=self.navigate_home,width=110); self.inspect_back_button.grid(row=0,column=1,padx=20,pady=(14,4),sticky="e")
+        page=AutoHideScrollableFrame(tab,fg_color="transparent"); self.inspect_page=page; page.grid(row=1,column=0,columnspan=2,padx=12,pady=(2,14),sticky="nsew"); page.grid_columnconfigure(0,weight=1)
+        self.inspect_intro=ctk.CTkLabel(page,text="",anchor="w",justify="left",wraplength=950); self.inspect_intro.grid(row=0,column=0,padx=16,pady=(10,8),sticky="ew")
+        self.inspect_choose_button=ctk.CTkButton(page,text="",command=self.choose_inspection_file); self.inspect_choose_button.grid(row=1,column=0,padx=16,pady=8,sticky="w")
+        file_section=ctk.CTkFrame(page); file_section.grid(row=2,column=0,padx=16,pady=8,sticky="ew"); file_section.grid_columnconfigure(1,weight=1)
+        self.inspect_selected_heading=ctk.CTkLabel(file_section,text="",font=ctk.CTkFont(weight="bold")); self.inspect_selected_heading.grid(row=0,column=0,columnspan=2,padx=12,pady=(10,5),sticky="w")
+        self.inspect_file_label=ctk.CTkLabel(file_section,text=""); self.inspect_file_label.grid(row=1,column=0,padx=12,pady=3,sticky="w")
+        ctk.CTkLabel(file_section,textvariable=self.inspect_file_var,anchor="w").grid(row=1,column=1,padx=12,pady=3,sticky="ew")
+        self.inspect_format_label=ctk.CTkLabel(file_section,text=""); self.inspect_format_label.grid(row=2,column=0,padx=12,pady=(3,10),sticky="w")
+        ctk.CTkLabel(file_section,textvariable=self.inspect_format_var,anchor="w").grid(row=2,column=1,padx=12,pady=(3,10),sticky="ew")
+        result_section=ctk.CTkFrame(page); result_section.grid(row=3,column=0,padx=16,pady=8,sticky="ew"); result_section.grid_columnconfigure(1,weight=1)
+        self.inspect_metadata_heading=ctk.CTkLabel(result_section,text="",font=ctk.CTkFont(size=18,weight="bold")); self.inspect_metadata_heading.grid(row=0,column=0,columnspan=2,padx=12,pady=(10,6),sticky="w")
+        self.inspect_status_label=ctk.CTkLabel(result_section,text="",font=ctk.CTkFont(weight="bold")); self.inspect_status_label.grid(row=1,column=0,padx=12,pady=4,sticky="w")
+        ctk.CTkLabel(result_section,textvariable=self.inspect_status_var,anchor="w").grid(row=1,column=1,padx=12,pady=4,sticky="ew")
+        self.inspect_software_label=ctk.CTkLabel(result_section,text=""); self.inspect_software_label.grid(row=2,column=0,padx=12,pady=4,sticky="w")
+        ctk.CTkLabel(result_section,textvariable=self.inspect_software_var,anchor="w").grid(row=2,column=1,padx=12,pady=4,sticky="ew")
+        self.inspect_ai_label=ctk.CTkLabel(result_section,text=""); self.inspect_ai_label.grid(row=3,column=0,padx=12,pady=4,sticky="w")
+        ctk.CTkLabel(result_section,textvariable=self.inspect_label_var,anchor="w").grid(row=3,column=1,padx=12,pady=4,sticky="ew")
+        self.inspect_marker_version_label=ctk.CTkLabel(result_section,text=""); self.inspect_marker_version_label.grid(row=4,column=0,padx=12,pady=4,sticky="w")
+        ctk.CTkLabel(result_section,textvariable=self.inspect_version_var,anchor="w").grid(row=4,column=1,padx=12,pady=4,sticky="ew")
+        self.inspect_result_message=ctk.CTkLabel(result_section,textvariable=self.inspect_message_var,anchor="w",justify="left",wraplength=900,text_color="gray65"); self.inspect_result_message.grid(row=5,column=0,columnspan=2,padx=12,pady=(8,12),sticky="ew")
+        self._render_inspection()
+
     def apply_translations(self) -> None:
-        t=self.translator.text; self.title(f"Nenolink AI Marker {__version__} - {t('app.window')}"); self.guide_button.configure(text=t("button.user_guide")); self.reset_button.configure(text=t("button.reset")); self.batch_back_button.configure(text=t("button.back")); self.badges_back_button.configure(text=t("button.back"))
+        t=self.translator.text; self.title(f"Nenolink AI Marker {__version__} - {t('app.window')}"); self.guide_button.configure(text=t("button.user_guide")); self.reset_button.configure(text=t("button.reset")); self.batch_back_button.configure(text=t("button.back")); self.badges_back_button.configure(text=t("button.back")); self.inspect_back_button.configure(text=t("button.back"))
         current_key=next((key for key,name in self.tab_names.items() if name==self.tabs.get()),"single")
-        for key,translation_key in (("single","tab.single"),("batch","tab.batch"),("badges","tab.badges")):
+        for key,translation_key in (("single","tab.single"),("batch","tab.batch"),("badges","tab.badges"),("inspect","tab.inspect")):
             new=t(translation_key); old=self.tab_names[key]
             if old != new:self.tabs.rename(old,new); self.tab_names[key]=new
         self.tabs.set(self.tab_names[current_key])
@@ -263,10 +292,29 @@ class MarkerApp(ctk.CTk):
         self.welcome_title.configure(text=t("welcome.title")); self.welcome_tagline.configure(text=t("welcome.tagline")); self.welcome_description1.configure(text=t("welcome.description1")); self.welcome_description2.configure(text=t("welcome.description2"))
         for key,check in self.batch_checks: check.configure(text=t(key))
         self.scan_button.configure(text=t("button.scan_folder")); self.start_batch_button.configure(text=t("button.start_batch")); self.cancel_batch_button.configure(text=t("button.cancel_batch"))
+        self.inspect_title.configure(text=t("inspect.title")); self.inspect_intro.configure(text=t("inspect.intro")); self.inspect_choose_button.configure(text=t("inspect.choose")); self.inspect_selected_heading.configure(text=t("inspect.selected")); self.inspect_file_label.configure(text=t("inspect.file")); self.inspect_format_label.configure(text=t("inspect.format_size")); self.inspect_metadata_heading.configure(text=t("inspect.metadata")); self.inspect_status_label.configure(text=t("inspect.status")); self.inspect_software_label.configure(text=t("inspect.software")); self.inspect_ai_label.configure(text=t("inspect.ai_label")); self.inspect_marker_version_label.configure(text=t("inspect.marker_version")); self._render_inspection()
 
     def change_language(self,name): self.translator.set_language(LANGUAGES.get(name,"en")); self.apply_translations(); self._save()
     def show_tab(self,key): self.tabs.set(self.tab_names[key])
     def navigate_home(self): self.show_tab("single")
+    def choose_inspection_file(self):
+        patterns=" ".join(f"*{extension}" for extension in sorted(INSPECT_EXTENSIONS))
+        selected=filedialog.askopenfilename(title=self.translator.text("inspect.choose"),filetypes=[(self.translator.text("inspect.supported"),patterns),(self.translator.text("files.all"),"*.*")])
+        if not selected:return
+        self.inspection_path=Path(selected); self.inspection_result=None; self.inspection_error=""
+        try:self.inspection_result=inspect_file(self.inspection_path)
+        except (OSError,ValueError) as error:self.inspection_error=str(error)
+        self._render_inspection()
+    def _render_inspection(self):
+        if not hasattr(self,"inspect_file_var"):return
+        t=self.translator.text; missing=t("inspect.not_available")
+        self.inspect_file_var.set(self.inspection_path.name if self.inspection_path else t("inspect.none"))
+        if self.inspection_result:
+            result=self.inspection_result; self.inspect_format_var.set(f"{result.media_format} · {human_file_size(result.size)}"); self.inspect_status_var.set(t("inspect.found") if result.found else t("inspect.not_found")); self.inspect_software_var.set(result.software or missing); self.inspect_label_var.set(result.ai_label or missing); self.inspect_version_var.set(result.marker_version or missing); self.inspect_message_var.set(t("inspect.info") if result.found else t("inspect.not_found_message")+"\n"+t("inspect.no_ai_warning"))
+        elif self.inspection_error:
+            suffix=self.inspection_path.suffix.lower().lstrip(".").upper() if self.inspection_path else ""; size=human_file_size(self.inspection_path.stat().st_size) if self.inspection_path and self.inspection_path.is_file() else ""; self.inspect_format_var.set(" · ".join(value for value in (suffix,size) if value)); self.inspect_status_var.set(t("inspect.error")); self.inspect_software_var.set(missing); self.inspect_label_var.set(missing); self.inspect_version_var.set(missing); self.inspect_message_var.set(t("inspect.error_message",reason=self.inspection_error))
+        else:
+            self.inspect_format_var.set(""); self.inspect_status_var.set(t("inspect.ready")); self.inspect_software_var.set(missing); self.inspect_label_var.set(missing); self.inspect_version_var.set(missing); self.inspect_message_var.set(t("inspect.no_ai_warning"))
     def reset_application(self):
         defaults=MarkerSettings(); custom_folder=self.custom_badge_var.get()
         self.sources=[]; self.preview_photo=None; self.video_controls.grid_remove()
@@ -275,6 +323,7 @@ class MarkerApp(ctk.CTk):
         self.batch_suffix_var.set(defaults.batch_filename_suffix)
         self.video_mode_var.set(defaults.video_mode); self.video_duration_var.set(defaults.video_duration)
         self.scan=None; self.cancel_event.clear(); self.scan_summary_var.set(""); self.progress_text_var.set(""); self.progress.set(0)
+        self.inspection_path=None; self.inspection_result=None; self.inspection_error=""; self._render_inspection()
         self.refresh_badges(False); self.apply_translations(); self.file_label.configure(text=self.translator.text("files.none")); self.render_start_view()
         if self._reset_after_id:self.after_cancel(self._reset_after_id)
         self._reset_after_id=self.after(150,self._finish_reset_view); self.status_var.set(self.translator.text("status.reset")); self._save()
@@ -432,9 +481,9 @@ class MarkerApp(ctk.CTk):
         report_path=Path(os.environ["NENOLINK_VERIFY_REPORT"])
         initial_badge_settings={"source":self.badge_source_var.get(),"folder":self.custom_badge_var.get(),"selection":self.badge_var.get(),"batch_suffix":self.batch_suffix_var.get(),"video_mode":self.video_mode_var.get(),"video_duration":self.video_duration_var.get(),"status":self.status_var.get(),"count":len(self.badges.display_badges()),"custom_controls_visible":self.custom_controls.winfo_manager()=="grid"}
         tab_switching={}
-        for key,frame in (("single",self.single_tab),("batch",self.batch_tab),("badges",self.settings_tab)):
+        for key,frame in (("single",self.single_tab),("batch",self.batch_tab),("badges",self.settings_tab),("inspect",self.inspect_tab)):
             self.show_tab(key); self.update(); time.sleep(.15); self.update()
-            tab_switching[key]={"selected":self.tabs.get()==self.tab_names[key],"visible":bool(frame.winfo_ismapped()),"other_visible":any(bool(other.winfo_ismapped()) for other in (self.single_tab,self.batch_tab,self.settings_tab) if other is not frame)}
+            tab_switching[key]={"selected":self.tabs.get()==self.tab_names[key],"visible":bool(frame.winfo_ismapped()),"other_visible":any(bool(other.winfo_ismapped()) for other in (self.single_tab,self.batch_tab,self.settings_tab,self.inspect_tab) if other is not frame)}
         self.sources=[Path(os.environ.get("NENOLINK_VERIFY_IMAGE","preserved-image.png"))]
         self.badge_var.set("ai-translation.png"); self.position_var.set("top-left"); self.size_var.set(33); self.margin_var.set(27); self.opacity_var.set(81)
         self.input_folder_var.set(r"C:\verification\batch-input"); self.batch_suffix_var.set("_published"); self.badge_source_var.set("standard")
@@ -475,7 +524,11 @@ class MarkerApp(ctk.CTk):
             with Image.open(jpeg_output) as checked:jpeg_exif=checked.getexif(); jpeg_values={"software":jpeg_exif.get(305),"description":jpeg_exif.get(270)}
             with Image.open(png_output) as checked:png_values={key:checked.info.get(key) for key in ("Software","AI Label","Marker Version","NenolinkAIMarker")}
             with Image.open(webp_output) as checked:webp_exif=checked.getexif(); webp_values={"software":webp_exif.get(305),"description":webp_exif.get(270)}
-            image_metadata_verification={"source_sha256_before":sample_hash,"source_sha256_after":hashlib.sha256(sample_path.read_bytes()).hexdigest(),"jpeg":{"path":str(jpeg_output),"written":jpeg_written,"values":jpeg_values},"png":{"path":str(png_output),"written":png_written,"values":png_values},"webp":{"path":str(webp_output),"written":webp_written,"values":webp_values}}
+            inspected={path.suffix.lower().lstrip("."):inspect_file(path) for path in (jpeg_output,png_output,webp_output)}
+            ordinary=inspect_file(sample_path)
+            self.inspection_path=jpeg_output; self.inspection_result=inspected["jpg"]; self._render_inspection(); self.show_tab("inspect"); self.update(); self.inspect_back_button.invoke(); self.update()
+            inspect_back_preserved=self.inspection_path==jpeg_output and self.inspection_result==inspected["jpg"] and self.tabs.get()==self.tab_names["single"]
+            image_metadata_verification={"source_sha256_before":sample_hash,"source_sha256_after":hashlib.sha256(sample_path.read_bytes()).hexdigest(),"jpeg":{"path":str(jpeg_output),"written":jpeg_written,"values":jpeg_values,"inspected":inspected["jpg"].found,"label":inspected["jpg"].ai_label,"version":inspected["jpg"].marker_version},"png":{"path":str(png_output),"written":png_written,"values":png_values,"inspected":inspected["png"].found,"label":inspected["png"].ai_label},"webp":{"path":str(webp_output),"written":webp_written,"values":webp_values,"inspected":inspected["webp"].found},"ordinary_not_found":not ordinary.found,"inspect_back_preserved":inspect_back_preserved}
         self.select_gallery_badge("ai-software.png"); gallery_selection_persisted=self.badge_var.get()=="ai-software.png" and self.badge_display_var.get()=="AI Software"
         custom_verification=None
         custom_folder=os.environ.get("NENOLINK_VERIFY_CUSTOM_BADGES")
@@ -538,13 +591,14 @@ class MarkerApp(ctk.CTk):
             shutil.copy2(video_source_path,batch_input/"clip01.mp4"); shutil.copy2(video_source_path,batch_input/"clip02.mp4")
             batch_settings=MarkerSettings(badge_name="ai-generated.png",position="top-right",size_percent=25,margin=30,opacity=75,process_images=False,process_videos=True,output_preference="separate",output_folder=str(batch_output),batch_filename_suffix="_ai",video_mode="end",video_duration=5)
             batch_result=self.batch_processor.process(scan_folder(batch_input),standard.find(batch_settings.badge_name),batch_settings)
+            inspected_mp4=inspect_file(output_c); inspected_mov=inspect_file(mov_output); ordinary_video_hash=hashlib.sha256(video_source_path.read_bytes()).hexdigest(); ordinary_video=inspect_file(video_source_path)
             version=subprocess.run([ffmpeg_path,"-version"],capture_output=True,text=True,**hidden_subprocess_kwargs()).stdout.splitlines()[0]
-            payload["video_verification"]={"ffmpeg_version":version,"suggested_name":f"{video_source_path.stem}_ai{video_source_path.suffix}","outputs":{"permanent":str(output_a),"beginning5":str(output_b),"end5":str(output_c),"end10":str(output_d),"mov":str(mov_output)},"all_outputs_exist":all(path.is_file() for path in (output_a,output_b,output_c,output_d,mov_output)),"settings":[{"badge":s.badge_name,"mode":s.video_mode,"duration":s.video_duration,"position":s.position,"size":s.size_percent,"margin":s.margin,"opacity":s.opacity} for s in (settings_a,settings_b,settings_c,settings_d)],"batch_mode":batch_settings.video_mode,"batch_duration":batch_settings.video_duration,"batch_badge":batch_settings.badge_name,"batch_successful":batch_result.successful,"batch_metadata_warnings":batch_result.metadata_warnings,"batch_outputs":sorted(path.name for path in batch_output.glob("*.mp4"))}
+            payload["video_verification"]={"ffmpeg_version":version,"suggested_name":f"{video_source_path.stem}_ai{video_source_path.suffix}","outputs":{"permanent":str(output_a),"beginning5":str(output_b),"end5":str(output_c),"end10":str(output_d),"mov":str(mov_output)},"all_outputs_exist":all(path.is_file() for path in (output_a,output_b,output_c,output_d,mov_output)),"mp4_inspection":{"found":inspected_mp4.found,"software":inspected_mp4.software,"label":inspected_mp4.ai_label,"version":inspected_mp4.marker_version},"mov_inspection":{"found":inspected_mov.found,"software":inspected_mov.software,"label":inspected_mov.ai_label,"version":inspected_mov.marker_version},"ordinary_not_found":not ordinary_video.found,"source_sha256_before":ordinary_video_hash,"source_sha256_after":hashlib.sha256(video_source_path.read_bytes()).hexdigest(),"settings":[{"badge":s.badge_name,"mode":s.video_mode,"duration":s.video_duration,"position":s.position,"size":s.size_percent,"margin":s.margin,"opacity":s.opacity} for s in (settings_a,settings_b,settings_c,settings_d)],"batch_mode":batch_settings.video_mode,"batch_duration":batch_settings.video_duration,"batch_badge":batch_settings.badge_name,"batch_successful":batch_result.successful,"batch_metadata_warnings":batch_result.metadata_warnings,"batch_outputs":sorted(path.name for path in batch_output.glob("*.mp4"))}
         payload["tab_switching"]=tab_switching
         payload["back_navigation"]={"badges_preserved":badges_back_preserved,"batch_preserved":batch_back_preserved,"english_label":english["back"],"danish_label":danish["back"]}
         if os.environ.get("NENOLINK_VERIFY_RESET_LANGUAGE")=="da":self.change_language("Dansk")
         retained_custom_folder=self.custom_badge_var.get(); self.reset_application(); self.update(); time.sleep(.2); self.update()
-        payload["reset_verification"]={"source":self.badge_source_var.get(),"selection":self.badge_var.get(),"folder_retained":self.custom_badge_var.get()==retained_custom_folder,"position":self.position_var.get(),"size":self.size_var.get(),"margin":self.margin_var.get(),"opacity":self.opacity_var.get(),"video_mode":self.video_mode_var.get(),"video_duration":self.video_duration_var.get(),"batch_suffix":self.batch_suffix_var.get(),"sources":len(self.sources),"scan_cleared":self.scan is None,"single_selected":self.tabs.get()==self.tab_names["single"],"welcome":self.welcome_frame.winfo_manager()=="grid","welcome_mapped":bool(self.welcome_frame.winfo_ismapped()),"welcome_title":self.welcome_title.cget("text"),"welcome_illustration":bool(self.welcome_photo and self.welcome_illustration.winfo_ismapped()),"preview_hidden":not bool(self.preview_label.winfo_ismapped()),"status":self.status_var.get()}
+        payload["reset_verification"]={"source":self.badge_source_var.get(),"selection":self.badge_var.get(),"folder_retained":self.custom_badge_var.get()==retained_custom_folder,"position":self.position_var.get(),"size":self.size_var.get(),"margin":self.margin_var.get(),"opacity":self.opacity_var.get(),"video_mode":self.video_mode_var.get(),"video_duration":self.video_duration_var.get(),"batch_suffix":self.batch_suffix_var.get(),"sources":len(self.sources),"scan_cleared":self.scan is None,"inspection_cleared":self.inspection_path is None and self.inspection_result is None and not self.inspection_error,"single_selected":self.tabs.get()==self.tab_names["single"],"welcome":self.welcome_frame.winfo_manager()=="grid","welcome_mapped":bool(self.welcome_frame.winfo_ismapped()),"welcome_title":self.welcome_title.cget("text"),"welcome_illustration":bool(self.welcome_photo and self.welcome_illustration.winfo_ismapped()),"preview_hidden":not bool(self.preview_label.winfo_ismapped()),"status":self.status_var.get()}
         report_path.write_text(json.dumps(payload,indent=2),encoding="utf-8"); self.destroy()
 
     def settings(self):

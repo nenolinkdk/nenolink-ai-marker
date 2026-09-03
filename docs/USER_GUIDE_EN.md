@@ -8,7 +8,7 @@ Denmark
 
 ## 1. What Nenolink AI Marker does
 
-Nenolink AI Marker adds a visible disclosure badge to images and, when FFmpeg is installed, videos. It supports individual images and repeatable folder batches. Originals are never intentionally overwritten; output names end in `_ai`.
+Nenolink AI Marker adds a visible disclosure badge to images and videos. It supports individual images and repeatable folder batches. Originals are never intentionally overwritten; output names end in `_ai`.
 
 The Nenolink badge system is a practical transparency system. Choose wording that accurately describes how AI was involved in the specific content or workflow.
 
@@ -17,6 +17,14 @@ The Nenolink badge system is a practical transparency system. Choose wording tha
 Nenolink AI Marker automatically adds minimal machine-readable metadata to processed files. It identifies Nenolink AI Marker as the software, records the selected AI label, and records the marker version. This metadata complements the visible badge; the visible badge remains the primary human-readable disclosure.
 
 Metadata is not proof of authenticity, is not tamper-proof, and does not guarantee legal or regulatory compliance. Editing software, websites, and social-media platforms may change or remove metadata. Review every processed output before publishing it and retain the original file.
+
+## Inspect File
+
+**Inspect File** reads recognized Nenolink AI Marker metadata from JPEG, PNG, WebP, MP4, and MOV files. Choose a file and the result shows the filename, format, size, status, software, AI label, and marker version. Inspection is read-only and does not modify the selected file.
+
+**Found** means recognized Nenolink metadata was found. **Not found** means that recognized metadata was not found; it does not mean AI was not used. Metadata may have been stripped or altered. Inspect File is not an AI detector and does not establish authenticity, provenance, certification, legal compliance, or EU AI Act compliance.
+
+The visible badge is the human-readable disclosure. Metadata is machine-readable information. Inspect File reads that machine-readable information.
 
 > **Legal notice:** Nenolink AI Marker is a practical transparency and labelling tool. Its badges and documentation are not legal advice, certification, regulatory approval, or a guarantee of compliance with the EU AI Act or any other requirement. Users remain responsible for choosing appropriate disclosures, reviewing output, and complying with applicable laws, contracts, platform rules, and professional requirements. See the full Legal Notice and Disclaimer near the end of this guide.
 
@@ -48,7 +56,7 @@ Choose **Single image**, then **Choose Images**. JPG, JPEG, PNG, and WebP are su
 
 ## 8. Processing video
 
-Video batch support accepts MP4, MOV, MKV, AVI, and WebM. It requires an independently installed `ffmpeg` executable available on the Windows `PATH`. Audio is copied where the chosen output container permits it. Encoding uses H.264. Container/codec combinations vary; test an output before publication. If FFmpeg is missing or rejects one file, that file is recorded as an error and the batch continues.
+Video batch support accepts MP4, MOV, MKV, AVI, and WebM. The Windows package includes the required FFmpeg component; no separate installation or `PATH` configuration is needed. Audio is copied where the chosen output container permits it. Encoding uses H.264. Container/codec combinations vary; test an output before publication. If FFmpeg rejects one file, that file is recorded as an error and the batch continues.
 
 ## 9. Folder batch processing
 
@@ -118,7 +126,7 @@ Official source: Regulation (EU) 2024/1689, Article 50, EUR-Lex: https://eur-lex
 
 As practical guidance, images up to 50 MB and videos up to 2 GB are recommended. These are recommendations, not guaranteed technical maximums; larger files may still work.
 
-Not every image or video file can necessarily be processed. Compatibility and practical processing limits depend on the file format, codec, resolution, duration, file size, whether the file is damaged or corrupt, unusual encoding, available RAM, CPU performance, available disk space, and temporary processing space. Video processing also depends on the installed FFmpeg version and whether FFmpeg supports the file's container, codecs, and encoding.
+Not every image or video file can necessarily be processed. Compatibility and practical processing limits depend on the file format, codec, resolution, duration, file size, whether the file is damaged or corrupt, unusual encoding, available RAM, CPU performance, available disk space, and temporary processing space. Video processing also depends on whether the bundled FFmpeg component supports the file's container, codecs, and encoding.
 
 No fixed maximum file size is defined. A file that works on one computer may fail or take substantially longer on another because practical limits depend partly on the user's computer and available resources. Keep original files and review every processed output before publication or distribution.
 
@@ -158,7 +166,7 @@ Nenolink AI Marker must not be presented as:
 - **Image will not open:** Confirm it is a valid JPG, JPEG, PNG, or WebP, not merely renamed.
 - **Large or complex file fails:** Close other demanding applications, confirm sufficient RAM and free disk space, and try a smaller-resolution copy while retaining the original.
 - **Damaged or unusually encoded file:** Open and re-export a copy in a common format with a trusted editor, then process the copy. Never discard the original.
-- **Video fails:** Run `ffmpeg -version` in Command Prompt, ensure FFmpeg is on `PATH`, and confirm that FFmpeg supports the container and codecs. Very long, high-resolution, or unusually encoded videos can require substantial CPU, RAM, disk, and temporary space.
+- **Video fails:** Confirm that the complete application folder was extracted from the ZIP and that its bundled components remain together. The file's container or codecs may be unsupported. Very long, high-resolution, or unusually encoded videos can require substantial CPU, RAM, disk, and temporary space.
 - **Processing stops or the disk fills:** Free disk space, including space used for temporary processing, then retry. Review the resulting file completely before publication or distribution.
 - **PDF guide does not open:** Confirm `docs\Nenolink-AI-Marker-User-Guide-EN.pdf` remains beside the application structure and that Windows has a default PDF viewer.
 - **Unexpected output location:** Scan again after changing input or output settings and read the displayed destination.

@@ -8,7 +8,7 @@ Danmark
 
 ## 1. Hvad Nenolink AI Marker gør
 
-Nenolink AI Marker tilføjer et synligt oplysningsbadge til billeder og, når FFmpeg er installeret, videoer. Programmet understøtter enkelte billeder og gentagelige mappebehandlinger. Originaler overskrives aldrig bevidst; outputnavne slutter med `_ai`.
+Nenolink AI Marker tilføjer et synligt oplysningsbadge til billeder og videoer. Programmet understøtter enkelte billeder og gentagelige mappebehandlinger. Originaler overskrives aldrig bevidst; outputnavne slutter med `_ai`.
 
 Nenolinks badgesystem er et praktisk transparenssystem. Vælg den formulering, der præcist beskriver, hvordan AI indgik i det konkrete indhold eller arbejdsforløb.
 
@@ -17,6 +17,14 @@ Nenolinks badgesystem er et praktisk transparenssystem. Vælg den formulering, d
 Nenolink AI Marker tilføjer automatisk minimale maskinlæsbare metadata til behandlede filer. De identificerer Nenolink AI Marker som softwaren, registrerer det valgte AI-mærke og markeringsversionen. Metadata supplerer det synlige badge; det synlige badge er fortsat den primære menneskeligt læsbare oplysning.
 
 Metadata er ikke et bevis på ægthed, er ikke manipulationssikre og garanterer ikke juridisk eller lovgivningsmæssig overholdelse. Redigeringssoftware, websites og sociale medieplatforme kan ændre eller fjerne metadata. Kontrollér hvert behandlet output før offentliggørelse, og behold originalfilen.
+
+## Undersøg fil
+
+**Undersøg fil** læser genkendte Nenolink AI Marker-metadata fra JPEG-, PNG-, WebP-, MP4- og MOV-filer. Vælg en fil, hvorefter resultatet viser filnavn, format, størrelse, status, software, AI-mærke og markeringsversion. Undersøgelsen er skrivebeskyttet og ændrer ikke den valgte fil.
+
+**Fundet** betyder, at genkendte Nenolink-metadata blev fundet. **Ikke fundet** betyder, at genkendte metadata ikke blev fundet; det betyder ikke, at AI ikke blev anvendt. Metadata kan være blevet fjernet eller ændret. Undersøg fil er ikke en AI-detektor og fastslår ikke ægthed, oprindelse, certificering, juridisk overholdelse eller overholdelse af EU's AI-forordning.
+
+Det synlige badge er den menneskeligt læsbare oplysning. Metadata er maskinlæsbare oplysninger. Undersøg fil læser disse maskinlæsbare oplysninger.
 
 > **Juridisk meddelelse:** Nenolink AI Marker er et praktisk værktøj til transparens og mærkning. Dets badges og dokumentation er ikke juridisk rådgivning, certificering, myndighedsgodkendelse eller en garanti for overholdelse af EU's AI-forordning eller andre krav. Brugeren er ansvarlig for at vælge passende oplysninger, kontrollere output og overholde gældende lovgivning, aftaler, platformregler og faglige krav. Se den fulde Juridiske meddelelse og ansvarsfraskrivelse sidst i vejledningen.
 
@@ -48,7 +56,7 @@ Vælg **Enkelt fil** og derefter **Vælg billede**. JPG, JPEG, PNG og WebP under
 
 ## 8. Behandling af video
 
-Videobehandling i mapper accepterer MP4, MOV, MKV, AVI og WebM. Det kræver et særskilt installeret `ffmpeg`-program, som er tilgængeligt på Windows `PATH`. Lyd kopieres, når den valgte outputcontainer tillader det. Kodningen bruger H.264. Kombinationer af container og codec varierer; afprøv et output før offentliggørelse. Hvis FFmpeg mangler eller afviser en fil, registreres filen som en fejl, og behandlingen fortsætter.
+Videobehandling i mapper accepterer MP4, MOV, MKV, AVI og WebM. Windows-pakken indeholder den nødvendige FFmpeg-komponent; separat installation eller `PATH`-konfiguration er ikke nødvendig. Lyd kopieres, når den valgte outputcontainer tillader det. Kodningen bruger H.264. Kombinationer af container og codec varierer; afprøv et output før offentliggørelse. Hvis FFmpeg afviser en fil, registreres filen som en fejl, og behandlingen fortsætter.
 
 ## 9. Mappebehandling
 
@@ -118,7 +126,7 @@ Officiel kilde: Forordning (EU) 2024/1689, artikel 50, EUR-Lex: https://eur-lex.
 
 Som praktisk vejledning anbefales billeder op til 50 MB og videoer op til 2 GB. Det er anbefalinger, ikke garanterede tekniske maksimumgrænser; større filer kan stadig fungere.
 
-Ikke alle billed- eller videofiler kan nødvendigvis behandles. Kompatibilitet og praktiske behandlingsgrænser afhænger af filformat, codec, opløsning, varighed, filstørrelse, om filen er beskadiget eller korrupt, usædvanlig kodning, tilgængelig RAM, CPU-ydelse, ledig diskplads og plads til midlertidig behandling. Videobehandling afhænger også af den installerede FFmpeg-version, og om FFmpeg understøtter filens container, codecs og kodning.
+Ikke alle billed- eller videofiler kan nødvendigvis behandles. Kompatibilitet og praktiske behandlingsgrænser afhænger af filformat, codec, opløsning, varighed, filstørrelse, om filen er beskadiget eller korrupt, usædvanlig kodning, tilgængelig RAM, CPU-ydelse, ledig diskplads og plads til midlertidig behandling. Videobehandling afhænger også af, om den medfølgende FFmpeg-komponent understøtter filens container, codecs og kodning.
 
 Der fastsættes ikke en bestemt maksimal filstørrelse. En fil, der virker på én computer, kan fejle eller tage betydeligt længere tid på en anden, fordi de praktiske grænser delvist afhænger af brugerens computer og tilgængelige ressourcer. Bevar originalfiler, og kontrollér hvert behandlet output før offentliggørelse eller distribution.
 
@@ -158,7 +166,7 @@ Nenolink AI Marker må ikke præsenteres som:
 - **Billedet kan ikke åbnes:** Kontrollér, at det er en gyldig JPG-, JPEG-, PNG- eller WebP-fil og ikke blot har fået et nyt filnavn.
 - **En stor eller kompleks fil fejler:** Luk andre krævende programmer, kontrollér tilgængelig RAM og ledig diskplads, og prøv en kopi i lavere opløsning, mens originalen bevares.
 - **Beskadiget eller usædvanligt kodet fil:** Åbn og eksporter en kopi i et almindeligt format med et pålideligt redigeringsprogram, og behandl derefter kopien. Kassér aldrig originalen.
-- **Video fejler:** Kør `ffmpeg -version` i Kommandoprompt, kontrollér, at FFmpeg findes på `PATH`, og kontrollér, at FFmpeg understøtter containeren og codecs. Meget lange videoer, høj opløsning eller usædvanlig kodning kan kræve betydelig CPU, RAM, diskplads og midlertidig plads.
+- **Video fejler:** Kontrollér, at hele programmappen blev pakket ud fra ZIP-filen, og at de medfølgende komponenter stadig ligger samlet. Filens container eller codecs understøttes muligvis ikke. Meget lange videoer, høj opløsning eller usædvanlig kodning kan kræve betydelig CPU, RAM, diskplads og midlertidig plads.
 - **Behandlingen stopper, eller disken fyldes:** Frigør diskplads, herunder plads til midlertidig behandling, og prøv igen. Gennemse hele resultatfilen før offentliggørelse eller distribution.
 - **PDF-vejledningen åbner ikke:** Kontrollér, at `docs\Nenolink-AI-Marker-User-Guide-DA.pdf` eller den engelske fallback ligger i programstrukturen, og at Windows har en standard-PDF-fremviser.
 - **Uventet outputplacering:** Scan igen efter ændring af input- eller outputindstillinger, og læs den viste destination.
