@@ -24,6 +24,27 @@ from .processor import ImageProcessor, SUPPORTED_EXTENSIONS
 from .ui_state import show_welcome
 
 
+class AutoHideScrollableFrame(ctk.CTkScrollableFrame):
+    """A local scroll area whose scrollbar is only shown on overflow."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.scrollbar_needed = True
+        self.bind("<Configure>", self._schedule_scrollbar_update, add="+")
+        self._parent_canvas.bind("<Configure>", self._schedule_scrollbar_update, add="+")
+
+    def _schedule_scrollbar_update(self, _event=None):
+        self.after_idle(self.update_scrollbar_visibility)
+
+    def update_scrollbar_visibility(self):
+        bounds = self._parent_canvas.bbox("all")
+        needed = bool(bounds and bounds[3] - bounds[1] > self._parent_canvas.winfo_height() + 1)
+        if needed and not self.scrollbar_needed:
+            self._scrollbar.grid(row=1, column=1, sticky="nsew")
+        elif not needed and self.scrollbar_needed:
+            self._scrollbar.grid_remove(); self._parent_canvas.yview_moveto(0)
+        self.scrollbar_needed = needed
+
+
 class MarkerApp(ctk.CTk):
     def __init__(self) -> None:
         boot_log=os.environ.get("NENOLINK_BOOT_LOG")
@@ -88,24 +109,25 @@ class MarkerApp(ctk.CTk):
 
     def _single_ui(self) -> None:
         tab=self.single_tab; tab.grid_columnconfigure(1,weight=1); tab.grid_rowconfigure(0,weight=1)
-        left=ctk.CTkFrame(tab,width=310); left.grid(row=0,column=0,padx=(4,8),pady=4,sticky="ns"); left.grid_columnconfigure(0,weight=1)
-        self.open_button=ctk.CTkButton(left,text="",command=self.open_images); self.open_button.grid(row=0,column=0,padx=16,pady=(14,6),sticky="ew")
-        self.file_label=ctk.CTkLabel(left,text="",wraplength=280,justify="left"); self.file_label.grid(row=1,column=0,padx=16,pady=6,sticky="w")
-        self.file_size_guidance=ctk.CTkLabel(left,text="",wraplength=280,justify="left",text_color="gray60"); self.file_size_guidance.grid(row=2,column=0,padx=16,pady=(0,4),sticky="w")
-        self.single_badge_label=ctk.CTkLabel(left,text="",font=ctk.CTkFont(weight="bold")); self.single_badge_label.grid(row=3,column=0,padx=16,pady=(6,2),sticky="w")
-        self.badge_menu=ctk.CTkOptionMenu(left,variable=self.badge_display_var,values=["—"],command=self.select_badge_display); self.badge_menu.grid(row=4,column=0,padx=16,pady=4,sticky="ew")
-        badge_preview=ctk.CTkFrame(left); badge_preview.grid(row=5,column=0,padx=16,pady=6,sticky="ew"); badge_preview.grid_columnconfigure(1,weight=1)
-        self.single_badge_preview_label=ctk.CTkLabel(badge_preview,text="",width=110,height=54); self.single_badge_preview_label.grid(row=0,column=0,padx=8,pady=8)
-        self.single_badge_name_label=ctk.CTkLabel(badge_preview,textvariable=self.badge_name_var,font=ctk.CTkFont(weight="bold"),anchor="w"); self.single_badge_name_label.grid(row=0,column=1,padx=(4,8),pady=8,sticky="ew")
+        left=AutoHideScrollableFrame(tab,width=310,fg_color=("gray86","gray17")); self.single_controls=left; left.grid(row=0,column=0,padx=(4,8),pady=4,sticky="nsew"); left.grid_columnconfigure(0,weight=1)
+        self.open_button=ctk.CTkButton(left,text="",command=self.open_images); self.open_button.grid(row=0,column=0,padx=14,pady=(10,4),sticky="ew")
+        self.file_label=ctk.CTkLabel(left,text="",wraplength=270,justify="left"); self.file_label.grid(row=1,column=0,padx=14,pady=3,sticky="w")
+        self.file_size_guidance=ctk.CTkLabel(left,text="",wraplength=270,justify="left",text_color="gray60"); self.file_size_guidance.grid(row=2,column=0,padx=14,pady=(0,2),sticky="w")
+        self.single_badge_label=ctk.CTkLabel(left,text="",font=ctk.CTkFont(weight="bold")); self.single_badge_label.grid(row=3,column=0,padx=14,pady=(4,1),sticky="w")
+        self.badge_menu=ctk.CTkOptionMenu(left,variable=self.badge_display_var,values=["—"],command=self.select_badge_display); self.badge_menu.grid(row=4,column=0,padx=14,pady=2,sticky="ew")
+        badge_preview=ctk.CTkFrame(left); badge_preview.grid(row=5,column=0,padx=14,pady=4,sticky="ew"); badge_preview.grid_columnconfigure(1,weight=1)
+        self.single_badge_preview_label=ctk.CTkLabel(badge_preview,text="",width=90,height=44); self.single_badge_preview_label.grid(row=0,column=0,padx=5,pady=5)
+        self.single_badge_name_label=ctk.CTkLabel(badge_preview,textvariable=self.badge_name_var,font=ctk.CTkFont(weight="bold"),anchor="w",wraplength=150); self.single_badge_name_label.grid(row=0,column=1,padx=(3,5),pady=5,sticky="ew")
         self.position_label=ctk.CTkLabel(left,text=""); self.position_label.grid(row=6,column=0,padx=16,pady=(8,2),sticky="w")
         self.position_menu=ctk.CTkOptionMenu(left,variable=self.position_display_var,values=["—"],command=self.change_position_display); self.position_menu.grid(row=7,column=0,padx=16,pady=4,sticky="ew")
         self.size_label=self._slider(left,self.size_var,1,100,8); self.margin_label=self._slider(left,self.margin_var,0,250,10); self.opacity_label=self._slider(left,self.opacity_var,0,100,12)
-        self.video_controls=ctk.CTkFrame(left,fg_color="transparent"); self.video_controls.grid(row=14,column=0,padx=16,pady=(4,0),sticky="ew"); self.video_controls.grid_columnconfigure(1,weight=1)
-        self.video_mode_label=ctk.CTkLabel(self.video_controls,text=""); self.video_mode_label.grid(row=0,column=0,columnspan=2,sticky="w")
-        self.video_mode_menu=ctk.CTkOptionMenu(self.video_controls,variable=self.video_mode_display_var,values=["—"],command=self.change_video_mode); self.video_mode_menu.grid(row=1,column=0,columnspan=2,pady=3,sticky="ew")
-        self.video_duration_label=ctk.CTkLabel(self.video_controls,text=""); self.video_duration_label.grid(row=2,column=0,pady=3,sticky="w")
-        self.video_duration_entry=ctk.CTkEntry(self.video_controls,textvariable=self.video_duration_var,width=70); self.video_duration_entry.grid(row=2,column=1,pady=3,sticky="e"); self.video_duration_entry.bind("<FocusOut>",self.changed)
-        self.process_button=ctk.CTkButton(left,text="",command=self.save_images); self.process_button.grid(row=15,column=0,padx=16,pady=12,sticky="ew")
+        self.video_controls=ctk.CTkFrame(left,fg_color="transparent"); self.video_controls.grid(row=14,column=0,padx=14,pady=(2,0),sticky="ew"); self.video_controls.grid_columnconfigure(1,weight=1)
+        self.video_mode_label=ctk.CTkLabel(self.video_controls,text=""); self.video_mode_label.grid(row=0,column=0,columnspan=3,sticky="w")
+        self.video_mode_menu=ctk.CTkOptionMenu(self.video_controls,variable=self.video_mode_display_var,values=["—"],command=self.change_video_mode); self.video_mode_menu.grid(row=1,column=0,columnspan=3,pady=(1,3),sticky="ew")
+        self.video_duration_label=ctk.CTkLabel(self.video_controls,text=""); self.video_duration_label.grid(row=2,column=0,pady=2,sticky="w")
+        self.video_duration_entry=ctk.CTkEntry(self.video_controls,textvariable=self.video_duration_var,width=58); self.video_duration_entry.grid(row=2,column=1,padx=(8,4),pady=2,sticky="e"); self.video_duration_entry.bind("<FocusOut>",self.changed)
+        self.video_seconds_label=ctk.CTkLabel(self.video_controls,text=""); self.video_seconds_label.grid(row=2,column=2,pady=2,sticky="w")
+        self.process_button=ctk.CTkButton(left,text="",command=self.save_images); self.process_button.grid(row=15,column=0,padx=14,pady=(6,10),sticky="ew")
         self.video_controls.grid_remove()
         right=ctk.CTkFrame(tab); right.grid(row=0,column=1,padx=(8,4),pady=4,sticky="nsew"); right.grid_columnconfigure(0,weight=1); right.grid_rowconfigure(0,weight=1)
         self.preview_label=ctk.CTkLabel(right,text="")
@@ -150,8 +172,8 @@ class MarkerApp(ctk.CTk):
         self.render_start_view(); self.status_var.set(self.translator.text("status.reset"))
 
     def _slider(self,parent,var,start,end,row):
-        label=ctk.CTkLabel(parent,text=""); label.grid(row=row,column=0,padx=16,pady=(8,0),sticky="w")
-        ctk.CTkSlider(parent,from_=start,to=end,number_of_steps=end-start,variable=var,command=self.changed).grid(row=row+1,column=0,padx=16,pady=(2,6),sticky="ew")
+        label=ctk.CTkLabel(parent,text=""); label.grid(row=row,column=0,padx=14,pady=(4,0),sticky="w")
+        ctk.CTkSlider(parent,from_=start,to=end,number_of_steps=end-start,variable=var,command=self.changed).grid(row=row+1,column=0,padx=14,pady=(1,3),sticky="ew")
         return label
 
     def _settings_ui(self) -> None:
@@ -243,10 +265,13 @@ class MarkerApp(ctk.CTk):
     def change_video_mode(self,label):
         self.video_mode_var.set(self.video_mode_display_to_value[label]); self._update_video_duration_controls(); self.changed()
     def _update_video_duration_controls(self):
-        t=self.translator.text; text=f"{t('video.duration')} ({t('video.seconds')})"
-        self.video_duration_label.configure(text=text); self.batch_video_duration_label.configure(text=text)
-        state="normal" if self.video_mode_var.get() in {"beginning","end"} else "disabled"
-        self.video_duration_entry.configure(state=state); self.batch_video_duration_entry.configure(state=state)
+        t=self.translator.text; self.video_duration_label.configure(text=t("video.duration")); self.video_seconds_label.configure(text=t("video.seconds")); self.batch_video_duration_label.configure(text=f"{t('video.duration')} ({t('video.seconds')})")
+        visible=self.video_mode_var.get() in {"beginning","end"}
+        for widget in (self.video_duration_label,self.video_duration_entry,self.video_seconds_label):
+            widget.grid() if visible else widget.grid_remove()
+        self.batch_video_duration_label.grid() if visible else self.batch_video_duration_label.grid_remove()
+        self.batch_video_duration_entry.grid() if visible else self.batch_video_duration_entry.grid_remove()
+        self.single_controls.after_idle(self.single_controls.update_scrollbar_visibility)
     def change_position_display(self,label): self.position_var.set(self.position_display_to_value[label]); self.changed()
     def change_badge_source(self): self._show_badge_source_controls(); self.refresh_badges(); self._save()
     def _show_badge_source_controls(self):
@@ -438,6 +463,20 @@ class MarkerApp(ctk.CTk):
         video_source=os.environ.get("NENOLINK_VERIFY_VIDEO")
         if video_source and ffmpeg_path:
             video_source_path=Path(video_source); video_root=report_path.with_name("packaged-video-verification")
+            self.sources=[video_source_path]; self.video_controls.grid(); self.video_mode_var.set("end"); self._update_video_duration_controls()
+            layout={"sizes":{},"languages":{}}
+            for geometry in ("1280x720","1366x768","1920x1080"):
+                self.geometry(geometry); self.single_controls._parent_canvas.yview_moveto(0); self.update_idletasks(); self.update(); self.single_controls.update_scrollbar_visibility()
+                before=self.single_controls._parent_canvas.yview(); self.single_controls._parent_canvas.yview_moveto(1); self.update_idletasks()
+                self.update()
+                canvas_bottom=self.single_controls._parent_canvas.winfo_rooty()+self.single_controls._parent_canvas.winfo_height()
+                button_bottom=self.process_button.winfo_rooty()+self.process_button.winfo_height()
+                layout["sizes"][geometry]={"scrollbar_needed":self.single_controls.scrollbar_needed,"process_reachable":button_bottom<=canvas_bottom,"scroll_range":before!=self.single_controls._parent_canvas.yview()}
+            for language in ("English","Dansk","Deutsch","Français"):
+                self.change_language(language); self.update_idletasks()
+                layout["languages"][language]={"process_visible":bool(self.process_button.winfo_ismapped()),"video_mode_visible":bool(self.video_mode_menu.winfo_ismapped()),"duration_visible":bool(self.video_duration_entry.winfo_ismapped())}
+            self.video_mode_var.set("permanent"); self._update_video_duration_controls(); self.update_idletasks(); layout["permanent_hides_duration"]=not bool(self.video_duration_entry.winfo_ismapped())
+            self.video_mode_var.set("end"); self._update_video_duration_controls(); payload["layout_verification"]=layout
             if video_root.exists():shutil.rmtree(video_root)
             video_root.mkdir(parents=True,exist_ok=True)
             standard=self.badge_sources.repository("standard")
