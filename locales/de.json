@@ -4,7 +4,7 @@
   "menu.settings": "Einstellungen",
   "button.open_images": "Bilder öffnen",
   "button.browse": "Durchsuchen",
-  "button.process": "Markierte Bilder speichern",
+  "button.process": "Markiertes Bild speichern…",
   "badge": "Abzeichen",
   "badge.standard": "Nenolink-Standardabzeichen verwenden",
   "badge.custom": "Eigenen Abzeichenordner verwenden",
@@ -26,7 +26,7 @@
   "opacity.value": "Deckkraft (%): {value}",
   "files.none": "Keine Bilder ausgewählt",
   "files.none_supported": "Keine unterstützten Bilder ausgewählt",
-  "files.selected": "{count} Bild(er) ausgewählt\n{name}",
+  "files.selected": "{count} Datei(en) ausgewählt\n{name}",
   "files.supported": "Unterstützte Bilder",
   "files.all": "Alle Dateien",
   "dialog.open_images": "Bilder öffnen",
@@ -51,7 +51,7 @@
   "button.choose_output": "Ausgabeordner auswählen",
   "button.scan_folder": "Ordner scannen",
   "button.start_batch": "Stapelverarbeitung starten",
-  "button.cancel_batch": "Stapel abbrechen",
+  "button.cancel_batch": "Abbrechen",
   "badge.custom_description": "Custom badge image",
   "batch.input": "Input Folder",
   "batch.output_subfolder": "Create output subfolder inside input folder",
@@ -90,5 +90,6 @@
   "button.reset": "Zurücksetzen",
   "button.back": "← Zurück",
   "status.reset": "Einstellungen zurückgesetzt",
-  "video.badge": "Video-Badge:", "video.mode.permanent": "Dauerhaft", "video.mode.beginning": "Am Anfang", "video.mode.end": "Am Ende", "video.duration": "Dauer:", "video.seconds": "Sekunden"
+  "video.badge": "Video-Badge:", "video.mode.permanent": "Dauerhaft", "video.mode.beginning": "Am Anfang", "video.mode.end": "Am Ende", "video.duration": "Dauer:", "video.seconds": "Sekunden",
+  "button.process_video": "Markiertes Video speichern…", "video.settings": "Videoeinstellungen", "batch.output": "Ausgabe", "batch.options": "Optionen", "batch.progress_heading": "Fortschritt"
 }

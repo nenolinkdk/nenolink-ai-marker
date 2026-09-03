@@ -4,7 +4,7 @@
   "menu.settings": "Definições",
   "button.open_images": "Abrir imagens",
   "button.browse": "Procurar",
-  "button.process": "Guardar imagens marcadas",
+  "button.process": "Guardar imagem marcada…",
   "badge": "Selo",
   "badge.standard": "Usar selos padrão Nenolink",
   "badge.custom": "Usar pasta de selos personalizada",
@@ -26,7 +26,7 @@
   "opacity.value": "Opacidade (%): {value}",
   "files.none": "Nenhuma imagem selecionada",
   "files.none_supported": "Nenhuma imagem suportada selecionada",
-  "files.selected": "{count} imagem(ns) selecionada(s)\n{name}",
+  "files.selected": "{count} ficheiro(s) selecionado(s)\n{name}",
   "files.supported": "Imagens suportadas",
   "files.all": "Todos os ficheiros",
   "dialog.open_images": "Abrir imagens",
@@ -51,7 +51,7 @@
   "button.choose_output": "Escolher pasta de saída",
   "button.scan_folder": "Analisar pasta",
   "button.start_batch": "Iniciar processamento em lote",
-  "button.cancel_batch": "Cancelar lote",
+  "button.cancel_batch": "Cancelar",
   "badge.custom_description": "Custom badge image",
   "batch.input": "Input Folder",
   "batch.output_subfolder": "Create output subfolder inside input folder",
@@ -90,5 +90,6 @@
   "button.reset": "Repor",
   "button.back": "← Voltar",
   "status.reset": "Definições repostas",
-  "video.badge": "Distintivo de vídeo:", "video.mode.permanent": "Permanente", "video.mode.beginning": "No início", "video.mode.end": "No fim", "video.duration": "Duração:", "video.seconds": "segundos"
+  "video.badge": "Distintivo de vídeo:", "video.mode.permanent": "Permanente", "video.mode.beginning": "No início", "video.mode.end": "No fim", "video.duration": "Duração:", "video.seconds": "segundos",
+  "button.process_video": "Guardar vídeo marcado…", "video.settings": "Definições de vídeo", "batch.output": "Saída", "batch.options": "Opções", "batch.progress_heading": "Progresso"
 }

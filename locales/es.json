@@ -4,7 +4,7 @@
   "menu.settings": "Configuración",
   "button.open_images": "Abrir imágenes",
   "button.browse": "Examinar",
-  "button.process": "Guardar imágenes marcadas",
+  "button.process": "Guardar imagen marcada…",
   "badge": "Insignia",
   "badge.standard": "Usar insignias estándar de Nenolink",
   "badge.custom": "Usar carpeta de insignias personalizada",
@@ -26,7 +26,7 @@
   "opacity.value": "Opacidad (%): {value}",
   "files.none": "No hay imágenes seleccionadas",
   "files.none_supported": "No se seleccionaron imágenes compatibles",
-  "files.selected": "{count} imagen(es) seleccionada(s)\n{name}",
+  "files.selected": "{count} archivo(s) seleccionado(s)\n{name}",
   "files.supported": "Imágenes compatibles",
   "files.all": "Todos los archivos",
   "dialog.open_images": "Abrir imágenes",
@@ -51,7 +51,7 @@
   "button.choose_output": "Elegir carpeta de salida",
   "button.scan_folder": "Examinar carpeta",
   "button.start_batch": "Iniciar procesamiento por lotes",
-  "button.cancel_batch": "Cancelar lote",
+  "button.cancel_batch": "Cancelar",
   "badge.custom_description": "Custom badge image",
   "batch.input": "Input Folder",
   "batch.output_subfolder": "Create output subfolder inside input folder",
@@ -90,5 +90,6 @@
   "button.reset": "Restablecer",
   "button.back": "← Atrás",
   "status.reset": "Configuración restablecida",
-  "video.badge": "Insignia de vídeo:", "video.mode.permanent": "Permanente", "video.mode.beginning": "Al principio", "video.mode.end": "Al final", "video.duration": "Duración:", "video.seconds": "segundos"
+  "video.badge": "Insignia de vídeo:", "video.mode.permanent": "Permanente", "video.mode.beginning": "Al principio", "video.mode.end": "Al final", "video.duration": "Duración:", "video.seconds": "segundos",
+  "button.process_video": "Guardar vídeo marcado…", "video.settings": "Ajustes de vídeo", "batch.output": "Salida", "batch.options": "Opciones", "batch.progress_heading": "Progreso"
 }

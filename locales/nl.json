@@ -4,7 +4,7 @@
   "menu.settings": "Instellingen",
   "button.open_images": "Afbeeldingen openen",
   "button.browse": "Bladeren",
-  "button.process": "Gemarkeerde afbeeldingen opslaan",
+  "button.process": "Gemarkeerde afbeelding opslaan…",
   "badge": "Badge",
   "badge.standard": "Nenolink-standaardbadges gebruiken",
   "badge.custom": "Aangepaste badgemap gebruiken",
@@ -26,7 +26,7 @@
   "opacity.value": "Dekking (%): {value}",
   "files.none": "Geen afbeeldingen geselecteerd",
   "files.none_supported": "Geen ondersteunde afbeeldingen geselecteerd",
-  "files.selected": "{count} afbeelding(en) geselecteerd\n{name}",
+  "files.selected": "{count} bestand(en) geselecteerd\n{name}",
   "files.supported": "Ondersteunde afbeeldingen",
   "files.all": "Alle bestanden",
   "dialog.open_images": "Afbeeldingen openen",
@@ -51,7 +51,7 @@
   "button.choose_output": "Uitvoermap kiezen",
   "button.scan_folder": "Map scannen",
   "button.start_batch": "Batchverwerking starten",
-  "button.cancel_batch": "Batch annuleren",
+  "button.cancel_batch": "Annuleren",
   "badge.custom_description": "Custom badge image",
   "batch.input": "Input Folder",
   "batch.output_subfolder": "Create output subfolder inside input folder",
@@ -90,5 +90,6 @@
   "button.reset": "Opnieuw instellen",
   "button.back": "← Terug",
   "status.reset": "Instellingen opnieuw ingesteld",
-  "video.badge": "Videobadge:", "video.mode.permanent": "Permanent", "video.mode.beginning": "Aan het begin", "video.mode.end": "Aan het einde", "video.duration": "Duur:", "video.seconds": "seconden"
+  "video.badge": "Videobadge:", "video.mode.permanent": "Permanent", "video.mode.beginning": "Aan het begin", "video.mode.end": "Aan het einde", "video.duration": "Duur:", "video.seconds": "seconden",
+  "button.process_video": "Gemarkeerde video opslaan…", "video.settings": "Video-instellingen", "batch.output": "Uitvoer", "batch.options": "Opties", "batch.progress_heading": "Voortgang"
 }

@@ -4,7 +4,7 @@
   "menu.settings": "Nastavení",
   "button.open_images": "Otevřít obrázky",
   "button.browse": "Procházet",
-  "button.process": "Uložit označené obrázky",
+  "button.process": "Uložit označený obrázek…",
   "badge": "Odznak",
   "badge.standard": "Použít standardní odznaky Nenolink",
   "badge.custom": "Použít vlastní složku odznaků",
@@ -26,7 +26,7 @@
   "opacity.value": "Krytí (%): {value}",
   "files.none": "Nejsou vybrány obrázky",
   "files.none_supported": "Nejsou vybrány podporované obrázky",
-  "files.selected": "Vybráno {count} obrázků\n{name}",
+  "files.selected": "Vybráno {count} souborů\n{name}",
   "files.supported": "Podporované obrázky",
   "files.all": "Všechny soubory",
   "dialog.open_images": "Otevřít obrázky",
@@ -51,7 +51,7 @@
   "button.choose_output": "Vybrat výstupní složku",
   "button.scan_folder": "Prohledat složku",
   "button.start_batch": "Spustit dávkové zpracování",
-  "button.cancel_batch": "Zrušit dávku",
+  "button.cancel_batch": "Zrušit",
   "badge.custom_description": "Custom badge image",
   "batch.input": "Input Folder",
   "batch.output_subfolder": "Create output subfolder inside input folder",
@@ -90,5 +90,6 @@
   "button.reset": "Obnovit",
   "button.back": "← Zpět",
   "status.reset": "Nastavení bylo obnoveno",
-  "video.badge": "Označení videa:", "video.mode.permanent": "Trvalé", "video.mode.beginning": "Na začátku", "video.mode.end": "Na konci", "video.duration": "Doba trvání:", "video.seconds": "sekundy"
+  "video.badge": "Označení videa:", "video.mode.permanent": "Trvalé", "video.mode.beginning": "Na začátku", "video.mode.end": "Na konci", "video.duration": "Doba trvání:", "video.seconds": "sekundy",
+  "button.process_video": "Uložit označené video…", "video.settings": "Nastavení videa", "batch.output": "Výstup", "batch.options": "Možnosti", "batch.progress_heading": "Průběh"
 }

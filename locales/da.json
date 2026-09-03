@@ -4,9 +4,9 @@
   "menu.settings": "Indstillinger",
   "button.open_images": "Åbn billeder",
   "button.open_media": "Vælg billede eller video",
-  "button.process_video": "Behandl video",
+  "button.process_video": "Gem mærket video…",
   "button.browse": "Gennemse",
-  "button.process": "Gem mærkede billeder",
+  "button.process": "Gem mærket billede…",
   "badge": "Mærke",
   "badge.standard": "Brug Nenolinks standardmærker",
   "badge.custom": "Brug egen mærkemappe",
@@ -28,7 +28,7 @@
   "opacity.value": "Gennemsigtighed (%): {value}",
   "files.none": "Ingen billeder valgt",
   "files.none_supported": "Ingen understøttede billeder valgt",
-  "files.selected": "{count} billede(r) valgt\n{name}",
+  "files.selected": "{count} fil(er) valgt\n{name}",
   "files.supported": "Understøttede billeder",
   "files.all": "Alle filer",
   "files.supported_media": "Understøttede billeder og videoer",
@@ -60,7 +60,7 @@
   "button.choose_output": "Vælg outputmappe",
   "button.scan_folder": "Scan mappe",
   "button.start_batch": "Start batchbehandling",
-  "button.cancel_batch": "Annuller batch",
+  "button.cancel_batch": "Annuller",
   "badge.custom_description": "Custom badge image",
   "batch.input": "Input Folder",
   "batch.output_subfolder": "Create output subfolder inside input folder",
@@ -99,5 +99,6 @@
   "button.reset": "Nulstil",
   "button.back": "← Tilbage",
   "status.reset": "Indstillinger nulstillet",
-  "video.badge": "Videomærke:", "video.mode.permanent": "Hele videoen", "video.mode.beginning": "I begyndelsen", "video.mode.end": "I slutningen", "video.duration": "Varighed:", "video.seconds": "sekunder"
+  "video.badge": "Videomærke:", "video.mode.permanent": "Hele videoen", "video.mode.beginning": "I begyndelsen", "video.mode.end": "I slutningen", "video.duration": "Varighed:", "video.seconds": "sekunder",
+  "video.settings": "Videoindstillinger", "batch.output": "Output", "batch.options": "Indstillinger", "batch.progress_heading": "Status"
 }

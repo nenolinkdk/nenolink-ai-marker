@@ -4,7 +4,7 @@
   "menu.settings": "Ustawienia",
   "button.open_images": "Otwórz obrazy",
   "button.browse": "Przeglądaj",
-  "button.process": "Zapisz oznaczone obrazy",
+  "button.process": "Zapisz oznaczony obraz…",
   "badge": "Odznaka",
   "badge.standard": "Użyj standardowych odznak Nenolink",
   "badge.custom": "Użyj własnego folderu odznak",
@@ -26,7 +26,7 @@
   "opacity.value": "Krycie (%): {value}",
   "files.none": "Nie wybrano obrazów",
   "files.none_supported": "Nie wybrano obsługiwanych obrazów",
-  "files.selected": "Wybrano {count} obraz(y)\n{name}",
+  "files.selected": "Wybrano {count} plik(i)\n{name}",
   "files.supported": "Obsługiwane obrazy",
   "files.all": "Wszystkie pliki",
   "dialog.open_images": "Otwórz obrazy",
@@ -51,7 +51,7 @@
   "button.choose_output": "Wybierz folder wyjściowy",
   "button.scan_folder": "Skanuj folder",
   "button.start_batch": "Rozpocznij przetwarzanie wsadowe",
-  "button.cancel_batch": "Anuluj wsad",
+  "button.cancel_batch": "Anuluj",
   "badge.custom_description": "Custom badge image",
   "batch.input": "Input Folder",
   "batch.output_subfolder": "Create output subfolder inside input folder",
@@ -90,5 +90,6 @@
   "button.reset": "Resetuj",
   "button.back": "← Wstecz",
   "status.reset": "Ustawienia zresetowane",
-  "video.badge": "Znacznik wideo:", "video.mode.permanent": "Stały", "video.mode.beginning": "Na początku", "video.mode.end": "Na końcu", "video.duration": "Czas trwania:", "video.seconds": "sekundy"
+  "video.badge": "Znacznik wideo:", "video.mode.permanent": "Stały", "video.mode.beginning": "Na początku", "video.mode.end": "Na końcu", "video.duration": "Czas trwania:", "video.seconds": "sekundy",
+  "button.process_video": "Zapisz oznaczony film…", "video.settings": "Ustawienia wideo", "batch.output": "Wyjście", "batch.options": "Opcje", "batch.progress_heading": "Postęp"
 }

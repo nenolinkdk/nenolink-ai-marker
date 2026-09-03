@@ -49,7 +49,8 @@ class TranslationTests(unittest.TestCase):
         locales=Path(__file__).resolve().parent.parent/"locales"
         for code in LANGUAGES.values():
             data=json.loads((locales/f"{code}.json").read_text(encoding="utf-8"))
-            self.assertTrue({"button.reset","button.back","dialog.save_as","batch.filename_suffix","status.reset","video.badge","video.mode.permanent","video.mode.beginning","video.mode.end","video.duration","video.seconds"}.issubset(data),code)
+            self.assertTrue({"button.reset","button.back","dialog.save_as","batch.filename_suffix","status.reset","video.badge","video.mode.permanent","video.mode.beginning","video.mode.end","video.duration","video.seconds","video.settings","batch.output","batch.options","batch.progress_heading","button.process_video"}.issubset(data),code)
+            self.assertNotIn("-",data["button.back"].removeprefix("←"),code)
 
     def test_live_welcome_language_change_and_english_return(self):
         locales = Path(__file__).resolve().parent.parent / "locales"

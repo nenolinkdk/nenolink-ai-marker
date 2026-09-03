@@ -8,7 +8,7 @@ import sys
 import threading
 import time
 import subprocess
-from tkinter import filedialog, messagebox
+from tkinter import TclError, filedialog, messagebox
 import customtkinter as ctk
 from PIL import Image
 
@@ -70,6 +70,7 @@ class MarkerApp(ctk.CTk):
         self.badge_sources = BadgeSourceManager(badge_directory())
         self.badges = self.badge_sources.repository(saved.badge_source, saved.custom_badge_folder)
         self.sources: list[Path] = []; self.scan: FolderScan | None = None
+        self._reset_after_id = None
         self.cancel_event = threading.Event(); self.preview_photo = None; self.badge_photo = None; self.single_badge_photo = None; self.welcome_photo = None; self.welcome_image = None
         self.gallery_photos = []; self.gallery_buttons = {}; self.badge_display_to_file = {}
         self.badge_var=ctk.StringVar(value=saved.badge_name); self.position_var=ctk.StringVar(value=saved.position)
@@ -122,11 +123,12 @@ class MarkerApp(ctk.CTk):
         self.position_menu=ctk.CTkOptionMenu(left,variable=self.position_display_var,values=["—"],command=self.change_position_display); self.position_menu.grid(row=7,column=0,padx=16,pady=4,sticky="ew")
         self.size_label=self._slider(left,self.size_var,1,100,8); self.margin_label=self._slider(left,self.margin_var,0,250,10); self.opacity_label=self._slider(left,self.opacity_var,0,100,12)
         self.video_controls=ctk.CTkFrame(left,fg_color="transparent"); self.video_controls.grid(row=14,column=0,padx=14,pady=(2,0),sticky="ew"); self.video_controls.grid_columnconfigure(1,weight=1)
-        self.video_mode_label=ctk.CTkLabel(self.video_controls,text=""); self.video_mode_label.grid(row=0,column=0,columnspan=3,sticky="w")
-        self.video_mode_menu=ctk.CTkOptionMenu(self.video_controls,variable=self.video_mode_display_var,values=["—"],command=self.change_video_mode); self.video_mode_menu.grid(row=1,column=0,columnspan=3,pady=(1,3),sticky="ew")
-        self.video_duration_label=ctk.CTkLabel(self.video_controls,text=""); self.video_duration_label.grid(row=2,column=0,pady=2,sticky="w")
-        self.video_duration_entry=ctk.CTkEntry(self.video_controls,textvariable=self.video_duration_var,width=58); self.video_duration_entry.grid(row=2,column=1,padx=(8,4),pady=2,sticky="e"); self.video_duration_entry.bind("<FocusOut>",self.changed)
-        self.video_seconds_label=ctk.CTkLabel(self.video_controls,text=""); self.video_seconds_label.grid(row=2,column=2,pady=2,sticky="w")
+        self.video_settings_heading=ctk.CTkLabel(self.video_controls,text="",font=ctk.CTkFont(weight="bold")); self.video_settings_heading.grid(row=0,column=0,columnspan=3,pady=(2,0),sticky="w")
+        self.video_mode_label=ctk.CTkLabel(self.video_controls,text=""); self.video_mode_label.grid(row=1,column=0,columnspan=3,sticky="w")
+        self.video_mode_menu=ctk.CTkOptionMenu(self.video_controls,variable=self.video_mode_display_var,values=["—"],command=self.change_video_mode); self.video_mode_menu.grid(row=2,column=0,columnspan=3,pady=(1,3),sticky="ew")
+        self.video_duration_label=ctk.CTkLabel(self.video_controls,text=""); self.video_duration_label.grid(row=3,column=0,pady=2,sticky="w")
+        self.video_duration_entry=ctk.CTkEntry(self.video_controls,textvariable=self.video_duration_var,width=58); self.video_duration_entry.grid(row=3,column=1,padx=(8,4),pady=2,sticky="e"); self.video_duration_entry.bind("<FocusOut>",self.changed)
+        self.video_seconds_label=ctk.CTkLabel(self.video_controls,text=""); self.video_seconds_label.grid(row=3,column=2,pady=2,sticky="w")
         self.process_button=ctk.CTkButton(left,text="",command=self.save_images); self.process_button.grid(row=15,column=0,padx=14,pady=(6,10),sticky="ew")
         self.video_controls.grid_remove()
         right=ctk.CTkFrame(tab); right.grid(row=0,column=1,padx=(8,4),pady=4,sticky="nsew"); right.grid_columnconfigure(0,weight=1); right.grid_rowconfigure(0,weight=1)
@@ -169,7 +171,10 @@ class MarkerApp(ctk.CTk):
         self._show_welcome(); self.welcome_frame.lift()
 
     def _finish_reset_view(self):
-        self.render_start_view(); self.status_var.set(self.translator.text("status.reset"))
+        self._reset_after_id=None
+        try:self.render_start_view()
+        except TclError:pass
+        self.status_var.set(self.translator.text("status.reset"))
 
     def _slider(self,parent,var,start,end,row):
         label=ctk.CTkLabel(parent,text=""); label.grid(row=row,column=0,padx=14,pady=(4,0),sticky="w")
@@ -188,41 +193,52 @@ class MarkerApp(ctk.CTk):
         self.custom_entry=ctk.CTkEntry(self.custom_controls,textvariable=self.custom_badge_var); self.custom_entry.grid(row=1,column=0,padx=(0,8),pady=4,sticky="ew")
         self.choose_badge_folder_button=ctk.CTkButton(self.custom_controls,text="",command=self.browse_custom_badges); self.choose_badge_folder_button.grid(row=1,column=1,padx=4,pady=4)
         self.refresh_button=ctk.CTkButton(self.custom_controls,text="",command=self.refresh_badges); self.refresh_button.grid(row=1,column=2,padx=(4,0),pady=4)
-        self.badge_help=ctk.CTkLabel(tab,text="",justify="left",anchor="w",wraplength=1050); self.badge_help.grid(row=1,column=0,padx=20,pady=4,sticky="ew")
-        self.badge_gallery_title=ctk.CTkLabel(tab,text="",font=ctk.CTkFont(size=18,weight="bold")); self.badge_gallery_title.grid(row=2,column=0,padx=16,pady=(10,2),sticky="w")
-        self.gallery=ctk.CTkScrollableFrame(tab); self.gallery.grid(row=3,column=0,padx=16,pady=(4,14),sticky="nsew")
+        self.badge_help=ctk.CTkLabel(tab,text="",justify="left",anchor="w",wraplength=1050); self.badge_help.grid(row=1,column=0,columnspan=2,padx=20,pady=4,sticky="ew")
+        self.badge_gallery_title=ctk.CTkLabel(tab,text="",font=ctk.CTkFont(size=18,weight="bold")); self.badge_gallery_title.grid(row=2,column=0,columnspan=2,padx=16,pady=(10,2),sticky="w")
+        self.gallery=ctk.CTkScrollableFrame(tab); self.gallery.grid(row=3,column=0,columnspan=2,padx=16,pady=(4,14),sticky="nsew")
         for column in range(5): self.gallery.grid_columnconfigure(column,weight=1)
 
     def _batch_ui(self) -> None:
-        tab=self.batch_tab; tab.grid_columnconfigure(0,weight=1)
-        self.input_label=ctk.CTkLabel(tab,text=""); self.input_label.grid(row=0,column=0,padx=16,pady=(18,2),sticky="w")
-        self.batch_size_guidance=ctk.CTkLabel(tab,text="",justify="left",text_color="gray60"); self.batch_size_guidance.grid(row=0,column=1,padx=10,pady=(18,2),sticky="e")
-        ctk.CTkEntry(tab,textvariable=self.input_folder_var).grid(row=1,column=0,padx=16,pady=4,sticky="ew")
-        self.choose_input_button=ctk.CTkButton(tab,text="",command=self.choose_input_folder); self.choose_input_button.grid(row=1,column=1,padx=10)
-        self.batch_back_button=ctk.CTkButton(tab,text="",command=self.navigate_home,width=110); self.batch_back_button.grid(row=0,column=2,padx=(0,16),pady=(18,2),sticky="ne")
-        self.output_subfolder_radio=ctk.CTkRadioButton(tab,text="",variable=self.output_preference_var,value="subfolder",command=self.changed); self.output_subfolder_radio.grid(row=2,column=0,padx=16,pady=(12,4),sticky="w")
-        ctk.CTkEntry(tab,textvariable=self.output_subfolder_var).grid(row=3,column=0,padx=36,pady=4,sticky="ew")
-        self.output_separate_radio=ctk.CTkRadioButton(tab,text="",variable=self.output_preference_var,value="separate",command=self.changed); self.output_separate_radio.grid(row=4,column=0,padx=16,pady=(8,4),sticky="w")
-        ctk.CTkEntry(tab,textvariable=self.output_folder_var).grid(row=5,column=0,padx=36,pady=4,sticky="ew")
-        self.choose_output_button=ctk.CTkButton(tab,text="",command=self.choose_output_folder); self.choose_output_button.grid(row=5,column=1,padx=10)
-        self.batch_suffix_label=ctk.CTkLabel(tab,text=""); self.batch_suffix_label.grid(row=6,column=0,padx=16,pady=(8,2),sticky="w")
-        self.batch_suffix_entry=ctk.CTkEntry(tab,textvariable=self.batch_suffix_var); self.batch_suffix_entry.grid(row=7,column=0,padx=36,pady=(0,4),sticky="ew"); self.batch_suffix_entry.bind("<FocusOut>",self.changed)
-        options=ctk.CTkFrame(tab,fg_color="transparent"); options.grid(row=8,column=0,columnspan=2,padx=16,pady=10,sticky="ew"); self.batch_checks=[]
+        tab=self.batch_tab; tab.grid_columnconfigure(0,weight=1); tab.grid_rowconfigure(1,weight=1)
+        self.batch_title=ctk.CTkLabel(tab,text="",font=ctk.CTkFont(size=20,weight="bold")); self.batch_title.grid(row=0,column=0,padx=16,pady=(12,4),sticky="w")
+        self.batch_back_button=ctk.CTkButton(tab,text="",command=self.navigate_home,width=110); self.batch_back_button.grid(row=0,column=1,padx=16,pady=(12,4),sticky="e")
+        page=AutoHideScrollableFrame(tab,fg_color="transparent"); self.batch_page=page; page.grid(row=1,column=0,columnspan=2,padx=8,pady=(2,10),sticky="nsew"); page.grid_columnconfigure(0,weight=1)
+        input_section=ctk.CTkFrame(page); input_section.grid(row=0,column=0,padx=8,pady=5,sticky="ew"); input_section.grid_columnconfigure(0,weight=1)
+        self.input_label=ctk.CTkLabel(input_section,text="",font=ctk.CTkFont(weight="bold")); self.input_label.grid(row=0,column=0,padx=12,pady=(8,2),sticky="w")
+        self.batch_size_guidance=ctk.CTkLabel(input_section,text="",justify="left",text_color="gray60"); self.batch_size_guidance.grid(row=0,column=1,padx=12,pady=(8,2),sticky="e")
+        ctk.CTkEntry(input_section,textvariable=self.input_folder_var).grid(row=1,column=0,padx=12,pady=(2,8),sticky="ew")
+        self.choose_input_button=ctk.CTkButton(input_section,text="",command=self.choose_input_folder); self.choose_input_button.grid(row=1,column=1,padx=12,pady=(2,8))
+        output=ctk.CTkFrame(page); output.grid(row=1,column=0,padx=8,pady=5,sticky="ew"); output.grid_columnconfigure(0,weight=1)
+        self.batch_output_heading=ctk.CTkLabel(output,text="",font=ctk.CTkFont(weight="bold")); self.batch_output_heading.grid(row=0,column=0,padx=12,pady=(8,2),sticky="w")
+        self.output_subfolder_radio=ctk.CTkRadioButton(output,text="",variable=self.output_preference_var,value="subfolder",command=self.changed); self.output_subfolder_radio.grid(row=1,column=0,padx=12,pady=3,sticky="w")
+        ctk.CTkEntry(output,textvariable=self.output_subfolder_var).grid(row=2,column=0,padx=32,pady=3,sticky="ew")
+        self.output_separate_radio=ctk.CTkRadioButton(output,text="",variable=self.output_preference_var,value="separate",command=self.changed); self.output_separate_radio.grid(row=3,column=0,padx=12,pady=3,sticky="w")
+        ctk.CTkEntry(output,textvariable=self.output_folder_var).grid(row=4,column=0,padx=(32,8),pady=3,sticky="ew")
+        self.choose_output_button=ctk.CTkButton(output,text="",command=self.choose_output_folder); self.choose_output_button.grid(row=4,column=1,padx=(4,12),pady=3)
+        self.batch_suffix_label=ctk.CTkLabel(output,text=""); self.batch_suffix_label.grid(row=5,column=0,padx=12,pady=(4,1),sticky="w")
+        self.batch_suffix_entry=ctk.CTkEntry(output,textvariable=self.batch_suffix_var); self.batch_suffix_entry.grid(row=6,column=0,padx=32,pady=(1,8),sticky="ew"); self.batch_suffix_entry.bind("<FocusOut>",self.changed)
+        badge_section=ctk.CTkFrame(page); badge_section.grid(row=2,column=0,padx=8,pady=5,sticky="ew"); badge_section.grid_columnconfigure(1,weight=1)
+        self.batch_badge_heading=ctk.CTkLabel(badge_section,text="",font=ctk.CTkFont(weight="bold")); self.batch_badge_heading.grid(row=0,column=0,padx=12,pady=8,sticky="w")
+        self.batch_badge_value=ctk.CTkLabel(badge_section,textvariable=self.badge_name_var,anchor="w"); self.batch_badge_value.grid(row=0,column=1,padx=12,pady=8,sticky="ew")
+        options=ctk.CTkFrame(page); options.grid(row=3,column=0,padx=8,pady=5,sticky="ew"); self.batch_options_heading=ctk.CTkLabel(options,text="",font=ctk.CTkFont(weight="bold")); self.batch_options_heading.grid(row=0,column=0,columnspan=3,padx=12,pady=(8,2),sticky="w"); self.batch_checks=[]
         for i,(key,var) in enumerate((("batch.recursive",self.recursive_var),("batch.preserve",self.preserve_var),("batch.images",self.images_var),("batch.videos",self.videos_var),("batch.skip",self.skip_var))):
-            check=ctk.CTkCheckBox(options,text="",variable=var,command=self.changed); check.grid(row=i//3,column=i%3,padx=8,pady=6,sticky="w"); self.batch_checks.append((key,check))
-        self.batch_video_controls=ctk.CTkFrame(tab,fg_color="transparent"); self.batch_video_controls.grid(row=9,column=0,columnspan=2,padx=16,pady=(0,6),sticky="ew")
-        self.batch_video_mode_label=ctk.CTkLabel(self.batch_video_controls,text=""); self.batch_video_mode_label.grid(row=0,column=0,padx=(0,8))
+            check=ctk.CTkCheckBox(options,text="",variable=var,command=self.changed); check.grid(row=1+i//3,column=i%3,padx=12,pady=(4,8),sticky="w"); self.batch_checks.append((key,check))
+        self.batch_video_controls=ctk.CTkFrame(page); self.batch_video_controls.grid(row=4,column=0,padx=8,pady=5,sticky="ew")
+        self.batch_video_settings_heading=ctk.CTkLabel(self.batch_video_controls,text="",font=ctk.CTkFont(weight="bold")); self.batch_video_settings_heading.grid(row=0,column=0,columnspan=4,padx=12,pady=(8,2),sticky="w")
+        self.batch_video_mode_label=ctk.CTkLabel(self.batch_video_controls,text=""); self.batch_video_mode_label.grid(row=1,column=0,padx=12,pady=(2,8))
         self.batch_video_mode_menu=ctk.CTkOptionMenu(self.batch_video_controls,variable=self.video_mode_display_var,values=["—"],command=self.change_video_mode); self.batch_video_mode_menu.grid(row=0,column=1,padx=8)
-        self.batch_video_duration_label=ctk.CTkLabel(self.batch_video_controls,text=""); self.batch_video_duration_label.grid(row=0,column=2,padx=(18,4))
-        self.batch_video_duration_entry=ctk.CTkEntry(self.batch_video_controls,textvariable=self.video_duration_var,width=70); self.batch_video_duration_entry.grid(row=0,column=3,padx=4); self.batch_video_duration_entry.bind("<FocusOut>",self.changed)
-        buttons=ctk.CTkFrame(tab,fg_color="transparent"); buttons.grid(row=9,column=0,columnspan=2,padx=16,pady=8,sticky="w")
-        buttons.grid_configure(row=10)
+        self.batch_video_mode_menu.grid_configure(row=1,pady=(2,8))
+        self.batch_video_duration_label=ctk.CTkLabel(self.batch_video_controls,text=""); self.batch_video_duration_label.grid(row=1,column=2,padx=(18,4),pady=(2,8))
+        self.batch_video_duration_entry=ctk.CTkEntry(self.batch_video_controls,textvariable=self.video_duration_var,width=70); self.batch_video_duration_entry.grid(row=1,column=3,padx=(4,12),pady=(2,8)); self.batch_video_duration_entry.bind("<FocusOut>",self.changed)
+        buttons=ctk.CTkFrame(page,fg_color="transparent"); buttons.grid(row=5,column=0,padx=8,pady=6,sticky="w")
         self.scan_button=ctk.CTkButton(buttons,text="",command=self.scan_input_folder); self.scan_button.grid(row=0,column=0,padx=(0,8))
         self.start_batch_button=ctk.CTkButton(buttons,text="",command=self.start_batch); self.start_batch_button.grid(row=0,column=1,padx=8)
         self.cancel_batch_button=ctk.CTkButton(buttons,text="",command=self.cancel_batch,state="disabled"); self.cancel_batch_button.grid(row=0,column=2,padx=8)
-        ctk.CTkLabel(tab,textvariable=self.scan_summary_var,justify="left",anchor="w").grid(row=11,column=0,columnspan=2,padx=16,pady=6,sticky="ew")
-        self.progress=ctk.CTkProgressBar(tab); self.progress.set(0); self.progress.grid(row=12,column=0,columnspan=2,padx=16,pady=8,sticky="ew")
-        ctk.CTkLabel(tab,textvariable=self.progress_text_var,justify="left",anchor="w").grid(row=13,column=0,columnspan=2,padx=16,pady=6,sticky="ew")
+        progress_section=ctk.CTkFrame(page); progress_section.grid(row=6,column=0,padx=8,pady=5,sticky="ew"); progress_section.grid_columnconfigure(0,weight=1)
+        self.batch_progress_heading=ctk.CTkLabel(progress_section,text="",font=ctk.CTkFont(weight="bold")); self.batch_progress_heading.grid(row=0,column=0,padx=12,pady=(8,2),sticky="w")
+        ctk.CTkLabel(progress_section,textvariable=self.scan_summary_var,justify="left",anchor="w",wraplength=1050).grid(row=1,column=0,padx=12,pady=3,sticky="ew")
+        self.progress=ctk.CTkProgressBar(progress_section); self.progress.set(0); self.progress.grid(row=2,column=0,padx=12,pady=6,sticky="ew")
+        ctk.CTkLabel(progress_section,textvariable=self.progress_text_var,justify="left",anchor="w",wraplength=1050).grid(row=3,column=0,padx=12,pady=(3,8),sticky="ew")
 
     def apply_translations(self) -> None:
         t=self.translator.text; self.title(f"Nenolink AI Marker {__version__} - {t('app.window')}"); self.guide_button.configure(text=t("button.user_guide")); self.reset_button.configure(text=t("button.reset")); self.batch_back_button.configure(text=t("button.back")); self.badges_back_button.configure(text=t("button.back"))
@@ -236,12 +252,12 @@ class MarkerApp(ctk.CTk):
         self.video_mode_display_to_value={t("video.mode.permanent"):"permanent",t("video.mode.beginning"):"beginning",t("video.mode.end"):"end"}
         video_values=list(self.video_mode_display_to_value); self.video_mode_menu.configure(values=video_values); self.batch_video_mode_menu.configure(values=video_values)
         self.video_mode_display_var.set(next((label for label,value in self.video_mode_display_to_value.items() if value==self.video_mode_var.get()),t("video.mode.permanent")))
-        self.video_mode_label.configure(text=t("video.badge")); self.batch_video_mode_label.configure(text=t("video.badge")); self._update_video_duration_controls()
+        self.video_settings_heading.configure(text=t("video.settings")); self.batch_video_settings_heading.configure(text=t("video.settings")); self.video_mode_label.configure(text=t("video.badge")); self.batch_video_mode_label.configure(text=t("video.badge")); self._update_video_duration_controls()
         self.position_label.configure(text="3. "+t("position")); self.size_label.configure(text="4. "+t("size.value",value=self.size_var.get())); self.margin_label.configure(text="5. "+t("margin.value",value=self.margin_var.get())); self.opacity_label.configure(text="6. "+t("opacity.value",value=self.opacity_var.get()))
         self.single_badge_label.configure(text="2. "+t("badge")); self.badge_source_heading.configure(text=t("badge.source_label")); self.standard_badge_radio.configure(text=t("badge.source_standard")); self.custom_badge_radio.configure(text=t("badge.source_custom")); self.custom_folder_label.configure(text=t("badge.custom_path")+":"); self.custom_entry.configure(placeholder_text=t("badge.custom_path"))
         self.position_display_to_value={t("position.top_left"):"top-left",t("position.top_right"):"top-right",t("position.bottom_left"):"bottom-left",t("position.bottom_right"):"bottom-right",t("position.center"):"center"}; self.position_menu.configure(values=list(self.position_display_to_value)); self.position_display_var.set(next((label for label,value in self.position_display_to_value.items() if value==self.position_var.get()),t("position.bottom_right")))
         self.choose_badge_folder_button.configure(text=t("button.choose_badge_folder")); self.refresh_button.configure(text=t("badge.refresh")); self.badge_gallery_title.configure(text=t("badge.gallery")); self.badge_help.configure(text=t("badge.help")); self._show_badge_source_controls()
-        self.input_label.configure(text=t("batch.input")); self.choose_input_button.configure(text=t("button.choose_input")); self.choose_output_button.configure(text=t("button.choose_output")); self.output_subfolder_radio.configure(text=t("batch.output_subfolder")); self.output_separate_radio.configure(text=t("batch.output_separate")); self.batch_suffix_label.configure(text=t("batch.filename_suffix"))
+        self.batch_title.configure(text=t("tab.batch")); self.input_label.configure(text=t("batch.input")); self.batch_output_heading.configure(text=t("batch.output")); self.batch_badge_heading.configure(text=t("badge")); self.batch_options_heading.configure(text=t("batch.options")); self.batch_progress_heading.configure(text=t("batch.progress_heading")); self.choose_input_button.configure(text=t("button.choose_input")); self.choose_output_button.configure(text=t("button.choose_output")); self.output_subfolder_radio.configure(text=t("batch.output_subfolder")); self.output_separate_radio.configure(text=t("batch.output_separate")); self.batch_suffix_label.configure(text=t("batch.filename_suffix"))
         self.welcome_title.configure(text=t("welcome.title")); self.welcome_tagline.configure(text=t("welcome.tagline")); self.welcome_description1.configure(text=t("welcome.description1")); self.welcome_description2.configure(text=t("welcome.description2"))
         for key,check in self.batch_checks: check.configure(text=t(key))
         self.scan_button.configure(text=t("button.scan_folder")); self.start_batch_button.configure(text=t("button.start_batch")); self.cancel_batch_button.configure(text=t("button.cancel_batch"))
@@ -257,7 +273,9 @@ class MarkerApp(ctk.CTk):
         self.batch_suffix_var.set(defaults.batch_filename_suffix)
         self.video_mode_var.set(defaults.video_mode); self.video_duration_var.set(defaults.video_duration)
         self.scan=None; self.cancel_event.clear(); self.scan_summary_var.set(""); self.progress_text_var.set(""); self.progress.set(0)
-        self.refresh_badges(False); self.apply_translations(); self.file_label.configure(text=self.translator.text("files.none")); self.render_start_view(); self.after(150,self._finish_reset_view); self.status_var.set(self.translator.text("status.reset")); self._save()
+        self.refresh_badges(False); self.apply_translations(); self.file_label.configure(text=self.translator.text("files.none")); self.render_start_view()
+        if self._reset_after_id:self.after_cancel(self._reset_after_id)
+        self._reset_after_id=self.after(150,self._finish_reset_view); self.status_var.set(self.translator.text("status.reset")); self._save()
     def changed(self,*_):
         try:self.video_duration_var.set(max(1,int(self.video_duration_var.get())))
         except (ValueError,TypeError):self.video_duration_var.set(5)
@@ -466,7 +484,7 @@ class MarkerApp(ctk.CTk):
             self.sources=[video_source_path]; self.video_controls.grid(); self.video_mode_var.set("end"); self._update_video_duration_controls()
             layout={"sizes":{},"languages":{}}
             for geometry in ("1280x720","1366x768","1920x1080"):
-                self.geometry(geometry); self.single_controls._parent_canvas.yview_moveto(0); self.update_idletasks(); self.update(); self.single_controls.update_scrollbar_visibility()
+                self.show_tab("single"); self.geometry(geometry); self.single_controls._parent_canvas.yview_moveto(0); self.update_idletasks(); self.update(); time.sleep(.15); self.update(); self.single_controls.update_scrollbar_visibility()
                 before=self.single_controls._parent_canvas.yview(); self.single_controls._parent_canvas.yview_moveto(1); self.update_idletasks()
                 self.update()
                 canvas_bottom=self.single_controls._parent_canvas.winfo_rooty()+self.single_controls._parent_canvas.winfo_height()
@@ -507,7 +525,13 @@ class MarkerApp(ctk.CTk):
     def _save(self):
         try:self.config_store.save(self.settings())
         except OSError:pass
-    def destroy(self):self.cancel_event.set(); self._save(); super().destroy()
+    def destroy(self):
+        self.cancel_event.set(); self._save()
+        if self._reset_after_id:
+            try:self.after_cancel(self._reset_after_id)
+            except ValueError:pass
+            self._reset_after_id=None
+        super().destroy()
 
 
 def run():

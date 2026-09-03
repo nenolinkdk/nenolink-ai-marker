@@ -4,9 +4,9 @@
   "menu.settings": "Badge Source",
   "button.open_images": "Choose Image",
   "button.open_media": "Choose Image or Video",
-  "button.process_video": "Process Video",
+  "button.process_video": "Save Marked Video…",
   "button.browse": "Browse",
-  "button.process": "Process Image",
+  "button.process": "Save Marked Image…",
   "badge": "Selected Badge",
   "badge.standard": "Nenolink Standard Badges",
   "badge.custom": "Custom Badge Folder",
@@ -34,7 +34,7 @@
   "opacity.value": "Opacity: {value}%",
   "files.none": "No file selected",
   "files.none_supported": "No supported images selected",
-  "files.selected": "{count} image(s) selected\n{name}",
+  "files.selected": "{count} file(s) selected\n{name}",
   "files.supported": "Supported images",
   "files.all": "All files",
   "files.supported_media": "Supported images and videos",
@@ -66,7 +66,7 @@
   "button.choose_output": "Choose Output Folder",
   "button.scan_folder": "Scan Folder",
   "button.start_batch": "Start Batch Processing",
-  "button.cancel_batch": "Cancel Batch",
+  "button.cancel_batch": "Cancel",
   "badge.custom_description": "Custom badge image",
   "batch.input": "Input Folder",
   "batch.output_subfolder": "Create output subfolder inside input folder",
@@ -101,5 +101,6 @@
   "button.reset": "Reset",
   "button.back": "← Back",
   "status.reset": "Settings reset",
-  "video.badge": "Video badge:", "video.mode.permanent": "Permanent", "video.mode.beginning": "Beginning", "video.mode.end": "End", "video.duration": "Duration:", "video.seconds": "seconds"
+  "video.badge": "Video badge:", "video.mode.permanent": "Permanent", "video.mode.beginning": "Beginning", "video.mode.end": "End", "video.duration": "Duration:", "video.seconds": "seconds",
+  "video.settings": "Video settings", "batch.output": "Output", "batch.options": "Options", "batch.progress_heading": "Progress"
 }
