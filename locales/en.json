@@ -100,5 +100,6 @@
   "batch.oversized": "Files above recommended size: {count}",
   "button.reset": "Reset",
   "button.back": "← Back",
-  "status.reset": "Settings reset"
+  "status.reset": "Settings reset",
+  "video.badge": "Video badge:", "video.mode.permanent": "Permanent", "video.mode.beginning": "Beginning", "video.mode.end": "End", "video.duration": "Duration:", "video.seconds": "seconds"
 }

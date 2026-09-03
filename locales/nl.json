@@ -89,5 +89,6 @@
   "batch.oversized": "Bestanden boven de aanbevolen grootte: {count}",
   "button.reset": "Opnieuw instellen",
   "button.back": "← Terug",
-  "status.reset": "Instellingen opnieuw ingesteld"
+  "status.reset": "Instellingen opnieuw ingesteld",
+  "video.badge": "Videobadge:", "video.mode.permanent": "Permanent", "video.mode.beginning": "Aan het begin", "video.mode.end": "Aan het einde", "video.duration": "Duur:", "video.seconds": "seconden"
 }

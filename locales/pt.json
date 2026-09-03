@@ -89,5 +89,6 @@
   "batch.oversized": "Ficheiros acima do tamanho recomendado: {count}",
   "button.reset": "Repor",
   "button.back": "← Voltar",
-  "status.reset": "Definições repostas"
+  "status.reset": "Definições repostas",
+  "video.badge": "Distintivo de vídeo:", "video.mode.permanent": "Permanente", "video.mode.beginning": "No início", "video.mode.end": "No fim", "video.duration": "Duração:", "video.seconds": "segundos"
 }

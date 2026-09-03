@@ -55,6 +55,8 @@ DEFAULT_ENGLISH = {
     "button.choose_input": "Choose Input Folder", "button.choose_output": "Choose Output Folder",
     "button.scan_folder": "Scan Folder", "button.start_batch": "Start Batch Processing",
     "button.cancel_batch": "Cancel Batch", "badge.custom_description": "Custom badge image",
+    "video.badge": "Video badge:", "video.mode.permanent": "Permanent", "video.mode.beginning": "Beginning", "video.mode.end": "End",
+    "video.duration": "Duration:", "video.seconds": "seconds",
     "batch.input": "Input Folder", "batch.output_subfolder": "Create output subfolder inside input folder",
     "batch.output_separate": "Use separate output folder", "batch.filename_suffix": "Output filename suffix:", "batch.recursive": "Include subfolders",
     "batch.preserve": "Preserve folder structure", "batch.images": "Process images",

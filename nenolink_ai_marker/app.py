@@ -14,7 +14,7 @@ from PIL import Image
 
 from . import __version__
 from .badges import BadgeSourceManager, choose_badge_selection
-from .batch import BatchProcessor, BatchResult, FolderScan, VIDEO_EXTENSIONS, destination_root, find_ffmpeg, is_above_recommended_size, scan_folder
+from .batch import BatchProcessor, BatchResult, FolderScan, VIDEO_EXTENSIONS, destination_root, find_ffmpeg, hidden_subprocess_kwargs, is_above_recommended_size, scan_folder
 from .config import ConfigStore
 from .guide import open_user_guide
 from .i18n import LANGUAGES, Translator
@@ -60,6 +60,7 @@ class MarkerApp(ctk.CTk):
         self.output_subfolder_var=ctk.StringVar(value=saved.output_subfolder); self.batch_suffix_var=ctk.StringVar(value=saved.batch_filename_suffix); self.recursive_var=ctk.BooleanVar(value=saved.include_subfolders)
         self.preserve_var=ctk.BooleanVar(value=saved.preserve_folder_structure); self.images_var=ctk.BooleanVar(value=saved.process_images)
         self.videos_var=ctk.BooleanVar(value=saved.process_videos); self.skip_var=ctk.BooleanVar(value=saved.skip_processed)
+        self.video_mode_var=ctk.StringVar(value=saved.video_mode); self.video_mode_display_var=ctk.StringVar(); self.video_duration_var=ctk.IntVar(value=saved.video_duration)
         self.status_var=ctk.StringVar(); self.badge_name_var=ctk.StringVar(); self.badge_description_var=ctk.StringVar(); self.badge_display_var=ctk.StringVar()
         self.scan_summary_var=ctk.StringVar(); self.progress_text_var=ctk.StringVar()
         self._build_ui(); boot("UI built"); self.apply_translations(); self.refresh_badges(False); boot("resources loaded"); self.protocol("WM_DELETE_WINDOW", self.destroy)
@@ -99,7 +100,13 @@ class MarkerApp(ctk.CTk):
         self.position_label=ctk.CTkLabel(left,text=""); self.position_label.grid(row=6,column=0,padx=16,pady=(8,2),sticky="w")
         self.position_menu=ctk.CTkOptionMenu(left,variable=self.position_display_var,values=["—"],command=self.change_position_display); self.position_menu.grid(row=7,column=0,padx=16,pady=4,sticky="ew")
         self.size_label=self._slider(left,self.size_var,1,100,8); self.margin_label=self._slider(left,self.margin_var,0,250,10); self.opacity_label=self._slider(left,self.opacity_var,0,100,12)
-        self.process_button=ctk.CTkButton(left,text="",command=self.save_images); self.process_button.grid(row=14,column=0,padx=16,pady=12,sticky="ew")
+        self.video_controls=ctk.CTkFrame(left,fg_color="transparent"); self.video_controls.grid(row=14,column=0,padx=16,pady=(4,0),sticky="ew"); self.video_controls.grid_columnconfigure(1,weight=1)
+        self.video_mode_label=ctk.CTkLabel(self.video_controls,text=""); self.video_mode_label.grid(row=0,column=0,columnspan=2,sticky="w")
+        self.video_mode_menu=ctk.CTkOptionMenu(self.video_controls,variable=self.video_mode_display_var,values=["—"],command=self.change_video_mode); self.video_mode_menu.grid(row=1,column=0,columnspan=2,pady=3,sticky="ew")
+        self.video_duration_label=ctk.CTkLabel(self.video_controls,text=""); self.video_duration_label.grid(row=2,column=0,pady=3,sticky="w")
+        self.video_duration_entry=ctk.CTkEntry(self.video_controls,textvariable=self.video_duration_var,width=70); self.video_duration_entry.grid(row=2,column=1,pady=3,sticky="e"); self.video_duration_entry.bind("<FocusOut>",self.changed)
+        self.process_button=ctk.CTkButton(left,text="",command=self.save_images); self.process_button.grid(row=15,column=0,padx=16,pady=12,sticky="ew")
+        self.video_controls.grid_remove()
         right=ctk.CTkFrame(tab); right.grid(row=0,column=1,padx=(8,4),pady=4,sticky="nsew"); right.grid_columnconfigure(0,weight=1); right.grid_rowconfigure(0,weight=1)
         self.preview_label=ctk.CTkLabel(right,text="")
         self.welcome_frame=ctk.CTkFrame(right,fg_color="transparent"); self.welcome_frame.grid(row=0,column=0,padx=18,pady=14,sticky="nsew"); self.welcome_frame.grid_columnconfigure(0,weight=1); self.welcome_frame.grid_rowconfigure(4,weight=1)
@@ -181,13 +188,19 @@ class MarkerApp(ctk.CTk):
         options=ctk.CTkFrame(tab,fg_color="transparent"); options.grid(row=8,column=0,columnspan=2,padx=16,pady=10,sticky="ew"); self.batch_checks=[]
         for i,(key,var) in enumerate((("batch.recursive",self.recursive_var),("batch.preserve",self.preserve_var),("batch.images",self.images_var),("batch.videos",self.videos_var),("batch.skip",self.skip_var))):
             check=ctk.CTkCheckBox(options,text="",variable=var,command=self.changed); check.grid(row=i//3,column=i%3,padx=8,pady=6,sticky="w"); self.batch_checks.append((key,check))
+        self.batch_video_controls=ctk.CTkFrame(tab,fg_color="transparent"); self.batch_video_controls.grid(row=9,column=0,columnspan=2,padx=16,pady=(0,6),sticky="ew")
+        self.batch_video_mode_label=ctk.CTkLabel(self.batch_video_controls,text=""); self.batch_video_mode_label.grid(row=0,column=0,padx=(0,8))
+        self.batch_video_mode_menu=ctk.CTkOptionMenu(self.batch_video_controls,variable=self.video_mode_display_var,values=["—"],command=self.change_video_mode); self.batch_video_mode_menu.grid(row=0,column=1,padx=8)
+        self.batch_video_duration_label=ctk.CTkLabel(self.batch_video_controls,text=""); self.batch_video_duration_label.grid(row=0,column=2,padx=(18,4))
+        self.batch_video_duration_entry=ctk.CTkEntry(self.batch_video_controls,textvariable=self.video_duration_var,width=70); self.batch_video_duration_entry.grid(row=0,column=3,padx=4); self.batch_video_duration_entry.bind("<FocusOut>",self.changed)
         buttons=ctk.CTkFrame(tab,fg_color="transparent"); buttons.grid(row=9,column=0,columnspan=2,padx=16,pady=8,sticky="w")
+        buttons.grid_configure(row=10)
         self.scan_button=ctk.CTkButton(buttons,text="",command=self.scan_input_folder); self.scan_button.grid(row=0,column=0,padx=(0,8))
         self.start_batch_button=ctk.CTkButton(buttons,text="",command=self.start_batch); self.start_batch_button.grid(row=0,column=1,padx=8)
         self.cancel_batch_button=ctk.CTkButton(buttons,text="",command=self.cancel_batch,state="disabled"); self.cancel_batch_button.grid(row=0,column=2,padx=8)
-        ctk.CTkLabel(tab,textvariable=self.scan_summary_var,justify="left",anchor="w").grid(row=10,column=0,columnspan=2,padx=16,pady=6,sticky="ew")
-        self.progress=ctk.CTkProgressBar(tab); self.progress.set(0); self.progress.grid(row=11,column=0,columnspan=2,padx=16,pady=8,sticky="ew")
-        ctk.CTkLabel(tab,textvariable=self.progress_text_var,justify="left",anchor="w").grid(row=12,column=0,columnspan=2,padx=16,pady=6,sticky="ew")
+        ctk.CTkLabel(tab,textvariable=self.scan_summary_var,justify="left",anchor="w").grid(row=11,column=0,columnspan=2,padx=16,pady=6,sticky="ew")
+        self.progress=ctk.CTkProgressBar(tab); self.progress.set(0); self.progress.grid(row=12,column=0,columnspan=2,padx=16,pady=8,sticky="ew")
+        ctk.CTkLabel(tab,textvariable=self.progress_text_var,justify="left",anchor="w").grid(row=13,column=0,columnspan=2,padx=16,pady=6,sticky="ew")
 
     def apply_translations(self) -> None:
         t=self.translator.text; self.title(f"Nenolink AI Marker {__version__} - {t('app.window')}"); self.guide_button.configure(text=t("button.user_guide")); self.reset_button.configure(text=t("button.reset")); self.batch_back_button.configure(text=t("button.back")); self.badges_back_button.configure(text=t("button.back"))
@@ -198,6 +211,10 @@ class MarkerApp(ctk.CTk):
         self.tabs.set(self.tab_names[current_key])
         self.open_button.configure(text="1. "+t("button.open_media")); self.process_button.configure(text=t("button.process_video") if self.sources and self.sources[0].suffix.lower() in VIDEO_EXTENSIONS else t("button.process")); self.file_label.configure(text=t("files.none") if not self.sources else t("files.selected",count=len(self.sources),name=self.sources[0].name))
         self.file_size_guidance.configure(text=t("files.size_guidance")); self.batch_size_guidance.configure(text=t("files.size_guidance_short"))
+        self.video_mode_display_to_value={t("video.mode.permanent"):"permanent",t("video.mode.beginning"):"beginning",t("video.mode.end"):"end"}
+        video_values=list(self.video_mode_display_to_value); self.video_mode_menu.configure(values=video_values); self.batch_video_mode_menu.configure(values=video_values)
+        self.video_mode_display_var.set(next((label for label,value in self.video_mode_display_to_value.items() if value==self.video_mode_var.get()),t("video.mode.permanent")))
+        self.video_mode_label.configure(text=t("video.badge")); self.batch_video_mode_label.configure(text=t("video.badge")); self._update_video_duration_controls()
         self.position_label.configure(text="3. "+t("position")); self.size_label.configure(text="4. "+t("size.value",value=self.size_var.get())); self.margin_label.configure(text="5. "+t("margin.value",value=self.margin_var.get())); self.opacity_label.configure(text="6. "+t("opacity.value",value=self.opacity_var.get()))
         self.single_badge_label.configure(text="2. "+t("badge")); self.badge_source_heading.configure(text=t("badge.source_label")); self.standard_badge_radio.configure(text=t("badge.source_standard")); self.custom_badge_radio.configure(text=t("badge.source_custom")); self.custom_folder_label.configure(text=t("badge.custom_path")+":"); self.custom_entry.configure(placeholder_text=t("badge.custom_path"))
         self.position_display_to_value={t("position.top_left"):"top-left",t("position.top_right"):"top-right",t("position.bottom_left"):"bottom-left",t("position.bottom_right"):"bottom-right",t("position.center"):"center"}; self.position_menu.configure(values=list(self.position_display_to_value)); self.position_display_var.set(next((label for label,value in self.position_display_to_value.items() if value==self.position_var.get()),t("position.bottom_right")))
@@ -212,14 +229,24 @@ class MarkerApp(ctk.CTk):
     def navigate_home(self): self.show_tab("single")
     def reset_application(self):
         defaults=MarkerSettings(); custom_folder=self.custom_badge_var.get()
-        self.sources=[]; self.preview_photo=None
+        self.sources=[]; self.preview_photo=None; self.video_controls.grid_remove()
         self.badge_source_var.set("standard"); self.custom_badge_var.set(custom_folder); self.badge_var.set(defaults.badge_name); self.position_var.set(defaults.position)
         self.size_var.set(defaults.size_percent); self.margin_var.set(defaults.margin); self.opacity_var.set(defaults.opacity)
         self.batch_suffix_var.set(defaults.batch_filename_suffix)
+        self.video_mode_var.set(defaults.video_mode); self.video_duration_var.set(defaults.video_duration)
         self.scan=None; self.cancel_event.clear(); self.scan_summary_var.set(""); self.progress_text_var.set(""); self.progress.set(0)
         self.refresh_badges(False); self.apply_translations(); self.file_label.configure(text=self.translator.text("files.none")); self.render_start_view(); self.after(150,self._finish_reset_view); self.status_var.set(self.translator.text("status.reset")); self._save()
     def changed(self,*_):
+        try:self.video_duration_var.set(max(1,int(self.video_duration_var.get())))
+        except (ValueError,TypeError):self.video_duration_var.set(5)
         self.size_label.configure(text="4. "+self.translator.text("size.value",value=self.size_var.get())); self.margin_label.configure(text="5. "+self.translator.text("margin.value",value=self.margin_var.get())); self.opacity_label.configure(text="6. "+self.translator.text("opacity.value",value=self.opacity_var.get())); self.update_preview(); self._save()
+    def change_video_mode(self,label):
+        self.video_mode_var.set(self.video_mode_display_to_value[label]); self._update_video_duration_controls(); self.changed()
+    def _update_video_duration_controls(self):
+        t=self.translator.text; text=f"{t('video.duration')} ({t('video.seconds')})"
+        self.video_duration_label.configure(text=text); self.batch_video_duration_label.configure(text=text)
+        state="normal" if self.video_mode_var.get() in {"beginning","end"} else "disabled"
+        self.video_duration_entry.configure(state=state); self.batch_video_duration_entry.configure(state=state)
     def change_position_display(self,label): self.position_var.set(self.position_display_to_value[label]); self.changed()
     def change_badge_source(self): self._show_badge_source_controls(); self.refresh_badges(); self._save()
     def _show_badge_source_controls(self):
@@ -281,7 +308,7 @@ class MarkerApp(ctk.CTk):
         if selected:
             candidates=[Path(p) for p in selected if Path(p).suffix.lower() in SUPPORTED_EXTENSIONS|VIDEO_EXTENSIONS]
             if any(is_above_recommended_size(p) for p in candidates) and not messagebox.askokcancel(self.translator.text("warning.large_title"),self.translator.text("warning.large_file")):return
-            self.sources=candidates; self.file_label.configure(text=self.translator.text("files.selected",count=len(self.sources),name=self.sources[0].name) if self.sources else self.translator.text("files.none_supported")); self.process_button.configure(text=self.translator.text("button.process_video") if self.sources and self.sources[0].suffix.lower() in VIDEO_EXTENSIONS else self.translator.text("button.process")); self.update_preview()
+            self.sources=candidates; self.file_label.configure(text=self.translator.text("files.selected",count=len(self.sources),name=self.sources[0].name) if self.sources else self.translator.text("files.none_supported")); self.process_button.configure(text=self.translator.text("button.process_video") if self.sources and self.sources[0].suffix.lower() in VIDEO_EXTENSIONS else self.translator.text("button.process")); self.video_controls.grid() if self.sources and self.sources[0].suffix.lower() in VIDEO_EXTENSIONS else self.video_controls.grid_remove(); self.update_preview()
 
     def update_preview(self):
         badge=self.badges.find(self.badge_var.get())
@@ -353,7 +380,7 @@ class MarkerApp(ctk.CTk):
     def _write_hotfix_verification(self):
         """Exercise the real packaged widgets for release verification only."""
         report_path=Path(os.environ["NENOLINK_VERIFY_REPORT"])
-        initial_badge_settings={"source":self.badge_source_var.get(),"folder":self.custom_badge_var.get(),"selection":self.badge_var.get(),"batch_suffix":self.batch_suffix_var.get(),"status":self.status_var.get(),"count":len(self.badges.display_badges()),"custom_controls_visible":self.custom_controls.winfo_manager()=="grid"}
+        initial_badge_settings={"source":self.badge_source_var.get(),"folder":self.custom_badge_var.get(),"selection":self.badge_var.get(),"batch_suffix":self.batch_suffix_var.get(),"video_mode":self.video_mode_var.get(),"video_duration":self.video_duration_var.get(),"status":self.status_var.get(),"count":len(self.badges.display_badges()),"custom_controls_visible":self.custom_controls.winfo_manager()=="grid"}
         tab_switching={}
         for key,frame in (("single",self.single_tab),("batch",self.batch_tab),("badges",self.settings_tab)):
             self.show_tab(key); self.update(); time.sleep(.15); self.update()
@@ -414,26 +441,30 @@ class MarkerApp(ctk.CTk):
             if video_root.exists():shutil.rmtree(video_root)
             video_root.mkdir(parents=True,exist_ok=True)
             standard=self.badge_sources.repository("standard")
-            settings_a=MarkerSettings(badge_name="ai-localization.png",position="top-left",size_percent=20,margin=40,opacity=100)
-            settings_b=MarkerSettings(badge_name="ai-generated.png",position="bottom-right",size_percent=30,margin=60,opacity=50)
-            output_a=video_root/f"{video_source_path.stem}_ai.mp4"; output_b=video_root/f"{video_source_path.stem}_test_b.mp4"
+            settings_a=MarkerSettings(badge_name="ai-localization.png",position="top-left",size_percent=20,margin=40,opacity=100,video_mode="permanent")
+            settings_b=MarkerSettings(badge_name="ai-generated.png",position="bottom-right",size_percent=30,margin=60,opacity=50,video_mode="beginning",video_duration=5)
+            settings_c=MarkerSettings(badge_name="ai-translation.png",position="top-right",size_percent=25,margin=30,opacity=75,video_mode="end",video_duration=5)
+            settings_d=MarkerSettings(badge_name="ai-assisted.png",position="bottom-left",size_percent=18,margin=25,opacity=85,video_mode="end",video_duration=10)
+            output_a=video_root/f"{video_source_path.stem}_ai.mp4"; output_b=video_root/f"{video_source_path.stem}_beginning.mp4"; output_c=video_root/f"{video_source_path.stem}_end5.mp4"; output_d=video_root/f"{video_source_path.stem}_end10.mp4"
             self.batch_processor.process_video(video_source_path,standard.find(settings_a.badge_name),output_a,settings_a)
             self.batch_processor.process_video(video_source_path,standard.find(settings_b.badge_name),output_b,settings_b)
+            self.batch_processor.process_video(video_source_path,standard.find(settings_c.badge_name),output_c,settings_c)
+            self.batch_processor.process_video(video_source_path,standard.find(settings_d.badge_name),output_d,settings_d)
             batch_input=video_root/"batch-input"; batch_output=video_root/"batch-output"; batch_input.mkdir(exist_ok=True)
             shutil.copy2(video_source_path,batch_input/"clip01.mp4"); shutil.copy2(video_source_path,batch_input/"clip02.mp4")
-            batch_settings=MarkerSettings(badge_name="ai-generated.png",position="bottom-right",size_percent=30,margin=60,opacity=50,process_images=False,process_videos=True,output_preference="separate",output_folder=str(batch_output),batch_filename_suffix="_ai")
+            batch_settings=MarkerSettings(badge_name="ai-translation.png",position="top-right",size_percent=25,margin=30,opacity=75,process_images=False,process_videos=True,output_preference="separate",output_folder=str(batch_output),batch_filename_suffix="_ai",video_mode="end",video_duration=5)
             batch_result=self.batch_processor.process(scan_folder(batch_input),standard.find(batch_settings.badge_name),batch_settings)
-            version=subprocess.run([ffmpeg_path,"-version"],capture_output=True,text=True).stdout.splitlines()[0]
-            payload["video_verification"]={"ffmpeg_version":version,"suggested_name":f"{video_source_path.stem}_ai{video_source_path.suffix}","test_a":str(output_a),"test_b":str(output_b),"test_a_exists":output_a.is_file(),"test_b_exists":output_b.is_file(),"a_settings":{"badge":settings_a.badge_name,"position":settings_a.position,"size":settings_a.size_percent,"margin":settings_a.margin,"opacity":settings_a.opacity},"b_settings":{"badge":settings_b.badge_name,"position":settings_b.position,"size":settings_b.size_percent,"margin":settings_b.margin,"opacity":settings_b.opacity},"batch_successful":batch_result.successful,"batch_outputs":sorted(path.name for path in batch_output.glob("*.mp4"))}
+            version=subprocess.run([ffmpeg_path,"-version"],capture_output=True,text=True,**hidden_subprocess_kwargs()).stdout.splitlines()[0]
+            payload["video_verification"]={"ffmpeg_version":version,"suggested_name":f"{video_source_path.stem}_ai{video_source_path.suffix}","outputs":{"permanent":str(output_a),"beginning5":str(output_b),"end5":str(output_c),"end10":str(output_d)},"all_outputs_exist":all(path.is_file() for path in (output_a,output_b,output_c,output_d)),"settings":[{"badge":s.badge_name,"mode":s.video_mode,"duration":s.video_duration,"position":s.position,"size":s.size_percent,"margin":s.margin,"opacity":s.opacity} for s in (settings_a,settings_b,settings_c,settings_d)],"batch_mode":batch_settings.video_mode,"batch_duration":batch_settings.video_duration,"batch_successful":batch_result.successful,"batch_outputs":sorted(path.name for path in batch_output.glob("*.mp4"))}
         payload["tab_switching"]=tab_switching
         payload["back_navigation"]={"badges_preserved":badges_back_preserved,"batch_preserved":batch_back_preserved,"english_label":english["back"],"danish_label":danish["back"]}
         if os.environ.get("NENOLINK_VERIFY_RESET_LANGUAGE")=="da":self.change_language("Dansk")
         retained_custom_folder=self.custom_badge_var.get(); self.reset_application(); self.update(); time.sleep(.2); self.update()
-        payload["reset_verification"]={"source":self.badge_source_var.get(),"selection":self.badge_var.get(),"folder_retained":self.custom_badge_var.get()==retained_custom_folder,"position":self.position_var.get(),"size":self.size_var.get(),"margin":self.margin_var.get(),"opacity":self.opacity_var.get(),"batch_suffix":self.batch_suffix_var.get(),"sources":len(self.sources),"scan_cleared":self.scan is None,"single_selected":self.tabs.get()==self.tab_names["single"],"welcome":self.welcome_frame.winfo_manager()=="grid","welcome_mapped":bool(self.welcome_frame.winfo_ismapped()),"welcome_title":self.welcome_title.cget("text"),"welcome_illustration":bool(self.welcome_photo and self.welcome_illustration.winfo_ismapped()),"preview_hidden":not bool(self.preview_label.winfo_ismapped()),"status":self.status_var.get()}
+        payload["reset_verification"]={"source":self.badge_source_var.get(),"selection":self.badge_var.get(),"folder_retained":self.custom_badge_var.get()==retained_custom_folder,"position":self.position_var.get(),"size":self.size_var.get(),"margin":self.margin_var.get(),"opacity":self.opacity_var.get(),"video_mode":self.video_mode_var.get(),"video_duration":self.video_duration_var.get(),"batch_suffix":self.batch_suffix_var.get(),"sources":len(self.sources),"scan_cleared":self.scan is None,"single_selected":self.tabs.get()==self.tab_names["single"],"welcome":self.welcome_frame.winfo_manager()=="grid","welcome_mapped":bool(self.welcome_frame.winfo_ismapped()),"welcome_title":self.welcome_title.cget("text"),"welcome_illustration":bool(self.welcome_photo and self.welcome_illustration.winfo_ismapped()),"preview_hidden":not bool(self.preview_label.winfo_ismapped()),"status":self.status_var.get()}
         report_path.write_text(json.dumps(payload,indent=2),encoding="utf-8"); self.destroy()
 
     def settings(self):
-        return MarkerSettings(badge_name=self.badge_var.get(),position=self.position_var.get(),size_percent=self.size_var.get(),margin=self.margin_var.get(),opacity=self.opacity_var.get(),language=self.translator.language,badge_source=self.badge_source_var.get(),custom_badge_folder=self.custom_badge_var.get(),input_folder=self.input_folder_var.get(),output_preference=self.output_preference_var.get(),output_folder=self.output_folder_var.get(),output_subfolder=self.output_subfolder_var.get(),include_subfolders=self.recursive_var.get(),preserve_folder_structure=self.preserve_var.get(),process_images=self.images_var.get(),process_videos=self.videos_var.get(),skip_processed=self.skip_var.get(),video_mode="overlay",batch_filename_suffix=self.batch_suffix_var.get()).validated()
+        return MarkerSettings(badge_name=self.badge_var.get(),position=self.position_var.get(),size_percent=self.size_var.get(),margin=self.margin_var.get(),opacity=self.opacity_var.get(),language=self.translator.language,badge_source=self.badge_source_var.get(),custom_badge_folder=self.custom_badge_var.get(),input_folder=self.input_folder_var.get(),output_preference=self.output_preference_var.get(),output_folder=self.output_folder_var.get(),output_subfolder=self.output_subfolder_var.get(),include_subfolders=self.recursive_var.get(),preserve_folder_structure=self.preserve_var.get(),process_images=self.images_var.get(),process_videos=self.videos_var.get(),skip_processed=self.skip_var.get(),video_mode=self.video_mode_var.get(),video_duration=self.video_duration_var.get(),batch_filename_suffix=self.batch_suffix_var.get()).validated()
     def _save(self):
         try:self.config_store.save(self.settings())
         except OSError:pass

@@ -89,5 +89,6 @@
   "batch.oversized": "Soubory nad doporučenou velikostí: {count}",
   "button.reset": "Obnovit",
   "button.back": "← Zpět",
-  "status.reset": "Nastavení bylo obnoveno"
+  "status.reset": "Nastavení bylo obnoveno",
+  "video.badge": "Označení videa:", "video.mode.permanent": "Trvalé", "video.mode.beginning": "Na začátku", "video.mode.end": "Na konci", "video.duration": "Doba trvání:", "video.seconds": "sekundy"
 }

@@ -89,5 +89,6 @@
   "batch.oversized": "Fichiers dépassant la taille recommandée : {count}",
   "button.reset": "Réinitialiser",
   "button.back": "← Retour",
-  "status.reset": "Paramètres réinitialisés"
+  "status.reset": "Paramètres réinitialisés",
+  "video.badge": "Badge vidéo :", "video.mode.permanent": "Permanent", "video.mode.beginning": "Au début", "video.mode.end": "À la fin", "video.duration": "Durée :", "video.seconds": "secondes"
 }

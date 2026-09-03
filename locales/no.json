@@ -89,5 +89,6 @@
   "batch.oversized": "Filer over anbefalt størrelse: {count}",
   "button.reset": "Tilbakestill",
   "button.back": "← Tilbake",
-  "status.reset": "Innstillingene er tilbakestilt"
+  "status.reset": "Innstillingene er tilbakestilt",
+  "video.badge": "Videomerke:", "video.mode.permanent": "Permanent", "video.mode.beginning": "I begynnelsen", "video.mode.end": "På slutten", "video.duration": "Varighet:", "video.seconds": "sekunder"
 }

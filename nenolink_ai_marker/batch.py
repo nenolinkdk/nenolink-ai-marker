@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import os
 import sys
+import re
 from typing import Callable
 
 from .models import MarkerSettings
@@ -88,6 +89,37 @@ def find_ffmpeg() -> str | None:
     return shutil.which("ffmpeg")
 
 
+def hidden_subprocess_kwargs(platform: str | None = None) -> dict[str, object]:
+    """Prevent console flashes while retaining captured FFmpeg diagnostics."""
+    if (platform or os.name) != "nt":
+        return {}
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startupinfo.wShowWindow = subprocess.SW_HIDE
+    return {"creationflags": subprocess.CREATE_NO_WINDOW, "startupinfo": startupinfo}
+
+
+def video_duration_seconds(ffmpeg: str, source: Path) -> float:
+    probe = subprocess.run(
+        [ffmpeg, "-hide_banner", "-i", str(source)], capture_output=True, text=True,
+        **hidden_subprocess_kwargs(),
+    )
+    match = re.search(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)", probe.stderr)
+    if not match:
+        raise ValueError("FFmpeg could not determine the video duration")
+    hours, minutes, seconds = match.groups()
+    return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+
+
+def video_enable_expression(mode: str, requested: int, actual: float) -> str:
+    duration = min(max(1, requested), actual)
+    if mode == "beginning":
+        return f":enable='between(t\\,0\\,{duration:g})'"
+    if mode == "end":
+        return f":enable='gte(t\\,{max(0, actual-duration):g})'"
+    return ""
+
+
 class BatchProcessor:
     def __init__(self, image_processor: ImageProcessor | None = None) -> None:
         self.image_processor = image_processor or ImageProcessor()
@@ -135,15 +167,20 @@ class BatchProcessor:
         target.parent.mkdir(parents=True, exist_ok=True)
         width = max(1, settings.size_percent) / 100
         alpha = settings.opacity / 100
+        enable = ""
+        if settings.video_mode != "permanent":
+            enable = video_enable_expression(
+                settings.video_mode, settings.video_duration, video_duration_seconds(ffmpeg, source)
+            )
         filter_graph = (
             f"[1:v][0:v]scale2ref=w=main_w*{width}:h=ow/mdar[scaled][video];"
             f"[scaled]format=rgba,colorchannelmixer=aa={alpha}[badge];"
-            f"[video][badge]overlay={positions[settings.position]}:shortest=1[outv]"
+            f"[video][badge]overlay={positions[settings.position]}:shortest=1{enable}[outv]"
         )
         completed = subprocess.run(
             [ffmpeg, "-y", "-i", str(source), "-loop", "1", "-i", str(badge), "-filter_complex", filter_graph,
              "-map", "[outv]", "-map", "0:a?", "-c:v", "libx264", "-crf", "18", "-preset", "medium", "-c:a", "copy", str(target)],
-            capture_output=True, text=True,
+            capture_output=True, text=True, **hidden_subprocess_kwargs(),
         )
         if completed.returncode:
             raise ValueError(completed.stderr.strip().splitlines()[-1] if completed.stderr else "FFmpeg failed")

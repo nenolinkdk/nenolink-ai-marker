@@ -98,5 +98,6 @@
   "batch.oversized": "Filer over anbefalet størrelse: {count}",
   "button.reset": "Nulstil",
   "button.back": "← Tilbage",
-  "status.reset": "Indstillinger nulstillet"
+  "status.reset": "Indstillinger nulstillet",
+  "video.badge": "Videomærke:", "video.mode.permanent": "Hele videoen", "video.mode.beginning": "I begyndelsen", "video.mode.end": "I slutningen", "video.duration": "Varighed:", "video.seconds": "sekunder"
 }

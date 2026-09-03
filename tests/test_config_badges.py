@@ -83,6 +83,17 @@ class ConfigAndBadgeTests(unittest.TestCase):
         self.assertEqual(MarkerSettings(batch_filename_suffix="").validated().batch_filename_suffix,"_ai")
         self.assertEqual(MarkerSettings(batch_filename_suffix='<>:"/\\|?*').validated().batch_filename_suffix,"_ai")
 
+    def test_video_mode_and_duration_persist_with_safe_defaults(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store=ConfigStore(Path(directory)/"settings.json")
+            store.save(MarkerSettings(video_mode="end",video_duration=10))
+            restored=store.load()
+            self.assertEqual((restored.video_mode,restored.video_duration),("end",10))
+        defaults=MarkerSettings()
+        self.assertEqual((defaults.video_mode,defaults.video_duration),("permanent",5))
+        invalid=MarkerSettings(video_mode="unknown",video_duration=0).validated()
+        self.assertEqual((invalid.video_mode,invalid.video_duration),("permanent",1))
+
     def test_empty_badge_directory(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

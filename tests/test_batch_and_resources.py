@@ -5,7 +5,7 @@ from unittest.mock import patch
 from PIL import Image
 
 from nenolink_ai_marker.badges import BadgeRepository, EXPECTED_STANDARD_BADGES
-from nenolink_ai_marker.batch import BatchProcessor, RECOMMENDED_IMAGE_BYTES, RECOMMENDED_VIDEO_BYTES, destination_for, destination_root, find_ffmpeg, is_above_recommended_size, scan_folder
+from nenolink_ai_marker.batch import BatchProcessor, RECOMMENDED_IMAGE_BYTES, RECOMMENDED_VIDEO_BYTES, destination_for, destination_root, find_ffmpeg, hidden_subprocess_kwargs, is_above_recommended_size, scan_folder, video_enable_expression
 from nenolink_ai_marker.guide import open_user_guide
 from nenolink_ai_marker.models import MarkerSettings
 from nenolink_ai_marker.paths import docs_directory, localized_user_guide_path, user_guide_path
@@ -106,6 +106,26 @@ class ResourceAndBatchTests(unittest.TestCase):
         self.assertIn("-loop",command); self.assertIn("[outv]",command)
         self.assertEqual(command[command.index("-map")+1],"[outv]")
         self.assertIn("shortest=1",command[command.index("-filter_complex")+1])
+
+    def test_windows_ffmpeg_process_is_hidden(self):
+        options=hidden_subprocess_kwargs("nt")
+        self.assertEqual(options["creationflags"], __import__("subprocess").CREATE_NO_WINDOW)
+        self.assertTrue(options["startupinfo"].dwFlags & __import__("subprocess").STARTF_USESHOWWINDOW)
+
+    def test_video_mode_filter_expressions(self):
+        self.assertEqual(video_enable_expression("permanent",5,60),"")
+        self.assertEqual(video_enable_expression("beginning",5,60),":enable='between(t\\,0\\,5)'")
+        self.assertEqual(video_enable_expression("end",5,60),":enable='gte(t\\,55)'")
+        self.assertEqual(video_enable_expression("end",10,60),":enable='gte(t\\,50)'")
+        self.assertEqual(video_enable_expression("end",90,60),":enable='gte(t\\,0)'")
+
+    def test_batch_video_uses_end_mode(self):
+        probe=type("Completed",(),{"returncode":1,"stderr":"Duration: 00:01:00.00"})()
+        encoded=type("Completed",(),{"returncode":0,"stderr":""})()
+        with patch("nenolink_ai_marker.batch.find_ffmpeg",return_value="C:/ffmpeg.exe"), patch("nenolink_ai_marker.batch.subprocess.run",side_effect=[probe,encoded]) as run:
+            BatchProcessor.process_video(Path("input.mp4"),Path("badge.png"),Path("output.mp4"),MarkerSettings(video_mode="end",video_duration=5))
+        command=run.call_args_list[1].args[0]
+        self.assertIn(":enable='gte(t\\,55)'",command[command.index("-filter_complex")+1])
 
 
 if __name__=="__main__":unittest.main()

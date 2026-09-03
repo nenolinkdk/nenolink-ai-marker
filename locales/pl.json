@@ -89,5 +89,6 @@
   "batch.oversized": "Pliki powyżej zalecanego rozmiaru: {count}",
   "button.reset": "Resetuj",
   "button.back": "← Wstecz",
-  "status.reset": "Ustawienia zresetowane"
+  "status.reset": "Ustawienia zresetowane",
+  "video.badge": "Znacznik wideo:", "video.mode.permanent": "Stały", "video.mode.beginning": "Na początku", "video.mode.end": "Na końcu", "video.duration": "Czas trwania:", "video.seconds": "sekundy"
 }

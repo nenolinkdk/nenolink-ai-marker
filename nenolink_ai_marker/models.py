@@ -29,7 +29,8 @@ class MarkerSettings:
     process_images: bool = True
     process_videos: bool = False
     skip_processed: bool = True
-    video_mode: str = "overlay"
+    video_mode: str = "permanent"
+    video_duration: int = 5
     batch_filename_suffix: str = "_ai"
 
     def validated(self) -> "MarkerSettings":
@@ -52,7 +53,12 @@ class MarkerSettings:
         self.process_images = bool(self.process_images)
         self.process_videos = bool(self.process_videos)
         self.skip_processed = bool(self.skip_processed)
-        self.video_mode = str(self.video_mode or "overlay")
+        self.video_mode = str(self.video_mode or "permanent")
+        if self.video_mode == "overlay":
+            self.video_mode = "permanent"
+        if self.video_mode not in {"permanent", "beginning", "end"}:
+            self.video_mode = "permanent"
+        self.video_duration = max(1, int(self.video_duration))
         self.batch_filename_suffix = validated_filename_suffix(self.batch_filename_suffix)
         return self
 
