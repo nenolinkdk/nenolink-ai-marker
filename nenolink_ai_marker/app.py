@@ -479,6 +479,7 @@ class MarkerApp(ctk.CTk):
     def _write_hotfix_verification(self):
         """Exercise the real packaged widgets for release verification only."""
         report_path=Path(os.environ["NENOLINK_VERIFY_REPORT"])
+        release_regressions={"inspect_then_image":False,"selected_image_inspect_back":False,"inspect_reset_then_image":False,"selected_video_inspect_back":False}
         initial_badge_settings={"source":self.badge_source_var.get(),"folder":self.custom_badge_var.get(),"selection":self.badge_var.get(),"batch_suffix":self.batch_suffix_var.get(),"video_mode":self.video_mode_var.get(),"video_duration":self.video_duration_var.get(),"status":self.status_var.get(),"count":len(self.badges.display_badges()),"custom_controls_visible":self.custom_controls.winfo_manager()=="grid"}
         tab_switching={}
         for key,frame in (("single",self.single_tab),("batch",self.batch_tab),("badges",self.settings_tab),("inspect",self.inspect_tab)):
@@ -528,6 +529,9 @@ class MarkerApp(ctk.CTk):
             ordinary=inspect_file(sample_path)
             self.inspection_path=jpeg_output; self.inspection_result=inspected["jpg"]; self._render_inspection(); self.show_tab("inspect"); self.update(); self.inspect_back_button.invoke(); self.update()
             inspect_back_preserved=self.inspection_path==jpeg_output and self.inspection_result==inspected["jpg"] and self.tabs.get()==self.tab_names["single"]
+            processed_after_inspect=self.processor.process(sample_path,self.badges.find("ai-assisted.png"),self.settings())
+            release_regressions["inspect_then_image"]=processed_after_inspect.size==localization.size
+            release_regressions["selected_image_inspect_back"]=self.sources==[sample_path] and processed_after_inspect.size==localization.size
             image_metadata_verification={"source_sha256_before":sample_hash,"source_sha256_after":hashlib.sha256(sample_path.read_bytes()).hexdigest(),"jpeg":{"path":str(jpeg_output),"written":jpeg_written,"values":jpeg_values,"inspected":inspected["jpg"].found,"label":inspected["jpg"].ai_label,"version":inspected["jpg"].marker_version},"png":{"path":str(png_output),"written":png_written,"values":png_values,"inspected":inspected["png"].found,"label":inspected["png"].ai_label},"webp":{"path":str(webp_output),"written":webp_written,"values":webp_values,"inspected":inspected["webp"].found},"ordinary_not_found":not ordinary.found,"inspect_back_preserved":inspect_back_preserved}
         self.select_gallery_badge("ai-software.png"); gallery_selection_persisted=self.badge_var.get()=="ai-software.png" and self.badge_display_var.get()=="AI Software"
         custom_verification=None
@@ -592,6 +596,9 @@ class MarkerApp(ctk.CTk):
             batch_settings=MarkerSettings(badge_name="ai-generated.png",position="top-right",size_percent=25,margin=30,opacity=75,process_images=False,process_videos=True,output_preference="separate",output_folder=str(batch_output),batch_filename_suffix="_ai",video_mode="end",video_duration=5)
             batch_result=self.batch_processor.process(scan_folder(batch_input),standard.find(batch_settings.badge_name),batch_settings)
             inspected_mp4=inspect_file(output_c); inspected_mov=inspect_file(mov_output); ordinary_video_hash=hashlib.sha256(video_source_path.read_bytes()).hexdigest(); ordinary_video=inspect_file(video_source_path)
+            self.sources=[video_source_path]; self.inspection_path=output_c; self.inspection_result=inspected_mp4; self._render_inspection(); self.show_tab("inspect"); self.update(); self.inspect_back_button.invoke(); self.update()
+            regression_video=video_root/"inspect-back-regression.mp4"; self.batch_processor.process_video(video_source_path,standard.find(settings_c.badge_name),regression_video,settings_c)
+            release_regressions["selected_video_inspect_back"]=self.sources==[video_source_path] and regression_video.is_file()
             version=subprocess.run([ffmpeg_path,"-version"],capture_output=True,text=True,**hidden_subprocess_kwargs()).stdout.splitlines()[0]
             payload["video_verification"]={"ffmpeg_version":version,"suggested_name":f"{video_source_path.stem}_ai{video_source_path.suffix}","outputs":{"permanent":str(output_a),"beginning5":str(output_b),"end5":str(output_c),"end10":str(output_d),"mov":str(mov_output)},"all_outputs_exist":all(path.is_file() for path in (output_a,output_b,output_c,output_d,mov_output)),"mp4_inspection":{"found":inspected_mp4.found,"software":inspected_mp4.software,"label":inspected_mp4.ai_label,"version":inspected_mp4.marker_version},"mov_inspection":{"found":inspected_mov.found,"software":inspected_mov.software,"label":inspected_mov.ai_label,"version":inspected_mov.marker_version},"ordinary_not_found":not ordinary_video.found,"source_sha256_before":ordinary_video_hash,"source_sha256_after":hashlib.sha256(video_source_path.read_bytes()).hexdigest(),"settings":[{"badge":s.badge_name,"mode":s.video_mode,"duration":s.video_duration,"position":s.position,"size":s.size_percent,"margin":s.margin,"opacity":s.opacity} for s in (settings_a,settings_b,settings_c,settings_d)],"batch_mode":batch_settings.video_mode,"batch_duration":batch_settings.video_duration,"batch_badge":batch_settings.badge_name,"batch_successful":batch_result.successful,"batch_metadata_warnings":batch_result.metadata_warnings,"batch_outputs":sorted(path.name for path in batch_output.glob("*.mp4"))}
         payload["tab_switching"]=tab_switching
@@ -599,6 +606,10 @@ class MarkerApp(ctk.CTk):
         if os.environ.get("NENOLINK_VERIFY_RESET_LANGUAGE")=="da":self.change_language("Dansk")
         retained_custom_folder=self.custom_badge_var.get(); self.reset_application(); self.update(); time.sleep(.2); self.update()
         payload["reset_verification"]={"source":self.badge_source_var.get(),"selection":self.badge_var.get(),"folder_retained":self.custom_badge_var.get()==retained_custom_folder,"position":self.position_var.get(),"size":self.size_var.get(),"margin":self.margin_var.get(),"opacity":self.opacity_var.get(),"video_mode":self.video_mode_var.get(),"video_duration":self.video_duration_var.get(),"batch_suffix":self.batch_suffix_var.get(),"sources":len(self.sources),"scan_cleared":self.scan is None,"inspection_cleared":self.inspection_path is None and self.inspection_result is None and not self.inspection_error,"single_selected":self.tabs.get()==self.tab_names["single"],"welcome":self.welcome_frame.winfo_manager()=="grid","welcome_mapped":bool(self.welcome_frame.winfo_ismapped()),"welcome_title":self.welcome_title.cget("text"),"welcome_illustration":bool(self.welcome_photo and self.welcome_illustration.winfo_ismapped()),"preview_hidden":not bool(self.preview_label.winfo_ismapped()),"status":self.status_var.get()}
+        if sample:
+            after_reset=self.processor.process(Path(sample),self.badges.find("ai-assisted.png"),self.settings())
+            release_regressions["inspect_reset_then_image"]=bool(after_reset.width and after_reset.height)
+        payload["release_regressions"]=release_regressions
         report_path.write_text(json.dumps(payload,indent=2),encoding="utf-8"); self.destroy()
 
     def settings(self):

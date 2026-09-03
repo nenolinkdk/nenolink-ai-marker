@@ -2,7 +2,7 @@
 
 Applikationsversion: 0.5.0<br>
 Dokumentsprog: Dansk  
-Opdateret: 2. september 2026  
+Opdateret: 3. september 2026<br>
 Udgiver: Nenolink  
 Danmark
 
@@ -40,7 +40,7 @@ Vælg sprog i topbjælken. Engelsk, dansk, tysk, fransk, spansk, italiensk, port
 
 ## 4. Standardmapper og egne badgemapper
 
-Åbn **Badges**. **Nenolink Standard Badges** bruger de ti filer i `assets\badges`. Hvis du vil bruge din egen transparente PNG-fil, skal du vælge **Egen badgemappe**, vælge en mappe og klikke på **Opdater badges**, når du har tilføjet filer. Programmet læser egne filer på stedet og kopierer eller ændrer dem ikke. Hvis en gemt mappe forsvinder, viser programmet den nøjagtige sti og bruger midlertidigt standardbadges, mens den gamle sti bevares, så den kan rettes.
+Åbn **Badges**. **Nenolink Standard Badges** bruger de ti filer i `assets\badges`. Hvis du vil bruge dit eget badge, skal du vælge **Brugerdefineret badge-mappe**, vælge en almindelig Windows-mappe med PNG-, JPG-, JPEG- eller WebP-badgebilleder og klikke på **Opdater badges**, når du har tilføjet filer. Transparent PNG anbefales. Programmet læser egne filer på stedet og kopierer eller ændrer dem ikke. Hvis en gemt mappe forsvinder, viser programmet den nøjagtige sti og bruger midlertidigt standardbadges, mens den gamle sti bevares, så den kan rettes.
 
 ## 5. Valg af badge
 
@@ -52,15 +52,15 @@ Badgevisningen viser badget uden at strække det. Standardbadges viser også et 
 
 ## 7. Behandling af et enkelt billede
 
-Vælg **Enkelt fil** og derefter **Vælg billede**. JPG, JPEG, PNG og WebP understøttes. Juster placeringen, og kontrollér forhåndsvisningen. Klik på **Behandl billede**, vælg en outputmappe, og kontrollér afslutningsmeddelelsen. Originalen i fuld opløsning bruges til det endelige output; forhåndsvisningen er kun en skaleret visning.
+Vælg **Enkelt fil** og derefter **Vælg billede eller video**. JPG-, JPEG-, PNG- og WebP-billeder understøttes. Juster placering, størrelse, margen og opacitet, og kontrollér forhåndsvisningen. Klik på **Gem mærket billede...**. Windows-dialogen Gem som foreslår `originalnavn_ai.ext`; du kan redigere navnet, og Windows beder om bekræftelse, før en eksisterende fil erstattes. Kilden foreslås ikke som standarddestination og overskrives aldrig lydløst. Originalen i fuld opløsning bruges til output; forhåndsvisningen er kun en skaleret visning.
 
 ## 8. Behandling af video
 
-Videobehandling i mapper accepterer MP4, MOV, MKV, AVI og WebM. Windows-pakken indeholder den nødvendige FFmpeg-komponent; separat installation eller `PATH`-konfiguration er ikke nødvendig. Lyd kopieres, når den valgte outputcontainer tillader det. Kodningen bruger H.264. Kombinationer af container og codec varierer; afprøv et output før offentliggørelse. Hvis FFmpeg afviser en fil, registreres filen som en fejl, og behandlingen fortsætter.
+Videobehandling af enkeltfiler og mapper accepterer MP4, MOV, MKV, AVI og WebM. Vælg **Hele videoen** for at vise badget permanent eller **I begyndelsen**/**I slutningen** for at vise det i den valgte varighed (som standard 5 sekunder). Placering, størrelse, margen og opacitet gælder i alle tilstande. **Gem mærket video...** åbner Windows-dialogen Gem som med `originalnavn_ai.ext` foreslået. Windows-pakken indeholder den nødvendige FFmpeg-komponent; separat installation eller `PATH`-konfiguration er ikke nødvendig, og den kører uden konsolvindue. Lyd kopieres, når outputcontaineren tillader det, og video kodes som H.264. Kombinationer af container og codec varierer; kontrollér output før offentliggørelse. Hvis FFmpeg afviser en batchfil, registreres filen som en fejl, og behandlingen fortsætter.
 
 ## 9. Mappebehandling
 
-Vælg **Batchbehandling**, vælg en inputmappe, konfigurer output og filindstillinger, og klik derefter på **Scan mappe**. Kontrollér antallet af billeder, videoer, ikke-understøttede filer, valgte filer og destinationen. Klik først på **Start batchbehandling**, når scanningen er kontrolleret. Status viser det aktuelle filnavn samt antal succeser, spring og fejl. **Annuller batch** stopper før næste fil; allerede færdige output slettes ikke. En beskadiget fil stopper ikke senere filer.
+Vælg **Batchbehandling**, vælg en inputmappe, konfigurer output, medier, suffiks og videoindstillinger, og klik derefter på **Scan mappe**. Kontrollér antallet af billeder, videoer, ikke-understøttede og store filer, valgte filer samt destinationen. Klik først på **Start batchbehandling**, når scanningen er kontrolleret. Batch bruger automatisk suffikset (som standard `_ai`) og åbner ikke en Gem som-dialog for hver fil. Status viser det aktuelle filnavn samt antal succeser, spring og fejl. **Annuller** stopper før næste fil; allerede færdige output slettes ikke. En beskadiget fil stopper ikke senere filer.
 
 ## 10. Input- og outputmapper
 
@@ -69,6 +69,8 @@ Standardoutput er en redigerbar undermappe med navnet `AI-marked` i inputmappen.
 ## 11. Placering, størrelse, margen og opacitet
 
 Placeringen kan være øverst til venstre, øverst til højre, nederst til venstre eller nederst til højre. Størrelsen er en procentdel af billedets bredde. Margenen måles i kildebilledets pixels fra de valgte kanter. Opaciteten går fra helt gennemsigtig til helt dækkende. Programmet begrænser ekstreme indstillinger, så badget forbliver inden for mediets ramme.
+
+**Tilbage** på Batchbehandling, Badges eller Undersøg fil vender tilbage til Enkelt fil uden at nulstille valgt input, badge, kilde eller andre indstillinger. Topfanerne bruges også kun til navigation. **Nulstil** er anderledes: Funktionen vender tilbage til Enkelt fil og velkomstvisningen, rydder valgt input, undersøgelsesresultat og midlertidig batchstatus, vælger standardbadget AI Assisted og gendanner nederst til højre, 20 % størrelse, 20 px margen, 100 % opacitet, Hele videoen, 5 sekunder og `_ai`. Den gemte sti til den brugerdefinerede badgemappe bevares.
 
 ## 12. Valg af det rette standardbadge
 

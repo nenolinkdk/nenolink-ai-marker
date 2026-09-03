@@ -72,6 +72,32 @@ Copy-Item -Path (Join-Path $projectRoot "docs\*") -Destination $distDocs -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot "tools\ffmpeg\ffmpeg.exe") -Destination (Join-Path $distFfmpeg "ffmpeg.exe") -Force
 Copy-Item -Path (Join-Path $projectRoot "THIRD_PARTY_NOTICES\*") -Destination $distNotices -Force
 
+# Preserve the authoritative license files supplied by the exact runtime
+# components selected above. Fail the release build if any expected notice
+# cannot be located instead of silently producing an incomplete package.
+$pythonLicense = & $python -c "import pathlib, sysconfig; print(pathlib.Path(sysconfig.get_path('stdlib')) / 'LICENSE.txt')"
+if (-not (Test-Path -LiteralPath $pythonLicense)) { throw "CPython license file was not found: $pythonLicense" }
+Copy-Item -LiteralPath $pythonLicense -Destination (Join-Path $distNotices "PYTHON-LICENSE.txt") -Force
+
+$tkLicense = Get-ChildItem -LiteralPath $env:NENOLINK_TK_LIBRARY -Filter "license.terms" -File -Recurse | Select-Object -First 1
+if (-not $tkLicense) { throw "Tcl/Tk license terms were not found under $env:NENOLINK_TK_LIBRARY" }
+Copy-Item -LiteralPath $tkLicense.FullName -Destination (Join-Path $distNotices "TCL-TK-LICENSE.txt") -Force
+
+$licenseFiles = @(
+    @{ Distribution = "customtkinter"; Name = "LICENSE"; Destination = "CUSTOMTKINTER-LICENSE.txt" },
+    @{ Distribution = "Pillow"; Name = "LICENSE"; Destination = "PILLOW-LICENSE.txt" },
+    @{ Distribution = "darkdetect"; Name = "LICENSE"; Destination = "DARKDETECT-LICENSE.txt" },
+    @{ Distribution = "packaging"; Name = "LICENSE"; Destination = "PACKAGING-LICENSE.txt" },
+    @{ Distribution = "packaging"; Name = "LICENSE.APACHE"; Destination = "PACKAGING-APACHE-2.0.txt" },
+    @{ Distribution = "packaging"; Name = "LICENSE.BSD"; Destination = "PACKAGING-BSD.txt" },
+    @{ Distribution = "numpy"; Name = "LICENSE.txt"; Destination = "NUMPY-LICENSE.txt" }
+)
+foreach ($item in $licenseFiles) {
+    $licensePath = & $python -c "import importlib.metadata as m; d=m.distribution('$($item.Distribution)'); print(next(d.locate_file(p) for p in d.files if p.name == '$($item.Name)'))"
+    if (-not (Test-Path -LiteralPath $licensePath)) { throw "License file was not found for $($item.Distribution): $licensePath" }
+    Copy-Item -LiteralPath $licensePath -Destination (Join-Path $distNotices $item.Destination) -Force
+}
+
 $verifiedRuntimeRoot = Split-Path -Parent $env:NENOLINK_TCL_LIBRARY
 & (Join-Path $projectRoot "scripts\windows-smoke-test.ps1") -ExePath $packagedExe -RuntimeRoot $verifiedRuntimeRoot
 if ($LASTEXITCODE -ne 0) { throw "The executable smoke test failed." }

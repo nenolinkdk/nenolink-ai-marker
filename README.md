@@ -1,6 +1,6 @@
 # Nenolink AI Marker 0.5.0
 
-Windows desktop software for adding visible Nenolink AI disclosure badges to images and videos. Version 0.3 adds the official ten-badge library, metadata-backed badge preview, folder scanning and batch processing, optional FFmpeg video overlay, persistent batch settings, and an offline English PDF guide.
+Windows desktop software for adding visible Nenolink AI disclosure badges to images and videos. Version 0.5.0 includes the official ten-badge library, custom badge folders, image and video processing, folder batches, machine-readable AI Marker metadata, read-only metadata inspection, persistent settings, and offline English and Danish PDF guides.
 
 The standard package contains exactly these editable external assets: `ai-assisted.png`, `ai-generated.png`, `ai-modified.png`, `human-reviewed.png`, `ai-image.png`, `ai-video.png`, `ai-audio.png`, `ai-software.png`, `ai-translation.png`, and `ai-localization.png`, plus `badges.json`.
 
@@ -14,14 +14,15 @@ The full guide is in `docs/USER_GUIDE_EN.md` and `docs/Nenolink-AI-Marker-User-G
 - Adjusts badge size, pixel margin and opacity
 - Shows a preview before saving
 - Processes selected images or complete folder trees
-- Optionally overlays badges on video through an installed FFmpeg
+- Overlays badges permanently or at the beginning/end of video using the bundled FFmpeg component
 - Scans folders before batch processing and reports counts and destination
 - Switches the complete interface between 12 offline languages
 - Uses Nenolink standard badges or a user-selected badge folder
 - Saves as `originalname_ai.ext` and adds `_2`, `_3`, etc. if needed
 - Remembers preferences in `%APPDATA%\Nenolink\AI Marker\settings.json`
+- Reads Nenolink AI Marker metadata from JPEG, PNG, WebP, MP4 and MOV without modifying the file
 
-Video processing requires FFmpeg on `PATH`; image processing is self-contained.
+The Windows package includes FFmpeg. End users do not install FFmpeg or configure `PATH`; image processing remains independent of FFmpeg.
 
 ## Install and run on Windows
 
@@ -38,14 +39,16 @@ Standard badges are read from `assets\badges\`. Click **Refresh badges** after c
 
 ## Use
 
-1. Click **Choose Images** and select one or more supported images.
+1. Click **Choose Image or Video** and select a supported file.
 2. Select an approved badge and its position.
 3. Adjust size, margin and opacity while checking the preview.
-4. Click **Start Processing** and select an output folder.
+4. Click **Save Marked Image...** or **Save Marked Video...** and choose the editable Save As name, initially `originalname_ai.ext`.
 
 For a folder batch, choose an input and output mode, select recursive/media options, click **Scan Folder**, review the summary, and then click **Start Batch Processing**.
 
 The source images are never overwritten. If one file in a batch fails, the application continues with the remaining files and reports the errors clearly.
+
+The four main tabs are **Single File**, **Batch Processing**, **Badges**, and **Inspect File**. **Back** returns to Single File without clearing state. **Reset** restores defaults and the Welcome view while retaining the saved custom badge folder path.
 
 ## Tests
 

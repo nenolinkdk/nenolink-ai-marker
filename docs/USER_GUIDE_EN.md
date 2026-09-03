@@ -2,7 +2,7 @@
 
 Application version: 0.5.0<br>
 Document language: English<br>
-Updated: 2 September 2026<br>
+Updated: 3 September 2026<br>
 Publisher: Nenolink<br>
 Denmark
 
@@ -40,7 +40,7 @@ Choose a language in the top bar. English, Danish, German, French, Spanish, Ital
 
 ## 4. Standard and custom badge folders
 
-Open **Badge settings**. **Nenolink Standard Badges** uses the ten files bundled in `assets\badges`. To use your own transparent PNG, select **Custom Badge Folder**, choose a folder, and click **Refresh Badges** after adding files. The app reads custom files in place and does not copy or alter them. If a saved custom folder disappears, the app reports the exact path and temporarily uses standard badges while retaining the old path for correction.
+Open **Badges**. **Nenolink Standard Badges** uses the ten files bundled in `assets\badges`. To use your own badge, select **Custom Badge Folder**, choose an ordinary Windows folder containing PNG, JPG, JPEG, or WebP badge images, and click **Refresh Badges** after adding files. Transparent PNG is recommended. The app reads custom files in place and does not copy or alter them. If a saved custom folder disappears, the app reports the exact path and temporarily uses standard badges while retaining the old path for correction.
 
 ## 5. Selecting a badge
 
@@ -52,15 +52,15 @@ The Badge settings view shows the badge without stretching it. Standard badges a
 
 ## 7. Processing a single image
 
-Choose **Single image**, then **Choose Images**. JPG, JPEG, PNG, and WebP are supported. Adjust placement and inspect the preview. Click **Start Processing**, choose an output folder, and review the completion message. Full-resolution originals are used for final output; the preview is only a scaled display.
+Choose **Single File**, then **Choose Image or Video**. JPG, JPEG, PNG, and WebP images are supported. Adjust placement, size, margin, and opacity and inspect the preview. Click **Save Marked Image...**. The normal Windows Save As dialog proposes `originalname_ai.ext`; you may edit the name and Windows confirms before replacing an existing file. The source is not selected as the default destination and is never silently overwritten. Full-resolution originals are used for output; the preview is only a scaled display.
 
 ## 8. Processing video
 
-Video batch support accepts MP4, MOV, MKV, AVI, and WebM. The Windows package includes the required FFmpeg component; no separate installation or `PATH` configuration is needed. Audio is copied where the chosen output container permits it. Encoding uses H.264. Container/codec combinations vary; test an output before publication. If FFmpeg rejects one file, that file is recorded as an error and the batch continues.
+Single File and batch video processing accept MP4, MOV, MKV, AVI, and WebM. Select **Permanent** to show the badge throughout, or **Beginning**/**End** to show it for the chosen duration (5 seconds by default). Position, size, margin, and opacity apply in every mode. **Save Marked Video...** opens the Windows Save As dialog with `originalname_ai.ext` proposed. The Windows package includes the required FFmpeg component; no separate installation or `PATH` configuration is needed, and it runs without a console window. Audio is copied where the output container permits it and video is encoded as H.264. Container/codec combinations vary; review an output before publication. If FFmpeg rejects one batch file, that file is recorded as an error and the batch continues.
 
 ## 9. Folder batch processing
 
-Choose **Folder batch**, select an input folder, configure output and file options, then click **Scan Folder**. Review image, video, unsupported, selected-total, and destination counts. Click **Start Batch Processing** only after the scan. Progress shows the current filename and success, skip, and error totals. **Cancel Batch** stops before the next file; it does not delete completed outputs. A corrupt file does not stop later files.
+Choose **Batch Processing**, select an input folder, configure output, media, suffix, and video options, then click **Scan Folder**. Review image, video, unsupported, oversized, selected-total, and destination counts. Click **Start Batch Processing** only after the scan. Batch uses the suffix automatically (default `_ai`) and does not open one Save As dialog per file. Progress shows the current filename and success, skip, and error totals. **Cancel** stops before the next file; it does not delete completed outputs. A corrupt file does not stop later files.
 
 ## 10. Input and output folders
 
@@ -69,6 +69,8 @@ The default output is an editable `AI-marked` subfolder inside the input folder.
 ## 11. Position, size, margin, and opacity
 
 Position can be top-left, top-right, bottom-left, or bottom-right. Size is a percentage of image width. Margin is measured in source pixels from the chosen edges. Opacity ranges from fully transparent to fully opaque. The app limits extreme settings so the badge remains within the media frame.
+
+**Back** on Batch Processing, Badges, or Inspect File returns to Single File without resetting the selected input, badge, source, or other settings. Top tabs are also navigation only. **Reset** is different: it returns to Single File and the Welcome view, clears the selected input, inspection result, and temporary batch state, selects standard AI Assisted, and restores bottom-right, 20% size, 20 px margin, 100% opacity, Permanent video mode, 5 seconds, and `_ai`. The remembered custom badge folder path is retained.
 
 ## 12. Choosing the right standard badge
 
