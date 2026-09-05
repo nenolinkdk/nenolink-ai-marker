@@ -24,6 +24,7 @@ from .metadata import marker_metadata
 from .models import MarkerSettings
 from .paths import badge_directory, locale_directory, localized_user_guide_path, welcome_image_path
 from .processor import ImageProcessor, SUPPORTED_EXTENSIONS
+from .preview import ImagePreviewRenderer
 from .ui_state import show_welcome
 
 
@@ -67,7 +68,7 @@ class MarkerApp(ctk.CTk):
         boot(f"Tk paths ready: {os.environ.get('TCL_LIBRARY')}")
         super().__init__(); boot("CTk initialized")
         self.geometry("1280x720"); self.minsize(980, 680)
-        self.processor = ImageProcessor(); self.batch_processor = BatchProcessor(self.processor)
+        self.processor = ImageProcessor(); self.preview_renderer = ImagePreviewRenderer(self.processor); self.batch_processor = BatchProcessor(self.processor)
         self.config_store = ConfigStore(); saved = self.config_store.load()
         self.translator = Translator(locale_directory(), saved.language)
         self.badge_sources = BadgeSourceManager(badge_directory())
@@ -75,7 +76,7 @@ class MarkerApp(ctk.CTk):
         self.sources: list[Path] = []; self.scan: FolderScan | None = None
         self.inspection_path: Path | None = None; self.inspection_result: InspectionResult | None = None; self.inspection_error = ""
         self._reset_after_id = None
-        self.cancel_event = threading.Event(); self.preview_photo = None; self.badge_photo = None; self.single_badge_photo = None; self.welcome_photo = None; self.welcome_image = None
+        self.cancel_event = threading.Event(); self.preview_photo = None; self.preview_image = None; self.badge_photo = None; self.single_badge_photo = None; self.welcome_photo = None; self.welcome_image = None
         self.gallery_photos = []; self.gallery_buttons = {}; self.badge_display_to_file = {}
         self.badge_var=ctk.StringVar(value=saved.badge_name); self.position_var=ctk.StringVar(value=saved.position)
         self.position_display_var=ctk.StringVar()
@@ -187,7 +188,7 @@ class MarkerApp(ctk.CTk):
     def render_start_view(self):
         """Restore the visible startup view after the tab switch has settled."""
         self.show_tab("single"); self.update_idletasks()
-        self.preview_photo=None; self.preview_label.configure(image=None,text=""); self.preview_label.grid_remove()
+        self.preview_photo=None; self.preview_image=None; self.preview_label.configure(image=None,text=""); self.preview_label.grid_remove()
         self.welcome_title.configure(text=self.translator.text("welcome.title")); self.welcome_tagline.configure(text=self.translator.text("welcome.tagline"))
         self.welcome_description1.configure(text=self.translator.text("welcome.description1")); self.welcome_description2.configure(text=self.translator.text("welcome.description2"))
         self._show_welcome(); self.welcome_frame.lift()
@@ -339,7 +340,7 @@ class MarkerApp(ctk.CTk):
             self.inspect_format_var.set(""); self.inspect_status_var.set(t("inspect.ready")); self.inspect_software_var.set(missing); self.inspect_label_var.set(missing); self.inspect_version_var.set(missing); self.inspect_message_var.set(t("inspect.no_ai_warning"))
     def reset_application(self):
         defaults=MarkerSettings(); custom_folder=self.custom_badge_var.get()
-        self.sources=[]; self.preview_photo=None; self.video_controls.grid_remove()
+        self.sources=[]; self.preview_photo=None; self.preview_image=None; self.preview_renderer.clear(); self.video_controls.grid_remove()
         self.badge_source_var.set("standard"); self.custom_badge_var.set(custom_folder); self.badge_var.set(defaults.badge_name); self.position_var.set(defaults.position)
         self.size_var.set(defaults.size_percent); self.margin_var.set(defaults.margin); self.opacity_var.set(defaults.opacity)
         self.batch_suffix_var.set(defaults.batch_filename_suffix)
@@ -464,18 +465,18 @@ class MarkerApp(ctk.CTk):
 
     def update_preview(self):
         badge=self.badges.find(self.badge_var.get())
-        if show_welcome(self.sources):self.preview_photo=None; self._show_welcome(); return
+        if show_welcome(self.sources):self.preview_photo=None; self.preview_image=None; self._show_welcome(); return
         self._show_preview()
         if not badge:self.preview_label.configure(image=None,text=self.translator.text("badge.none")); return
         if self.sources[0].suffix.lower() in VIDEO_EXTENSIONS:
-            self.preview_photo=None; self.preview_label.configure(image=None,text=self.translator.text("preview.video_selected",name=self.sources[0].name)); self.status_var.set(self.translator.text("preview.video_selected",name=self.sources[0].name)); return
+            self.preview_photo=None; self.preview_image=None; self.preview_label.configure(image=None,text=self.translator.text("preview.video_selected",name=self.sources[0].name)); self.status_var.set(self.translator.text("preview.video_selected",name=self.sources[0].name)); return
         try:
             settings=self.settings(); logo=self._logo_path() if settings.logo_enabled else None
-            image=self.processor.process(self.sources[0],badge,settings,logo); image.thumbnail((720,600),Image.Resampling.LANCZOS); self.preview_photo=ctk.CTkImage(light_image=image,dark_image=image,size=image.size); self.preview_label.configure(image=self.preview_photo,text=""); self.status_var.set(self.translator.text("preview.showing",name=self.sources[0].name))
+            image=self.preview_renderer.render(self.sources[0],badge,settings,logo); self.preview_image=image.copy(); self.preview_photo=ctk.CTkImage(light_image=self.preview_image,dark_image=self.preview_image,size=self.preview_image.size); self.preview_label.configure(image=self.preview_photo,text=""); self.preview_label.image=self.preview_photo; self.status_var.set(self.translator.text("preview.showing",name=self.sources[0].name))
         except (OSError,ValueError) as error:self.status_var.set(self.translator.text("error.preview",error=error))
 
     def clear_images(self):
-        self.sources=[]; self.file_label.configure(text=self.translator.text("files.none")); self._update_logo_controls(); self.update_preview()
+        self.sources=[]; self.preview_renderer.clear(); self.file_label.configure(text=self.translator.text("files.none")); self._update_logo_controls(); self.update_preview()
 
     def save_images(self):
         badge=self.badges.find(self.badge_var.get())
@@ -602,6 +603,14 @@ class MarkerApp(ctk.CTk):
             if logo_root.exists():shutil.rmtree(logo_root)
             logo_root.mkdir(parents=True)
             logo_settings=MarkerSettings(badge_name="ai-assisted.png",position="bottom-right",size_percent=20,margin=12,opacity=90,logo_enabled=True,logo_path=str(logo_path),logo_position="top-left",logo_size_percent=18,logo_margin=9,logo_opacity=75)
+            self.sources=[Path(sample)]; self.badge_var.set(logo_settings.badge_name); self.position_var.set(logo_settings.position); self.size_var.set(logo_settings.size_percent); self.margin_var.set(logo_settings.margin); self.opacity_var.set(logo_settings.opacity)
+            self.logo_path_var.set(str(logo_path)); self.logo_enabled_var.set(True); self.logo_position_var.set(logo_settings.logo_position); self.logo_size_var.set(logo_settings.logo_size_percent); self.logo_margin_var.set(logo_settings.logo_margin); self.logo_opacity_var.set(logo_settings.logo_opacity)
+            self.update_preview(); self.update(); preview_both=self.preview_image.tobytes() if self.preview_image else b""
+            self.logo_enabled_var.set(False); self.update_preview(); preview_badge_only=self.preview_image.tobytes() if self.preview_image else b""
+            self.logo_enabled_var.set(True); self.logo_position_var.set("bottom-left"); self.update_preview(); preview_moved=self.preview_image.tobytes() if self.preview_image else b""
+            self.logo_position_var.set(logo_settings.logo_position); self.update_preview()
+            preview_output=logo_root/"live-preview.png"
+            if self.preview_image:self.preview_image.save(preview_output)
             logo_output=logo_root/"single_ai.png"
             logo_metadata=marker_metadata(logo_settings.badge_name,"AI Assisted")
             logo_written=self.processor.save(self.processor.process(Path(sample),self.badges.find(logo_settings.badge_name),logo_settings,logo_path),logo_output,logo_metadata)
@@ -611,7 +620,7 @@ class MarkerApp(ctk.CTk):
             logo_settings.output_preference="separate"; logo_settings.output_folder=str(batch_output); logo_settings.process_images=True; logo_settings.process_videos=False
             logo_batch=self.batch_processor.process(scan_folder(batch_input),self.badges.find(logo_settings.badge_name),logo_settings)
             output_bytes=logo_output.read_bytes()
-            logo_verification={"output":str(logo_output),"output_exists":logo_output.is_file(),"metadata_written":logo_written,"ai_label":inspected_logo.ai_label,"logo_path_absent_from_metadata":str(logo_path).encode("utf-8") not in output_bytes,"source_sha256_before":hashlib.sha256(Path(sample).read_bytes()).hexdigest(),"source_sha256_after":hashlib.sha256(Path(sample).read_bytes()).hexdigest(),"settings":{"badge_position":logo_settings.position,"logo_position":logo_settings.logo_position,"logo_size":logo_settings.logo_size_percent,"logo_margin":logo_settings.logo_margin,"logo_opacity":logo_settings.logo_opacity},"batch_successful":logo_batch.successful,"batch_outputs":sorted(path.name for path in batch_output.glob("*.png"))}
+            logo_verification={"output":str(logo_output),"output_exists":logo_output.is_file(),"metadata_written":logo_written,"ai_label":inspected_logo.ai_label,"logo_path_absent_from_metadata":str(logo_path).encode("utf-8") not in output_bytes,"source_sha256_before":hashlib.sha256(Path(sample).read_bytes()).hexdigest(),"source_sha256_after":hashlib.sha256(Path(sample).read_bytes()).hexdigest(),"live_preview":{"rendered":bool(preview_both),"path":str(preview_output),"logo_toggle_changes":preview_both!=preview_badge_only,"logo_position_changes":preview_both!=preview_moved,"size":self.preview_image.size if self.preview_image else None},"settings":{"badge_position":logo_settings.position,"logo_position":logo_settings.logo_position,"logo_size":logo_settings.logo_size_percent,"logo_margin":logo_settings.logo_margin,"logo_opacity":logo_settings.logo_opacity},"batch_successful":logo_batch.successful,"batch_outputs":sorted(path.name for path in batch_output.glob("*.png"))}
         custom_verification=None
         custom_folder=os.environ.get("NENOLINK_VERIFY_CUSTOM_BADGES")
         if custom_folder:

@@ -9,6 +9,7 @@ def test_render_start_view_restores_localized_welcome_state():
         show_tab=Mock(),
         update_idletasks=Mock(),
         preview_photo=object(),
+        preview_image=object(),
         preview_label=Mock(),
         welcome_title=Mock(),
         welcome_tagline=Mock(),
@@ -24,6 +25,7 @@ def test_render_start_view_restores_localized_welcome_state():
     app.show_tab.assert_called_once_with("single")
     app.update_idletasks.assert_called_once_with()
     assert app.preview_photo is None
+    assert app.preview_image is None
     app.preview_label.configure.assert_called_once_with(image=None, text="")
     app.preview_label.grid_remove.assert_called_once_with()
     app.welcome_title.configure.assert_called_once_with(text="da:welcome.title")

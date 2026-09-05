@@ -52,8 +52,7 @@ class ImageProcessor:
         except (OSError, Image.UnidentifiedImageError) as error:
             raise ValueError(f"Could not open image: {error}") from error
 
-        result = base.copy()
-        self._composite(result, badge, settings.position, settings.size_percent, settings.margin, settings.opacity)
+        logo_image = None
         if settings.logo_enabled and logo:
             if logo.suffix.lower() not in SUPPORTED_EXTENSIONS:
                 raise ValueError(f"Unsupported logo type: {logo.suffix or 'no extension'}")
@@ -62,7 +61,15 @@ class ImageProcessor:
                     logo_image = opened_logo.convert("RGBA")
             except (OSError, Image.UnidentifiedImageError) as error:
                 raise ValueError(f"Could not open logo: {error}") from error
-            self._composite(result, logo_image, settings.logo_position, settings.logo_size_percent, settings.logo_margin, settings.logo_opacity)
+        return self.compose(base, badge, settings, logo_image)
+
+    def compose(self, base: Image.Image, badge: Image.Image, settings: MarkerSettings, logo: Image.Image | None = None) -> Image.Image:
+        """Composite already-loaded images in memory without writing files or metadata."""
+        settings.validated()
+        result = base.convert("RGBA").copy()
+        self._composite(result, badge, settings.position, settings.size_percent, settings.margin, settings.opacity)
+        if settings.logo_enabled and logo:
+            self._composite(result, logo.convert("RGBA"), settings.logo_position, settings.logo_size_percent, settings.logo_margin, settings.logo_opacity)
         return result
 
     def _composite(self, base: Image.Image, overlay: Image.Image, position: str, size_percent: int, margin: int, opacity: int) -> None:
