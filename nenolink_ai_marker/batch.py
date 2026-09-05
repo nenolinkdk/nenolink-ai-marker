@@ -144,7 +144,8 @@ class BatchProcessor:
                 if (settings.skip_processed and appears_processed(source, settings.batch_filename_suffix)) or target.exists():
                     result.skipped += 1
                 elif source.suffix.lower() in SUPPORTED_EXTENSIONS:
-                    image = self.image_processor.process(source, badge, settings)
+                    logo = Path(settings.logo_path) if settings.logo_enabled and settings.logo_path else None
+                    image = self.image_processor.process(source, badge, settings, logo)
                     if not self.image_processor.save(image, target, metadata):
                         result.metadata_warnings.append(source.name)
                     result.successful += 1

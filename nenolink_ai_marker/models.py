@@ -32,6 +32,12 @@ class MarkerSettings:
     video_mode: str = "permanent"
     video_duration: int = 5
     batch_filename_suffix: str = "_ai"
+    logo_enabled: bool = False
+    logo_path: str = ""
+    logo_position: Position = "top-left"
+    logo_size_percent: int = 15
+    logo_margin: int = 20
+    logo_opacity: int = 100
 
     def validated(self) -> "MarkerSettings":
         positions = {"top-left", "top-right", "bottom-left", "bottom-right", "center"}
@@ -60,6 +66,13 @@ class MarkerSettings:
             self.video_mode = "permanent"
         self.video_duration = max(1, int(self.video_duration))
         self.batch_filename_suffix = validated_filename_suffix(self.batch_filename_suffix)
+        self.logo_enabled = bool(self.logo_enabled)
+        self.logo_path = str(self.logo_path or "")
+        if self.logo_position not in positions:
+            self.logo_position = "top-left"
+        self.logo_size_percent = min(100, max(1, int(self.logo_size_percent)))
+        self.logo_margin = min(2000, max(0, int(self.logo_margin)))
+        self.logo_opacity = min(100, max(0, int(self.logo_opacity)))
         return self
 
     def to_dict(self) -> dict[str, object]:

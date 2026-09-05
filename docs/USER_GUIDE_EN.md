@@ -54,6 +54,12 @@ The Badge settings view shows the badge without stretching it. Standard badges a
 
 Choose **Single File**, then **Choose Image or Video**. JPG, JPEG, PNG, and WebP images are supported. Adjust placement, size, margin, and opacity and inspect the preview. Click **Save Marked Image...**. The normal Windows Save As dialog proposes `originalname_ai.ext`; you may edit the name and Windows confirms before replacing an existing file. The source is not selected as the default destination and is never silently overwritten. Full-resolution originals are used for output; the preview is only a scaled display.
 
+### Optional own logo for images
+
+**Own Logo** is separate from the selected AI badge. Enable it to add a PNG, JPG/JPEG, or WebP logo to the same image-processing operation, then choose its independent position, size, margin, and opacity. Transparent PNG or WebP is recommended when the logo should not have a rectangular background. The preview shows both overlays, including when they share a corner.
+
+Own Logo is optional branding and currently applies only to single images and image files in Batch Processing. It is never used as the AI Label, its local path is not written to metadata, Inspect File does not detect it, and it is not applied to video. Source files remain unchanged. If a remembered logo disappears, logo processing is disabled while the stored path remains available for correction.
+
 ## 8. Processing video
 
 Single File and batch video processing accept MP4, MOV, MKV, AVI, and WebM. Select **Permanent** to show the badge throughout, or **Beginning**/**End** to show it for the chosen duration (5 seconds by default). Position, size, margin, and opacity apply in every mode. **Save Marked Video...** opens the Windows Save As dialog with `originalname_ai.ext` proposed. The Windows package includes the required FFmpeg component; no separate installation or `PATH` configuration is needed, and it runs without a console window. Audio is copied where the output container permits it and video is encoded as H.264. Container/codec combinations vary; review an output before publication. If FFmpeg rejects one batch file, that file is recorded as an error and the batch continues.
@@ -70,7 +76,7 @@ The default output is an editable `AI-marked` subfolder inside the input folder.
 
 Position can be top-left, top-right, bottom-left, or bottom-right. Size is a percentage of image width. Margin is measured in source pixels from the chosen edges. Opacity ranges from fully transparent to fully opaque. The app limits extreme settings so the badge remains within the media frame.
 
-**Back** on Batch Processing, Badges, or Inspect File returns to Single File without resetting the selected input, badge, source, or other settings. Top tabs are also navigation only. **Reset** is different: it returns to Single File and the Welcome view, clears the selected input, inspection result, and temporary batch state, selects standard AI Assisted, and restores bottom-right, 20% size, 20 px margin, 100% opacity, Permanent video mode, 5 seconds, and `_ai`. The remembered custom badge folder path is retained.
+**Back** on Batch Processing, Badges, or Inspect File returns to Single File without resetting the selected input, badge, source, logo, or other settings. Top tabs are also navigation only. **Reset** is different: it returns to Single File and the Welcome view, clears the selected input, inspection result, and temporary batch state, selects standard AI Assisted, disables Own Logo, and restores the badge and logo defaults, Permanent video mode, 5 seconds, and `_ai`. Remembered custom badge and logo paths are retained.
 
 ## 12. Choosing the right standard badge
 

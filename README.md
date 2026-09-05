@@ -1,6 +1,6 @@
 # Nenolink AI Marker 0.5.0
 
-Windows desktop software for adding visible Nenolink AI disclosure badges to images and videos. Version 0.5.0 includes the official ten-badge library, custom badge folders, image and video processing, folder batches, machine-readable AI Marker metadata, read-only metadata inspection, persistent settings, and offline English and Danish PDF guides.
+Windows desktop software for adding visible Nenolink AI disclosure badges to images and videos. Development on `main` also includes optional own-logo branding for images while preserving the 0.5.0 metadata semantics.
 
 The standard package contains exactly these editable external assets: `ai-assisted.png`, `ai-generated.png`, `ai-modified.png`, `human-reviewed.png`, `ai-image.png`, `ai-video.png`, `ai-audio.png`, `ai-software.png`, `ai-translation.png`, and `ai-localization.png`, plus `badges.json`.
 
@@ -12,6 +12,7 @@ The full guide is in `docs/USER_GUIDE_EN.md` and `docs/Nenolink-AI-Marker-User-G
 - Discovers PNG badges dynamically from `assets/badges/`
 - Places a badge in any corner
 - Adjusts badge size, pixel margin and opacity
+- Optionally adds an independently positioned PNG, JPG/JPEG or WebP user logo to images and image batches
 - Shows a preview before saving
 - Processes selected images or complete folder trees
 - Overlays badges permanently or at the beginning/end of video using the bundled FFmpeg component
@@ -42,7 +43,10 @@ Standard badges are read from `assets\badges\`. Click **Refresh badges** after c
 1. Click **Choose Image or Video** and select a supported file.
 2. Select an approved badge and its position.
 3. Adjust size, margin and opacity while checking the preview.
-4. Click **Save Marked Image...** or **Save Marked Video...** and choose the editable Save As name, initially `originalname_ai.ext`.
+4. For images, optionally enable **Own Logo**, choose a logo, and adjust its independent position, size, margin and opacity.
+5. Click **Save Marked Image...** or **Save Marked Video...** and choose the editable Save As name, initially `originalname_ai.ext`.
+
+Own Logo is branding, not an AI disclosure. It is applied only to images, never becomes the `AI Label` metadata value, and is not added to videos. Transparent PNG or WebP is recommended.
 
 For a folder batch, choose an input and output mode, select recursive/media options, click **Scan Folder**, review the summary, and then click **Start Batch Processing**.
 

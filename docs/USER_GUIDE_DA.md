@@ -54,6 +54,12 @@ Badgevisningen viser badget uden at strække det. Standardbadges viser også et 
 
 Vælg **Enkelt fil** og derefter **Vælg billede eller video**. JPG-, JPEG-, PNG- og WebP-billeder understøttes. Juster placering, størrelse, margen og opacitet, og kontrollér forhåndsvisningen. Klik på **Gem mærket billede...**. Windows-dialogen Gem som foreslår `originalnavn_ai.ext`; du kan redigere navnet, og Windows beder om bekræftelse, før en eksisterende fil erstattes. Kilden foreslås ikke som standarddestination og overskrives aldrig lydløst. Originalen i fuld opløsning bruges til output; forhåndsvisningen er kun en skaleret visning.
 
+### Valgfrit eget logo på billeder
+
+**Eget logo** er adskilt fra det valgte AI-badge. Aktivér funktionen for at tilføje et PNG-, JPG/JPEG- eller WebP-logo i samme billedbehandling, og vælg logoets egen placering, størrelse, margen og gennemsigtighed. Transparent PNG eller WebP anbefales, når logoet ikke skal have en firkantet baggrund. Forhåndsvisningen viser begge elementer, også når de bruger samme hjørne.
+
+Eget logo er valgfri branding og gælder i øjeblikket kun enkeltbilleder og billedfiler i Batchbehandling. Logoet bruges aldrig som AI-mærke, den lokale sti skrives ikke i metadata, Undersøg fil registrerer det ikke, og det tilføjes ikke til video. Kildefiler forbliver uændrede. Hvis en gemt logofil forsvinder, deaktiveres logobehandling, mens stien bevares, så den kan rettes.
+
 ## 8. Behandling af video
 
 Videobehandling af enkeltfiler og mapper accepterer MP4, MOV, MKV, AVI og WebM. Vælg **Hele videoen** for at vise badget permanent eller **I begyndelsen**/**I slutningen** for at vise det i den valgte varighed (som standard 5 sekunder). Placering, størrelse, margen og opacitet gælder i alle tilstande. **Gem mærket video...** åbner Windows-dialogen Gem som med `originalnavn_ai.ext` foreslået. Windows-pakken indeholder den nødvendige FFmpeg-komponent; separat installation eller `PATH`-konfiguration er ikke nødvendig, og den kører uden konsolvindue. Lyd kopieres, når outputcontaineren tillader det, og video kodes som H.264. Kombinationer af container og codec varierer; kontrollér output før offentliggørelse. Hvis FFmpeg afviser en batchfil, registreres filen som en fejl, og behandlingen fortsætter.
@@ -70,7 +76,7 @@ Standardoutput er en redigerbar undermappe med navnet `AI-marked` i inputmappen.
 
 Placeringen kan være øverst til venstre, øverst til højre, nederst til venstre eller nederst til højre. Størrelsen er en procentdel af billedets bredde. Margenen måles i kildebilledets pixels fra de valgte kanter. Opaciteten går fra helt gennemsigtig til helt dækkende. Programmet begrænser ekstreme indstillinger, så badget forbliver inden for mediets ramme.
 
-**Tilbage** på Batchbehandling, Badges eller Undersøg fil vender tilbage til Enkelt fil uden at nulstille valgt input, badge, kilde eller andre indstillinger. Topfanerne bruges også kun til navigation. **Nulstil** er anderledes: Funktionen vender tilbage til Enkelt fil og velkomstvisningen, rydder valgt input, undersøgelsesresultat og midlertidig batchstatus, vælger standardbadget AI Assisted og gendanner nederst til højre, 20 % størrelse, 20 px margen, 100 % opacitet, Hele videoen, 5 sekunder og `_ai`. Den gemte sti til den brugerdefinerede badgemappe bevares.
+**Tilbage** på Batchbehandling, Badges eller Undersøg fil vender tilbage til Enkelt fil uden at nulstille valgt input, badge, logo, kilde eller andre indstillinger. Topfanerne bruges også kun til navigation. **Nulstil** er anderledes: Funktionen vender tilbage til Enkelt fil og velkomstvisningen, rydder valgt input, undersøgelsesresultat og midlertidig batchstatus, vælger standardbadget AI Assisted, deaktiverer Eget logo og gendanner standardindstillingerne for badge og logo, Hele videoen, 5 sekunder og `_ai`. Gemte stier til brugerdefineret badgemappe og logo bevares.
 
 ## 12. Valg af det rette standardbadge
 

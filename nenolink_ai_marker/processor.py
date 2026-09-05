@@ -14,7 +14,7 @@ class MediaProcessor(Protocol):
 
     def supports(self, path: Path) -> bool: ...
 
-    def process(self, source: Path, overlay: Path, settings: MarkerSettings) -> Image.Image: ...
+    def process(self, source: Path, overlay: Path, settings: MarkerSettings, logo: Path | None = None) -> Image.Image: ...
 
 
 class ImageProcessor:
@@ -40,7 +40,7 @@ class ImageProcessor:
         }
         return positions[settings_position(position)]
 
-    def process(self, source: Path, overlay: Path, settings: MarkerSettings) -> Image.Image:
+    def process(self, source: Path, overlay: Path, settings: MarkerSettings, logo: Path | None = None) -> Image.Image:
         settings.validated()
         if not self.supports(source):
             raise ValueError(f"Unsupported image type: {source.suffix or 'no extension'}")
@@ -52,26 +52,34 @@ class ImageProcessor:
         except (OSError, Image.UnidentifiedImageError) as error:
             raise ValueError(f"Could not open image: {error}") from error
 
-        effective_margin = min(settings.margin, (base.width - 1) // 2, (base.height - 1) // 2)
+        result = base.copy()
+        self._composite(result, badge, settings.position, settings.size_percent, settings.margin, settings.opacity)
+        if settings.logo_enabled and logo:
+            if logo.suffix.lower() not in SUPPORTED_EXTENSIONS:
+                raise ValueError(f"Unsupported logo type: {logo.suffix or 'no extension'}")
+            try:
+                with Image.open(logo) as opened_logo:
+                    logo_image = opened_logo.convert("RGBA")
+            except (OSError, Image.UnidentifiedImageError) as error:
+                raise ValueError(f"Could not open logo: {error}") from error
+            self._composite(result, logo_image, settings.logo_position, settings.logo_size_percent, settings.logo_margin, settings.logo_opacity)
+        return result
+
+    def _composite(self, base: Image.Image, overlay: Image.Image, position: str, size_percent: int, margin: int, opacity: int) -> None:
+        effective_margin = min(margin, (base.width - 1) // 2, (base.height - 1) // 2)
         available_width = max(1, base.width - (2 * effective_margin))
         available_height = max(1, base.height - (2 * effective_margin))
-        target_width = min(available_width, max(1, round(base.width * settings.size_percent / 100)))
-        target_height = max(1, round(badge.height * target_width / badge.width))
+        target_width = min(available_width, max(1, round(base.width * size_percent / 100)))
+        target_height = max(1, round(overlay.height * target_width / max(1, overlay.width)))
         if target_height > available_height:
             scale = available_height / target_height
             target_width = max(1, round(target_width * scale))
             target_height = available_height
-        badge = badge.resize((target_width, target_height), Image.Resampling.LANCZOS)
-
-        if settings.opacity < 100:
-            alpha = badge.getchannel("A").point(lambda value: round(value * settings.opacity / 100))
-            badge.putalpha(alpha)
-
-        result = base.copy()
-        result.alpha_composite(
-            badge, self._position(result.size, badge.size, settings.position, effective_margin)
-        )
-        return result
+        overlay = overlay.resize((target_width, target_height), Image.Resampling.LANCZOS)
+        if opacity < 100:
+            alpha = overlay.getchannel("A").point(lambda value: round(value * opacity / 100))
+            overlay.putalpha(alpha)
+        base.alpha_composite(overlay, self._position(base.size, overlay.size, position, effective_margin))
 
     def save(self, image: Image.Image, destination: Path, metadata: MarkerMetadata | None = None) -> bool:
         """Save an image and return whether requested AI Marker metadata was written.
