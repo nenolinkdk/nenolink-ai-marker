@@ -1,8 +1,8 @@
 # Nenolink AI Marker - User Guide
 
-Application version: 0.5.0<br>
+Application version: 1.0.0<br>
 Document language: English<br>
-Updated: 3 September 2026<br>
+Updated: 5 September 2026<br>
 Publisher: Nenolink<br>
 Denmark
 
@@ -11,6 +11,8 @@ Denmark
 Nenolink AI Marker adds a visible disclosure badge to images and videos. It supports individual images and repeatable folder batches. Originals are never intentionally overwritten; output names end in `_ai`.
 
 The Nenolink badge system is a practical transparency system. Choose wording that accurately describes how AI was involved in the specific content or workflow.
+
+Processing is local on the Windows computer. The application does not upload content to a cloud service and does not require login, telemetry, analytics, or network processing. Personal filesystem paths are not written into Nenolink AI Marker metadata.
 
 ## AI Marker metadata
 
@@ -30,7 +32,7 @@ The visible badge is the human-readable disclosure. Metadata is machine-readable
 
 ## 2. Installation and first start
 
-Extract the complete Windows ZIP to a writable folder. Keep the EXE, `assets`, `locales`, and `docs` together. Start `Nenolink-AI-Marker.exe`. Windows may show a reputation warning for an unsigned download; verify that the file came from the official Nenolink release before continuing.
+Extract the complete Windows ZIP to a writable folder. Keep the EXE, `assets`, `locales`, and `docs` together. Start `Nenolink-AI-Marker-1.0.0.exe`. Windows may show a reputation warning for an unsigned download; verify that the file came from the official Nenolink release before continuing.
 
 The app needs no administrator rights. Settings are stored under `%APPDATA%\Nenolink\AI Marker\settings.json`, so replacing the program folder does not normally remove preferences.
 
@@ -46,9 +48,9 @@ Open **Badges**. **Nenolink Standard Badges** uses the ten files bundled in `ass
 
 Select a filename from the badge menu. The same selected badge is used for the single-image preview, saved images, and every selected item in a folder batch. Refreshing preserves the selection when the file still exists.
 
-## 6. Badge preview
+## 6. Live image preview
 
-The Badge settings view shows the badge without stretching it. Standard badges also show a display name and short usage description. Transparency and aspect ratio are preserved.
+After an image is selected, Single File shows a live, scaled preview containing the selected AI badge and, when enabled, Own Logo. Changes to either overlay's position, size, margin, and opacity appear in memory before saving; no preview operation modifies the source or writes metadata. The final Save As operation always renders from the full-resolution source. The Badges view also shows badge artwork without stretching it, with a display name and short usage description for standard badges. Transparency and aspect ratio are preserved.
 
 ## 7. Processing a single image
 

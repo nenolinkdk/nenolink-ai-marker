@@ -19,7 +19,7 @@ def test_image_write_read_round_trip(suffix, tmp_path):
     assert result.found
     assert result.software == "Nenolink AI Marker"
     assert result.ai_label == "AI Localization"
-    assert result.marker_version == "0.5.0"
+    assert result.marker_version == "1.0.0"
     assert target.read_bytes() == before
 
 
@@ -47,12 +47,12 @@ def test_generic_software_field_alone_is_not_found(tmp_path):
 
 def test_partial_identifier_metadata_is_found_without_inventing_values(tmp_path):
     target = tmp_path / "partial.png"
-    info = PngImagePlugin.PngInfo(); info.add_text("NenolinkAIMarker", "1"); info.add_text("Software", "Nenolink AI Marker"); info.add_text("Marker Version", "0.5.0")
+    info = PngImagePlugin.PngInfo(); info.add_text("NenolinkAIMarker", "1"); info.add_text("Software", "Nenolink AI Marker"); info.add_text("Marker Version", "1.0.0")
     Image.new("RGB", (10, 10)).save(target, pnginfo=info)
     result = inspect_file(target)
     assert result.found
     assert result.ai_label is None
-    assert result.marker_version == "0.5.0"
+    assert result.marker_version == "1.0.0"
 
 
 def test_malformed_metadata_is_handled(tmp_path):
@@ -64,11 +64,11 @@ def test_malformed_metadata_is_handled(tmp_path):
 @pytest.mark.parametrize("suffix", [".mp4", ".mov"])
 def test_video_metadata_round_trip_values_and_read_only(suffix, tmp_path):
     target = tmp_path / f"marked{suffix}"; target.write_bytes(b"video")
-    output = ";FFMETADATA1\nsoftware=Nenolink AI Marker\nai_label=AI Generated\nmarker_version=0.5.0\nnenolink_ai_marker=1\n"
+    output = ";FFMETADATA1\nsoftware=Nenolink AI Marker\nai_label=AI Generated\nmarker_version=1.0.0\nnenolink_ai_marker=1\n"
     completed = type("Completed", (), {"returncode": 0, "stdout": output, "stderr": ""})()
     with patch("nenolink_ai_marker.inspection.find_ffmpeg", return_value="C:/ffmpeg.exe"), patch("nenolink_ai_marker.inspection.subprocess.run", return_value=completed) as run:
         before = target.read_bytes(); result = inspect_file(target)
-    assert result.found and result.ai_label == "AI Generated" and result.marker_version == "0.5.0"
+    assert result.found and result.ai_label == "AI Generated" and result.marker_version == "1.0.0"
     assert target.read_bytes() == before
     assert run.call_args.args[0][-3:] == ["-f", "ffmetadata", "-"]
 

@@ -1,6 +1,6 @@
-# Nenolink AI Marker 0.5.0
+# Nenolink AI Marker 1.0.0
 
-Windows desktop software for adding visible Nenolink AI disclosure badges to images and videos. Development on `main` also includes optional own-logo branding for images while preserving the 0.5.0 metadata semantics.
+Nenolink AI Marker is Windows desktop software for adding visible AI disclosure badges to images and videos. Version 1.0.0 processes files locally and can also add optional user branding to images without changing the meaning of the AI disclosure metadata.
 
 The standard package contains exactly these editable external assets: `ai-assisted.png`, `ai-generated.png`, `ai-modified.png`, `human-reviewed.png`, `ai-image.png`, `ai-video.png`, `ai-audio.png`, `ai-software.png`, `ai-translation.png`, and `ai-localization.png`, plus `badges.json`.
 
@@ -8,22 +8,21 @@ The full guide is in `docs/USER_GUIDE_EN.md` and `docs/Nenolink-AI-Marker-User-G
 
 ## Features
 
-- Opens JPG, JPEG, PNG and WebP images
-- Discovers PNG badges dynamically from `assets/badges/`
-- Places a badge in any corner
-- Adjusts badge size, pixel margin and opacity
-- Optionally adds an independently positioned PNG, JPG/JPEG or WebP user logo to images and image batches
-- Shows a preview before saving
-- Processes selected images or complete folder trees
-- Overlays badges permanently or at the beginning/end of video using the bundled FFmpeg component
-- Scans folders before batch processing and reports counts and destination
-- Switches the complete interface between 12 offline languages
-- Uses Nenolink standard badges or a user-selected badge folder
-- Saves as `originalname_ai.ext` and adds `_2`, `_3`, etc. if needed
-- Remembers preferences in `%APPDATA%\Nenolink\AI Marker\settings.json`
-- Reads Nenolink AI Marker metadata from JPEG, PNG, WebP, MP4 and MOV without modifying the file
+- Visible AI labelling for JPG, JPEG, PNG and WebP images
+- Visible AI labelling for MP4, MOV, MKV, AVI and WebM video
+- Ten standard Nenolink AI badges and editable custom AI badge folders
+- Optional **Own Logo** branding for single images and image batches
+- Live image preview containing the selected AI badge and optional logo
+- Independent badge/logo placement, size, margin and opacity
+- Single-file Save As and repeatable folder batch processing with source-file protection
+- Permanent, Beginning and End video badge modes using the bundled FFmpeg component
+- Automatic Nenolink AI Marker metadata containing software, selected AI label and marker version
+- Read-only **Inspect File** support for JPEG, PNG, WebP, MP4 and MOV metadata
+- Twelve offline UI languages
+- Local processing without cloud upload, login, telemetry, analytics or network processing
+- Preferences stored per user in `%APPDATA%\Nenolink\AI Marker\settings.json`
 
-The Windows package includes FFmpeg. End users do not install FFmpeg or configure `PATH`; image processing remains independent of FFmpeg.
+The Windows package includes FFmpeg. End users do not install FFmpeg or configure `PATH`; image processing remains independent of FFmpeg. No personal filesystem paths are written into Nenolink AI Marker metadata.
 
 ## Install and run on Windows
 
@@ -79,11 +78,11 @@ Then run the build script from the repository root, passing that same interprete
 
 The script repeats the tkinter check in its isolated build environment, installs the pinned build requirements, deletes the old `build\` and `dist\` directories, builds from `Nenolink-AI-Marker.spec`, and launches the resulting GUI. The build fails unless a real application window appears during the smoke test.
 
-The complete application is written to `dist\Nenolink-AI-Marker\`. Python is not required on the computer that runs it. Keep the folder structure intact:
+The complete application is written to `dist\Nenolink-AI-Marker-1.0.0\`. Python is not required on the computer that runs it. Keep the folder structure intact:
 
 ```text
-Nenolink-AI-Marker\
-  Nenolink-AI-Marker.exe
+Nenolink-AI-Marker-1.0.0\
+  Nenolink-AI-Marker-1.0.0.exe
   assets\
     badges\
       *.png
@@ -103,7 +102,7 @@ The badge folder remains external and editable. Add approved PNG badges beside t
 
 ## Standard and custom badges
 
-**Nenolink standard badges** is the default source. Version 0.3 ships the ten documented standard PNGs and `badges.json`. The application scans the directory dynamically and ignores non-PNG files.
+**Nenolink standard badges** is the default source. Version 1.0.0 ships the ten documented standard PNGs and `badges.json`. The application scans the directory dynamically and ignores non-PNG files.
 
 To use your own badges, select **Use custom badge folder** in Settings and click **Browse**. The selected folder is remembered between sessions. Files are read in place and are never copied, renamed or modified. You can switch back to standard badges at any time. If a saved custom folder disappears, the application reports the path and falls back gracefully to the standard badges.
 
@@ -127,5 +126,14 @@ Image processing lives in `nenolink_ai_marker/processor.py`; scanning and batch/
 ## AI disclosure
 
 See [AI_NOTICE.md](AI_NOTICE.md) for the project's AI-assisted development notice.
+
+## Limitations and responsibility
+
+- Own Logo applies to images, not video.
+- Badge and logo may overlap; there is no automatic collision avoidance.
+- Inspect File reads recognized Nenolink AI Marker metadata. It does not detect whether content was created or modified with AI.
+- Metadata is not cryptographic proof, provenance, certification or a guarantee of authenticity.
+- Nenolink AI Marker is not legal advice, certification or a guarantee of regulatory compliance. Users remain responsible for selecting appropriate disclosures and reviewing output.
+- The bundled FFmpeg build is GPLv3. Commercial distributors must review and satisfy the corresponding source, notice and license obligations described in `THIRD_PARTY_NOTICES/FFMPEG.md` before distribution.
 
 Copyright © Henrik Nielsen — [nenolink.com](https://nenolink.com)

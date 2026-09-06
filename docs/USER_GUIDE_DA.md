@@ -1,8 +1,8 @@
 # Nenolink AI Marker - Brugervejledning
 
-Applikationsversion: 0.5.0<br>
+Applikationsversion: 1.0.0<br>
 Dokumentsprog: Dansk  
-Opdateret: 3. september 2026<br>
+Opdateret: 5. september 2026<br>
 Udgiver: Nenolink  
 Danmark
 
@@ -11,6 +11,8 @@ Danmark
 Nenolink AI Marker tilføjer et synligt oplysningsbadge til billeder og videoer. Programmet understøtter enkelte billeder og gentagelige mappebehandlinger. Originaler overskrives aldrig bevidst; outputnavne slutter med `_ai`.
 
 Nenolinks badgesystem er et praktisk transparenssystem. Vælg den formulering, der præcist beskriver, hvordan AI indgik i det konkrete indhold eller arbejdsforløb.
+
+Behandlingen foregår lokalt på Windows-computeren. Programmet uploader ikke indhold til en cloudtjeneste og kræver ikke login, telemetri, analyse eller netværksbehandling. Personlige filsystemstier skrives ikke i Nenolink AI Marker-metadata.
 
 ## AI Marker-metadata
 
@@ -30,7 +32,7 @@ Det synlige badge er den menneskeligt læsbare oplysning. Metadata er maskinlæs
 
 ## 2. Installation og første start
 
-Udpak hele Windows ZIP-filen til en mappe, du kan skrive til. Behold EXE-filen, `assets`, `locales` og `docs` samlet. Start `Nenolink-AI-Marker.exe`. Windows kan vise en omdømmeadvarsel for en usigneret download; kontrollér, at filen kommer fra den officielle Nenolink-udgivelse, før du fortsætter.
+Udpak hele Windows ZIP-filen til en mappe, du kan skrive til. Behold EXE-filen, `assets`, `locales` og `docs` samlet. Start `Nenolink-AI-Marker-1.0.0.exe`. Windows kan vise en omdømmeadvarsel for en usigneret download; kontrollér, at filen kommer fra den officielle Nenolink-udgivelse, før du fortsætter.
 
 Programmet kræver ikke administratorrettigheder. Indstillinger gemmes under `%APPDATA%\Nenolink\AI Marker\settings.json`, så en udskiftning af programmappen normalt ikke fjerner præferencer.
 
@@ -46,9 +48,9 @@ Vælg sprog i topbjælken. Engelsk, dansk, tysk, fransk, spansk, italiensk, port
 
 Vælg et badge i badgemenuen. Det samme valgte badge bruges i forhåndsvisningen af enkeltbilleder, i gemte billeder og på alle valgte elementer i en mappebehandling. En opdatering bevarer valget, når filen stadig findes.
 
-## 6. Forhåndsvisning af badge
+## 6. Live-forhåndsvisning af billeder
 
-Badgevisningen viser badget uden at strække det. Standardbadges viser også et læsbart navn. Gennemsigtighed og billedformat bevares. Du kan også vælge et badge i galleriet på fanen **Badges**.
+Når et billede er valgt, viser Enkelt fil en live, skaleret forhåndsvisning med det valgte AI-badge og, når funktionen er aktiveret, Eget logo. Ændringer af begge elementers placering, størrelse, margen og gennemsigtighed vises i hukommelsen før lagring; forhåndsvisningen ændrer ikke kilden og skriver ikke metadata. Den endelige Gem som-behandling gengiver altid fra originalen i fuld opløsning. Badgevisningen viser desuden badget uden at strække det, og standardbadges viser et læsbart navn. Gennemsigtighed og billedformat bevares. Du kan også vælge et badge i galleriet på fanen **Badges**.
 
 ## 7. Behandling af et enkelt billede
 

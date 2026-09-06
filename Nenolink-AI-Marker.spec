@@ -3,6 +3,9 @@ import sys
 from pathlib import Path
 
 project_root = Path(SPECPATH)
+version_scope = {}
+exec((project_root / "nenolink_ai_marker" / "__init__.py").read_text(encoding="utf-8"), version_scope)
+app_version = version_scope["__version__"]
 tcl_library = Path(os.environ["NENOLINK_TCL_LIBRARY"])
 tk_library = Path(os.environ["NENOLINK_TK_LIBRARY"])
 python_bin = Path(os.environ["NENOLINK_PYTHON_BIN"])
@@ -33,11 +36,11 @@ a = Analysis(
         (str(project_root / "docs"), "docs"),
     ],
     hiddenimports=["tkinter", "tkinter.filedialog", "tkinter.messagebox"],
-    hookspath=[], hooksconfig={}, runtime_hooks=[str(project_root / "scripts" / "pyi-runtime-tk.py")], excludes=[], noarchive=False, optimize=0,
+    hookspath=[str(project_root / "hooks")], hooksconfig={}, runtime_hooks=[str(project_root / "scripts" / "pyi-runtime-tk.py")], excludes=[], noarchive=False, optimize=0,
 )
 pyz = PYZ(a.pure)
 exe = EXE(
-    pyz, a.scripts, a.binaries, a.datas, [], name="Nenolink-AI-Marker",
+    pyz, a.scripts, a.binaries, a.datas, [], name=f"Nenolink-AI-Marker-{app_version}",
     debug=False, bootloader_ignore_signals=False, strip=False, upx=True,
     upx_exclude=[], runtime_tmpdir=None, console=False,
     disable_windowed_traceback=False, argv_emulation=False,
