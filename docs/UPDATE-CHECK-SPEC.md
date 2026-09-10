@@ -39,7 +39,7 @@ Recommended payload:
   "schema": 1,
   "latest_version": "1.0.1",
   "release_date": "2026-09-10",
-  "update_url": "https://nenolink.com/en/about/ai-marker/update/",
+  "update_url": "https://nenolink.com/en/aimarkerupdate/",
   "minimum_supported_version": "1.0.1"
 }
 ```

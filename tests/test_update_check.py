@@ -181,9 +181,9 @@ def test_only_the_exact_approved_update_page_can_be_opened():
     assert is_approved_update_url(APPROVED_UPDATE_URL)
     for unsafe in (
         "https://evil.example/update/",
-        "http://nenolink.com/en/about/ai-marker/update/",
-        "https://nenolink.com@evil.example/en/about/ai-marker/update/",
-        "https://nenolink.com/en/about/ai-marker/update/?download=app.exe",
+        "http://nenolink.com/en/aimarkerupdate/",
+        "https://nenolink.com@evil.example/en/aimarkerupdate/",
+        "https://nenolink.com/en/aimarkerupdate/?download=app.exe",
     ):
         assert not is_approved_update_url(unsafe)
 

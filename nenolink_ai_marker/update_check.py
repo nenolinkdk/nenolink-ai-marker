@@ -11,7 +11,7 @@ from packaging.version import InvalidVersion, Version
 
 
 MANIFEST_URL = "https://nenolink.com/downloads/ai-marker/latest.json"
-APPROVED_UPDATE_URL = "https://nenolink.com/en/about/ai-marker/update/"
+APPROVED_UPDATE_URL = "https://nenolink.com/en/aimarkerupdate/"
 CHECK_INTERVAL = timedelta(days=30)
 NETWORK_TIMEOUT_SECONDS = 5
 MAX_MANIFEST_BYTES = 32 * 1024
