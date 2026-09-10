@@ -4,6 +4,7 @@ from unittest.mock import patch
 import pytest
 from PIL import Image, PngImagePlugin
 
+from nenolink_ai_marker import __version__
 from nenolink_ai_marker.inspection import human_file_size, inspect_file
 from nenolink_ai_marker.metadata import marker_metadata
 from nenolink_ai_marker.processor import ImageProcessor
@@ -19,7 +20,7 @@ def test_image_write_read_round_trip(suffix, tmp_path):
     assert result.found
     assert result.software == "Nenolink AI Marker"
     assert result.ai_label == "AI Localization"
-    assert result.marker_version == "1.0.0"
+    assert result.marker_version == __version__
     assert target.read_bytes() == before
 
 

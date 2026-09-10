@@ -1,8 +1,8 @@
 # Nenolink AI Marker - Brugervejledning
 
-Applikationsversion: 1.0.0<br>
+Applikationsversion: 1.0.1<br>
 Dokumentsprog: Dansk  
-Opdateret: 5. september 2026<br>
+Opdateret: 10. september 2026<br>
 Udgiver: Nenolink  
 Danmark
 
@@ -12,7 +12,7 @@ Nenolink AI Marker tilføjer et synligt oplysningsbadge til billeder og videoer.
 
 Nenolinks badgesystem er et praktisk transparenssystem. Vælg den formulering, der præcist beskriver, hvordan AI indgik i det konkrete indhold eller arbejdsforløb.
 
-Behandlingen foregår lokalt på Windows-computeren. Programmet uploader ikke indhold til en cloudtjeneste og kræver ikke login, telemetri, analyse eller netværksbehandling. Personlige filsystemstier skrives ikke i Nenolink AI Marker-metadata.
+Behandlingen foregår lokalt på Windows-computeren. Programmet uploader ikke medier til en cloudtjeneste og kræver ikke login, telemetri eller analyse. Personlige filsystemstier skrives ikke i Nenolink AI Marker-metadata. Når automatisk opdateringskontrol er aktiveret, kontakter programmet med mellemrum nenolink.com udelukkende for at hente aktuelle versionsoplysninger; medier og brugerindhold sendes ikke.
 
 ## AI Marker-metadata
 
@@ -32,13 +32,17 @@ Det synlige badge er den menneskeligt læsbare oplysning. Metadata er maskinlæs
 
 ## 2. Installation og første start
 
-Udpak hele Windows ZIP-filen til en mappe, du kan skrive til. Behold EXE-filen, `assets`, `locales` og `docs` samlet. Start `Nenolink-AI-Marker-1.0.0.exe`. Windows kan vise en omdømmeadvarsel for en usigneret download; kontrollér, at filen kommer fra den officielle Nenolink-udgivelse, før du fortsætter.
+Udpak hele Windows ZIP-filen til en mappe, du kan skrive til. Behold EXE-filen, `assets`, `locales` og `docs` samlet. Start `Nenolink-AI-Marker-1.0.1.exe`. Windows kan vise en omdømmeadvarsel for en usigneret download; kontrollér, at filen kommer fra den officielle Nenolink-udgivelse, før du fortsætter.
 
 Programmet kræver ikke administratorrettigheder. Indstillinger gemmes under `%APPDATA%\Nenolink\AI Marker\settings.json`, så en udskiftning af programmappen normalt ikke fjerner præferencer.
 
 ## 3. Sprogvalg
 
 Vælg sprog i topbjælken. Engelsk, dansk, tysk, fransk, spansk, italiensk, portugisisk, nederlandsk, svensk, norsk, polsk og tjekkisk medfølger. Valget gemmes med det samme. Manglende oversættelser falder tilbage til engelsk. Produktnavnet og badgegrafikken ændres ikke med grænsefladens sprog.
+
+### Opdateringskontrol
+
+Automatisk opdateringskontrol er som standard aktiveret og kan deaktiveres under Badges. Programmet kontakter højst én gang hver 30. dag nenolink.com med en kort, asynkron HTTPS-forespørgsel. **Søg efter opdateringer** udfører en manuel kontrol uanset intervallet. Forespørgslen indeholder kun den installerede version og almindelige forbindelsesheadere; den indeholder ikke medier, filnavne, filstier, badge- eller logooplysninger, licensdata eller et installations-id. Offline-, timeout-, server- og ugyldige svarfejl hindrer ikke normal brug. En nyere version vises som et rødt link i topbjælken og åbner kun Nenolinks godkendte opdateringsside. AI Marker downloader eller installerer ikke opdateringer automatisk.
 
 ## 4. Standardmapper og egne badgemapper
 

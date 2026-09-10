@@ -9,6 +9,7 @@ import sys
 import threading
 import time
 import subprocess
+import webbrowser
 from tkinter import TclError, filedialog, messagebox
 import customtkinter as ctk
 from PIL import Image
@@ -26,6 +27,7 @@ from .paths import badge_directory, locale_directory, localized_user_guide_path,
 from .processor import ImageProcessor, SUPPORTED_EXTENSIONS
 from .preview import ImagePreviewRenderer
 from .ui_state import show_welcome
+from .update_check import UpdateCheckError, check_for_update, is_approved_update_url, should_check_automatically
 
 
 class AutoHideScrollableFrame(ctk.CTkScrollableFrame):
@@ -68,6 +70,8 @@ class MarkerApp(ctk.CTk):
         self.sources: list[Path] = []; self.scan: FolderScan | None = None
         self.inspection_path: Path | None = None; self.inspection_result: InspectionResult | None = None; self.inspection_error = ""
         self._reset_after_id = None
+        self._automatic_update_attempted = False; self._update_check_running = False
+        self._available_update_version = ""; self._available_update_url = ""
         self.cancel_event = threading.Event(); self.preview_photo = None; self.preview_image = None; self.badge_photo = None; self.single_badge_photo = None; self.welcome_photo = None; self.welcome_image = None
         self.gallery_photos = []; self.gallery_buttons = {}; self.badge_display_to_file = {}
         self.badge_var=ctk.StringVar(value=saved.badge_name); self.position_var=ctk.StringVar(value=saved.position)
@@ -83,10 +87,12 @@ class MarkerApp(ctk.CTk):
         self.logo_enabled_var=ctk.BooleanVar(value=saved.logo_enabled); self.logo_path_var=ctk.StringVar(value=saved.logo_path); self.logo_filename_var=ctk.StringVar(value=Path(saved.logo_path).name if saved.logo_path else "—")
         self.logo_position_var=ctk.StringVar(value=saved.logo_position); self.logo_position_display_var=ctk.StringVar()
         self.logo_size_var=ctk.IntVar(value=saved.logo_size_percent); self.logo_margin_var=ctk.IntVar(value=saved.logo_margin); self.logo_opacity_var=ctk.IntVar(value=saved.logo_opacity)
+        self.automatic_update_var=ctk.BooleanVar(value=saved.automatic_update_check); self.last_update_check=saved.last_update_check
         self.status_var=ctk.StringVar(); self.badge_name_var=ctk.StringVar(); self.badge_description_var=ctk.StringVar(); self.badge_display_var=ctk.StringVar()
         self.scan_summary_var=ctk.StringVar(); self.progress_text_var=ctk.StringVar()
         self.inspect_file_var=ctk.StringVar(); self.inspect_format_var=ctk.StringVar(); self.inspect_status_var=ctk.StringVar(); self.inspect_software_var=ctk.StringVar(); self.inspect_label_var=ctk.StringVar(); self.inspect_version_var=ctk.StringVar(); self.inspect_message_var=ctk.StringVar()
         self._build_ui(); boot("UI built"); self.apply_translations(); self.refresh_badges(False); self._validate_saved_logo(); boot("resources loaded"); self.protocol("WM_DELETE_WINDOW", self.destroy)
+        self.after(250, self._automatic_update_check)
         if os.environ.get("NENOLINK_VERIFY_FILE_DIALOG") == "1":
             self.after(800, self.open_images)
         if os.environ.get("NENOLINK_VERIFY_BADGE_FOLDER_DIALOG") == "1":
@@ -98,6 +104,8 @@ class MarkerApp(ctk.CTk):
         self.grid_columnconfigure(0,weight=1); self.grid_rowconfigure(1,weight=1)
         header=ctk.CTkFrame(self,corner_radius=0); header.grid(row=0,column=0,sticky="ew"); header.grid_columnconfigure(1,weight=1)
         ctk.CTkLabel(header,text="Nenolink AI Marker",font=ctk.CTkFont(size=24,weight="bold")).grid(row=0,column=0,padx=20,pady=14)
+        self.update_notification=ctk.CTkLabel(header,text="",text_color="#d62828",font=ctk.CTkFont(weight="bold"),cursor="hand2")
+        self.update_notification.grid(row=0,column=1,padx=8); self.update_notification.bind("<Button-1>",self._open_update_page); self.update_notification.grid_remove()
         self.language_menu=ctk.CTkOptionMenu(header,variable=self.language_var,values=list(LANGUAGES),command=self.change_language,width=150); self.language_menu.grid(row=0,column=2,padx=8)
         self.reset_button=ctk.CTkButton(header,text="",command=self.reset_application,width=100); self.reset_button.grid(row=0,column=3,padx=8)
         self.guide_button=ctk.CTkButton(header,text="",command=self.open_guide,width=170); self.guide_button.grid(row=0,column=4,padx=(8,20))
@@ -208,6 +216,10 @@ class MarkerApp(ctk.CTk):
         self.custom_entry=ctk.CTkEntry(self.custom_controls,textvariable=self.custom_badge_var); self.custom_entry.grid(row=1,column=0,padx=(0,8),pady=4,sticky="ew")
         self.choose_badge_folder_button=ctk.CTkButton(self.custom_controls,text="",command=self.browse_custom_badges); self.choose_badge_folder_button.grid(row=1,column=1,padx=4,pady=4)
         self.refresh_button=ctk.CTkButton(self.custom_controls,text="",command=self.refresh_badges); self.refresh_button.grid(row=1,column=2,padx=(4,0),pady=4)
+        self.update_controls=ctk.CTkFrame(source,fg_color="transparent"); self.update_controls.grid(row=4,column=0,padx=16,pady=(2,10),sticky="ew"); self.update_controls.grid_columnconfigure(0,weight=1)
+        self.automatic_update_checkbox=ctk.CTkCheckBox(self.update_controls,text="",variable=self.automatic_update_var,command=self._automatic_update_preference_changed); self.automatic_update_checkbox.grid(row=0,column=0,pady=4,sticky="w")
+        self.check_updates_button=ctk.CTkButton(self.update_controls,text="",command=self.check_for_updates,width=170); self.check_updates_button.grid(row=0,column=1,padx=(12,0),pady=4,sticky="e")
+        self.update_privacy_label=ctk.CTkLabel(self.update_controls,text="",text_color="gray60",justify="left",anchor="w",wraplength=850); self.update_privacy_label.grid(row=1,column=0,columnspan=2,pady=(2,0),sticky="ew")
         self.badge_help=ctk.CTkLabel(tab,text="",justify="left",anchor="w",wraplength=1050); self.badge_help.grid(row=1,column=0,columnspan=2,padx=20,pady=4,sticky="ew")
         self.badge_gallery_title=ctk.CTkLabel(tab,text="",font=ctk.CTkFont(size=18,weight="bold")); self.badge_gallery_title.grid(row=2,column=0,columnspan=2,padx=16,pady=(10,2),sticky="w")
         self.gallery=ctk.CTkScrollableFrame(tab); self.gallery.grid(row=3,column=0,columnspan=2,padx=16,pady=(4,14),sticky="nsew")
@@ -284,7 +296,7 @@ class MarkerApp(ctk.CTk):
         self._render_inspection()
 
     def apply_translations(self) -> None:
-        t=self.translator.text; self.title(f"Nenolink AI Marker {__version__}"); self.guide_button.configure(text=t("button.user_guide")); self.reset_button.configure(text=t("button.reset")); self.batch_back_button.configure(text=t("button.back")); self.badges_back_button.configure(text=t("button.back")); self.inspect_back_button.configure(text=t("button.back"))
+        t=self.translator.text; self.title(f"Nenolink AI Marker {__version__}"); self.guide_button.configure(text=t("button.user_guide")); self.reset_button.configure(text=t("button.reset")); self.batch_back_button.configure(text=t("button.back")); self.badges_back_button.configure(text=t("button.back")); self.inspect_back_button.configure(text=t("button.back")); self.automatic_update_checkbox.configure(text=t("update.automatic")); self.check_updates_button.configure(text=t("update.check")); self.update_privacy_label.configure(text=t("update.privacy")); self._render_update_notification()
         current_key=next((key for key,name in self.tab_names.items() if name==self.tabs.get()),"single")
         for key,translation_key in (("single","tab.single"),("batch","tab.batch"),("badges","tab.badges"),("inspect","tab.inspect")):
             new=t(translation_key); old=self.tab_names[key]
@@ -310,6 +322,45 @@ class MarkerApp(ctk.CTk):
         self.inspect_title.configure(text=t("inspect.title")); self.inspect_intro.configure(text=t("inspect.intro")); self.inspect_choose_button.configure(text=t("inspect.choose")); self.inspect_selected_heading.configure(text=t("inspect.selected")); self.inspect_file_label.configure(text=t("inspect.file")); self.inspect_format_label.configure(text=t("inspect.format_size")); self.inspect_metadata_heading.configure(text=t("inspect.metadata")); self.inspect_status_label.configure(text=t("inspect.status")); self.inspect_software_label.configure(text=t("inspect.software")); self.inspect_ai_label.configure(text=t("inspect.ai_label")); self.inspect_marker_version_label.configure(text=t("inspect.marker_version")); self._render_inspection()
 
     def change_language(self,name): self.translator.set_language(LANGUAGES.get(name,"en")); self.apply_translations(); self._save()
+    def _render_update_notification(self):
+        if self._available_update_version:
+            self.update_notification.configure(text=self.translator.text("update.available",version=self._available_update_version)); self.update_notification.grid()
+        else:self.update_notification.grid_remove()
+    def _automatic_update_preference_changed(self):
+        self._save()
+        if self.automatic_update_var.get():self.after(0,self._automatic_update_check)
+    def _automatic_update_check(self):
+        if self._automatic_update_attempted or not self.automatic_update_var.get() or not should_check_automatically(self.last_update_check):return
+        self._automatic_update_attempted=True; self._start_update_check(False)
+    def check_for_updates(self): self._start_update_check(True)
+    def _start_update_check(self,manual):
+        if self._update_check_running:
+            if manual:self.status_var.set(self.translator.text("update.checking"))
+            return
+        self._update_check_running=True; self.check_updates_button.configure(state="disabled")
+        if manual:self.status_var.set(self.translator.text("update.checking"))
+        def worker():
+            try:result=check_for_update(__version__); error=None
+            except UpdateCheckError as caught:result=None; error=caught
+            try:self.after(0,lambda:self._finish_update_check(result,error,manual))
+            except (RuntimeError,TclError):pass
+        threading.Thread(target=worker,name="NenolinkUpdateCheck",daemon=True).start()
+    def _finish_update_check(self,result,error,manual):
+        self._update_check_running=False; self.check_updates_button.configure(state="normal")
+        if error:
+            if manual:messagebox.showerror(self.translator.text("error.title"),self.translator.text("update.error"))
+            return
+        self.last_update_check=result.checked_at
+        if result.update_available:
+            self._available_update_version=result.manifest.latest_version; self._available_update_url=result.manifest.update_url
+            self._render_update_notification()
+            if manual:self.status_var.set(self.translator.text("update.available",version=result.manifest.latest_version))
+        else:
+            self._available_update_version=""; self._available_update_url=""; self._render_update_notification()
+            if manual:messagebox.showinfo(self.translator.text("update.title"),self.translator.text("update.current",version=__version__))
+        self._save()
+    def _open_update_page(self,_event=None):
+        if is_approved_update_url(self._available_update_url):webbrowser.open(self._available_update_url)
     def show_tab(self,key): self.tabs.set(self.tab_names[key])
     def navigate_home(self): self.show_tab("single")
     def choose_inspection_file(self):
@@ -707,7 +758,7 @@ class MarkerApp(ctk.CTk):
         report_path.write_text(json.dumps(payload,indent=2),encoding="utf-8"); checkpoint("complete"); self.destroy()
 
     def settings(self):
-        return MarkerSettings(badge_name=self.badge_var.get(),position=self.position_var.get(),size_percent=self.size_var.get(),margin=self.margin_var.get(),opacity=self.opacity_var.get(),language=self.translator.language,badge_source=self.badge_source_var.get(),custom_badge_folder=self.custom_badge_var.get(),input_folder=self.input_folder_var.get(),output_preference=self.output_preference_var.get(),output_folder=self.output_folder_var.get(),output_subfolder=self.output_subfolder_var.get(),include_subfolders=self.recursive_var.get(),preserve_folder_structure=self.preserve_var.get(),process_images=self.images_var.get(),process_videos=self.videos_var.get(),skip_processed=self.skip_var.get(),video_mode=self.video_mode_var.get(),video_duration=self.video_duration_var.get(),batch_filename_suffix=self.batch_suffix_var.get(),logo_enabled=self.logo_enabled_var.get(),logo_path=self.logo_path_var.get(),logo_position=self.logo_position_var.get(),logo_size_percent=self.logo_size_var.get(),logo_margin=self.logo_margin_var.get(),logo_opacity=self.logo_opacity_var.get()).validated()
+        return MarkerSettings(badge_name=self.badge_var.get(),position=self.position_var.get(),size_percent=self.size_var.get(),margin=self.margin_var.get(),opacity=self.opacity_var.get(),language=self.translator.language,badge_source=self.badge_source_var.get(),custom_badge_folder=self.custom_badge_var.get(),input_folder=self.input_folder_var.get(),output_preference=self.output_preference_var.get(),output_folder=self.output_folder_var.get(),output_subfolder=self.output_subfolder_var.get(),include_subfolders=self.recursive_var.get(),preserve_folder_structure=self.preserve_var.get(),process_images=self.images_var.get(),process_videos=self.videos_var.get(),skip_processed=self.skip_var.get(),video_mode=self.video_mode_var.get(),video_duration=self.video_duration_var.get(),batch_filename_suffix=self.batch_suffix_var.get(),logo_enabled=self.logo_enabled_var.get(),logo_path=self.logo_path_var.get(),logo_position=self.logo_position_var.get(),logo_size_percent=self.logo_size_var.get(),logo_margin=self.logo_margin_var.get(),logo_opacity=self.logo_opacity_var.get(),automatic_update_check=self.automatic_update_var.get(),last_update_check=self.last_update_check).validated()
     def _save(self):
         try:self.config_store.save(self.settings())
         except OSError:pass

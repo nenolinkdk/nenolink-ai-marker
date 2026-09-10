@@ -1,6 +1,6 @@
-# Nenolink AI Marker 1.0.0
+# Nenolink AI Marker 1.0.1
 
-Nenolink AI Marker is Windows desktop software for adding visible AI disclosure badges to images and videos. Version 1.0.0 processes files locally and can also add optional user branding to images without changing the meaning of the AI disclosure metadata.
+Nenolink AI Marker is Windows desktop software for adding visible AI disclosure badges to images and videos. Version 1.0.1 processes files locally and can also add optional user branding to images without changing the meaning of the AI disclosure metadata.
 
 The standard package contains exactly these editable external assets: `ai-assisted.png`, `ai-generated.png`, `ai-modified.png`, `human-reviewed.png`, `ai-image.png`, `ai-video.png`, `ai-audio.png`, `ai-software.png`, `ai-translation.png`, and `ai-localization.png`, plus `badges.json`.
 
@@ -19,7 +19,8 @@ The full guide is in `docs/USER_GUIDE_EN.md` and `docs/Nenolink-AI-Marker-User-G
 - Automatic Nenolink AI Marker metadata containing software, selected AI label and marker version
 - Read-only **Inspect File** support for JPEG, PNG, WebP, MP4 and MOV metadata
 - Twelve offline UI languages
-- Local processing without cloud upload, login, telemetry, analytics or network processing
+- Local media processing without cloud upload, login, telemetry or analytics
+- Optional asynchronous update checks against Nenolink's small HTTPS version manifest
 - Preferences stored per user in `%APPDATA%\Nenolink\AI Marker\settings.json`
 
 The Windows package includes FFmpeg. End users do not install FFmpeg or configure `PATH`; image processing remains independent of FFmpeg. No personal filesystem paths are written into Nenolink AI Marker metadata.
@@ -78,11 +79,11 @@ Then run the build script from the repository root, passing that same interprete
 
 The script repeats the tkinter check in its isolated build environment, installs the pinned build requirements, deletes the old `build\` and `dist\` directories, builds from `Nenolink-AI-Marker.spec`, and launches the resulting GUI. The build fails unless a real application window appears during the smoke test.
 
-The complete application is written to `dist\Nenolink-AI-Marker-1.0.0\`. Python is not required on the computer that runs it. Keep the folder structure intact:
+The complete application is written to `dist\Nenolink-AI-Marker-1.0.1\`. Python is not required on the computer that runs it. Keep the folder structure intact:
 
 ```text
-Nenolink-AI-Marker-1.0.0\
-  Nenolink-AI-Marker-1.0.0.exe
+Nenolink-AI-Marker-1.0.1\
+  Nenolink-AI-Marker-1.0.1.exe
   assets\
     badges\
       *.png
@@ -102,7 +103,7 @@ The badge folder remains external and editable. Add approved PNG badges beside t
 
 ## Standard and custom badges
 
-**Nenolink standard badges** is the default source. Version 1.0.0 ships the ten documented standard PNGs and `badges.json`. The application scans the directory dynamically and ignores non-PNG files.
+**Nenolink standard badges** is the default source. Version 1.0.1 ships the ten documented standard PNGs and `badges.json`. The application scans the directory dynamically and ignores non-PNG files.
 
 To use your own badges, select **Use custom badge folder** in Settings and click **Browse**. The selected folder is remembered between sessions. Files are read in place and are never copied, renamed or modified. You can switch back to standard badges at any time. If a saved custom folder disappears, the application reports the path and falls back gracefully to the standard badges.
 
@@ -110,7 +111,11 @@ Language, badge source, custom folder, selected badge, placement and batch choic
 
 ## Languages
 
-The interface includes English, Dansk, Deutsch, Français, Español, Italiano, Português, Nederlands, Svenska, Norsk, Polski and Čeština. The selected language is remembered locally. Everything works offline, missing keys fall back to English, and badge filenames are never translated.
+The interface includes English, Dansk, Deutsch, Français, Español, Italiano, Português, Nederlands, Svenska, Norsk, Polski and Čeština. The selected language is remembered locally, missing keys fall back to English, and badge filenames are never translated.
+
+## Update checks and privacy
+
+Automatic update checking is enabled by default and may be disabled in the Badges area. At most once every 30 days, the application asynchronously requests `https://nenolink.com/downloads/ai-marker/latest.json`. A manual **Check for updates** action ignores that interval. The request contains only ordinary connection headers and the installed application version; it never uploads media, filenames, file paths, badge or logo choices, licence information, or a unique installation identifier. Failures do not interrupt normal offline use. A validated newer version appears as a red header link to the single approved Nenolink update page. The application never downloads or installs an EXE or ZIP automatically.
 
 Translation files live in `locales\` beside the source application or packaged EXE. To add a translation:
 

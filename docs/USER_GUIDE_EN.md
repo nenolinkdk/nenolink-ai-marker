@@ -1,8 +1,8 @@
 # Nenolink AI Marker - User Guide
 
-Application version: 1.0.0<br>
+Application version: 1.0.1<br>
 Document language: English<br>
-Updated: 5 September 2026<br>
+Updated: 10 September 2026<br>
 Publisher: Nenolink<br>
 Denmark
 
@@ -12,7 +12,7 @@ Nenolink AI Marker adds a visible disclosure badge to images and videos. It supp
 
 The Nenolink badge system is a practical transparency system. Choose wording that accurately describes how AI was involved in the specific content or workflow.
 
-Processing is local on the Windows computer. The application does not upload content to a cloud service and does not require login, telemetry, analytics, or network processing. Personal filesystem paths are not written into Nenolink AI Marker metadata.
+Processing is local on the Windows computer. The application does not upload media to a cloud service and does not require login, telemetry, or analytics. Personal filesystem paths are not written into Nenolink AI Marker metadata. When automatic update checking is enabled, the application periodically contacts nenolink.com solely to obtain current release information; it does not send media or user content.
 
 ## AI Marker metadata
 
@@ -32,13 +32,17 @@ The visible badge is the human-readable disclosure. Metadata is machine-readable
 
 ## 2. Installation and first start
 
-Extract the complete Windows ZIP to a writable folder. Keep the EXE, `assets`, `locales`, and `docs` together. Start `Nenolink-AI-Marker-1.0.0.exe`. Windows may show a reputation warning for an unsigned download; verify that the file came from the official Nenolink release before continuing.
+Extract the complete Windows ZIP to a writable folder. Keep the EXE, `assets`, `locales`, and `docs` together. Start `Nenolink-AI-Marker-1.0.1.exe`. Windows may show a reputation warning for an unsigned download; verify that the file came from the official Nenolink release before continuing.
 
 The app needs no administrator rights. Settings are stored under `%APPDATA%\Nenolink\AI Marker\settings.json`, so replacing the program folder does not normally remove preferences.
 
 ## 3. Language selection
 
 Choose a language in the top bar. English, Danish, German, French, Spanish, Italian, Portuguese, Dutch, Swedish, Norwegian, Polish, and Czech are included. The choice is saved immediately. Missing translated text falls back to English. The product name and badge artwork do not change with the interface language.
+
+### Update checks
+
+Automatic update checking is enabled by default and can be disabled in the Badges area. It contacts nenolink.com at most once every 30 days using a short, asynchronous HTTPS request. **Check for updates** performs a manual check regardless of that interval. The request contains the installed version and ordinary connection headers only; it does not include media, filenames, file paths, badge or logo information, licence data, or an installation identifier. Offline, timeout, server, and invalid-response failures do not prevent normal use. A newer version appears as a red link in the header and opens only Nenolink's approved update page. AI Marker does not download or install updates automatically.
 
 ## 4. Standard and custom badge folders
 

@@ -146,5 +146,6 @@
   "logo.supported": "Podporované obrázky loga",
   "logo.missing": "Uložený soubor loga chybí nebo není dostupný. Vlastní logo bylo vypnuto.",
   "logo.invalid": "Vybraný soubor není čitelný obrázek PNG, JPG, JPEG nebo WebP.",
-  "logo.disabled": "Vypnuto"
+  "logo.disabled": "Vypnuto",
+  "update.automatic": "Automaticky kontrolovat aktualizace", "update.check": "Zkontrolovat aktualizace", "update.checking": "Kontrola aktualizací…", "update.available": "Je dostupná nová verze: {version}", "update.error": "Aktualizace se nepodařilo zkontrolovat. Zkuste to později.", "update.title": "Aktualizace", "update.current": "Používáte aktuální verzi: {version}", "update.privacy": "Je-li funkce zapnutá, AI Marker kontaktuje nenolink.com nejvýše jednou za 30 dní pouze kvůli informacím o verzi. Neodesílají se žádná média ani uživatelská data."
 }

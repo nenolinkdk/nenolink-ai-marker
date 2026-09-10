@@ -52,6 +52,13 @@ class TranslationTests(unittest.TestCase):
             self.assertTrue({"button.reset","button.back","dialog.save_as","batch.filename_suffix","status.reset","video.badge","video.mode.permanent","video.mode.beginning","video.mode.end","video.duration","video.seconds","video.settings","batch.output","batch.options","batch.progress_heading","button.process_video","warning.metadata_failed","tab.inspect","inspect.title","inspect.intro","inspect.choose","inspect.selected","inspect.file","inspect.format_size","inspect.metadata","inspect.status","inspect.software","inspect.ai_label","inspect.marker_version","inspect.found","inspect.not_found","inspect.not_available","inspect.error","inspect.ready","inspect.none","inspect.not_found_message","inspect.no_ai_warning","inspect.info","inspect.error_message","inspect.supported"}.issubset(data),code)
             self.assertNotIn("-",data["button.back"].removeprefix("←"),code)
 
+    def test_update_check_is_translated_in_every_locale(self):
+        locales=Path(__file__).resolve().parent.parent/"locales"
+        keys={"update.automatic","update.check","update.checking","update.available","update.error","update.title","update.current","update.privacy"}
+        for code in LANGUAGES.values():
+            data=json.loads((locales/f"{code}.json").read_text(encoding="utf-8"))
+            self.assertTrue(keys.issubset(data),code)
+
     def test_live_welcome_language_change_and_english_return(self):
         locales = Path(__file__).resolve().parent.parent / "locales"
         translator = Translator(locales,"en")

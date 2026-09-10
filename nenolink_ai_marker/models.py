@@ -38,6 +38,8 @@ class MarkerSettings:
     logo_size_percent: int = 15
     logo_margin: int = 20
     logo_opacity: int = 100
+    automatic_update_check: bool = True
+    last_update_check: str = ""
 
     def validated(self) -> "MarkerSettings":
         positions = {"top-left", "top-right", "bottom-left", "bottom-right", "center"}
@@ -73,6 +75,8 @@ class MarkerSettings:
         self.logo_size_percent = min(100, max(1, int(self.logo_size_percent)))
         self.logo_margin = min(2000, max(0, int(self.logo_margin)))
         self.logo_opacity = min(100, max(0, int(self.logo_opacity)))
+        self.automatic_update_check = bool(self.automatic_update_check)
+        self.last_update_check = str(self.last_update_check or "")
         return self
 
     def to_dict(self) -> dict[str, object]:

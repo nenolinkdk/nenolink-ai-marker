@@ -8,9 +8,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_release_facing_version_is_consistent():
-    assert __version__ == "1.0.0"
+    assert __version__ == "1.0.1"
     for relative in ("README.md", "docs/USER_GUIDE_EN.md", "docs/USER_GUIDE_DA.md"):
-        assert "1.0.0" in (ROOT / relative).read_text(encoding="utf-8")
+        assert "1.0.1" in (ROOT / relative).read_text(encoding="utf-8")
 
 
 def test_release_artifact_names_are_final_and_derived_from_version():

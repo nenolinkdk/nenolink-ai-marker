@@ -146,5 +146,6 @@
   "logo.supported": "Obsługiwane obrazy logo",
   "logo.missing": "Zapisanego pliku logo brakuje lub jest niedostępny. Własne logo zostało wyłączone.",
   "logo.invalid": "Wybrany plik nie jest czytelnym obrazem PNG, JPG, JPEG ani WebP.",
-  "logo.disabled": "Wyłączone"
+  "logo.disabled": "Wyłączone",
+  "update.automatic": "Automatycznie sprawdzaj aktualizacje", "update.check": "Sprawdź aktualizacje", "update.checking": "Sprawdzanie aktualizacji…", "update.available": "Dostępna jest nowa wersja: {version}", "update.error": "Nie udało się sprawdzić aktualizacji. Spróbuj ponownie później.", "update.title": "Aktualizacje", "update.current": "Używasz aktualnej wersji: {version}", "update.privacy": "Po włączeniu AI Marker kontaktuje się z nenolink.com najwyżej raz na 30 dni wyłącznie w celu pobrania informacji o wersji. Żadne multimedia ani dane użytkownika nie są wysyłane."
 }

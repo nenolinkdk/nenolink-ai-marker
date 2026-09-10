@@ -146,5 +146,6 @@
   "logo.supported": "Unterstützte Logobilder",
   "logo.missing": "Die gespeicherte Logodatei fehlt oder ist nicht verfügbar. Eigenes Logo wurde deaktiviert.",
   "logo.invalid": "Die ausgewählte Datei ist kein lesbares PNG-, JPG-, JPEG- oder WebP-Bild.",
-  "logo.disabled": "Deaktiviert"
+  "logo.disabled": "Deaktiviert",
+  "update.automatic": "Automatisch nach Updates suchen", "update.check": "Nach Updates suchen", "update.checking": "Suche nach Updates…", "update.available": "Neue Version verfügbar: {version}", "update.error": "Die Updatesuche ist fehlgeschlagen. Bitte versuchen Sie es später erneut.", "update.title": "Updates", "update.current": "Sie verwenden die aktuelle Version: {version}", "update.privacy": "Wenn aktiviert, kontaktiert AI Marker höchstens alle 30 Tage nenolink.com ausschließlich für Versionsinformationen. Es werden keine Medien oder Benutzerdaten gesendet."
 }
