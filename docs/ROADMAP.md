@@ -2,7 +2,7 @@
 
 This document is the central collection point for future product ideas and possible extensions after version 1.0.0.
 
-Items listed here are ideas, not commitments. Inclusion does not imply a promised version, release date, implementation order, or entitlement beyond the licence terms. The verified 1.0.0 release remains the technical baseline.
+Items listed here are ideas, not commitments unless explicitly promoted to a release target. The verified 1.0.0 release remains the technical baseline.
 
 ## Guiding principle
 
@@ -15,6 +15,26 @@ Nenolink AI Marker should remain primarily a practical transparency and marking 
 - machine-readable marking and inspection
 
 Avoid turning the application into a general-purpose image, document, or video editor.
+
+## 0. Release 1.0.1 — update notification
+
+Selected for implementation before wider distribution of the next build.
+
+Add a lightweight update check so existing customers can be informed about bug-fix and later releases:
+
+- automatic HTTPS check at most once every 30 days;
+- manual Check for updates action;
+- small JSON version manifest hosted on nenolink.com;
+- red clickable `New version available: x.y.z` notification when appropriate;
+- link opens the official Nenolink update page;
+- no automatic software download or installation;
+- update check must never block normal/offline application use;
+- automatic checking can be disabled;
+- no media or user content is transmitted.
+
+Detailed requirements and acceptance tests are in `UPDATE-CHECK-SPEC.md`.
+
+The frozen/tagged 1.0.0 release must not be replaced. This change belongs to 1.0.1.
 
 ## 1. More document and content formats
 
@@ -186,7 +206,7 @@ Commercial infrastructure ideas are tracked here as product-operation improvemen
 
 See `SALES-AND-DOWNLOAD-SETUP.md` for the current production implementation.
 
-## 7. Candidate prioritisation
+## 7. Candidate prioritisation after 1.0.1
 
 A preliminary order for evaluation, not a commitment:
 
