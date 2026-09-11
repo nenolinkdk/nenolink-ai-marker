@@ -148,4 +148,5 @@
   "logo.invalid": "El archivo seleccionado no es una imagen PNG, JPG, JPEG o WebP legible.",
   "logo.disabled": "Desactivado",
   "update.automatic": "Buscar actualizaciones automáticamente", "update.check": "Buscar actualizaciones", "update.checking": "Buscando actualizaciones…", "update.available": "Nueva versión disponible: {version}", "update.error": "No se pudo buscar actualizaciones. Inténtelo más tarde.", "update.title": "Actualizaciones", "update.current": "Está usando la versión actual: {version}", "update.privacy": "Cuando está activado, AI Marker contacta con nenolink.com como máximo una vez cada 30 días únicamente para obtener información de la versión. No se envían medios ni contenido del usuario."
+  ,"shortcut.create": "Crear acceso directo en el escritorio", "shortcut.title": "Acceso directo", "shortcut.success": "Se creó el acceso directo en el escritorio.", "shortcut.error": "No se pudo crear el acceso directo."
 }

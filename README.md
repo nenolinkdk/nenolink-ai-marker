@@ -21,6 +21,7 @@ The full guide is in `docs/USER_GUIDE_EN.md` and `docs/Nenolink-AI-Marker-User-G
 - Twelve offline UI languages
 - Local media processing without cloud upload, login, telemetry or analytics
 - Optional asynchronous update checks against Nenolink's small HTTPS version manifest
+- A discreet footer version and an optional per-user Windows desktop shortcut
 - Preferences stored per user in `%APPDATA%\Nenolink\AI Marker\settings.json`
 
 The Windows package includes FFmpeg. End users do not install FFmpeg or configure `PATH`; image processing remains independent of FFmpeg. No personal filesystem paths are written into Nenolink AI Marker metadata.
@@ -53,6 +54,8 @@ For a folder batch, choose an input and output mode, select recursive/media opti
 The source images are never overwritten. If one file in a batch fails, the application continues with the remaining files and reports the errors clearly.
 
 The four main tabs are **Single File**, **Batch Processing**, **Badges**, and **Inspect File**. **Back** returns to Single File without clearing state. **Reset** restores defaults and the Welcome view while retaining the saved custom badge folder path.
+
+The footer shows the installed application version. **Create Desktop Shortcut** in the Badges area creates `Nenolink AI Marker.lnk` on the current user's Windows desktop. It points to the currently running packaged EXE and does not move, copy, install, or pin the application. If the application folder is moved later, recreate the shortcut. Windows' normal shortcut menu can be used to pin it separately.
 
 ## Tests
 

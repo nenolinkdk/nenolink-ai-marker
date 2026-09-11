@@ -148,4 +148,5 @@
   "logo.invalid": "Het geselecteerde bestand is geen leesbare PNG-, JPG-, JPEG- of WebP-afbeelding.",
   "logo.disabled": "Uitgeschakeld",
   "update.automatic": "Automatisch controleren op updates", "update.check": "Controleren op updates", "update.checking": "Controleren op updates…", "update.available": "Nieuwe versie beschikbaar: {version}", "update.error": "Controleren op updates is mislukt. Probeer het later opnieuw.", "update.title": "Updates", "update.current": "U gebruikt de huidige versie: {version}", "update.privacy": "Indien ingeschakeld neemt AI Marker maximaal eens per 30 dagen uitsluitend voor versie-informatie contact op met nenolink.com. Er worden geen media of gebruikersgegevens verzonden."
+  ,"shortcut.create": "Bureaubladsnelkoppeling maken", "shortcut.title": "Bureaubladsnelkoppeling", "shortcut.success": "Bureaubladsnelkoppeling gemaakt.", "shortcut.error": "De bureaubladsnelkoppeling kon niet worden gemaakt."
 }

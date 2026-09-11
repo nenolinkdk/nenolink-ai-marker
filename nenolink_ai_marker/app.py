@@ -26,6 +26,7 @@ from .models import MarkerSettings
 from .paths import badge_directory, locale_directory, localized_user_guide_path, welcome_image_path
 from .processor import ImageProcessor, SUPPORTED_EXTENSIONS
 from .preview import ImagePreviewRenderer
+from .shortcut import ShortcutError, create_desktop_shortcut
 from .ui_state import show_welcome
 from .update_check import UpdateCheckError, check_for_update, is_approved_update_url, should_check_automatically
 
@@ -114,7 +115,7 @@ class MarkerApp(ctk.CTk):
         self.single_tab=self.tabs.add(self.tab_names["single"]); self.batch_tab=self.tabs.add(self.tab_names["batch"]); self.settings_tab=self.tabs.add(self.tab_names["badges"]); self.inspect_tab=self.tabs.add(self.tab_names["inspect"])
         self._single_ui(); self._batch_ui(); self._settings_ui(); self._inspect_ui()
         footer=ctk.CTkFrame(self,corner_radius=0,fg_color="transparent"); footer.grid(row=2,column=0,padx=20,pady=(0,8),sticky="ew"); footer.grid_columnconfigure(1,weight=1)
-        ctk.CTkLabel(footer,text="(c) Copyright Henrik Nielsen - nenolink.com",text_color="gray60").grid(row=0,column=0,sticky="w")
+        ctk.CTkLabel(footer,text=f"© Copyright Henrik Nielsen - nenolink.com · v{__version__}",text_color="gray60").grid(row=0,column=0,sticky="w")
         self.status_label=ctk.CTkLabel(footer,textvariable=self.status_var,text_color="gray60",anchor="e"); self.status_label.grid(row=0,column=1,padx=(20,0),sticky="ew")
 
     def _single_ui(self) -> None:
@@ -220,6 +221,7 @@ class MarkerApp(ctk.CTk):
         self.automatic_update_checkbox=ctk.CTkCheckBox(self.update_controls,text="",variable=self.automatic_update_var,command=self._automatic_update_preference_changed); self.automatic_update_checkbox.grid(row=0,column=0,pady=4,sticky="w")
         self.check_updates_button=ctk.CTkButton(self.update_controls,text="",command=self.check_for_updates,width=170); self.check_updates_button.grid(row=0,column=1,padx=(12,0),pady=4,sticky="e")
         self.update_privacy_label=ctk.CTkLabel(self.update_controls,text="",text_color="gray60",justify="left",anchor="w",wraplength=850); self.update_privacy_label.grid(row=1,column=0,columnspan=2,pady=(2,0),sticky="ew")
+        self.desktop_shortcut_button=ctk.CTkButton(self.update_controls,text="",command=self.create_shortcut,width=180,height=28); self.desktop_shortcut_button.grid(row=2,column=0,pady=(8,0),sticky="w")
         self.badge_help=ctk.CTkLabel(tab,text="",justify="left",anchor="w",wraplength=1050); self.badge_help.grid(row=1,column=0,columnspan=2,padx=20,pady=4,sticky="ew")
         self.badge_gallery_title=ctk.CTkLabel(tab,text="",font=ctk.CTkFont(size=18,weight="bold")); self.badge_gallery_title.grid(row=2,column=0,columnspan=2,padx=16,pady=(10,2),sticky="w")
         self.gallery=ctk.CTkScrollableFrame(tab); self.gallery.grid(row=3,column=0,columnspan=2,padx=16,pady=(4,14),sticky="nsew")
@@ -296,7 +298,7 @@ class MarkerApp(ctk.CTk):
         self._render_inspection()
 
     def apply_translations(self) -> None:
-        t=self.translator.text; self.title(f"Nenolink AI Marker {__version__}"); self.guide_button.configure(text=t("button.user_guide")); self.reset_button.configure(text=t("button.reset")); self.batch_back_button.configure(text=t("button.back")); self.badges_back_button.configure(text=t("button.back")); self.inspect_back_button.configure(text=t("button.back")); self.automatic_update_checkbox.configure(text=t("update.automatic")); self.check_updates_button.configure(text=t("update.check")); self.update_privacy_label.configure(text=t("update.privacy")); self._render_update_notification()
+        t=self.translator.text; self.title(f"Nenolink AI Marker {__version__}"); self.guide_button.configure(text=t("button.user_guide")); self.reset_button.configure(text=t("button.reset")); self.batch_back_button.configure(text=t("button.back")); self.badges_back_button.configure(text=t("button.back")); self.inspect_back_button.configure(text=t("button.back")); self.automatic_update_checkbox.configure(text=t("update.automatic")); self.check_updates_button.configure(text=t("update.check")); self.update_privacy_label.configure(text=t("update.privacy")); self.desktop_shortcut_button.configure(text=t("shortcut.create")); self._render_update_notification()
         current_key=next((key for key,name in self.tab_names.items() if name==self.tabs.get()),"single")
         for key,translation_key in (("single","tab.single"),("batch","tab.batch"),("badges","tab.badges"),("inspect","tab.inspect")):
             new=t(translation_key); old=self.tab_names[key]
@@ -361,6 +363,10 @@ class MarkerApp(ctk.CTk):
         self._save()
     def _open_update_page(self,_event=None):
         if is_approved_update_url(self._available_update_url):webbrowser.open(self._available_update_url)
+    def create_shortcut(self):
+        try:create_desktop_shortcut()
+        except ShortcutError:messagebox.showerror(self.translator.text("shortcut.title"),self.translator.text("shortcut.error"))
+        else:messagebox.showinfo(self.translator.text("shortcut.title"),self.translator.text("shortcut.success"))
     def show_tab(self,key): self.tabs.set(self.tab_names[key])
     def navigate_home(self): self.show_tab("single")
     def choose_inspection_file(self):

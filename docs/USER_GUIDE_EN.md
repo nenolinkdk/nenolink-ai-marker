@@ -2,7 +2,7 @@
 
 Application version: 1.0.1<br>
 Document language: English<br>
-Updated: 10 September 2026<br>
+Updated: 11 September 2026<br>
 Publisher: Nenolink<br>
 Denmark
 
@@ -35,6 +35,8 @@ The visible badge is the human-readable disclosure. Metadata is machine-readable
 Extract the complete Windows ZIP to a writable folder. Keep the EXE, `assets`, `locales`, and `docs` together. Start `Nenolink-AI-Marker-1.0.1.exe`. Windows may show a reputation warning for an unsigned download; verify that the file came from the official Nenolink release before continuing.
 
 The app needs no administrator rights. Settings are stored under `%APPDATA%\Nenolink\AI Marker\settings.json`, so replacing the program folder does not normally remove preferences.
+
+The footer shows the installed version. To add convenient access without installing the application, open **Badges** and choose **Create Desktop Shortcut**. This creates `Nenolink AI Marker.lnk` on the current user's Windows desktop, pointing to the packaged EXE and using its icon. It does not move or copy the application and does not pin anything to the taskbar. If you later move the application folder, recreate the shortcut; taskbar pinning remains available through Windows' normal shortcut menu.
 
 ## 3. Language selection
 

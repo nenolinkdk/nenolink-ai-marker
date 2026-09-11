@@ -59,6 +59,13 @@ class TranslationTests(unittest.TestCase):
             data=json.loads((locales/f"{code}.json").read_text(encoding="utf-8"))
             self.assertTrue(keys.issubset(data),code)
 
+    def test_desktop_shortcut_is_translated_in_every_locale(self):
+        locales=Path(__file__).resolve().parent.parent/"locales"
+        keys={"shortcut.create","shortcut.title","shortcut.success","shortcut.error"}
+        for code in LANGUAGES.values():
+            data=json.loads((locales/f"{code}.json").read_text(encoding="utf-8"))
+            self.assertTrue(keys.issubset(data),code)
+
     def test_live_welcome_language_change_and_english_return(self):
         locales = Path(__file__).resolve().parent.parent / "locales"
         translator = Translator(locales,"en")

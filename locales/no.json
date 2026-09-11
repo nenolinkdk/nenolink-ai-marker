@@ -148,4 +148,5 @@
   "logo.invalid": "Den valgte filen er ikke et lesbart PNG-, JPG-, JPEG- eller WebP-bilde.",
   "logo.disabled": "Deaktivert",
   "update.automatic": "Se automatisk etter oppdateringer", "update.check": "Se etter oppdateringer", "update.checking": "Ser etter oppdateringer…", "update.available": "Ny versjon tilgjengelig: {version}", "update.error": "Kunne ikke se etter oppdateringer. Prøv igjen senere.", "update.title": "Oppdateringer", "update.current": "Du bruker den gjeldende versjonen: {version}", "update.privacy": "Når funksjonen er aktivert, kontakter AI Marker nenolink.com høyst én gang hver 30. dag kun for versjonsinformasjon. Ingen medier eller brukerdata sendes."
+  ,"shortcut.create": "Opprett skrivebordssnarvei", "shortcut.title": "Skrivebordssnarvei", "shortcut.success": "Skrivebordssnarveien er opprettet.", "shortcut.error": "Skrivebordssnarveien kunne ikke opprettes."
 }

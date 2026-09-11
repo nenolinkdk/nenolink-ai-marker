@@ -148,4 +148,5 @@
   "logo.invalid": "Le fichier sélectionné n’est pas une image PNG, JPG, JPEG ou WebP lisible.",
   "logo.disabled": "Désactivé",
   "update.automatic": "Rechercher automatiquement les mises à jour", "update.check": "Rechercher des mises à jour", "update.checking": "Recherche de mises à jour…", "update.available": "Nouvelle version disponible : {version}", "update.error": "Impossible de rechercher les mises à jour. Réessayez plus tard.", "update.title": "Mises à jour", "update.current": "Vous utilisez la version actuelle : {version}", "update.privacy": "Lorsque cette option est activée, AI Marker contacte nenolink.com au maximum tous les 30 jours uniquement pour obtenir les informations de version. Aucun média ni contenu utilisateur n’est envoyé."
+  ,"shortcut.create": "Créer un raccourci sur le bureau", "shortcut.title": "Raccourci bureau", "shortcut.success": "Le raccourci bureau a été créé.", "shortcut.error": "Impossible de créer le raccourci bureau."
 }

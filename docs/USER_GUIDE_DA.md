@@ -2,7 +2,7 @@
 
 Applikationsversion: 1.0.1<br>
 Dokumentsprog: Dansk  
-Opdateret: 10. september 2026<br>
+Opdateret: 11. september 2026<br>
 Udgiver: Nenolink  
 Danmark
 
@@ -35,6 +35,8 @@ Det synlige badge er den menneskeligt læsbare oplysning. Metadata er maskinlæs
 Udpak hele Windows ZIP-filen til en mappe, du kan skrive til. Behold EXE-filen, `assets`, `locales` og `docs` samlet. Start `Nenolink-AI-Marker-1.0.1.exe`. Windows kan vise en omdømmeadvarsel for en usigneret download; kontrollér, at filen kommer fra den officielle Nenolink-udgivelse, før du fortsætter.
 
 Programmet kræver ikke administratorrettigheder. Indstillinger gemmes under `%APPDATA%\Nenolink\AI Marker\settings.json`, så en udskiftning af programmappen normalt ikke fjerner præferencer.
+
+Sidefoden viser den installerede version. Åbn **Badges**, og vælg **Opret skrivebordsgenvej** for nem adgang uden at installere programmet. Det opretter `Nenolink AI Marker.lnk` på den aktuelle brugers Windows-skrivebord, peger på den pakkede EXE og bruger dens ikon. Programmet flyttes eller kopieres ikke, og intet fastgøres automatisk til proceslinjen. Hvis du senere flytter programmappen, skal genvejen oprettes igen; fastgørelse kan fortsat vælges via Windows' normale genvejsmenu.
 
 ## 3. Sprogvalg
 

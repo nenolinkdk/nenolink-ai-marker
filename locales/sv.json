@@ -148,4 +148,5 @@
   "logo.invalid": "Den valda filen är inte en läsbar PNG-, JPG-, JPEG- eller WebP-bild.",
   "logo.disabled": "Inaktiverad",
   "update.automatic": "Sök automatiskt efter uppdateringar", "update.check": "Sök efter uppdateringar", "update.checking": "Söker efter uppdateringar…", "update.available": "Ny version tillgänglig: {version}", "update.error": "Det gick inte att söka efter uppdateringar. Försök igen senare.", "update.title": "Uppdateringar", "update.current": "Du använder den aktuella versionen: {version}", "update.privacy": "När funktionen är aktiverad kontaktar AI Marker nenolink.com högst en gång var 30:e dag enbart för versionsinformation. Inga medier eller användardata skickas."
+  ,"shortcut.create": "Skapa skrivbordsgenväg", "shortcut.title": "Skrivbordsgenväg", "shortcut.success": "Skrivbordsgenvägen har skapats.", "shortcut.error": "Det gick inte att skapa skrivbordsgenvägen."
 }

@@ -148,4 +148,5 @@
   "logo.invalid": "Wybrany plik nie jest czytelnym obrazem PNG, JPG, JPEG ani WebP.",
   "logo.disabled": "Wyłączone",
   "update.automatic": "Automatycznie sprawdzaj aktualizacje", "update.check": "Sprawdź aktualizacje", "update.checking": "Sprawdzanie aktualizacji…", "update.available": "Dostępna jest nowa wersja: {version}", "update.error": "Nie udało się sprawdzić aktualizacji. Spróbuj ponownie później.", "update.title": "Aktualizacje", "update.current": "Używasz aktualnej wersji: {version}", "update.privacy": "Po włączeniu AI Marker kontaktuje się z nenolink.com najwyżej raz na 30 dni wyłącznie w celu pobrania informacji o wersji. Żadne multimedia ani dane użytkownika nie są wysyłane."
+  ,"shortcut.create": "Utwórz skrót na pulpicie", "shortcut.title": "Skrót na pulpicie", "shortcut.success": "Utworzono skrót na pulpicie.", "shortcut.error": "Nie udało się utworzyć skrótu na pulpicie."
 }
