@@ -106,11 +106,11 @@ The badge folder remains external and editable. Add approved PNG badges beside t
 
 ## Standard and custom badges
 
-**Nenolink standard badges** is the default source. Version 1.0.1 ships the ten documented standard PNGs and `badges.json`. The application scans the directory dynamically and ignores non-PNG files.
+**Nenolink standard badges** is the default source. Version 1.0.1 ships eleven documented standard PNGs and `badges.json`. The application scans the directory dynamically and ignores non-PNG files. The library includes `no-ai.png`; **No AI is a user-selected declaration. Nenolink AI Marker does not verify that content was created without the use of AI.**
 
 To use your own badges, select **Use custom badge folder** in Settings and click **Browse**. The selected folder is remembered between sessions. Files are read in place and are never copied, renamed or modified. You can switch back to standard badges at any time. If a saved custom folder disappears, the application reports the path and falls back gracefully to the standard badges.
 
-Language, badge source, custom folder, selected badge, placement and batch choices are stored per Windows user in `%APPDATA%\Nenolink\AI Marker\settings.json`. Settings therefore survive application replacement and Windows restarts without requiring administrator rights. Older settings from the previous Local AppData location are read automatically and migrated on the next save.
+Language, badge source, custom folder, selected badge, placement and batch choices are stored per Windows user in `%APPDATA%\Nenolink\AI Marker\settings.json`. Settings therefore survive application replacement and Windows restarts without requiring administrator rights. Older settings from the previous Local AppData location are read automatically and migrated on the next save. On the first packaged launch per user, the app offers once to create a desktop shortcut; declining creates nothing, and the same action remains available under Badges.
 
 ## Languages
 

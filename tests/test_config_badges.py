@@ -17,6 +17,7 @@ class ConfigAndBadgeTests(unittest.TestCase):
             self.assertEqual(settings.language, "en")
             self.assertEqual(settings.badge_source, "standard")
             self.assertEqual(settings.custom_badge_folder, "")
+            self.assertFalse(settings.shortcut_offer_shown)
 
     def test_default_settings_path_uses_roaming_appdata(self):
         with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"APPDATA": directory}):
@@ -60,8 +61,15 @@ class ConfigAndBadgeTests(unittest.TestCase):
         self.assertEqual(
             [repository.display_name(path.name) for path in repository.display_badges()],
             ["AI Assisted", "AI Generated", "AI Modified", "Human Reviewed", "AI Image",
-             "AI Video", "AI Audio", "AI Software", "AI Translation", "AI Localization"],
+             "AI Video", "AI Audio", "AI Software", "AI Translation", "AI Localization", "No AI"],
         )
+
+    def test_shortcut_offer_state_persists_and_old_settings_receive_offer(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/"settings.json"; path.write_text('{"language":"da"}',encoding="utf-8")
+            store=ConfigStore(path); self.assertFalse(store.load().shortcut_offer_shown)
+            store.save(MarkerSettings(language="da",shortcut_offer_shown=True))
+            self.assertTrue(store.load().shortcut_offer_shown)
 
     def test_standard_gallery_ignores_nonstandard_image_files(self):
         with tempfile.TemporaryDirectory() as directory:

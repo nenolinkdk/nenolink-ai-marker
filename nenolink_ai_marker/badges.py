@@ -7,7 +7,7 @@ import re
 EXPECTED_STANDARD_BADGES = (
     "ai-assisted.png", "ai-generated.png", "ai-modified.png", "human-reviewed.png",
     "ai-image.png", "ai-video.png", "ai-audio.png", "ai-software.png",
-    "ai-translation.png", "ai-localization.png",
+    "ai-translation.png", "ai-localization.png", "no-ai.png",
 )
 SUPPORTED_BADGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 

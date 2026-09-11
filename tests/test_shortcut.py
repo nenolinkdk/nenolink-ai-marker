@@ -28,6 +28,19 @@ def test_packaged_smoke_test_requires_footer_and_shortcut_evidence():
     assert "packaged_ui_evidence.update_notification_present" in source
     assert 'shortcut_module -ne "nenolink_ai_marker.shortcut"' in source
     assert '$report.version -ne "1.0.1"' in source
+    assert "first_run_offer" in source
+
+
+def test_first_run_offer_actions_keep_manual_shortcut_available():
+    app=SimpleNamespace(shortcut_offer_dialog=None,create_shortcut=Mock())
+    app._dismiss_shortcut_offer=lambda: MarkerApp._dismiss_shortcut_offer(app)
+    MarkerApp._accept_shortcut_offer(app)
+    app.create_shortcut.assert_called_once_with()
+
+
+def test_first_run_offer_setting_defaults_to_unseen_for_upgrades():
+    from nenolink_ai_marker.models import MarkerSettings
+    assert MarkerSettings().shortcut_offer_shown is False
 
 
 def test_packaged_windows_shortcut_targets_current_exe_and_uses_its_icon(tmp_path):

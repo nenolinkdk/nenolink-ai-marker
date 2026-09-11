@@ -89,6 +89,7 @@ class MarkerApp(ctk.CTk):
         self.logo_position_var=ctk.StringVar(value=saved.logo_position); self.logo_position_display_var=ctk.StringVar()
         self.logo_size_var=ctk.IntVar(value=saved.logo_size_percent); self.logo_margin_var=ctk.IntVar(value=saved.logo_margin); self.logo_opacity_var=ctk.IntVar(value=saved.logo_opacity)
         self.automatic_update_var=ctk.BooleanVar(value=saved.automatic_update_check); self.last_update_check=saved.last_update_check
+        self.shortcut_offer_shown=saved.shortcut_offer_shown; self.shortcut_offer_dialog=None
         self.status_var=ctk.StringVar(); self.badge_name_var=ctk.StringVar(); self.badge_description_var=ctk.StringVar(); self.badge_display_var=ctk.StringVar()
         self.scan_summary_var=ctk.StringVar(); self.progress_text_var=ctk.StringVar()
         self.inspect_file_var=ctk.StringVar(); self.inspect_format_var=ctk.StringVar(); self.inspect_status_var=ctk.StringVar(); self.inspect_software_var=ctk.StringVar(); self.inspect_label_var=ctk.StringVar(); self.inspect_version_var=ctk.StringVar(); self.inspect_message_var=ctk.StringVar()
@@ -100,6 +101,8 @@ class MarkerApp(ctk.CTk):
             self.after(800, self.browse_custom_badges)
         if os.environ.get("NENOLINK_VERIFY_REPORT"):
             self.after(800, self._write_hotfix_verification)
+        elif getattr(sys,"frozen",False) and not self.shortcut_offer_shown:
+            self.after(700,self._show_first_run_shortcut_offer)
 
     def _build_ui(self) -> None:
         self.grid_columnconfigure(0,weight=1); self.grid_rowconfigure(1,weight=1)
@@ -368,6 +371,26 @@ class MarkerApp(ctk.CTk):
         try:create_desktop_shortcut()
         except ShortcutError:messagebox.showerror(self.translator.text("shortcut.title"),self.translator.text("shortcut.error"))
         else:messagebox.showinfo(self.translator.text("shortcut.title"),self.translator.text("shortcut.success"))
+    def _show_first_run_shortcut_offer(self):
+        if self.shortcut_offer_shown or not getattr(sys,"frozen",False):return
+        self.shortcut_offer_shown=True; self._save()
+        dialog=ctk.CTkToplevel(self); self.shortcut_offer_dialog=dialog
+        dialog.title(self.translator.text("shortcut.offer_title")); dialog.resizable(False,False); dialog.transient(self)
+        dialog.grid_columnconfigure(0,weight=1)
+        self.shortcut_offer_title_label=ctk.CTkLabel(dialog,text=self.translator.text("shortcut.offer_title"),font=ctk.CTkFont(size=18,weight="bold")); self.shortcut_offer_title_label.grid(row=0,column=0,padx=24,pady=(22,8),sticky="w")
+        self.shortcut_offer_message_label=ctk.CTkLabel(dialog,text=self.translator.text("shortcut.offer_message"),wraplength=390,justify="left"); self.shortcut_offer_message_label.grid(row=1,column=0,padx=24,pady=(0,18),sticky="w")
+        actions=ctk.CTkFrame(dialog,fg_color="transparent"); actions.grid(row=2,column=0,padx=24,pady=(0,22),sticky="e")
+        self.shortcut_offer_not_now_button=ctk.CTkButton(actions,text=self.translator.text("shortcut.offer_not_now"),command=self._dismiss_shortcut_offer,fg_color="transparent",border_width=1,width=110); self.shortcut_offer_not_now_button.grid(row=0,column=0,padx=(0,8))
+        self.shortcut_offer_create_button=ctk.CTkButton(actions,text=self.translator.text("shortcut.offer_create"),command=self._accept_shortcut_offer,width=140); self.shortcut_offer_create_button.grid(row=0,column=1)
+        dialog.protocol("WM_DELETE_WINDOW",self._dismiss_shortcut_offer); dialog.update_idletasks()
+        x=self.winfo_rootx()+max(0,(self.winfo_width()-dialog.winfo_reqwidth())//2); y=self.winfo_rooty()+max(0,(self.winfo_height()-dialog.winfo_reqheight())//2)
+        dialog.geometry(f"+{x}+{y}"); dialog.grab_set(); dialog.focus_force()
+    def _dismiss_shortcut_offer(self):
+        if self.shortcut_offer_dialog is not None:
+            try:self.shortcut_offer_dialog.grab_release(); self.shortcut_offer_dialog.destroy()
+            except TclError:pass
+        self.shortcut_offer_dialog=None
+    def _accept_shortcut_offer(self):self._dismiss_shortcut_offer(); self.create_shortcut()
     def show_tab(self,key): self.tabs.set(self.tab_names[key])
     def navigate_home(self): self.show_tab("single")
     def choose_inspection_file(self):
@@ -503,7 +526,7 @@ class MarkerApp(ctk.CTk):
         try:
             with Image.open(badge) as opened:image=opened.convert("RGBA")
             image.thumbnail((110,54),Image.Resampling.LANCZOS); self.single_badge_photo=ctk.CTkImage(light_image=image,dark_image=image,size=image.size); self.badge_photo=self.single_badge_photo; self.single_badge_preview_label.configure(image=self.single_badge_photo,text="")
-            info=self.badges.metadata(badge.name); self.badge_name_var.set(info.display_name if info else self.badges.display_name(badge.name)); self.badge_description_var.set(info.description if info else self.translator.text("badge.custom_description"))
+            info=self.badges.metadata(badge.name); self.badge_name_var.set(info.display_name if info else self.badges.display_name(badge.name)); self.badge_description_var.set(self.translator.text("badge.no_ai_disclaimer") if badge.name=="no-ai.png" else (info.description if info else self.translator.text("badge.custom_description")))
         except OSError as error:self.single_badge_preview_label.configure(image=None,text=str(error))
 
     def open_images(self):
@@ -632,11 +655,13 @@ class MarkerApp(ctk.CTk):
             if metadata_root.exists():shutil.rmtree(metadata_root)
             metadata_root.mkdir(parents=True)
             localization=self.processor.process(sample_path,self.badges.find("ai-localization.png"),self.settings())
+            no_ai=self.processor.process(sample_path,self.badges.find("no-ai.png"),self.settings())
             metadata=marker_metadata("ai-localization.png","AI Localization")
-            jpeg_output=metadata_root/"sample_ai.jpg"; png_output=metadata_root/"sample_ai.png"; webp_output=metadata_root/"sample_ai.webp"
+            jpeg_output=metadata_root/"sample_ai.jpg"; png_output=metadata_root/"sample_ai.png"; webp_output=metadata_root/"sample_ai.webp"; no_ai_output=metadata_root/"sample_no_ai.png"
             jpeg_written=self.processor.save(localization,jpeg_output,metadata)
             png_written=self.processor.save(localization,png_output,metadata)
             webp_written=self.processor.save(localization,webp_output,metadata)
+            no_ai_written=self.processor.save(no_ai,no_ai_output,marker_metadata("no-ai.png","No AI")); no_ai_inspected=inspect_file(no_ai_output)
             with Image.open(jpeg_output) as checked:jpeg_exif=checked.getexif(); jpeg_values={"software":jpeg_exif.get(305),"description":jpeg_exif.get(270)}
             with Image.open(png_output) as checked:png_values={key:checked.info.get(key) for key in ("Software","AI Label","Marker Version","NenolinkAIMarker")}
             with Image.open(webp_output) as checked:webp_exif=checked.getexif(); webp_values={"software":webp_exif.get(305),"description":webp_exif.get(270)}
@@ -647,7 +672,7 @@ class MarkerApp(ctk.CTk):
             processed_after_inspect=self.processor.process(sample_path,self.badges.find("ai-assisted.png"),self.settings())
             release_regressions["inspect_then_image"]=processed_after_inspect.size==localization.size
             release_regressions["selected_image_inspect_back"]=self.sources==[sample_path] and processed_after_inspect.size==localization.size
-            image_metadata_verification={"source_sha256_before":sample_hash,"source_sha256_after":hashlib.sha256(sample_path.read_bytes()).hexdigest(),"jpeg":{"path":str(jpeg_output),"written":jpeg_written,"values":jpeg_values,"inspected":inspected["jpg"].found,"label":inspected["jpg"].ai_label,"version":inspected["jpg"].marker_version},"png":{"path":str(png_output),"written":png_written,"values":png_values,"inspected":inspected["png"].found,"label":inspected["png"].ai_label},"webp":{"path":str(webp_output),"written":webp_written,"values":webp_values,"inspected":inspected["webp"].found},"ordinary_not_found":not ordinary.found,"inspect_back_preserved":inspect_back_preserved}
+            image_metadata_verification={"source_sha256_before":sample_hash,"source_sha256_after":hashlib.sha256(sample_path.read_bytes()).hexdigest(),"jpeg":{"path":str(jpeg_output),"written":jpeg_written,"values":jpeg_values,"inspected":inspected["jpg"].found,"label":inspected["jpg"].ai_label,"version":inspected["jpg"].marker_version},"png":{"path":str(png_output),"written":png_written,"values":png_values,"inspected":inspected["png"].found,"label":inspected["png"].ai_label},"webp":{"path":str(webp_output),"written":webp_written,"values":webp_values,"inspected":inspected["webp"].found},"no_ai":{"path":str(no_ai_output),"written":no_ai_written,"inspected":no_ai_inspected.found,"label":no_ai_inspected.ai_label,"version":no_ai_inspected.marker_version,"packaged_badge":bool(self.badges.find("no-ai.png"))},"ordinary_not_found":not ordinary.found,"inspect_back_preserved":inspect_back_preserved}
         checkpoint("image metadata")
         self.select_gallery_badge("ai-software.png"); gallery_selection_persisted=self.badge_var.get()=="ai-software.png" and self.badge_display_var.get()=="AI Software"
         logo_verification=None
@@ -703,7 +728,10 @@ class MarkerApp(ctk.CTk):
             try:open_user_guide(guide); guide_opened=True
             except OSError:guide_opened=False
         prior_tab=self.tabs.get(); self.show_tab("badges"); self.update_idletasks(); self.update()
-        packaged_ui_evidence={"footer_text":self.footer_copyright_label.cget("text"),"footer_visible":bool(self.footer_copyright_label.winfo_ismapped()),"footer_update_text":self.footer_update_link.cget("text"),"footer_update_visible":bool(self.footer_update_link.winfo_ismapped()),"footer_update_cursor":self.footer_update_link.cget("cursor"),"footer_update_action":callable(self._footer_update_callback) and callable(self.check_for_updates),"badges_update_button_present":hasattr(self,"check_updates_button"),"shortcut_text":self.desktop_shortcut_button.cget("text"),"shortcut_visible":bool(self.desktop_shortcut_button.winfo_ismapped()),"shortcut_module":create_desktop_shortcut.__module__,"shortcut_callable":callable(create_desktop_shortcut),"update_notification_present":bool(self.update_notification.winfo_exists()),"update_notification_cursor":self.update_notification.cget("cursor"),"approved_update_handler":callable(self._open_update_page)}
+        prior_offer=self.shortcut_offer_shown; self.shortcut_offer_shown=False; self._show_first_run_shortcut_offer(); self.update_idletasks()
+        first_run_offer={"visible":bool(self.shortcut_offer_dialog and self.shortcut_offer_dialog.winfo_exists()),"title":self.shortcut_offer_title_label.cget("text"),"message":self.shortcut_offer_message_label.cget("text"),"create":self.shortcut_offer_create_button.cget("text"),"not_now":self.shortcut_offer_not_now_button.cget("text"),"persisted":self.settings().shortcut_offer_shown}
+        self._dismiss_shortcut_offer(); self.shortcut_offer_shown=prior_offer or True
+        packaged_ui_evidence={"footer_text":self.footer_copyright_label.cget("text"),"footer_visible":bool(self.footer_copyright_label.winfo_ismapped()),"footer_update_text":self.footer_update_link.cget("text"),"footer_update_visible":bool(self.footer_update_link.winfo_ismapped()),"footer_update_cursor":self.footer_update_link.cget("cursor"),"footer_update_action":callable(self._footer_update_callback) and callable(self.check_for_updates),"badges_update_button_present":hasattr(self,"check_updates_button"),"shortcut_text":self.desktop_shortcut_button.cget("text"),"shortcut_visible":bool(self.desktop_shortcut_button.winfo_ismapped()),"shortcut_module":create_desktop_shortcut.__module__,"shortcut_callable":callable(create_desktop_shortcut),"first_run_offer":first_run_offer,"update_notification_present":bool(self.update_notification.winfo_exists()),"update_notification_cursor":self.update_notification.cget("cursor"),"approved_update_handler":callable(self._open_update_page)}
         self.tabs.set(prior_tab); self.update_idletasks()
         payload={"version":__version__,"packaged_ui_evidence":packaged_ui_evidence,"english":english,"danish":danish,"german":german,"french":french,"initial_badge_settings":initial_badge_settings,"welcome_before_image":welcome_before_image,"welcome_illustration":welcome_illustration,"welcome_hidden_after_image":(not sample or self.welcome_frame.winfo_manager()==""),"badges_found":len(badge_names),"badge_selector_visible":self.badge_menu.winfo_manager()=="grid","badge_selector_values":list(self.badge_menu.cget("values")),"gallery_badges":len(self.gallery_buttons),"gallery_selection_persisted":gallery_selection_persisted,"badges_tab_is_distinct":self.badge_source_frame.master is self.settings_tab,"selected_badges":selected,"image_preview":bool(self.preview_photo),"selected_badge_written":selected_badge_written,"image_metadata_verification":image_metadata_verification,"logo_verification":logo_verification,"custom_verification":custom_verification,"friendly_status":("_MEI" not in self.status_var.get() and "assets" not in self.status_var.get()),"process_button_state":self.process_button.cget("state"),"guide_language":guide_language,"guide_filename":guide.name,"guide_paths":{code:path.name for code,path in guide_paths.items()},"guide_exists":guide.is_file(),"guide_opened":guide_opened,"translation_keys_visible":any("." in str(value) and " " not in str(value) for group in (english,danish,german,french) for value in group.values() if isinstance(value,str))}
         ffmpeg_path=find_ffmpeg(); payload["ffmpeg_found"]=bool(ffmpeg_path); payload["ffmpeg_path"]=ffmpeg_path
@@ -768,7 +796,7 @@ class MarkerApp(ctk.CTk):
         report_path.write_text(json.dumps(payload,indent=2),encoding="utf-8"); checkpoint("complete"); self.destroy()
 
     def settings(self):
-        return MarkerSettings(badge_name=self.badge_var.get(),position=self.position_var.get(),size_percent=self.size_var.get(),margin=self.margin_var.get(),opacity=self.opacity_var.get(),language=self.translator.language,badge_source=self.badge_source_var.get(),custom_badge_folder=self.custom_badge_var.get(),input_folder=self.input_folder_var.get(),output_preference=self.output_preference_var.get(),output_folder=self.output_folder_var.get(),output_subfolder=self.output_subfolder_var.get(),include_subfolders=self.recursive_var.get(),preserve_folder_structure=self.preserve_var.get(),process_images=self.images_var.get(),process_videos=self.videos_var.get(),skip_processed=self.skip_var.get(),video_mode=self.video_mode_var.get(),video_duration=self.video_duration_var.get(),batch_filename_suffix=self.batch_suffix_var.get(),logo_enabled=self.logo_enabled_var.get(),logo_path=self.logo_path_var.get(),logo_position=self.logo_position_var.get(),logo_size_percent=self.logo_size_var.get(),logo_margin=self.logo_margin_var.get(),logo_opacity=self.logo_opacity_var.get(),automatic_update_check=self.automatic_update_var.get(),last_update_check=self.last_update_check).validated()
+        return MarkerSettings(badge_name=self.badge_var.get(),position=self.position_var.get(),size_percent=self.size_var.get(),margin=self.margin_var.get(),opacity=self.opacity_var.get(),language=self.translator.language,badge_source=self.badge_source_var.get(),custom_badge_folder=self.custom_badge_var.get(),input_folder=self.input_folder_var.get(),output_preference=self.output_preference_var.get(),output_folder=self.output_folder_var.get(),output_subfolder=self.output_subfolder_var.get(),include_subfolders=self.recursive_var.get(),preserve_folder_structure=self.preserve_var.get(),process_images=self.images_var.get(),process_videos=self.videos_var.get(),skip_processed=self.skip_var.get(),video_mode=self.video_mode_var.get(),video_duration=self.video_duration_var.get(),batch_filename_suffix=self.batch_suffix_var.get(),logo_enabled=self.logo_enabled_var.get(),logo_path=self.logo_path_var.get(),logo_position=self.logo_position_var.get(),logo_size_percent=self.logo_size_var.get(),logo_margin=self.logo_margin_var.get(),logo_opacity=self.logo_opacity_var.get(),automatic_update_check=self.automatic_update_var.get(),last_update_check=self.last_update_check,shortcut_offer_shown=self.shortcut_offer_shown).validated()
     def _save(self):
         try:self.config_store.save(self.settings())
         except OSError:pass

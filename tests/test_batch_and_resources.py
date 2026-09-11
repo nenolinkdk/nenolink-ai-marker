@@ -25,10 +25,19 @@ class ResourceAndBatchTests(unittest.TestCase):
         root=Path(__file__).resolve().parents[1]/"assets"/"badges"
         repo=BadgeRepository(root)
         self.assertEqual(set(p.name for p in repo.list_badges()),set(EXPECTED_STANDARD_BADGES))
-        self.assertEqual(len(repo.list_badges()),10)
+        self.assertEqual(len(repo.list_badges()),11)
         for name in EXPECTED_STANDARD_BADGES:
             self.assertIsNotNone(repo.metadata(name))
-            with Image.open(root/name) as image:self.assertEqual(image.mode,"RGBA")
+            with Image.open(root/name) as image:
+                self.assertEqual(image.mode,"RGBA"); self.assertEqual(image.size,(1200,360))
+
+    def test_no_ai_badge_uses_family_canvas_and_required_colours(self):
+        root=Path(__file__).resolve().parents[1]/"assets"/"badges"
+        with Image.open(root/"no-ai.png") as opened:
+            image=opened.convert("RGBA"); colours=image.getcolors(maxcolors=image.width*image.height)
+            self.assertEqual(image.size,(1200,360)); self.assertIsNotNone(colours)
+            self.assertGreater(sum(count for count,rgba in colours if rgba[1]>rgba[0]*1.4 and rgba[1]>rgba[2]*1.4 and rgba[3]>0),10000)
+            self.assertGreater(sum(count for count,rgba in colours if rgba[0]>150 and rgba[0]>rgba[1]*1.4 and rgba[3]>0),1000)
 
     def test_docs_paths_source_and_packaged(self):
         module=Path("C:/project/nenolink_ai_marker/paths.py")

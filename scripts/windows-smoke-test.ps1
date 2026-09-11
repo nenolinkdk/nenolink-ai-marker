@@ -12,7 +12,8 @@ $installRoot = Split-Path -Parent $resolvedExe
 $badgeFiles = @(Get-ChildItem -Path (Join-Path $installRoot "assets\badges") -File -Filter "*.png" -ErrorAction SilentlyContinue)
 $localeFiles = @(Get-ChildItem -Path (Join-Path $installRoot "locales") -File -Filter "*.json" -ErrorAction SilentlyContinue)
 if (-not $EmbeddedResources) {
-    if ($badgeFiles.Count -ne 10) { throw "Packaged badge folder must contain exactly 10 PNG files; found $($badgeFiles.Count)." }
+    if ($badgeFiles.Count -ne 11) { throw "Packaged badge folder must contain exactly 11 PNG files; found $($badgeFiles.Count)." }
+    if (-not (Test-Path -LiteralPath (Join-Path $installRoot "assets\badges\no-ai.png"))) { throw "Packaged No AI badge is missing." }
     if (-not (Test-Path -LiteralPath (Join-Path $installRoot "assets\badges\badges.json"))) { throw "Packaged badge metadata is missing." }
     if (-not (Test-Path -LiteralPath (Join-Path $installRoot "assets\ui\welcome-europe.png"))) { throw "Packaged welcome illustration is missing." }
     if ($localeFiles.Count -lt 12) { throw "Packaged locale folder contains only $($localeFiles.Count) JSON files." }
@@ -52,6 +53,8 @@ try {
             if ($report.version -ne "1.0.1" -or $report.packaged_ui_evidence.footer_text -ne $expectedFooter -or -not $report.packaged_ui_evidence.footer_visible -or -not $report.packaged_ui_evidence.footer_update_visible -or -not $report.packaged_ui_evidence.footer_update_action -or $report.packaged_ui_evidence.footer_update_cursor -ne "hand2" -or $report.packaged_ui_evidence.footer_update_text -eq "update.check") { throw "Packaged footer/version/manual-update verification failed." }
             if ($report.packaged_ui_evidence.badges_update_button_present) { throw "Obsolete large Badges-tab update button is still present." }
             if (-not $report.packaged_ui_evidence.shortcut_visible -or $report.packaged_ui_evidence.shortcut_text -eq "shortcut.create" -or -not $report.packaged_ui_evidence.shortcut_callable -or $report.packaged_ui_evidence.shortcut_module -ne "nenolink_ai_marker.shortcut") { throw "Packaged desktop-shortcut UI/module verification failed." }
+            $offer=$report.packaged_ui_evidence.first_run_offer
+            if (-not $offer.visible -or -not $offer.persisted -or $offer.title -eq "shortcut.offer_title" -or $offer.message -eq "shortcut.offer_message" -or $offer.create -eq "shortcut.offer_create" -or $offer.not_now -eq "shortcut.offer_not_now") { throw "Packaged first-run desktop-shortcut offer verification failed." }
             if (-not $report.packaged_ui_evidence.update_notification_present -or $report.packaged_ui_evidence.update_notification_cursor -ne "hand2" -or -not $report.packaged_ui_evidence.approved_update_handler) { throw "Packaged update-notification functionality is missing." }
             if (-not $report.ffmpeg_found) { throw "Packaged application could not discover bundled FFmpeg." }
             if ($report.layout_verification) {
@@ -60,7 +63,9 @@ try {
                 if (-not $report.layout_verification.permanent_hides_duration) { throw "Permanent mode did not hide Duration." }
             }
             if ($report.reset_verification.source -ne "standard" -or $report.reset_verification.selection -ne "ai-assisted.png" -or $report.reset_verification.video_mode -ne "permanent" -or $report.reset_verification.video_duration -ne 5 -or $report.reset_verification.batch_suffix -ne "_ai" -or -not $report.reset_verification.folder_retained -or $report.reset_verification.sources -ne 0 -or -not $report.reset_verification.scan_cleared -or -not $report.reset_verification.inspection_cleared -or -not $report.reset_verification.single_selected -or -not $report.reset_verification.welcome -or -not $report.reset_verification.welcome_mapped -or -not $report.reset_verification.welcome_illustration -or -not $report.reset_verification.preview_hidden) { throw "Packaged reset verification failed." }
-            if ($report.translation_keys_visible -or -not $report.welcome_before_image -or -not $report.welcome_illustration -or $report.badges_found -ne 10 -or -not $report.badge_selector_visible -or $report.gallery_badges -ne 10 -or -not $report.gallery_selection_persisted -or -not $report.badges_tab_is_distinct -or -not $report.friendly_status -or $report.guide_filename -ne "Nenolink-AI-Marker-User-Guide-DA.pdf" -or $report.guide_paths.fr -ne "Nenolink-AI-Marker-User-Guide-EN.pdf" -or $report.danish.welcome_title -ne "Velkommen til Nenolink AI Marker" -or $report.german.welcome_title -ne "Willkommen bei Nenolink AI Marker") { throw "Packaged GUI verification report failed." }
+            if ($report.translation_keys_visible -or -not $report.welcome_before_image -or -not $report.welcome_illustration -or $report.badges_found -ne 11 -or -not $report.badge_selector_visible -or $report.gallery_badges -ne 11 -or -not $report.gallery_selection_persisted -or -not $report.badges_tab_is_distinct -or -not $report.friendly_status -or $report.guide_filename -ne "Nenolink-AI-Marker-User-Guide-DA.pdf" -or $report.guide_paths.fr -ne "Nenolink-AI-Marker-User-Guide-EN.pdf" -or $report.danish.welcome_title -ne "Velkommen til Nenolink AI Marker" -or $report.german.welcome_title -ne "Willkommen bei Nenolink AI Marker") { throw "Packaged GUI verification report failed." }
+            $noAi=$report.image_metadata_verification.no_ai
+            if (-not $noAi.packaged_badge -or -not $noAi.written -or -not $noAi.inspected -or $noAi.label -ne "No AI" -or $noAi.version -ne "1.0.1") { throw "Packaged No AI metadata round-trip verification failed." }
             $windowFound = $true
             break
         }

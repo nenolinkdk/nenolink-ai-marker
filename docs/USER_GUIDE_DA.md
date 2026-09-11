@@ -36,7 +36,7 @@ Udpak hele Windows ZIP-filen til en mappe, du kan skrive til. Behold EXE-filen, 
 
 Programmet kræver ikke administratorrettigheder. Indstillinger gemmes under `%APPDATA%\Nenolink\AI Marker\settings.json`, så en udskiftning af programmappen normalt ikke fjerner præferencer.
 
-Sidefoden viser den installerede version. Åbn **Badges**, og vælg **Opret skrivebordsgenvej** for nem adgang uden at installere programmet. Det opretter `Nenolink AI Marker.lnk` på den aktuelle brugers Windows-skrivebord, peger på den pakkede EXE og bruger dens ikon. Programmet flyttes eller kopieres ikke, og intet fastgøres automatisk til proceslinjen. Hvis du senere flytter programmappen, skal genvejen oprettes igen; fastgørelse kan fortsat vælges via Windows' normale genvejsmenu.
+Sidefoden viser den installerede version. Ved den første normale start for hver Windows-bruger tilbyder programmet én gang at oprette en skrivebordsgenvej. **Ikke nu** opretter intet. Du kan altid senere åbne **Badges** og vælge **Opret skrivebordsgenvej**. Det opretter `Nenolink AI Marker.lnk` på den aktuelle brugers Windows-skrivebord, peger på den pakkede EXE og bruger dens ikon. Programmet flyttes eller kopieres ikke, og intet fastgøres automatisk til proceslinjen. Hvis du senere flytter programmappen, skal genvejen oprettes igen; fastgørelse kan fortsat vælges via Windows' normale genvejsmenu.
 
 ## 3. Sprogvalg
 
@@ -48,7 +48,7 @@ Automatisk opdateringskontrol er som standard aktiveret og kan deaktiveres under
 
 ## 4. Standardmapper og egne badgemapper
 
-Åbn **Badges**. **Nenolink Standard Badges** bruger de ti filer i `assets\badges`. Hvis du vil bruge dit eget badge, skal du vælge **Brugerdefineret badge-mappe**, vælge en almindelig Windows-mappe med PNG-, JPG-, JPEG- eller WebP-badgebilleder og klikke på **Opdater badges**, når du har tilføjet filer. Transparent PNG anbefales. Programmet læser egne filer på stedet og kopierer eller ændrer dem ikke. Hvis en gemt mappe forsvinder, viser programmet den nøjagtige sti og bruger midlertidigt standardbadges, mens den gamle sti bevares, så den kan rettes.
+Åbn **Badges**. **Nenolink Standard Badges** bruger de elleve filer i `assets\badges`. Hvis du vil bruge dit eget badge, skal du vælge **Brugerdefineret badge-mappe**, vælge en almindelig Windows-mappe med PNG-, JPG-, JPEG- eller WebP-badgebilleder og klikke på **Opdater badges**, når du har tilføjet filer. Transparent PNG anbefales. Programmet læser egne filer på stedet og kopierer eller ændrer dem ikke. Hvis en gemt mappe forsvinder, viser programmet den nøjagtige sti og bruger midlertidigt standardbadges, mens den gamle sti bevares, så den kan rettes.
 
 ## 5. Valg af badge
 
@@ -88,7 +88,7 @@ Placeringen kan være øverst til venstre, øverst til højre, nederst til venst
 
 ## 12. Valg af det rette standardbadge
 
-De første fire badges beskriver en overordnet oplysningsstatus. De resterende seks beskriver en medietype eller arbejdsgang. Et badge er et kort signal, ikke en fuldstændig dokumentation af oprindelse. Bevar supplerende oplysninger, når sammenhængen kræver det.
+De første fire badges beskriver en overordnet oplysningsstatus. De næste seks beskriver en medietype eller arbejdsgang. No AI er en særskilt brugererklæring. Et badge er et kort signal, ikke en fuldstændig dokumentation af oprindelse. Bevar supplerende oplysninger, når sammenhængen kræver det.
 
 ### 13. AI Assisted
 
@@ -130,7 +130,11 @@ Anbefales, når AI har oversat indhold mellem sprog. Overvej menneskelig kontrol
 
 Anbefales, når AI har bidraget til at tilpasse indhold til et lokalområde, marked eller en kultur ud over direkte oversættelse.
 
-## 23. Baggrund om transparens i EU's AI-forordning
+### 23. No AI
+
+No AI er en erklæring valgt af brugeren. Nenolink AI Marker kontrollerer ikke, at indholdet er oprettet uden brug af AI.
+
+## 24. Baggrund om transparens i EU's AI-forordning
 
 Forordning (EU) 2024/1689, almindeligvis kaldet EU's AI-forordning, indeholder transparensforpligtelser for udbydere og idriftsættere af visse AI-systemer. Artikel 50 omhandler blandt andet information til personer, når de interagerer med visse AI-systemer, maskinlæsbar mærkning af syntetisk output fra udbydere samt oplysningspligt ved visse deepfakes og tekster af offentlig interesse. De præcise pligter, undtagelser, tidspunkter, tekniske standarder og ansvarlige parter afhænger af de konkrete forhold og gældende ret.
 
@@ -138,7 +142,7 @@ Nenolink AI Marker tilføjer et synligt badge. Et synligt badge er ikke det samm
 
 Officiel kilde: Forordning (EU) 2024/1689, artikel 50, EUR-Lex: https://eur-lex.europa.eu/legal-content/DA/TXT/?uri=CELEX:32024R1689
 
-## 24. Filkompatibilitet og behandlingsgrænser
+## 25. Filkompatibilitet og behandlingsgrænser
 
 Som praktisk vejledning anbefales billeder op til 50 MB og videoer op til 2 GB. Det er anbefalinger, ikke garanterede tekniske maksimumgrænser; større filer kan stadig fungere.
 
@@ -146,7 +150,7 @@ Ikke alle billed- eller videofiler kan nødvendigvis behandles. Kompatibilitet o
 
 Der fastsættes ikke en bestemt maksimal filstørrelse. En fil, der virker på én computer, kan fejle eller tage betydeligt længere tid på en anden, fordi de praktiske grænser delvist afhænger af brugerens computer og tilgængelige ressourcer. Bevar originalfiler, og kontrollér hvert behandlet output før offentliggørelse eller distribution.
 
-## 25. Begrænsninger og brugerens ansvar
+## 26. Begrænsninger og brugerens ansvar
 
 Du er ansvarlig for at vælge et korrekt badge, indhente rettigheder til kildemedier og badgegrafik, kontrollere output, bevare originaler og overholde gældende aftaler, platformregler samt krav om tilgængelighed, privatliv, immaterielle rettigheder, forbrugerbeskyttelse og AI. Synlige overlays kan beskæres eller fjernes. Værktøjet indlejrer ikke kryptografisk oprindelsesdokumentation og kontrollerer ikke, om indhold er fremstillet med AI.
 
@@ -175,7 +179,7 @@ Nenolink AI Marker må ikke præsenteres som:
 - juridisk rådgivning; eller
 - en garanti for, at indhold er korrekt klassificeret.
 
-## 26. Fejlfinding
+## 27. Fejlfinding
 
 - **Ingen badges fundet:** Kontrollér, at PNG-filer ligger direkte i den viste mappe, og klik derefter på **Opdater badges**.
 - **Egen mappe mangler:** Tilslut drevet igen, eller vælg en erstatningsmappe. Standardbadges er fortsat tilgængelige.

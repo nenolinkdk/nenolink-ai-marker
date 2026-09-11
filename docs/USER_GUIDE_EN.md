@@ -36,7 +36,7 @@ Extract the complete Windows ZIP to a writable folder. Keep the EXE, `assets`, `
 
 The app needs no administrator rights. Settings are stored under `%APPDATA%\Nenolink\AI Marker\settings.json`, so replacing the program folder does not normally remove preferences.
 
-The footer shows the installed version. To add convenient access without installing the application, open **Badges** and choose **Create Desktop Shortcut**. This creates `Nenolink AI Marker.lnk` on the current user's Windows desktop, pointing to the packaged EXE and using its icon. It does not move or copy the application and does not pin anything to the taskbar. If you later move the application folder, recreate the shortcut; taskbar pinning remains available through Windows' normal shortcut menu.
+The footer shows the installed version. On the first normal launch for each Windows user, the app offers once to create a desktop shortcut. **Not now** creates nothing. You can always open **Badges** and choose **Create Desktop Shortcut** later. This creates `Nenolink AI Marker.lnk` on the current user's Windows desktop, pointing to the packaged EXE and using its icon. It does not move or copy the application and does not pin anything to the taskbar. If you later move the application folder, recreate the shortcut; taskbar pinning remains available through Windows' normal shortcut menu.
 
 ## 3. Language selection
 
@@ -48,7 +48,7 @@ Automatic update checking is enabled by default and can be disabled in the Badge
 
 ## 4. Standard and custom badge folders
 
-Open **Badges**. **Nenolink Standard Badges** uses the ten files bundled in `assets\badges`. To use your own badge, select **Custom Badge Folder**, choose an ordinary Windows folder containing PNG, JPG, JPEG, or WebP badge images, and click **Refresh Badges** after adding files. Transparent PNG is recommended. The app reads custom files in place and does not copy or alter them. If a saved custom folder disappears, the app reports the exact path and temporarily uses standard badges while retaining the old path for correction.
+Open **Badges**. **Nenolink Standard Badges** uses the eleven files bundled in `assets\badges`. To use your own badge, select **Custom Badge Folder**, choose an ordinary Windows folder containing PNG, JPG, JPEG, or WebP badge images, and click **Refresh Badges** after adding files. Transparent PNG is recommended. The app reads custom files in place and does not copy or alter them. If a saved custom folder disappears, the app reports the exact path and temporarily uses standard badges while retaining the old path for correction.
 
 ## 5. Selecting a badge
 
@@ -88,7 +88,7 @@ Position can be top-left, top-right, bottom-left, or bottom-right. Size is a per
 
 ## 12. Choosing the right standard badge
 
-The first four badges describe broad disclosure status. The remaining six describe a media type or workflow. A badge is a concise signal, not a complete provenance record. Keep supporting information when context requires it.
+The first four badges describe broad disclosure status. The next six describe a media type or workflow. No AI is a separate user declaration. A badge is a concise signal, not a complete provenance record. Keep supporting information when context requires it.
 
 ### 13. AI Assisted
 
@@ -130,7 +130,11 @@ Recommended when AI translated content between languages. Consider human review 
 
 Recommended when AI helped adapt content to a locale, market, or culture beyond direct translation.
 
-## 23. EU AI Act transparency background
+### 23. No AI
+
+No AI is a user-selected declaration. Nenolink AI Marker does not verify that content was created without the use of AI.
+
+## 24. EU AI Act transparency background
 
 Regulation (EU) 2024/1689, commonly called the EU AI Act, contains transparency obligations for providers and deployers of certain AI systems. Article 50 addresses, among other matters, informing people when they interact with certain AI systems, machine-readable marking of synthetic outputs by providers, and disclosure duties for certain deepfake and public-interest text uses. The exact duties, exceptions, timing, technical standards, and responsible party depend on the facts and applicable law.
 
@@ -138,7 +142,7 @@ Nenolink AI Marker adds a visible badge. A visible badge is not the same as ever
 
 Official source: Regulation (EU) 2024/1689, Article 50, EUR-Lex: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689
 
-## 24. File compatibility and processing limits
+## 25. File compatibility and processing limits
 
 As practical guidance, images up to 50 MB and videos up to 2 GB are recommended. These are recommendations, not guaranteed technical maximums; larger files may still work.
 
@@ -146,7 +150,7 @@ Not every image or video file can necessarily be processed. Compatibility and pr
 
 No fixed maximum file size is defined. A file that works on one computer may fail or take substantially longer on another because practical limits depend partly on the user's computer and available resources. Keep original files and review every processed output before publication or distribution.
 
-## 25. Limitations and user responsibility
+## 26. Limitations and user responsibility
 
 You are responsible for selecting an accurate badge, obtaining rights to source media and badge artwork, reviewing outputs, retaining originals, and meeting applicable contractual, platform, accessibility, privacy, intellectual-property, consumer-protection, and AI rules. Visible overlays can be cropped or removed. The tool does not embed cryptographic provenance and does not verify whether content was made with AI.
 
@@ -175,7 +179,7 @@ Nenolink AI Marker must not be presented as:
 - legal advice; or
 - a guarantee that content has been correctly classified.
 
-## 26. Troubleshooting
+## 27. Troubleshooting
 
 - **No badges found:** Confirm that PNG files are directly inside the folder shown in the message, then click **Refresh Badges**.
 - **Custom folder missing:** Reconnect the drive or choose a replacement folder. Standard badges remain available.

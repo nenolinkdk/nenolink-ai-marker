@@ -40,6 +40,7 @@ class MarkerSettings:
     logo_opacity: int = 100
     automatic_update_check: bool = True
     last_update_check: str = ""
+    shortcut_offer_shown: bool = False
 
     def validated(self) -> "MarkerSettings":
         positions = {"top-left", "top-right", "bottom-left", "bottom-right", "center"}
@@ -77,6 +78,7 @@ class MarkerSettings:
         self.logo_opacity = min(100, max(0, int(self.logo_opacity)))
         self.automatic_update_check = bool(self.automatic_update_check)
         self.last_update_check = str(self.last_update_check or "")
+        self.shortcut_offer_shown = bool(self.shortcut_offer_shown)
         return self
 
     def to_dict(self) -> dict[str, object]:

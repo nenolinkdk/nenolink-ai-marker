@@ -39,6 +39,17 @@ def test_release_docs_cover_current_workflows():
         assert all(term in text for term in terms), relative
 
 
+def test_release_docs_cover_eleven_badges_no_ai_and_first_run_offer():
+    english=(ROOT/"docs/USER_GUIDE_EN.md").read_text(encoding="utf-8")
+    danish=(ROOT/"docs/USER_GUIDE_DA.md").read_text(encoding="utf-8")
+    readme=(ROOT/"README.md").read_text(encoding="utf-8")
+    assert "eleven files" in english and "eleven documented standard PNGs" in readme
+    assert "de elleve filer" in danish
+    assert "No AI is a user-selected declaration. Nenolink AI Marker does not verify that content was created without the use of AI." in english
+    assert "No AI er en erklæring valgt af brugeren." in danish
+    assert "first normal launch" in english and "første normale start" in danish
+
+
 def test_distribution_notices_cover_runtime_and_ffmpeg():
     runtime = (ROOT / "THIRD_PARTY_NOTICES/RUNTIME_COMPONENTS.md").read_text(encoding="utf-8")
     ffmpeg = (ROOT / "THIRD_PARTY_NOTICES/FFMPEG.md").read_text(encoding="utf-8")

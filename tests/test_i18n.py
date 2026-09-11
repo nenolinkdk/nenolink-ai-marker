@@ -61,7 +61,7 @@ class TranslationTests(unittest.TestCase):
 
     def test_desktop_shortcut_is_translated_in_every_locale(self):
         locales=Path(__file__).resolve().parent.parent/"locales"
-        keys={"shortcut.create","shortcut.title","shortcut.success","shortcut.error"}
+        keys={"shortcut.create","shortcut.title","shortcut.success","shortcut.error","shortcut.offer_title","shortcut.offer_message","shortcut.offer_create","shortcut.offer_not_now","badge.no_ai_disclaimer"}
         for code in LANGUAGES.values():
             data=json.loads((locales/f"{code}.json").read_text(encoding="utf-8"))
             self.assertTrue(keys.issubset(data),code)

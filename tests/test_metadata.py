@@ -8,6 +8,7 @@ from nenolink_ai_marker.batch import BatchProcessor, scan_folder
 from nenolink_ai_marker.metadata import marker_metadata
 from nenolink_ai_marker.models import MarkerSettings
 from nenolink_ai_marker.processor import ImageProcessor
+from nenolink_ai_marker.inspection import inspect_file
 
 
 def _marked_image():
@@ -36,6 +37,17 @@ def test_png_writes_explicit_metadata_keys(tmp_path):
         assert result.info["AI Label"] == "AI Generated"
         assert result.info["Marker Version"] == __version__
         assert result.info["NenolinkAIMarker"] == "1"
+
+
+def test_no_ai_badge_metadata_round_trip_and_source_is_unchanged(tmp_path):
+    source=tmp_path/"source.png"; output=tmp_path/"source_ai.png"
+    badge=Path(__file__).resolve().parents[1]/"assets"/"badges"/"no-ai.png"
+    Image.new("RGB",(640,360),"white").save(source); before=source.read_bytes()
+    marked=ImageProcessor().process(source,badge,MarkerSettings(badge_name="no-ai.png"))
+    assert ImageProcessor().save(marked,output,marker_metadata("no-ai.png","No AI"))
+    inspected=inspect_file(output)
+    assert inspected.found and inspected.ai_label=="No AI" and inspected.marker_version==__version__
+    assert source.read_bytes()==before
 
 
 def test_webp_writes_exif_metadata_with_existing_pillow(tmp_path):

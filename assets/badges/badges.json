@@ -10,6 +10,7 @@
     {"id":"ai-audio","filename":"ai-audio.png","display_name":"AI Audio","category":"Media and workflow","description":"AI was used to generate or materially modify audio content."},
     {"id":"ai-software","filename":"ai-software.png","display_name":"AI Software","category":"Media and workflow","description":"AI assisted with software or source-code production."},
     {"id":"ai-translation","filename":"ai-translation.png","display_name":"AI Translation","category":"Media and workflow","description":"AI was used to translate content between languages."},
-    {"id":"ai-localization","filename":"ai-localization.png","display_name":"AI Localization","category":"Media and workflow","description":"AI assisted adaptation for a locale, market or culture."}
+    {"id":"ai-localization","filename":"ai-localization.png","display_name":"AI Localization","category":"Media and workflow","description":"AI assisted adaptation for a locale, market or culture."},
+    {"id":"no-ai","filename":"no-ai.png","display_name":"No AI","category":"Declaration","description":"No AI is a user-selected declaration. Nenolink AI Marker does not verify that content was created without the use of AI."}
   ]
 }
