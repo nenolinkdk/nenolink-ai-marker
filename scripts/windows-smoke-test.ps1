@@ -64,8 +64,8 @@ try {
             }
             if ($report.reset_verification.source -ne "standard" -or $report.reset_verification.selection -ne "ai-assisted.png" -or $report.reset_verification.video_mode -ne "permanent" -or $report.reset_verification.video_duration -ne 5 -or $report.reset_verification.batch_suffix -ne "_ai" -or -not $report.reset_verification.folder_retained -or $report.reset_verification.sources -ne 0 -or -not $report.reset_verification.scan_cleared -or -not $report.reset_verification.inspection_cleared -or -not $report.reset_verification.single_selected -or -not $report.reset_verification.welcome -or -not $report.reset_verification.welcome_mapped -or -not $report.reset_verification.welcome_illustration -or -not $report.reset_verification.preview_hidden) { throw "Packaged reset verification failed." }
             if ($report.translation_keys_visible -or -not $report.welcome_before_image -or -not $report.welcome_illustration -or $report.badges_found -ne 11 -or -not $report.badge_selector_visible -or $report.gallery_badges -ne 11 -or -not $report.gallery_selection_persisted -or -not $report.badges_tab_is_distinct -or -not $report.friendly_status -or $report.guide_filename -ne "Nenolink-AI-Marker-User-Guide-DA.pdf" -or $report.guide_paths.fr -ne "Nenolink-AI-Marker-User-Guide-EN.pdf" -or $report.danish.welcome_title -ne "Velkommen til Nenolink AI Marker" -or $report.german.welcome_title -ne "Willkommen bei Nenolink AI Marker") { throw "Packaged GUI verification report failed." }
-            $noAi=$report.image_metadata_verification.no_ai
-            if (-not $noAi.packaged_badge -or -not $noAi.written -or -not $noAi.inspected -or $noAi.label -ne "No AI" -or $noAi.version -ne "1.0.1") { throw "Packaged No AI metadata round-trip verification failed." }
+            $noAi=$report.no_ai_verification
+            if (-not $noAi.packaged_badge -or -not $noAi.written -or -not $noAi.inspected -or -not $noAi.source_unchanged -or -not $noAi.visible_overlay -or $noAi.label -ne "No AI" -or $noAi.version -ne "1.0.1") { throw "Packaged No AI metadata round-trip verification failed." }
             $windowFound = $true
             break
         }
