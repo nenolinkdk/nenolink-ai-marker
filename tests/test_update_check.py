@@ -167,14 +167,12 @@ def test_failed_automatic_check_is_not_retried_in_same_session():
 def test_failed_automatic_check_is_silent_and_leaves_app_usable():
     app = SimpleNamespace(
         _update_check_running=True,
-        check_updates_button=Mock(),
         translator=SimpleNamespace(text=lambda key: key),
     )
     with patch("nenolink_ai_marker.app.messagebox.showerror") as showerror:
         MarkerApp._finish_update_check(app, None, UpdateCheckError("offline"), False)
     showerror.assert_not_called()
     assert app._update_check_running is False
-    app.check_updates_button.configure.assert_called_once_with(state="normal")
 
 
 def test_only_the_exact_approved_update_page_can_be_opened():
@@ -223,7 +221,6 @@ def test_check_is_started_on_a_daemon_worker_not_the_ui_thread():
 
     app = SimpleNamespace(
         _update_check_running=False,
-        check_updates_button=Mock(),
         status_var=Mock(),
         translator=SimpleNamespace(text=lambda key: key),
     )

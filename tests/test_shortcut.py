@@ -22,7 +22,10 @@ def test_footer_uses_application_version_and_existing_row():
 def test_packaged_smoke_test_requires_footer_and_shortcut_evidence():
     source = (Path(__file__).parents[1] / "scripts" / "windows-smoke-test.ps1").read_text(encoding="utf-8-sig")
     assert "packaged_ui_evidence.footer_text" in source
+    assert "packaged_ui_evidence.footer_update_visible" in source
+    assert "packaged_ui_evidence.badges_update_button_present" in source
     assert "packaged_ui_evidence.shortcut_visible" in source
+    assert "packaged_ui_evidence.update_notification_present" in source
     assert 'shortcut_module -ne "nenolink_ai_marker.shortcut"' in source
     assert '$report.version -ne "1.0.1"' in source
 

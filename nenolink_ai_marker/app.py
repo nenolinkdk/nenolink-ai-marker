@@ -115,7 +115,9 @@ class MarkerApp(ctk.CTk):
         self.single_tab=self.tabs.add(self.tab_names["single"]); self.batch_tab=self.tabs.add(self.tab_names["batch"]); self.settings_tab=self.tabs.add(self.tab_names["badges"]); self.inspect_tab=self.tabs.add(self.tab_names["inspect"])
         self._single_ui(); self._batch_ui(); self._settings_ui(); self._inspect_ui()
         footer=ctk.CTkFrame(self,corner_radius=0,fg_color="transparent"); footer.grid(row=2,column=0,padx=20,pady=(0,8),sticky="ew"); footer.grid_columnconfigure(1,weight=1)
-        self.footer_copyright_label=ctk.CTkLabel(footer,text=f"© Copyright Henrik Nielsen - nenolink.com · v{__version__}",text_color="gray60"); self.footer_copyright_label.grid(row=0,column=0,sticky="w")
+        footer_left=ctk.CTkFrame(footer,corner_radius=0,fg_color="transparent"); footer_left.grid(row=0,column=0,sticky="w")
+        self.footer_copyright_label=ctk.CTkLabel(footer_left,text=f"© Copyright Henrik Nielsen - nenolink.com · v{__version__} ·",text_color="gray60"); self.footer_copyright_label.grid(row=0,column=0,sticky="w")
+        self.footer_update_link=ctk.CTkLabel(footer_left,text="",text_color="gray60",cursor="hand2"); self.footer_update_link.grid(row=0,column=1,padx=(4,0),sticky="w"); self.footer_update_link.bind("<Button-1>",lambda _event:self.check_for_updates())
         self.status_label=ctk.CTkLabel(footer,textvariable=self.status_var,text_color="gray60",anchor="e"); self.status_label.grid(row=0,column=1,padx=(20,0),sticky="ew")
 
     def _single_ui(self) -> None:
@@ -219,7 +221,6 @@ class MarkerApp(ctk.CTk):
         self.refresh_button=ctk.CTkButton(self.custom_controls,text="",command=self.refresh_badges); self.refresh_button.grid(row=1,column=2,padx=(4,0),pady=4)
         self.update_controls=ctk.CTkFrame(source,fg_color="transparent"); self.update_controls.grid(row=4,column=0,padx=16,pady=(2,10),sticky="ew"); self.update_controls.grid_columnconfigure(0,weight=1)
         self.automatic_update_checkbox=ctk.CTkCheckBox(self.update_controls,text="",variable=self.automatic_update_var,command=self._automatic_update_preference_changed); self.automatic_update_checkbox.grid(row=0,column=0,pady=4,sticky="w")
-        self.check_updates_button=ctk.CTkButton(self.update_controls,text="",command=self.check_for_updates,width=170); self.check_updates_button.grid(row=0,column=1,padx=(12,0),pady=4,sticky="e")
         self.update_privacy_label=ctk.CTkLabel(self.update_controls,text="",text_color="gray60",justify="left",anchor="w",wraplength=850); self.update_privacy_label.grid(row=1,column=0,columnspan=2,pady=(2,0),sticky="ew")
         self.desktop_shortcut_button=ctk.CTkButton(self.update_controls,text="",command=self.create_shortcut,width=180,height=28); self.desktop_shortcut_button.grid(row=2,column=0,pady=(8,0),sticky="w")
         self.badge_help=ctk.CTkLabel(tab,text="",justify="left",anchor="w",wraplength=1050); self.badge_help.grid(row=1,column=0,columnspan=2,padx=20,pady=4,sticky="ew")
@@ -298,7 +299,7 @@ class MarkerApp(ctk.CTk):
         self._render_inspection()
 
     def apply_translations(self) -> None:
-        t=self.translator.text; self.title(f"Nenolink AI Marker {__version__}"); self.guide_button.configure(text=t("button.user_guide")); self.reset_button.configure(text=t("button.reset")); self.batch_back_button.configure(text=t("button.back")); self.badges_back_button.configure(text=t("button.back")); self.inspect_back_button.configure(text=t("button.back")); self.automatic_update_checkbox.configure(text=t("update.automatic")); self.check_updates_button.configure(text=t("update.check")); self.update_privacy_label.configure(text=t("update.privacy")); self.desktop_shortcut_button.configure(text=t("shortcut.create")); self._render_update_notification()
+        t=self.translator.text; self.title(f"Nenolink AI Marker {__version__}"); self.guide_button.configure(text=t("button.user_guide")); self.reset_button.configure(text=t("button.reset")); self.batch_back_button.configure(text=t("button.back")); self.badges_back_button.configure(text=t("button.back")); self.inspect_back_button.configure(text=t("button.back")); self.automatic_update_checkbox.configure(text=t("update.automatic")); self.footer_update_link.configure(text=t("update.check")); self.update_privacy_label.configure(text=t("update.privacy")); self.desktop_shortcut_button.configure(text=t("shortcut.create")); self._render_update_notification()
         current_key=next((key for key,name in self.tab_names.items() if name==self.tabs.get()),"single")
         for key,translation_key in (("single","tab.single"),("batch","tab.batch"),("badges","tab.badges"),("inspect","tab.inspect")):
             new=t(translation_key); old=self.tab_names[key]
@@ -339,7 +340,7 @@ class MarkerApp(ctk.CTk):
         if self._update_check_running:
             if manual:self.status_var.set(self.translator.text("update.checking"))
             return
-        self._update_check_running=True; self.check_updates_button.configure(state="disabled")
+        self._update_check_running=True
         if manual:self.status_var.set(self.translator.text("update.checking"))
         def worker():
             try:result=check_for_update(__version__); error=None
@@ -348,7 +349,7 @@ class MarkerApp(ctk.CTk):
             except (RuntimeError,TclError):pass
         threading.Thread(target=worker,name="NenolinkUpdateCheck",daemon=True).start()
     def _finish_update_check(self,result,error,manual):
-        self._update_check_running=False; self.check_updates_button.configure(state="normal")
+        self._update_check_running=False
         if error:
             if manual:messagebox.showerror(self.translator.text("error.title"),self.translator.text("update.error"))
             return
@@ -702,7 +703,7 @@ class MarkerApp(ctk.CTk):
             try:open_user_guide(guide); guide_opened=True
             except OSError:guide_opened=False
         prior_tab=self.tabs.get(); self.show_tab("badges"); self.update_idletasks(); self.update()
-        packaged_ui_evidence={"footer_text":self.footer_copyright_label.cget("text"),"footer_visible":bool(self.footer_copyright_label.winfo_ismapped()),"shortcut_text":self.desktop_shortcut_button.cget("text"),"shortcut_visible":bool(self.desktop_shortcut_button.winfo_ismapped()),"shortcut_module":create_desktop_shortcut.__module__,"shortcut_callable":callable(create_desktop_shortcut)}
+        packaged_ui_evidence={"footer_text":self.footer_copyright_label.cget("text"),"footer_visible":bool(self.footer_copyright_label.winfo_ismapped()),"footer_update_text":self.footer_update_link.cget("text"),"footer_update_visible":bool(self.footer_update_link.winfo_ismapped()),"footer_update_bound":bool(self.footer_update_link.bind("<Button-1>")),"badges_update_button_present":hasattr(self,"check_updates_button"),"shortcut_text":self.desktop_shortcut_button.cget("text"),"shortcut_visible":bool(self.desktop_shortcut_button.winfo_ismapped()),"shortcut_module":create_desktop_shortcut.__module__,"shortcut_callable":callable(create_desktop_shortcut),"update_notification_present":bool(self.update_notification.winfo_exists()),"update_notification_bound":bool(self.update_notification.bind("<Button-1>")),"approved_update_handler":callable(self._open_update_page)}
         self.tabs.set(prior_tab); self.update_idletasks()
         payload={"version":__version__,"packaged_ui_evidence":packaged_ui_evidence,"english":english,"danish":danish,"german":german,"french":french,"initial_badge_settings":initial_badge_settings,"welcome_before_image":welcome_before_image,"welcome_illustration":welcome_illustration,"welcome_hidden_after_image":(not sample or self.welcome_frame.winfo_manager()==""),"badges_found":len(badge_names),"badge_selector_visible":self.badge_menu.winfo_manager()=="grid","badge_selector_values":list(self.badge_menu.cget("values")),"gallery_badges":len(self.gallery_buttons),"gallery_selection_persisted":gallery_selection_persisted,"badges_tab_is_distinct":self.badge_source_frame.master is self.settings_tab,"selected_badges":selected,"image_preview":bool(self.preview_photo),"selected_badge_written":selected_badge_written,"image_metadata_verification":image_metadata_verification,"logo_verification":logo_verification,"custom_verification":custom_verification,"friendly_status":("_MEI" not in self.status_var.get() and "assets" not in self.status_var.get()),"process_button_state":self.process_button.cget("state"),"guide_language":guide_language,"guide_filename":guide.name,"guide_paths":{code:path.name for code,path in guide_paths.items()},"guide_exists":guide.is_file(),"guide_opened":guide_opened,"translation_keys_visible":any("." in str(value) and " " not in str(value) for group in (english,danish,german,french) for value in group.values() if isinstance(value,str))}
         ffmpeg_path=find_ffmpeg(); payload["ffmpeg_found"]=bool(ffmpeg_path); payload["ffmpeg_path"]=ffmpeg_path
