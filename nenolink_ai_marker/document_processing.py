@@ -14,6 +14,38 @@ from .models import MarkerSettings, Position, validated_filename_suffix
 
 
 ContentKind = Literal["image", "video", "pdf", "pptx", "docx"]
+SelectionMode = Literal["single", "selected", "range", "all"]
+
+
+@dataclass(frozen=True, slots=True)
+class ItemSelection:
+    """One-based item selection shared by slide and page processors."""
+
+    mode: SelectionMode = "all"
+    items: tuple[int, ...] = ()
+    start: int | None = None
+    end: int | None = None
+
+    def resolve(self, item_count: int) -> tuple[int, ...]:
+        if item_count < 1:
+            raise ValueError("The document contains no selectable items.")
+        if self.mode == "all":
+            values = tuple(range(1, item_count + 1))
+        elif self.mode in {"single", "selected"}:
+            values = tuple(dict.fromkeys(int(item) for item in self.items))
+            if self.mode == "single" and len(values) != 1:
+                raise ValueError("Single selection requires exactly one item.")
+            if not values:
+                raise ValueError("At least one item must be selected.")
+        elif self.mode == "range":
+            if self.start is None or self.end is None or self.start > self.end:
+                raise ValueError("A valid selection range is required.")
+            values = tuple(range(int(self.start), int(self.end) + 1))
+        else:
+            raise ValueError(f"Unsupported selection mode: {self.mode}")
+        if any(item < 1 or item > item_count for item in values):
+            raise ValueError(f"Selection must be between 1 and {item_count}.")
+        return values
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +126,7 @@ class ProcessingRequest:
     source: Path
     destination: Path
     disclosure: DisclosureSettings
+    badge_path: Path | None = None
     logo: LogoSettings = LogoSettings()
     output: OutputSettings = OutputSettings()
 
@@ -106,6 +139,7 @@ class ProcessingRequest:
             source=source,
             destination=destination,
             disclosure=self.disclosure.validated(),
+            badge_path=Path(self.badge_path) if self.badge_path else None,
             logo=self.logo.validated(),
             output=self.output.validated(),
         )

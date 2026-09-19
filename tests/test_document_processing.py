@@ -4,6 +4,7 @@ import pytest
 
 from nenolink_ai_marker.document_processing import (
     DisclosureSettings,
+    ItemSelection,
     LogoSettings,
     OutputSettings,
     ProcessingRequest,
@@ -72,3 +73,31 @@ def test_existing_marker_settings_adapt_without_changing_ui_language():
 
 def test_source_guard_accepts_distinct_paths(tmp_path):
     ensure_distinct_paths(tmp_path / "source.pdf", tmp_path / "source_ai.pdf")
+
+
+@pytest.mark.parametrize(
+    ("selection", "expected"),
+    [
+        (ItemSelection(), (1, 2, 3, 4, 5)),
+        (ItemSelection("single", (3,)), (3,)),
+        (ItemSelection("selected", (4, 2, 4)), (4, 2)),
+        (ItemSelection("range", start=2, end=4), (2, 3, 4)),
+    ],
+)
+def test_item_selection_resolves_one_based_modes(selection, expected):
+    assert selection.resolve(5) == expected
+
+
+@pytest.mark.parametrize(
+    "selection",
+    [
+        ItemSelection("single"),
+        ItemSelection("single", (1, 2)),
+        ItemSelection("selected", ()),
+        ItemSelection("range", start=4, end=2),
+        ItemSelection("range", start=1, end=6),
+    ],
+)
+def test_item_selection_rejects_invalid_values(selection):
+    with pytest.raises(ValueError):
+        selection.resolve(5)
