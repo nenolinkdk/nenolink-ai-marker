@@ -66,6 +66,14 @@ class TranslationTests(unittest.TestCase):
             data=json.loads((locales/f"{code}.json").read_text(encoding="utf-8"))
             self.assertTrue(keys.issubset(data),code)
 
+    def test_content_type_shell_is_translated_in_every_locale(self):
+        locales=Path(__file__).resolve().parent.parent/"locales"
+        keys={"content.images","content.video","content.pdf","content.powerpoint","content.word","content.workspace","content.planned_title","content.planned_message"}
+        for code in LANGUAGES.values():
+            data=json.loads((locales/f"{code}.json").read_text(encoding="utf-8"))
+            self.assertTrue(keys.issubset(data),code)
+            self.assertTrue(all(data[key].strip() for key in keys),code)
+
     def test_live_welcome_language_change_and_english_return(self):
         locales = Path(__file__).resolve().parent.parent / "locales"
         translator = Translator(locales,"en")

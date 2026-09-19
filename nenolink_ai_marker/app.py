@@ -27,7 +27,7 @@ from .paths import badge_directory, locale_directory, localized_user_guide_path,
 from .processor import ImageProcessor, SUPPORTED_EXTENSIONS
 from .preview import ImagePreviewRenderer
 from .shortcut import ShortcutError, create_desktop_shortcut
-from .ui_state import show_welcome
+from .ui_state import ContentWorkspaceState, show_welcome
 from .update_check import UpdateCheckError, check_for_update, is_approved_update_url, should_check_automatically
 
 
@@ -68,7 +68,7 @@ class MarkerApp(ctk.CTk):
         self.translator = Translator(locale_directory(), saved.language)
         self.badge_sources = BadgeSourceManager(badge_directory())
         self.badges = self.badge_sources.repository(saved.badge_source, saved.custom_badge_folder)
-        self.sources: list[Path] = []; self.scan: FolderScan | None = None
+        self.sources: list[Path] = []; self.workspace_state=ContentWorkspaceState(); self.scan: FolderScan | None = None
         self.inspection_path: Path | None = None; self.inspection_result: InspectionResult | None = None; self.inspection_error = ""
         self._reset_after_id = None
         self._automatic_update_attempted = False; self._update_check_running = False
@@ -105,7 +105,7 @@ class MarkerApp(ctk.CTk):
             self.after(700,self._show_first_run_shortcut_offer)
 
     def _build_ui(self) -> None:
-        self.grid_columnconfigure(0,weight=1); self.grid_rowconfigure(1,weight=1)
+        self.grid_columnconfigure(0,weight=1); self.grid_rowconfigure(2,weight=1)
         header=ctk.CTkFrame(self,corner_radius=0); header.grid(row=0,column=0,sticky="ew"); header.grid_columnconfigure(1,weight=1)
         ctk.CTkLabel(header,text="Nenolink AI Marker",font=ctk.CTkFont(size=24,weight="bold")).grid(row=0,column=0,padx=20,pady=14)
         self.update_notification=ctk.CTkLabel(header,text="",text_color="#d62828",font=ctk.CTkFont(weight="bold"),cursor="hand2")
@@ -113,15 +113,25 @@ class MarkerApp(ctk.CTk):
         self.language_menu=ctk.CTkOptionMenu(header,variable=self.language_var,values=list(LANGUAGES),command=self.change_language,width=150); self.language_menu.grid(row=0,column=2,padx=8)
         self.reset_button=ctk.CTkButton(header,text="",command=self.reset_application,width=100); self.reset_button.grid(row=0,column=3,padx=8)
         self.guide_button=ctk.CTkButton(header,text="",command=self.open_guide,width=170); self.guide_button.grid(row=0,column=4,padx=(8,20))
-        self.tabs=ctk.CTkTabview(self); self.tabs.grid(row=1,column=0,padx=16,pady=12,sticky="nsew")
-        self.tab_names={"single":self.translator.text("tab.single"),"batch":self.translator.text("tab.batch"),"badges":self.translator.text("tab.badges"),"inspect":self.translator.text("tab.inspect")}
-        self.single_tab=self.tabs.add(self.tab_names["single"]); self.batch_tab=self.tabs.add(self.tab_names["batch"]); self.settings_tab=self.tabs.add(self.tab_names["badges"]); self.inspect_tab=self.tabs.add(self.tab_names["inspect"])
-        self._single_ui(); self._batch_ui(); self._settings_ui(); self._inspect_ui()
-        footer=ctk.CTkFrame(self,corner_radius=0,fg_color="transparent"); footer.grid(row=2,column=0,padx=20,pady=(0,8),sticky="ew"); footer.grid_columnconfigure(1,weight=1)
+        self.content_display_to_kind={}; self.content_navigation_var=ctk.StringVar()
+        self.content_navigation=ctk.CTkSegmentedButton(self,variable=self.content_navigation_var,values=["Images","Video","PDF","PowerPoint / Slides","Word"],command=self.change_content_workspace,height=30)
+        self.content_navigation.grid(row=1,column=0,padx=20,pady=(8,0),sticky="ew")
+        self.tabs=ctk.CTkTabview(self); self.tabs.grid(row=2,column=0,padx=16,pady=(6,10),sticky="nsew")
+        self.tab_names={"single":self.translator.text("tab.single"),"documents":self.translator.text("content.workspace"),"batch":self.translator.text("tab.batch"),"badges":self.translator.text("tab.badges"),"inspect":self.translator.text("tab.inspect")}
+        self.single_tab=self.tabs.add(self.tab_names["single"]); self.document_tab=self.tabs.add(self.tab_names["documents"]); self.batch_tab=self.tabs.add(self.tab_names["batch"]); self.settings_tab=self.tabs.add(self.tab_names["badges"]); self.inspect_tab=self.tabs.add(self.tab_names["inspect"])
+        self._single_ui(); self._document_ui(); self._batch_ui(); self._settings_ui(); self._inspect_ui()
+        footer=ctk.CTkFrame(self,corner_radius=0,fg_color="transparent"); footer.grid(row=3,column=0,padx=20,pady=(0,8),sticky="ew"); footer.grid_columnconfigure(1,weight=1)
         footer_left=ctk.CTkFrame(footer,corner_radius=0,fg_color="transparent"); footer_left.grid(row=0,column=0,sticky="w")
         self.footer_copyright_label=ctk.CTkLabel(footer_left,text=f"© Copyright Henrik Nielsen - nenolink.com · v{__version__} ·",text_color="gray60"); self.footer_copyright_label.grid(row=0,column=0,sticky="w")
         self.footer_update_link=ctk.CTkLabel(footer_left,text="",text_color="gray60",cursor="hand2"); self.footer_update_link.grid(row=0,column=1,padx=(4,0),sticky="w"); self._footer_update_callback=lambda _event:self.check_for_updates(); self.footer_update_link.bind("<Button-1>",self._footer_update_callback)
         self.status_label=ctk.CTkLabel(footer,textvariable=self.status_var,text_color="gray60",anchor="e"); self.status_label.grid(row=0,column=1,padx=(20,0),sticky="ew")
+
+    def _document_ui(self) -> None:
+        tab=self.document_tab; tab.grid_columnconfigure(0,weight=1); tab.grid_rowconfigure(0,weight=1)
+        panel=ctk.CTkFrame(tab); panel.grid(row=0,column=0,padx=32,pady=32,sticky="nsew"); panel.grid_columnconfigure(0,weight=1); panel.grid_rowconfigure(2,weight=1)
+        self.document_format_label=ctk.CTkLabel(panel,text="",font=ctk.CTkFont(size=24,weight="bold")); self.document_format_label.grid(row=0,column=0,padx=24,pady=(32,8))
+        self.document_planned_title=ctk.CTkLabel(panel,text="",font=ctk.CTkFont(size=18,weight="bold")); self.document_planned_title.grid(row=1,column=0,padx=24,pady=8)
+        self.document_planned_message=ctk.CTkLabel(panel,text="",text_color="gray60",wraplength=680,justify="center"); self.document_planned_message.grid(row=2,column=0,padx=24,pady=(4,32),sticky="n")
 
     def _single_ui(self) -> None:
         tab=self.single_tab; tab.grid_columnconfigure(1,weight=1); tab.grid_rowconfigure(0,weight=1)
@@ -303,12 +313,14 @@ class MarkerApp(ctk.CTk):
 
     def apply_translations(self) -> None:
         t=self.translator.text; self.title(f"Nenolink AI Marker {__version__}"); self.guide_button.configure(text=t("button.user_guide")); self.reset_button.configure(text=t("button.reset")); self.batch_back_button.configure(text=t("button.back")); self.badges_back_button.configure(text=t("button.back")); self.inspect_back_button.configure(text=t("button.back")); self.automatic_update_checkbox.configure(text=t("update.automatic")); self.footer_update_link.configure(text=t("update.check")); self.update_privacy_label.configure(text=t("update.privacy")); self.desktop_shortcut_button.configure(text=t("shortcut.create")); self._render_update_notification()
+        content_pairs=(("image","content.images"),("video","content.video"),("pdf","content.pdf"),("pptx","content.powerpoint"),("docx","content.word"))
+        self.content_display_to_kind={t(key):kind for kind,key in content_pairs}; self.content_navigation.configure(values=list(self.content_display_to_kind)); self.content_navigation_var.set(next(label for label,kind in self.content_display_to_kind.items() if kind==self.workspace_state.active))
         current_key=next((key for key,name in self.tab_names.items() if name==self.tabs.get()),"single")
-        for key,translation_key in (("single","tab.single"),("batch","tab.batch"),("badges","tab.badges"),("inspect","tab.inspect")):
+        for key,translation_key in (("single","tab.single"),("documents","content.workspace"),("batch","tab.batch"),("badges","tab.badges"),("inspect","tab.inspect")):
             new=t(translation_key); old=self.tab_names[key]
             if old != new:self.tabs.rename(old,new); self.tab_names[key]=new
         self.tabs.set(self.tab_names[current_key])
-        self.open_button.configure(text="1. "+t("button.open_media")); self.process_button.configure(text=t("button.process_video") if self.sources and self.sources[0].suffix.lower() in VIDEO_EXTENSIONS else t("button.process")); self.file_label.configure(text=t("files.none") if not self.sources else t("files.selected",count=len(self.sources),name=self.sources[0].name))
+        self.open_button.configure(text="1. "+t("button.open_media")); self.process_button.configure(text=t("button.process_video") if self.workspace_state.active=="video" else t("button.process")); self.file_label.configure(text=t("files.none") if not self.sources else t("files.selected",count=len(self.sources),name=self.sources[0].name))
         self.file_size_guidance.configure(text=t("files.size_guidance")); self.batch_size_guidance.configure(text=t("files.size_guidance_short"))
         self.video_mode_display_to_value={t("video.mode.permanent"):"permanent",t("video.mode.beginning"):"beginning",t("video.mode.end"):"end"}
         video_values=list(self.video_mode_display_to_value); self.video_mode_menu.configure(values=video_values); self.batch_video_mode_menu.configure(values=video_values)
@@ -326,8 +338,19 @@ class MarkerApp(ctk.CTk):
         for key,check in self.batch_checks: check.configure(text=t(key))
         self.scan_button.configure(text=t("button.scan_folder")); self.start_batch_button.configure(text=t("button.start_batch")); self.cancel_batch_button.configure(text=t("button.cancel_batch"))
         self.inspect_title.configure(text=t("inspect.title")); self.inspect_intro.configure(text=t("inspect.intro")); self.inspect_choose_button.configure(text=t("inspect.choose")); self.inspect_selected_heading.configure(text=t("inspect.selected")); self.inspect_file_label.configure(text=t("inspect.file")); self.inspect_format_label.configure(text=t("inspect.format_size")); self.inspect_metadata_heading.configure(text=t("inspect.metadata")); self.inspect_status_label.configure(text=t("inspect.status")); self.inspect_software_label.configure(text=t("inspect.software")); self.inspect_ai_label.configure(text=t("inspect.ai_label")); self.inspect_marker_version_label.configure(text=t("inspect.marker_version")); self._render_inspection()
+        self._render_document_workspace()
 
     def change_language(self,name): self.translator.set_language(LANGUAGES.get(name,"en")); self.apply_translations(); self._save()
+    def change_content_workspace(self,label):
+        target=self.content_display_to_kind.get(label,"image"); self.sources=self.workspace_state.switch(target,self.sources)
+        if target in {"image","video"}:
+            self.show_tab("single"); self.video_controls.grid() if target=="video" else self.video_controls.grid_remove(); self._update_logo_controls(); self.update_preview()
+        else:self.show_tab("documents"); self._render_document_workspace()
+        self.apply_translations()
+    def _render_document_workspace(self):
+        if not hasattr(self,"document_format_label"):return
+        label=next((display for display,kind in self.content_display_to_kind.items() if kind==self.workspace_state.active),self.workspace_state.active.upper())
+        self.document_format_label.configure(text=label); self.document_planned_title.configure(text=self.translator.text("content.planned_title")); self.document_planned_message.configure(text=self.translator.text("content.planned_message",format=label))
     def _render_update_notification(self):
         if self._available_update_version:
             self.update_notification.configure(text=self.translator.text("update.available",version=self._available_update_version)); self.update_notification.grid()
@@ -413,7 +436,7 @@ class MarkerApp(ctk.CTk):
             self.inspect_format_var.set(""); self.inspect_status_var.set(t("inspect.ready")); self.inspect_software_var.set(missing); self.inspect_label_var.set(missing); self.inspect_version_var.set(missing); self.inspect_message_var.set(t("inspect.no_ai_warning"))
     def reset_application(self):
         defaults=MarkerSettings(); custom_folder=self.custom_badge_var.get()
-        self.sources=[]; self.preview_photo=None; self.preview_image=None; self.preview_renderer.clear(); self.video_controls.grid_remove()
+        self.sources=[]; self.workspace_state.clear(); self.preview_photo=None; self.preview_image=None; self.preview_renderer.clear(); self.video_controls.grid_remove()
         self.badge_source_var.set("standard"); self.custom_badge_var.set(custom_folder); self.badge_var.set(defaults.badge_name); self.position_var.set(defaults.position)
         self.size_var.set(defaults.size_percent); self.margin_var.set(defaults.margin); self.opacity_var.set(defaults.opacity)
         self.batch_suffix_var.set(defaults.batch_filename_suffix)
@@ -463,7 +486,7 @@ class MarkerApp(ctk.CTk):
     def _update_logo_labels(self):
         t=self.translator.text; self.logo_size_label.configure(text=t("logo.size",value=self.logo_size_var.get())); self.logo_margin_label.configure(text=t("logo.margin",value=self.logo_margin_var.get())); self.logo_opacity_label.configure(text=t("logo.opacity",value=self.logo_opacity_var.get()))
     def _update_logo_controls(self):
-        is_video=bool(self.sources and self.sources[0].suffix.lower() in VIDEO_EXTENSIONS)
+        is_video=self.workspace_state.active=="video" or bool(self.sources and self.sources[0].suffix.lower() in VIDEO_EXTENSIONS)
         enabled=self.logo_enabled_var.get() and not is_video
         state="normal" if enabled else "disabled"
         for widget in (self.logo_position_menu,self.logo_size_slider,self.logo_margin_slider,self.logo_opacity_slider):widget.configure(state=state)
@@ -530,11 +553,12 @@ class MarkerApp(ctk.CTk):
         except OSError as error:self.single_badge_preview_label.configure(image=None,text=str(error))
 
     def open_images(self):
-        selected=filedialog.askopenfilenames(title=self.translator.text("dialog.open_media"),filetypes=[(self.translator.text("files.supported_media"),"*.jpg *.jpeg *.png *.webp *.mp4 *.mov *.mkv *.avi *.webm"),(self.translator.text("files.all"),"*.*")])
+        video=self.workspace_state.active=="video"; extensions=VIDEO_EXTENSIONS if video else SUPPORTED_EXTENSIONS; pattern=" ".join(f"*{extension}" for extension in sorted(extensions))
+        selected=filedialog.askopenfilenames(title=self.translator.text("dialog.open_media"),filetypes=[(self.translator.text("files.supported_media"),pattern),(self.translator.text("files.all"),"*.*")])
         if selected:
-            candidates=[Path(p) for p in selected if Path(p).suffix.lower() in SUPPORTED_EXTENSIONS|VIDEO_EXTENSIONS]
+            candidates=[Path(p) for p in selected if Path(p).suffix.lower() in extensions]
             if any(is_above_recommended_size(p) for p in candidates) and not messagebox.askokcancel(self.translator.text("warning.large_title"),self.translator.text("warning.large_file")):return
-            self.sources=candidates; self.file_label.configure(text=self.translator.text("files.selected",count=len(self.sources),name=self.sources[0].name) if self.sources else self.translator.text("files.none_supported")); self.process_button.configure(text=self.translator.text("button.process_video") if self.sources and self.sources[0].suffix.lower() in VIDEO_EXTENSIONS else self.translator.text("button.process")); self.video_controls.grid() if self.sources and self.sources[0].suffix.lower() in VIDEO_EXTENSIONS else self.video_controls.grid_remove(); self._update_logo_controls(); self.update_preview()
+            self.sources=candidates; self.workspace_state.media_sources[self.workspace_state.active]=list(candidates); self.file_label.configure(text=self.translator.text("files.selected",count=len(self.sources),name=self.sources[0].name) if self.sources else self.translator.text("files.none_supported")); self.process_button.configure(text=self.translator.text("button.process_video") if video else self.translator.text("button.process")); self.video_controls.grid() if video else self.video_controls.grid_remove(); self._update_logo_controls(); self.update_preview()
 
     def update_preview(self):
         badge=self.badges.find(self.badge_var.get())
@@ -549,7 +573,9 @@ class MarkerApp(ctk.CTk):
         except (OSError,ValueError) as error:self.status_var.set(self.translator.text("error.preview",error=error))
 
     def clear_images(self):
-        self.sources=[]; self.preview_renderer.clear(); self.file_label.configure(text=self.translator.text("files.none")); self._update_logo_controls(); self.update_preview()
+        self.sources=[]
+        if self.workspace_state.active in self.workspace_state.media_sources:self.workspace_state.media_sources[self.workspace_state.active]=[]
+        self.preview_renderer.clear(); self.file_label.configure(text=self.translator.text("files.none")); self._update_logo_controls(); self.update_preview()
 
     def save_images(self):
         badge=self.badges.find(self.badge_var.get())
