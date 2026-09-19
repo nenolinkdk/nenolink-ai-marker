@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Literal, Protocol, runtime_checkable
 
 from .models import MarkerSettings, Position, validated_filename_suffix
+from .metadata import MarkerMetadata
 
 
 ContentKind = Literal["image", "video", "pdf", "pptx", "docx"]
@@ -127,6 +128,7 @@ class ProcessingRequest:
     destination: Path
     disclosure: DisclosureSettings
     badge_path: Path | None = None
+    metadata: MarkerMetadata | None = None
     logo: LogoSettings = LogoSettings()
     output: OutputSettings = OutputSettings()
 

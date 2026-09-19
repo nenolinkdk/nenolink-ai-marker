@@ -18,6 +18,7 @@ from .document_processing import (
     ProcessingRequest,
     ProcessorCapabilities,
 )
+from .metadata import MarkerMetadata, marker_metadata
 
 
 P = "http://schemas.openxmlformats.org/presentationml/2006/main"
@@ -26,11 +27,18 @@ R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 PKG_REL = "http://schemas.openxmlformats.org/package/2006/relationships"
 IMAGE_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
 CONTENT_TYPES = "http://schemas.openxmlformats.org/package/2006/content-types"
+CUSTOM_PROPERTIES = "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties"
+VT = "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"
+CUSTOM_PROPERTIES_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties"
+CUSTOM_PROPERTIES_TYPE = "application/vnd.openxmlformats-officedocument.custom-properties+xml"
+CUSTOM_PROPERTIES_FORMAT_ID = "{D5CDD505-2E9C-101B-9397-08002B2CF9AE}"
 EMU_PER_PIXEL = 9525
 
 for prefix, uri in (("p", P), ("a", A), ("r", R)):
     ET.register_namespace(prefix, uri)
 ET.register_namespace("", PKG_REL)
+ET.register_namespace("cp", CUSTOM_PROPERTIES)
+ET.register_namespace("vt", VT)
 
 
 def _q(namespace: str, local: str) -> str:
@@ -44,6 +52,7 @@ class PptxResult:
     selected_slides: tuple[int, ...]
     badge_shapes: int
     logo_shapes: int
+    metadata_written: bool
 
 
 class PptxProcessor(DocumentProcessor):
@@ -51,7 +60,7 @@ class PptxProcessor(DocumentProcessor):
         "pptx",
         frozenset({".pptx"}),
         supports_logo=True,
-        supports_metadata=False,
+        supports_metadata=True,
         supports_preview=False,
         supports_batch=False,
         supports_selection=True,
@@ -87,9 +96,23 @@ class PptxProcessor(DocumentProcessor):
                 badge_media = self._available_media_name(names, "nenolink-ai-marker-badge")
                 logo_media = self._available_media_name(names | {badge_media}, "nenolink-company-logo") if logo_data else None
 
+                metadata = request.metadata or marker_metadata(
+                    request.disclosure.badge_name,
+                    request.disclosure.label,
+                )
+                content_types, package_rels, custom_properties = self._write_metadata_parts(
+                    source_zip.read("[Content_Types].xml"),
+                    source_zip.read("_rels/.rels") if "_rels/.rels" in names else None,
+                    source_zip.read("docProps/custom.xml") if "docProps/custom.xml" in names else None,
+                    metadata,
+                    request.disclosure.language,
+                )
+
                 replacements: dict[str, bytes] = {
                     badge_media: badge_bytes,
-                    "[Content_Types].xml": self._ensure_png_content_type(source_zip.read("[Content_Types].xml")),
+                    "[Content_Types].xml": self._ensure_png_content_type(content_types),
+                    "_rels/.rels": package_rels,
+                    "docProps/custom.xml": custom_properties,
                 }
                 if logo_data and logo_media:
                     replacements[logo_media] = logo_data[0]
@@ -133,7 +156,7 @@ class PptxProcessor(DocumentProcessor):
                     temporary_path.unlink(missing_ok=True)
         except KeyError as error:
             raise ValueError(f"The presentation is missing a required PPTX part: {error}") from error
-        return PptxResult(request.destination, len(slides), selected, badge_shapes, logo_shapes)
+        return PptxResult(request.destination, len(slides), selected, badge_shapes, logo_shapes, True)
 
     @staticmethod
     def _ordered_slides(presentation: ET.Element, relationships: ET.Element) -> list[str]:
@@ -194,6 +217,117 @@ class PptxProcessor(DocumentProcessor):
         if not has_png:
             ET.SubElement(root, _q(CONTENT_TYPES, "Default"), Extension="png", ContentType="image/png")
         return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+    @staticmethod
+    def _write_metadata_parts(
+        content_types_xml: bytes,
+        package_rels_xml: bytes | None,
+        custom_properties_xml: bytes | None,
+        metadata: MarkerMetadata,
+        language: str,
+    ) -> tuple[bytes, bytes, bytes]:
+        content_types = ET.fromstring(content_types_xml)
+        custom_override = next(
+            (
+                item
+                for item in content_types.findall(_q(CONTENT_TYPES, "Override"))
+                if item.attrib.get("PartName") == "/docProps/custom.xml"
+            ),
+            None,
+        )
+        if custom_override is None:
+            ET.SubElement(
+                content_types,
+                _q(CONTENT_TYPES, "Override"),
+                PartName="/docProps/custom.xml",
+                ContentType=CUSTOM_PROPERTIES_TYPE,
+            )
+
+        package_rels = (
+            ET.fromstring(package_rels_xml)
+            if package_rels_xml
+            else ET.Element(_q(PKG_REL, "Relationships"))
+        )
+        custom_relation = next(
+            (
+                relation
+                for relation in package_rels.findall(_q(PKG_REL, "Relationship"))
+                if relation.attrib.get("Type") == CUSTOM_PROPERTIES_REL
+            ),
+            None,
+        )
+        if custom_relation is None:
+            used_ids = {relation.attrib.get("Id", "") for relation in package_rels.findall(_q(PKG_REL, "Relationship"))}
+            index = 1
+            while f"rId{index}" in used_ids:
+                index += 1
+            ET.SubElement(
+                package_rels,
+                _q(PKG_REL, "Relationship"),
+                Id=f"rId{index}",
+                Type=CUSTOM_PROPERTIES_REL,
+                Target="docProps/custom.xml",
+            )
+
+        properties = (
+            ET.fromstring(custom_properties_xml)
+            if custom_properties_xml
+            else ET.Element(_q(CUSTOM_PROPERTIES, "Properties"))
+        )
+        values = {
+            "Nenolink AI Marker": metadata.identifier,
+            "Software": metadata.software,
+            "AI Label": metadata.ai_label,
+            "Marker Version": metadata.marker_version,
+            "Disclosure Language": language,
+        }
+        existing = {
+            item.attrib.get("name", ""): item
+            for item in properties.findall(_q(CUSTOM_PROPERTIES, "property"))
+        }
+        used_pids = {
+            int(item.attrib["pid"])
+            for item in properties.findall(_q(CUSTOM_PROPERTIES, "property"))
+            if item.attrib.get("pid", "").isdigit()
+        }
+        next_pid = max(used_pids, default=1) + 1
+        for name, value in values.items():
+            item = existing.get(name)
+            if item is None:
+                while next_pid in used_pids:
+                    next_pid += 1
+                item = ET.SubElement(
+                    properties,
+                    _q(CUSTOM_PROPERTIES, "property"),
+                    fmtid=CUSTOM_PROPERTIES_FORMAT_ID,
+                    pid=str(next_pid),
+                    name=name,
+                )
+                used_pids.add(next_pid)
+                next_pid += 1
+            else:
+                for child in list(item):
+                    item.remove(child)
+            ET.SubElement(item, _q(VT, "lpwstr")).text = str(value)
+
+        serialize = lambda element: ET.tostring(element, encoding="utf-8", xml_declaration=True)
+        return serialize(content_types), serialize(package_rels), serialize(properties)
+
+    @staticmethod
+    def read_metadata(path: Path) -> dict[str, str]:
+        """Read Nenolink custom properties without changing the presentation."""
+        try:
+            with ZipFile(path, "r") as archive:
+                root = ET.fromstring(archive.read("docProps/custom.xml"))
+        except (KeyError, OSError):
+            return {}
+        values: dict[str, str] = {}
+        for item in root.findall(_q(CUSTOM_PROPERTIES, "property")):
+            name = item.attrib.get("name")
+            value = next(iter(item), None)
+            if name and value is not None:
+                values[name] = value.text or ""
+        return values
 
     @staticmethod
     def _geometry(

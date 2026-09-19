@@ -8,6 +8,7 @@ from zipfile import ZipFile
 from PIL import Image
 import pytest
 
+from nenolink_ai_marker import __version__
 from nenolink_ai_marker.document_processing import (
     DisclosureSettings,
     ItemSelection,
@@ -144,6 +145,33 @@ def test_pptx_preserves_unselected_package_parts_and_unicode_paths(tmp_path):
         assert archive.read("custom/untouched.bin") == untouched
         ET.fromstring(archive.read("ppt/slides/slide1.xml"))
         ET.fromstring(archive.read("ppt/slides/_rels/slide1.xml.rels"))
+
+
+def test_pptx_metadata_round_trip_records_disclosure_not_source_details(tmp_path):
+    request, source = _request(tmp_path, unicode_names=True)
+    request = ProcessingRequest(
+        source=request.source,
+        destination=request.destination,
+        disclosure=DisclosureSettings(
+            "ai-assisted.png", "Assisté par IA", language="fr",
+        ),
+        badge_path=request.badge_path,
+    )
+
+    result = PptxProcessor().process(request, ItemSelection("single", (2,)))
+
+    assert result.metadata_written
+    values = PptxProcessor.read_metadata(result.destination)
+    assert values == {
+        "Nenolink AI Marker": "1",
+        "Software": "Nenolink AI Marker",
+        "AI Label": "Assisté par IA",
+        "Marker Version": __version__,
+        "Disclosure Language": "fr",
+    }
+    output = result.destination.read_bytes()
+    assert str(source).encode("utf-8") not in output
+    assert str(request.badge_path).encode("utf-8") not in output
 
 
 def test_pptx_rejects_legacy_format_and_never_overwrites_source(tmp_path):
