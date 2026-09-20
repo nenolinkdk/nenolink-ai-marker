@@ -18,6 +18,7 @@ from .document_processing import (
     ProcessingRequest,
     ProcessorCapabilities,
 )
+from .document_limits import DocumentMetrics, enforce_hard_limit
 from .metadata import MarkerMetadata, marker_metadata
 
 
@@ -89,6 +90,7 @@ class PptxProcessor(DocumentProcessor):
                 presentation = ET.fromstring(source_zip.read("ppt/presentation.xml"))
                 presentation_rels = ET.fromstring(source_zip.read("ppt/_rels/presentation.xml.rels"))
                 slides = self._ordered_slides(presentation, presentation_rels)
+                enforce_hard_limit("pptx", DocumentMetrics(request.source.stat().st_size, len(slides)))
                 selected = (selection or ItemSelection()).resolve(len(slides))
                 slide_size = self._slide_size(presentation)
                 badge_bytes, badge_pixels = self._png_bytes(badge_path)
@@ -157,6 +159,15 @@ class PptxProcessor(DocumentProcessor):
         except KeyError as error:
             raise ValueError(f"The presentation is missing a required PPTX part: {error}") from error
         return PptxResult(request.destination, len(slides), selected, badge_shapes, logo_shapes, True)
+
+    @staticmethod
+    def document_metrics(source: Path) -> DocumentMetrics:
+        """Read only the package index; no slide is rendered or expanded."""
+        source = Path(source)
+        with ZipFile(source, "r") as archive:
+            presentation = ET.fromstring(archive.read("ppt/presentation.xml"))
+            slide_count = len(presentation.findall(f".//{_q(P, 'sldId')}"))
+        return DocumentMetrics(source.stat().st_size, slide_count)
 
     @staticmethod
     def _ordered_slides(presentation: ET.Element, relationships: ET.Element) -> list[str]:

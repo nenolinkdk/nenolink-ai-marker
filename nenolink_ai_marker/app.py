@@ -19,6 +19,7 @@ from .badges import BadgeSourceManager, choose_badge_selection
 from .batch import BatchProcessor, BatchResult, FolderScan, VIDEO_EXTENSIONS, destination_root, find_ffmpeg, hidden_subprocess_kwargs, is_above_recommended_size, scan_folder
 from .config import ConfigStore
 from .document_processing import ProcessingRequest, settings_for_documents
+from .document_limits import DocumentMetrics, assess_document
 from .guide import open_user_guide
 from .i18n import LANGUAGES, Translator
 from .inspection import INSPECT_EXTENSIONS, InspectionResult, human_file_size, inspect_file
@@ -73,6 +74,7 @@ class MarkerApp(ctk.CTk):
         self.badges = self.badge_sources.repository(saved.badge_source, saved.custom_badge_folder)
         self.sources: list[Path] = []; self.workspace_state=ContentWorkspaceState(); self.scan: FolderScan | None = None
         self.pptx_path: Path | None = None; self.pptx_processor=PptxProcessor(); self.pptx_preview_renderer=PptxPreviewRenderer(self.processor)
+        self.pptx_metrics: DocumentMetrics | None=None; self._pptx_warning_approved=None
         self.pptx_preview_photo=None; self.pptx_slide_number=1; self.pptx_slide_count=0
         self.inspection_path: Path | None = None; self.inspection_result: InspectionResult | None = None; self.inspection_error = ""
         self._reset_after_id = None
@@ -402,7 +404,7 @@ class MarkerApp(ctk.CTk):
         self.pptx_choose_button.configure(text=t("pptx.choose")); self.pptx_badge_label.configure(text=t("badge")); self.pptx_position_label.configure(text=t("position")); self.pptx_size_label.configure(text=t("size.value",value=self.size_var.get())); self.pptx_opacity_label.configure(text=t("opacity.value",value=self.opacity_var.get())); self.pptx_margin_label.configure(text=t("margin.value",value=self.margin_var.get())); self.pptx_logo_enable.configure(text=t("logo.enable")); self.pptx_logo_choose.configure(text=t("logo.choose")); self.pptx_logo_size_label.configure(text=t("logo.size",value=self.logo_size_var.get())); self.pptx_logo_margin_label.configure(text=t("logo.margin",value=self.logo_margin_var.get())); self.pptx_logo_opacity_label.configure(text=t("logo.opacity",value=self.logo_opacity_var.get()))
         self.pptx_badge_menu.configure(values=list(self.badge_display_to_file) or [t("badge.none")]); self.pptx_position_menu.configure(values=list(self.position_display_to_value)); self.pptx_logo_position_menu.configure(values=list(self.logo_position_display_to_value))
         self.pptx_scope_label.configure(text=t("pptx.scope")); self.pptx_selection_display_to_value={t("pptx.scope.single"):"single",t("pptx.scope.selected"):"selected",t("pptx.scope.range"):"range",t("pptx.scope.all"):"all"}; self.pptx_selection_menu.configure(values=list(self.pptx_selection_display_to_value)); self.pptx_selection_display_var.set(next((label for label,value in self.pptx_selection_display_to_value.items() if value==self.pptx_selection_mode_var.get()),t("pptx.scope.all")))
-        self.pptx_single_label.configure(text=t("pptx.slide")); self.pptx_selected_label.configure(text=t("pptx.selected_hint")); self.pptx_from_label.configure(text=t("pptx.from")); self.pptx_to_label.configure(text=t("pptx.to")); self.pptx_language_label.configure(text=t("pptx.output_language")); self.pptx_metadata_note.configure(text=t("pptx.metadata_note")); self.pptx_process_button.configure(text=t("pptx.process")); self.pptx_file_var.set(self.pptx_path.name if self.pptx_path else t("pptx.no_file")); self._update_pptx_selection_fields(); self._update_pptx_logo_controls(); self.update_pptx_preview()
+        self.pptx_single_label.configure(text=t("pptx.slide")); self.pptx_selected_label.configure(text=t("pptx.selected_hint")); self.pptx_from_label.configure(text=t("pptx.from")); self.pptx_to_label.configure(text=t("pptx.to")); self.pptx_language_label.configure(text=t("pptx.output_language")); self.pptx_metadata_note.configure(text=t("pptx.metadata_note")); self.pptx_process_button.configure(text=t("pptx.process")); self.pptx_file_var.set(self.pptx_path.name if self.pptx_path else t("pptx.no_file")); self._set_pptx_file_summary(); self._update_pptx_selection_fields(); self._update_pptx_logo_controls(); self.update_pptx_preview()
 
     def change_language(self,name): self.translator.set_language(LANGUAGES.get(name,"en")); self.apply_translations(); self._save()
     def change_content_workspace(self,label):
@@ -423,7 +425,32 @@ class MarkerApp(ctk.CTk):
     def choose_pptx(self):
         selected=filedialog.askopenfilename(title=self.translator.text("pptx.choose"),filetypes=[("PowerPoint (*.pptx)","*.pptx"),(self.translator.text("files.all"),"*.*")])
         if selected:
-            self.pptx_path=Path(selected); self.pptx_file_var.set(self.pptx_path.name); self.pptx_slide_number=1; self.pptx_preview_renderer.clear(); self.status_var.set(self.translator.text("pptx.selected",name=self.pptx_path.name)); self.update_pptx_preview()
+            self.pptx_path=Path(selected); self.pptx_slide_number=1; self.pptx_preview_renderer.clear(); self._pptx_warning_approved=None
+            try:self.pptx_metrics=self.pptx_processor.document_metrics(self.pptx_path)
+            except (OSError,ValueError,KeyError):
+                self.pptx_metrics=None; self.pptx_file_var.set(self.pptx_path.name); self.update_pptx_preview(); return
+            self._set_pptx_file_summary()
+            if not self._confirm_pptx_limits():
+                if not assess_document("pptx",self.pptx_metrics).blocked:self._clear_pptx_selection()
+                return
+            self.status_var.set(self.translator.text("pptx.selected",name=self.pptx_path.name)); self.update_pptx_preview()
+
+    def _set_pptx_file_summary(self):
+        if not self.pptx_path or not self.pptx_metrics:return
+        self.pptx_file_var.set(f"{self.pptx_path.name}\n{self.translator.text('document.summary.slides',size=human_file_size(self.pptx_metrics.size_bytes),count=self.pptx_metrics.item_count)}")
+
+    def _clear_pptx_selection(self):
+        self.pptx_path=None; self.pptx_metrics=None; self._pptx_warning_approved=None; self.pptx_slide_count=0; self.pptx_preview_photo=None; self.pptx_preview_renderer.clear(); self.pptx_file_var.set(self.translator.text("pptx.no_file")); self.update_pptx_preview()
+
+    def _confirm_pptx_limits(self):
+        if not self.pptx_path or not self.pptx_metrics:return False
+        assessment=assess_document("pptx",self.pptx_metrics); fingerprint=(self.pptx_path.resolve(),self.pptx_metrics.size_bytes,self.pptx_metrics.item_count)
+        if assessment.blocked:
+            messagebox.showerror(self.translator.text("document.limit_title"),self.translator.text("document.pptx_hard")); return False
+        if assessment.requires_warning and self._pptx_warning_approved != fingerprint:
+            if not messagebox.askokcancel(self.translator.text("document.warning_title"),self.translator.text("document.pptx_warning")):return False
+            self._pptx_warning_approved=fingerprint
+        return True
 
     def change_pptx_selection_mode(self,label):
         self.pptx_selection_mode_var.set(self.pptx_selection_display_to_value.get(label,"all")); self._update_pptx_selection_fields()
@@ -457,6 +484,9 @@ class MarkerApp(ctk.CTk):
 
     def process_pptx(self):
         if not self.pptx_path or not self.pptx_path.is_file():messagebox.showwarning(self.translator.text("warning.title"),self.translator.text("pptx.choose_first")); return
+        try:self.pptx_metrics=self.pptx_processor.document_metrics(self.pptx_path); self._set_pptx_file_summary()
+        except (OSError,ValueError,KeyError) as error:messagebox.showerror(self.translator.text("error.title"),self.translator.text("pptx.error",error=error)); return
+        if not self._confirm_pptx_limits():return
         badge=self.badges.find(self.badge_var.get())
         if not badge:messagebox.showwarning(self.translator.text("warning.title"),self.translator.text("badge.none")); return
         suggested=self.pptx_path.with_name(f"{self.pptx_path.stem}_ai.pptx")
@@ -556,7 +586,7 @@ class MarkerApp(ctk.CTk):
             self.inspect_format_var.set(""); self.inspect_status_var.set(t("inspect.ready")); self.inspect_software_var.set(missing); self.inspect_label_var.set(missing); self.inspect_version_var.set(missing); self.inspect_message_var.set(t("inspect.no_ai_warning"))
     def reset_application(self):
         defaults=MarkerSettings(); custom_folder=self.custom_badge_var.get()
-        self.sources=[]; self.workspace_state.clear(); self.pptx_path=None; self.pptx_file_var.set(""); self.pptx_preview_photo=None; self.pptx_slide_number=1; self.pptx_slide_count=0; self.pptx_preview_renderer.clear(); self.preview_photo=None; self.preview_image=None; self.preview_renderer.clear(); self.video_controls.grid_remove()
+        self.sources=[]; self.workspace_state.clear(); self.pptx_path=None; self.pptx_metrics=None; self._pptx_warning_approved=None; self.pptx_file_var.set(""); self.pptx_preview_photo=None; self.pptx_slide_number=1; self.pptx_slide_count=0; self.pptx_preview_renderer.clear(); self.preview_photo=None; self.preview_image=None; self.preview_renderer.clear(); self.video_controls.grid_remove()
         self.badge_source_var.set("standard"); self.custom_badge_var.set(custom_folder); self.badge_var.set(defaults.badge_name); self.position_var.set(defaults.position)
         self.size_var.set(defaults.size_percent); self.margin_var.set(defaults.margin); self.opacity_var.set(defaults.opacity)
         self.batch_suffix_var.set(defaults.batch_filename_suffix)

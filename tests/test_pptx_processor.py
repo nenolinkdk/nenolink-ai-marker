@@ -186,3 +186,10 @@ def test_pptx_rejects_legacy_format_and_never_overwrites_source(tmp_path):
     _create_pptx(source)
     with pytest.raises(ValueError, match="different from the source"):
         PptxProcessor().process(ProcessingRequest(source, source, disclosure, badge_path=badge))
+
+
+def test_pptx_metrics_reads_size_and_slide_count_without_rendering(tmp_path):
+    source=tmp_path/"metrics.pptx"; _create_pptx(source,7)
+    metrics=PptxProcessor.document_metrics(source)
+    assert metrics.size_bytes==source.stat().st_size
+    assert metrics.item_count==7
