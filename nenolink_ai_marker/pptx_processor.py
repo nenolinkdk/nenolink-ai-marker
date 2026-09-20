@@ -61,7 +61,7 @@ class PptxProcessor(DocumentProcessor):
         frozenset({".pptx"}),
         supports_logo=True,
         supports_metadata=True,
-        supports_preview=False,
+        supports_preview=True,
         supports_batch=False,
         supports_selection=True,
     )

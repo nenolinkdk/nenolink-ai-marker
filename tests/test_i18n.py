@@ -76,7 +76,7 @@ class TranslationTests(unittest.TestCase):
 
     def test_powerpoint_workspace_is_translated_in_every_locale(self):
         locales=Path(__file__).resolve().parent.parent/"locales"
-        keys={"pptx.choose","pptx.no_file","pptx.selected","pptx.scope","pptx.scope.single","pptx.scope.selected","pptx.scope.range","pptx.scope.all","pptx.slide","pptx.selected_hint","pptx.from","pptx.to","pptx.output_language","pptx.metadata_note","pptx.process","pptx.choose_first","pptx.save_as","pptx.extension_error","pptx.error","pptx.saved"}
+        keys={"pptx.choose","pptx.no_file","pptx.selected","pptx.scope","pptx.scope.single","pptx.scope.selected","pptx.scope.range","pptx.scope.all","pptx.slide","pptx.selected_hint","pptx.from","pptx.to","pptx.output_language","pptx.metadata_note","pptx.process","pptx.choose_first","pptx.save_as","pptx.extension_error","pptx.error","pptx.saved","pptx.preview_hint","pptx.preview_unavailable","pptx.slide_status","content.media_group","content.documents_group"}
         for code in LANGUAGES.values():
             data=json.loads((locales/f"{code}.json").read_text(encoding="utf-8"))
             self.assertTrue(keys.issubset(data),code)
