@@ -1,6 +1,8 @@
 from pathlib import Path
 
-from nenolink_ai_marker.ui_state import ContentWorkspaceState, show_welcome
+import pytest
+
+from nenolink_ai_marker.ui_state import ContentWorkspaceState, pptx_item_selection, show_welcome
 
 
 def test_welcome_is_visible_without_an_image():
@@ -31,3 +33,21 @@ def test_document_workspace_keeps_media_selections_and_reset_clears_all():
     assert state.switch("image",[])==[Path("photo.png")]
     state.clear()
     assert state.active=="image" and state.media_sources=={"image":[],"video":[]}
+
+
+@pytest.mark.parametrize(
+    ("mode", "values", "expected"),
+    [
+        ("single", {"single": "3"}, (3,)),
+        ("selected", {"selected": "2, 4, 7"}, (2, 4, 7)),
+        ("range", {"start": "3", "end": "6"}, (3, 4, 5, 6)),
+        ("all", {}, (1, 2, 3, 4, 5, 6, 7)),
+    ],
+)
+def test_pptx_ui_selection_modes(mode, values, expected):
+    assert pptx_item_selection(mode, **values).resolve(7) == expected
+
+
+def test_pptx_ui_rejects_invalid_slide_input():
+    with pytest.raises(ValueError, match="whole numbers"):
+        pptx_item_selection("selected", selected="2, slide 4")

@@ -74,6 +74,14 @@ class TranslationTests(unittest.TestCase):
             self.assertTrue(keys.issubset(data),code)
             self.assertTrue(all(data[key].strip() for key in keys),code)
 
+    def test_powerpoint_workspace_is_translated_in_every_locale(self):
+        locales=Path(__file__).resolve().parent.parent/"locales"
+        keys={"pptx.choose","pptx.no_file","pptx.selected","pptx.scope","pptx.scope.single","pptx.scope.selected","pptx.scope.range","pptx.scope.all","pptx.slide","pptx.selected_hint","pptx.from","pptx.to","pptx.output_language","pptx.metadata_note","pptx.process","pptx.choose_first","pptx.save_as","pptx.extension_error","pptx.error","pptx.saved"}
+        for code in LANGUAGES.values():
+            data=json.loads((locales/f"{code}.json").read_text(encoding="utf-8"))
+            self.assertTrue(keys.issubset(data),code)
+            self.assertTrue(all(data[key].strip() for key in keys),code)
+
     def test_live_welcome_language_change_and_english_return(self):
         locales = Path(__file__).resolve().parent.parent / "locales"
         translator = Translator(locales,"en")

@@ -16,7 +16,7 @@ def test_footer_uses_application_version_and_existing_row():
     source = (Path(__file__).parents[1] / "nenolink_ai_marker" / "app.py").read_text(encoding="utf-8")
     assert 'v{__version__}' in source
     assert "© Copyright Henrik Nielsen - nenolink.com" in source
-    assert __version__ == "1.0.1"
+    assert __version__ == "1.0.3"
 
 
 def test_packaged_smoke_test_requires_footer_and_shortcut_evidence():
@@ -27,7 +27,7 @@ def test_packaged_smoke_test_requires_footer_and_shortcut_evidence():
     assert "packaged_ui_evidence.shortcut_visible" in source
     assert "packaged_ui_evidence.update_notification_present" in source
     assert 'shortcut_module -ne "nenolink_ai_marker.shortcut"' in source
-    assert '$report.version -ne "1.0.1"' in source
+    assert '$report.version -ne "1.0.3"' in source
     assert "first_run_offer" in source
 
 

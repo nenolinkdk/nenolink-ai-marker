@@ -1,6 +1,6 @@
 # Nenolink AI Marker - User Guide
 
-Application version: 1.0.1<br>
+Application version: 1.0.3<br>
 Document language: English<br>
 Updated: 11 September 2026<br>
 Publisher: Nenolink<br>
@@ -32,7 +32,7 @@ The visible badge is the human-readable disclosure. Metadata is machine-readable
 
 ## 2. Installation and first start
 
-Extract the complete Windows ZIP to a writable folder. Keep the EXE, `assets`, `locales`, and `docs` together. Start `Nenolink-AI-Marker-1.0.1.exe`. Windows may show a reputation warning for an unsigned download; verify that the file came from the official Nenolink release before continuing.
+Extract the complete Windows ZIP to a writable folder. Keep the EXE, `assets`, `locales`, and `docs` together. Start `Nenolink-AI-Marker-1.0.3.exe`. Windows may show a reputation warning for an unsigned download; verify that the file came from the official Nenolink release before continuing.
 
 The app needs no administrator rights. Settings are stored under `%APPDATA%\Nenolink\AI Marker\settings.json`, so replacing the program folder does not normally remove preferences.
 

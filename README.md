@@ -1,6 +1,6 @@
-# Nenolink AI Marker 1.0.1
+# Nenolink AI Marker 1.0.3
 
-Nenolink AI Marker is Windows desktop software for adding visible AI disclosure badges to images and videos. Version 1.0.1 processes files locally and can also add optional user branding to images without changing the meaning of the AI disclosure metadata.
+Nenolink AI Marker is Windows desktop software for adding visible AI disclosure badges to images, videos and PowerPoint presentations. Version 1.0.3 processes files locally and can also add optional user branding without changing the meaning of the AI disclosure metadata.
 
 The standard package contains exactly these editable external assets: `ai-assisted.png`, `ai-generated.png`, `ai-modified.png`, `human-reviewed.png`, `ai-image.png`, `ai-video.png`, `ai-audio.png`, `ai-software.png`, `ai-translation.png`, and `ai-localization.png`, plus `badges.json`.
 
@@ -82,11 +82,11 @@ Then run the build script from the repository root, passing that same interprete
 
 The script repeats the tkinter check in its isolated build environment, installs the pinned build requirements, deletes the old `build\` and `dist\` directories, builds from `Nenolink-AI-Marker.spec`, and launches the resulting GUI. The build fails unless a real application window appears during the smoke test.
 
-The complete application is written to `dist\Nenolink-AI-Marker-1.0.1\`. Python is not required on the computer that runs it. Keep the folder structure intact:
+The complete application is written to `dist\Nenolink-AI-Marker-1.0.3\`. Python is not required on the computer that runs it. Keep the folder structure intact:
 
 ```text
-Nenolink-AI-Marker-1.0.1\
-  Nenolink-AI-Marker-1.0.1.exe
+Nenolink-AI-Marker-1.0.3\
+  Nenolink-AI-Marker-1.0.3.exe
   assets\
     badges\
       *.png
@@ -106,7 +106,7 @@ The badge folder remains external and editable. Add approved PNG badges beside t
 
 ## Standard and custom badges
 
-**Nenolink standard badges** is the default source. Version 1.0.1 ships eleven documented standard PNGs and `badges.json`. The application scans the directory dynamically and ignores non-PNG files. The library includes `no-ai.png`; **No AI is a user-selected declaration. Nenolink AI Marker does not verify that content was created without the use of AI.**
+**Nenolink standard badges** is the default source. Version 1.0.3 ships eleven documented standard PNGs and `badges.json`. The application scans the directory dynamically and ignores non-PNG files. The library includes `no-ai.png`; **No AI is a user-selected declaration. Nenolink AI Marker does not verify that content was created without the use of AI.**
 
 To use your own badges, select **Use custom badge folder** in Settings and click **Browse**. The selected folder is remembered between sessions. Files are read in place and are never copied, renamed or modified. You can switch back to standard badges at any time. If a saved custom folder disappears, the application reports the path and falls back gracefully to the standard badges.
 

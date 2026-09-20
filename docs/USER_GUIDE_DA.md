@@ -1,6 +1,6 @@
 # Nenolink AI Marker - Brugervejledning
 
-Applikationsversion: 1.0.1<br>
+Applikationsversion: 1.0.3<br>
 Dokumentsprog: Dansk  
 Opdateret: 11. september 2026<br>
 Udgiver: Nenolink  
@@ -32,7 +32,7 @@ Det synlige badge er den menneskeligt læsbare oplysning. Metadata er maskinlæs
 
 ## 2. Installation og første start
 
-Udpak hele Windows ZIP-filen til en mappe, du kan skrive til. Behold EXE-filen, `assets`, `locales` og `docs` samlet. Start `Nenolink-AI-Marker-1.0.1.exe`. Windows kan vise en omdømmeadvarsel for en usigneret download; kontrollér, at filen kommer fra den officielle Nenolink-udgivelse, før du fortsætter.
+Udpak hele Windows ZIP-filen til en mappe, du kan skrive til. Behold EXE-filen, `assets`, `locales` og `docs` samlet. Start `Nenolink-AI-Marker-1.0.3.exe`. Windows kan vise en omdømmeadvarsel for en usigneret download; kontrollér, at filen kommer fra den officielle Nenolink-udgivelse, før du fortsætter.
 
 Programmet kræver ikke administratorrettigheder. Indstillinger gemmes under `%APPDATA%\Nenolink\AI Marker\settings.json`, så en udskiftning af programmappen normalt ikke fjerner præferencer.
 
