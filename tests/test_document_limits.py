@@ -53,3 +53,11 @@ def test_pptx_hard_limit_blocks_without_continue(monkeypatch,tmp_path):
     app=SimpleNamespace(pptx_path=tmp_path/"too-many.pptx",pptx_metrics=DocumentMetrics(1,501),_pptx_warning_approved=None,translator=SimpleNamespace(text=lambda key:key))
     assert not MarkerApp._confirm_pptx_limits(app)
     assert shown and not continued
+
+
+def test_pdf_warning_and_hard_limit_use_shared_assessment(monkeypatch,tmp_path):
+    calls=[]; monkeypatch.setattr("nenolink_ai_marker.app.messagebox.askokcancel",lambda *_:calls.append("continue") or True); monkeypatch.setattr("nenolink_ai_marker.app.messagebox.showerror",lambda *_:calls.append("blocked"))
+    warning=SimpleNamespace(pdf_path=tmp_path/"large.pdf",pdf_info=SimpleNamespace(metrics=DocumentMetrics(1,301)),_pdf_warning_approved=None,translator=SimpleNamespace(text=lambda key:key))
+    assert MarkerApp._confirm_pdf_limits(warning) and calls==["continue"]
+    hard=SimpleNamespace(pdf_path=tmp_path/"huge.pdf",pdf_info=SimpleNamespace(metrics=DocumentMetrics(1,1001)),_pdf_warning_approved=None,translator=SimpleNamespace(text=lambda key:key))
+    assert not MarkerApp._confirm_pdf_limits(hard) and calls[-1]=="blocked"

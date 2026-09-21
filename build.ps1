@@ -93,6 +93,7 @@ $licenseFiles = @(
     @{ Distribution = "packaging"; Name = "LICENSE"; Destination = "PACKAGING-LICENSE.txt" },
     @{ Distribution = "packaging"; Name = "LICENSE.APACHE"; Destination = "PACKAGING-APACHE-2.0.txt" },
     @{ Distribution = "packaging"; Name = "LICENSE.BSD"; Destination = "PACKAGING-BSD.txt" }
+    @{ Distribution = "pypdf"; Name = "LICENSE"; Destination = "PYPDF-LICENSE.txt" }
 )
 foreach ($item in $licenseFiles) {
     $licensePath = & $python -c "import importlib.metadata as m; d=m.distribution('$($item.Distribution)'); print(next(d.locate_file(p) for p in d.files if p.name == '$($item.Name)'))"
