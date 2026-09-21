@@ -21,7 +21,7 @@ class PdfPreview:
 class PdfPreviewRenderer:
     def __init__(self,processor=None):self.processor=processor or ImageProcessor()
 
-    def render(self,source: Path,page_number: int,badge_path: Path,settings: MarkerSettings,max_size=(680,220)) -> PdfPreview:
+    def render(self,source: Path,page_number: int,badge_path: Path | None,settings: MarkerSettings,logo_path: Path | None=None,max_size=(680,220)) -> PdfPreview:
         reader=PdfProcessor._reader(source); count=len(reader.pages); ordinal=min(max(1,page_number),count); page=reader.pages[ordinal-1]
         width_points=float(page.mediabox.width); height_points=float(page.mediabox.height); width=max_size[0]; height=round(width*height_points/width_points)
         if height>max_size[1]:height=max_size[1]; width=round(height*width_points/height_points)
@@ -30,6 +30,11 @@ class PdfPreviewRenderer:
         except Exception:text=""
         font=ImageFont.load_default(); y=12
         for line in textwrap.wrap(" ".join(text.split()),max(20,width//8))[:10]:draw.text((14,y),line,fill="#444444",font=font); y+=16
-        preview_settings=replace(settings,margin=round(settings.margin*width/max(1,width_points/.75)),logo_enabled=False)
-        with Image.open(badge_path) as opened:badge=opened.convert("RGBA")
-        return PdfPreview(self.processor.compose(canvas,badge,preview_settings),ordinal,count)
+        scale=width/max(1,width_points/.75); preview_settings=replace(settings,margin=round(settings.margin*scale),logo_margin=round(settings.logo_margin*scale))
+        if badge_path:
+            with Image.open(badge_path) as opened:badge=opened.convert("RGBA")
+        else:badge=Image.new("RGBA",(1,1),(0,0,0,0))
+        logo=None
+        if preview_settings.logo_enabled and logo_path:
+            with Image.open(logo_path) as opened:logo=opened.convert("RGBA")
+        return PdfPreview(self.processor.compose(canvas,badge,preview_settings,logo),ordinal,count)
