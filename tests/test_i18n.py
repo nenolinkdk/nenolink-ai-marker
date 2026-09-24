@@ -83,6 +83,14 @@ class TranslationTests(unittest.TestCase):
             self.assertTrue(keys.issubset(data),code)
             self.assertTrue(all(data[key].strip() for key in keys),code)
 
+    def test_word_workspace_is_translated_in_every_locale(self):
+        locales=Path(__file__).resolve().parent.parent/"locales"
+        keys={"document.summary.docx","document.docx_warning","document.docx_hard","docx.choose","docx.no_file","docx.selected","docx.whole_document","docx.add_badge","docx.process","docx.preview_hint","docx.preview_unavailable","docx.preview_approximate","docx.metadata_note","docx.overlay_required","docx.error","docx.choose_first","docx.save_as","docx.extension_error","docx.saved"}
+        for code in LANGUAGES.values():
+            data=json.loads((locales/f"{code}.json").read_text(encoding="utf-8"))
+            self.assertTrue(keys.issubset(data),code)
+            self.assertTrue(all(data[key].strip() for key in keys),code)
+
     def test_live_welcome_language_change_and_english_return(self):
         locales = Path(__file__).resolve().parent.parent / "locales"
         translator = Translator(locales,"en")

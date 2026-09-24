@@ -9,10 +9,12 @@ from xml.etree import ElementTree
 from PIL import Image, UnidentifiedImageError
 
 from .batch import find_ffmpeg, hidden_subprocess_kwargs
+from .docx_processor import DocxProcessor
 
 INSPECT_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 INSPECT_VIDEO_EXTENSIONS = {".mp4", ".mov"}
-INSPECT_EXTENSIONS = INSPECT_IMAGE_EXTENSIONS | INSPECT_VIDEO_EXTENSIONS
+INSPECT_DOCUMENT_EXTENSIONS = {".docx"}
+INSPECT_EXTENSIONS = INSPECT_IMAGE_EXTENSIONS | INSPECT_VIDEO_EXTENSIONS | INSPECT_DOCUMENT_EXTENSIONS
 NENOLINK_XMP_NAMESPACE = "https://nenolink.com/ns/ai-marker/1.0/"
 
 
@@ -40,7 +42,7 @@ def human_file_size(size: int) -> str:
 
 
 def _format_name(path: Path) -> str:
-    return {".jpg": "JPEG", ".jpeg": "JPEG", ".png": "PNG", ".webp": "WebP", ".mp4": "MP4", ".mov": "MOV"}[path.suffix.lower()]
+    return {".jpg": "JPEG", ".jpeg": "JPEG", ".png": "PNG", ".webp": "WebP", ".mp4": "MP4", ".mov": "MOV", ".docx": "DOCX"}[path.suffix.lower()]
 
 
 def _description_values(description: object) -> tuple[str | None, str | None]:
@@ -130,10 +132,29 @@ def inspect_video(path: Path) -> InspectionResult:
     return InspectionResult(path, _format_name(path), path.stat().st_size, found, software if found else None, label if found else None, version if found else None)
 
 
+def inspect_docx(path: Path) -> InspectionResult:
+    values = DocxProcessor.read_metadata(path)
+    software = values.get("Software")
+    label = values.get("AI Label")
+    version = values.get("Marker Version")
+    found = _is_recognized(
+        values.get("Nenolink AI Marker") == "1", software, label, version, False
+    )
+    return InspectionResult(
+        path, _format_name(path), path.stat().st_size, found,
+        software if found else None, label if found else None,
+        version if found else None,
+    )
+
+
 def inspect_file(path: Path) -> InspectionResult:
     path = Path(path)
     if path.suffix.lower() not in INSPECT_EXTENSIONS:
         raise ValueError(f"Unsupported file type: {path.suffix or 'no extension'}")
     if not path.is_file():
         raise ValueError("The selected file no longer exists or cannot be read")
-    return inspect_image(path) if path.suffix.lower() in INSPECT_IMAGE_EXTENSIONS else inspect_video(path)
+    if path.suffix.lower() in INSPECT_IMAGE_EXTENSIONS:
+        return inspect_image(path)
+    if path.suffix.lower() in INSPECT_VIDEO_EXTENSIONS:
+        return inspect_video(path)
+    return inspect_docx(path)

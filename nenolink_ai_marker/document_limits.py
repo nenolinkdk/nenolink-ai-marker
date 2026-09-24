@@ -7,22 +7,23 @@ from typing import Literal
 
 
 MIB = 1024 * 1024
-DocumentKind = Literal["pptx", "pdf"]
+DocumentKind = Literal["pptx", "pdf", "docx"]
 LimitStatus = Literal["normal", "warning", "hard"]
 
 
 @dataclass(frozen=True, slots=True)
 class DocumentLimitProfile:
     warning_bytes: int
-    warning_items: int
+    warning_items: int | None
     hard_bytes: int
-    hard_items: int
+    hard_items: int | None
     item_name: str
 
 
 DOCUMENT_LIMITS: dict[DocumentKind, DocumentLimitProfile] = {
     "pptx": DocumentLimitProfile(100 * MIB, 150, 300 * MIB, 500, "slides"),
     "pdf": DocumentLimitProfile(100 * MIB, 300, 300 * MIB, 1_000, "pages"),
+    "docx": DocumentLimitProfile(50 * MIB, None, 200 * MIB, None, "items"),
 }
 
 
@@ -54,9 +55,11 @@ class DocumentHardLimitError(ValueError):
 
 def assess_document(kind: DocumentKind, metrics: DocumentMetrics) -> DocumentLimitAssessment:
     profile = DOCUMENT_LIMITS[kind]
-    if metrics.size_bytes > profile.hard_bytes or metrics.item_count > profile.hard_items:
+    above_hard_items = profile.hard_items is not None and metrics.item_count > profile.hard_items
+    above_warning_items = profile.warning_items is not None and metrics.item_count > profile.warning_items
+    if metrics.size_bytes > profile.hard_bytes or above_hard_items:
         status: LimitStatus = "hard"
-    elif metrics.size_bytes > profile.warning_bytes or metrics.item_count > profile.warning_items:
+    elif metrics.size_bytes > profile.warning_bytes or above_warning_items:
         status = "warning"
     else:
         status = "normal"
@@ -66,8 +69,7 @@ def assess_document(kind: DocumentKind, metrics: DocumentMetrics) -> DocumentLim
 def enforce_hard_limit(kind: DocumentKind, metrics: DocumentMetrics) -> None:
     assessment = assess_document(kind, metrics)
     if assessment.blocked:
-        raise DocumentHardLimitError(
-            f"{kind.upper()} exceeds the hard limit of "
-            f"{assessment.profile.hard_bytes // MIB} MB or "
-            f"{assessment.profile.hard_items:,} {assessment.profile.item_name}."
-        )
+        message = f"{kind.upper()} exceeds the hard limit of {assessment.profile.hard_bytes // MIB} MB"
+        if assessment.profile.hard_items is not None:
+            message += f" or {assessment.profile.hard_items:,} {assessment.profile.item_name}"
+        raise DocumentHardLimitError(message + ".")

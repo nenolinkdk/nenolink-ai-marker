@@ -61,3 +61,25 @@ def test_pdf_warning_and_hard_limit_use_shared_assessment(monkeypatch,tmp_path):
     assert MarkerApp._confirm_pdf_limits(warning) and calls==["continue"]
     hard=SimpleNamespace(pdf_path=tmp_path/"huge.pdf",pdf_info=SimpleNamespace(metrics=DocumentMetrics(1,1001)),_pdf_warning_approved=None,translator=SimpleNamespace(text=lambda key:key))
     assert not MarkerApp._confirm_pdf_limits(hard) and calls[-1]=="blocked"
+
+
+def test_docx_size_boundaries_have_no_unreliable_page_count_limit():
+    profile=DOCUMENT_LIMITS["docx"]
+    assert profile.warning_bytes==50*MIB and profile.hard_bytes==200*MIB
+    assert profile.warning_items is None and profile.hard_items is None
+    assert assess_document("docx",DocumentMetrics(50*MIB,999_999)).status=="normal"
+    assert assess_document("docx",DocumentMetrics(50*MIB+1,0)).status=="warning"
+    assert assess_document("docx",DocumentMetrics(200*MIB,0)).status=="warning"
+    assert assess_document("docx",DocumentMetrics(200*MIB+1,0)).status=="hard"
+
+
+def test_docx_warning_allows_continue_once_and_hard_limit_blocks(monkeypatch,tmp_path):
+    calls=[]
+    monkeypatch.setattr("nenolink_ai_marker.app.messagebox.askokcancel",lambda *_:calls.append("continue") or True)
+    monkeypatch.setattr("nenolink_ai_marker.app.messagebox.showerror",lambda *_:calls.append("blocked"))
+    warning=SimpleNamespace(docx_path=tmp_path/"large.docx",docx_info=SimpleNamespace(metrics=DocumentMetrics(50*MIB+1,0)),_docx_warning_approved=None,translator=SimpleNamespace(text=lambda key:key))
+    assert MarkerApp._confirm_docx_limits(warning)
+    assert MarkerApp._confirm_docx_limits(warning)
+    assert calls==["continue"]
+    hard=SimpleNamespace(docx_path=tmp_path/"huge.docx",docx_info=SimpleNamespace(metrics=DocumentMetrics(200*MIB+1,0)),_docx_warning_approved=None,translator=SimpleNamespace(text=lambda key:key))
+    assert not MarkerApp._confirm_docx_limits(hard) and calls[-1]=="blocked"
