@@ -2,6 +2,7 @@ from pathlib import Path
 import inspect
 
 import pytest
+from customtkinter import CTkTabview
 
 from nenolink_ai_marker.ui_state import ContentWorkspaceState, pptx_item_selection, show_welcome
 from nenolink_ai_marker.app import MarkerApp
@@ -75,12 +76,18 @@ def test_production_navigation_exposes_pdf_and_powerpoint_but_not_word():
     assert '("docx","content.word")' not in translation_source
 
 
-def test_navigation_groups_are_compact_and_aligned_to_workspace_boundary():
+def test_navigation_groups_share_one_compact_workspace_boundary_row():
     source = inspect.getsource(MarkerApp._build_ui)
-    assert 'content_navigation_frame.grid(row=1,column=0,padx=20,pady=(6,0),sticky="w")' in source
-    assert 'self.tabs.grid(row=2,column=0,padx=16,pady=(0,8),sticky="nsew")' in source
+    assert 'self.grid_rowconfigure(1,weight=1)' in source
+    assert 'content_navigation_frame.grid(row=1,column=0,padx=20,pady=0,sticky="nw")' in source
+    assert 'self.tabs.grid(row=1,column=0,padx=16,pady=(9,8),sticky="nsew")' in source
+    assert 'self.content_navigation_frame.lift()' in source
+    assert 'footer.grid(row=2,column=0' in source
     document_navigation = next(line for line in source.splitlines() if 'self.document_navigation=ctk.CTkSegmentedButton' in line)
     assert 'width=' not in document_navigation
+    format_button_center = 3 + 16 + (26 / 2)
+    workspace_tab_center = 9 + CTkTabview._outer_spacing + (CTkTabview._button_height / 2)
+    assert format_button_center == workspace_tab_center
 
 
 def test_docx_ui_exposes_only_reliable_alignment_and_hides_margin_controls():

@@ -122,7 +122,7 @@ class MarkerApp(ctk.CTk):
             self.after(700,self._show_first_run_shortcut_offer)
 
     def _build_ui(self) -> None:
-        self.grid_columnconfigure(0,weight=1); self.grid_rowconfigure(2,weight=1)
+        self.grid_columnconfigure(0,weight=1); self.grid_rowconfigure(1,weight=1)
         header=ctk.CTkFrame(self,corner_radius=0); header.grid(row=0,column=0,sticky="ew"); header.grid_columnconfigure(1,weight=1)
         ctk.CTkLabel(header,text="Nenolink AI Marker",font=ctk.CTkFont(size=24,weight="bold")).grid(row=0,column=0,padx=20,pady=14)
         self.update_notification=ctk.CTkLabel(header,text="",text_color="#d62828",font=ctk.CTkFont(weight="bold"),cursor="hand2")
@@ -131,7 +131,7 @@ class MarkerApp(ctk.CTk):
         self.reset_button=ctk.CTkButton(header,text="",command=self.reset_application,width=100); self.reset_button.grid(row=0,column=3,padx=8)
         self.guide_button=ctk.CTkButton(header,text="",command=self.open_guide,width=170); self.guide_button.grid(row=0,column=4,padx=(8,20))
         self.content_display_to_kind={}; self.content_navigation_var=ctk.StringVar()
-        self.content_navigation_frame=ctk.CTkFrame(self,height=1,fg_color=("gray90","gray18"),corner_radius=8); self.content_navigation_frame.grid(row=1,column=0,padx=20,pady=(6,0),sticky="w")
+        self.content_navigation_frame=ctk.CTkFrame(self,height=1,fg_color=("gray90","gray18"),corner_radius=8); self.content_navigation_frame.grid(row=1,column=0,padx=20,pady=0,sticky="nw")
         group_font=ctk.CTkFont(size=13,weight="bold")
         media_group=ctk.CTkFrame(self.content_navigation_frame,height=1,fg_color="transparent"); media_group.grid(row=0,column=0,padx=(8,6),pady=(3,3),sticky="w")
         self.media_group_label=ctk.CTkLabel(media_group,text="",text_color=("gray35","gray75"),font=group_font,height=16); self.media_group_label.grid(row=0,column=0,pady=0,sticky="w")
@@ -140,11 +140,12 @@ class MarkerApp(ctk.CTk):
         documents_group=ctk.CTkFrame(self.content_navigation_frame,height=1,fg_color="transparent"); documents_group.grid(row=0,column=2,padx=(6,8),pady=(3,3),sticky="w")
         self.documents_group_label=ctk.CTkLabel(documents_group,text="",text_color=("gray35","gray75"),font=group_font,height=16); self.documents_group_label.grid(row=0,column=0,pady=0,sticky="w")
         self.document_navigation=ctk.CTkSegmentedButton(documents_group,variable=self.content_navigation_var,values=["PDF","PowerPoint / Slides"],command=self.change_content_workspace,height=26,dynamic_resizing=True); self.document_navigation.grid(row=1,column=0,pady=0,sticky="w")
-        self.tabs=ctk.CTkTabview(self); self.tabs.grid(row=2,column=0,padx=16,pady=(0,8),sticky="nsew")
+        self.tabs=ctk.CTkTabview(self); self.tabs.grid(row=1,column=0,padx=16,pady=(9,8),sticky="nsew")
+        self.content_navigation_frame.lift()
         self.tab_names={"single":self.translator.text("tab.single"),"documents":self.translator.text("content.workspace"),"batch":self.translator.text("tab.batch"),"badges":self.translator.text("tab.badges"),"inspect":self.translator.text("tab.inspect")}
         self.single_tab=self.tabs.add(self.tab_names["single"]); self.document_tab=self.tabs.add(self.tab_names["documents"]); self.batch_tab=self.tabs.add(self.tab_names["batch"]); self.settings_tab=self.tabs.add(self.tab_names["badges"]); self.inspect_tab=self.tabs.add(self.tab_names["inspect"])
         self._single_ui(); self._document_ui(); self._batch_ui(); self._settings_ui(); self._inspect_ui()
-        footer=ctk.CTkFrame(self,corner_radius=0,fg_color="transparent"); footer.grid(row=3,column=0,padx=20,pady=(0,8),sticky="ew"); footer.grid_columnconfigure(1,weight=1)
+        footer=ctk.CTkFrame(self,corner_radius=0,fg_color="transparent"); footer.grid(row=2,column=0,padx=20,pady=(0,8),sticky="ew"); footer.grid_columnconfigure(1,weight=1)
         footer_left=ctk.CTkFrame(footer,corner_radius=0,fg_color="transparent"); footer_left.grid(row=0,column=0,sticky="w")
         self.footer_copyright_label=ctk.CTkLabel(footer_left,text=f"© Copyright Henrik Nielsen - nenolink.com · v{__version__} ·",text_color="gray60"); self.footer_copyright_label.grid(row=0,column=0,sticky="w")
         self.footer_update_link=ctk.CTkLabel(footer_left,text="",text_color="gray60",cursor="hand2"); self.footer_update_link.grid(row=0,column=1,padx=(4,0),sticky="w"); self._footer_update_callback=lambda _event:self.check_for_updates(); self.footer_update_link.bind("<Button-1>",self._footer_update_callback)
