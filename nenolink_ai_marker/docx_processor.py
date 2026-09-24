@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path, PurePosixPath
 import posixpath
+import re
 import tempfile
 from typing import Literal
 from xml.etree import ElementTree as ET
@@ -120,7 +121,8 @@ class DocxProcessor(DocumentProcessor):
         try:
             with ZipFile(request.source, "r") as source_zip:
                 names = set(source_zip.namelist())
-                document = ET.fromstring(source_zip.read("word/document.xml"))
+                document_xml = source_zip.read("word/document.xml")
+                document = ET.fromstring(document_xml)
                 document_rels = ET.fromstring(source_zip.read("word/_rels/document.xml.rels"))
                 content_types = ET.fromstring(source_zip.read("[Content_Types].xml"))
                 replacements: dict[str, bytes] = {}
@@ -143,6 +145,12 @@ class DocxProcessor(DocumentProcessor):
                     raise ValueError("The document does not define any sections.")
                 effective = self._effective_references(sections, relationship_targets)
                 shape_counts = {"badge": 0, "logo": 0}
+                used_drawing_ids = self._drawing_ids(source_zip, names)
+
+                def next_drawing_id() -> int:
+                    candidate = max(used_drawing_ids, default=0) + 1
+                    used_drawing_ids.add(candidate)
+                    return candidate
 
                 def clone_part(section_index, part_kind, reference_type, source_part, applicable):
                     part_name = self._available_name(names | set(additions), f"word/{part_kind}", ".xml")
@@ -156,6 +164,7 @@ class DocxProcessor(DocumentProcessor):
                         part_xml, part_rels = self._add_overlays(
                             part_xml, part_rels, part_name,
                             self._page_size(sections[section_index]), applicable, media_paths,
+                            next_drawing_id,
                         )
                         for item in applicable:
                             shape_counts[item[0]] += 1
@@ -224,9 +233,9 @@ class DocxProcessor(DocumentProcessor):
                 )
                 self._ensure_custom_override(content_types)
                 replacements.update({
-                    "word/document.xml": self._serialize(document),
+                    "word/document.xml": self._serialize_preserving_root_namespaces(document, document_xml),
                     "word/_rels/document.xml.rels": self._serialize(document_rels),
-                    "[Content_Types].xml": self._serialize(content_types),
+                    "[Content_Types].xml": self._serialize_content_types(content_types),
                     "_rels/.rels": package_rels,
                     "docProps/custom.xml": custom,
                 })
@@ -245,6 +254,7 @@ class DocxProcessor(DocumentProcessor):
                             )
                         for name, data in {**replacements, **additions}.items():
                             output_zip.writestr(name, data)
+                    self._validate_word_package(temporary_path)
                     temporary_path.replace(request.destination)
                 finally:
                     temporary_path.unlink(missing_ok=True)
@@ -378,14 +388,15 @@ class DocxProcessor(DocumentProcessor):
     def _add_overlays(
         self, part_xml: bytes, rels_xml: bytes | None, part_name: str,
         page_size: tuple[int, int], overlays: list[tuple], media_paths: dict[str, str],
+        next_drawing_id,
     ) -> tuple[bytes, bytes]:
         root = ET.fromstring(part_xml)
         relationships = (
             ET.fromstring(rels_xml) if rels_xml
             else ET.Element(_q(PKG_REL, "Relationships"))
         )
-        doc_id = 10_000
         for kind, _image_bytes, pixels, settings in overlays:
+            doc_id = next_drawing_id()
             relation_id = self._add_relationship(
                 relationships, IMAGE_REL,
                 posixpath.relpath(media_paths[kind], str(PurePosixPath(part_name).parent)),
@@ -394,8 +405,24 @@ class DocxProcessor(DocumentProcessor):
                 relation_id, page_size, pixels, settings.position,
                 settings.size_percent, settings.margin, f"Nenolink AI Marker {kind}", doc_id,
             ))
-            doc_id += 1
-        return self._serialize(root), self._serialize(relationships)
+        return self._serialize_preserving_root_namespaces(root, part_xml), self._serialize(relationships)
+
+    @staticmethod
+    def _drawing_ids(source_zip: ZipFile, names: set[str]) -> set[int]:
+        """Collect package-wide DrawingML IDs; Word requires them to be unique."""
+        result: set[int] = set()
+        for name in names:
+            if not name.startswith("word/") or not name.endswith(".xml"):
+                continue
+            try:
+                root = ET.fromstring(source_zip.read(name))
+            except (KeyError, ET.ParseError):
+                continue
+            for item in root.findall(f".//{_q(WP, 'docPr')}"):
+                value = item.attrib.get("id", "")
+                if value.isdigit():
+                    result.add(int(value))
+        return result
 
     @staticmethod
     def _overlay_paragraph(
@@ -437,7 +464,7 @@ class DocxProcessor(DocumentProcessor):
         data = ET.SubElement(graphic, _q(A, "graphicData"), uri=PIC)
         picture = ET.SubElement(data, _q(PIC, "pic"))
         non_visual = ET.SubElement(picture, _q(PIC, "nvPicPr"))
-        ET.SubElement(non_visual, _q(PIC, "cNvPr"), id="0", name=name)
+        ET.SubElement(non_visual, _q(PIC, "cNvPr"), id=str(doc_id), name=name)
         ET.SubElement(non_visual, _q(PIC, "cNvPicPr"))
         fill = ET.SubElement(picture, _q(PIC, "blipFill"))
         ET.SubElement(fill, _q(A, "blip"), {_q(R, "embed"): relation_id})
@@ -465,6 +492,113 @@ class DocxProcessor(DocumentProcessor):
     def _ensure_custom_override(root: ET.Element) -> None:
         if not any(item.attrib.get("PartName") == "/docProps/custom.xml" for item in root.findall(_q(CONTENT_TYPES, "Override"))):
             ET.SubElement(root, _q(CONTENT_TYPES, "Override"), PartName="/docProps/custom.xml", ContentType=CUSTOM_PROPERTIES_TYPE)
+
+    @staticmethod
+    def _serialize_content_types(element: ET.Element) -> bytes:
+        """Use the OPC-required default namespace accepted by Microsoft Word.
+
+        ElementTree otherwise assigns an ``ns0`` prefix because the package
+        relationships namespace is registered as the default namespace. Word's
+        OPC reader rejects that representation and offers to repair the DOCX.
+        """
+        ET.register_namespace("", CONTENT_TYPES)
+        try:
+            return ET.tostring(element, encoding="utf-8", xml_declaration=True)
+        finally:
+            ET.register_namespace("", PKG_REL)
+
+    @staticmethod
+    def _serialize_preserving_root_namespaces(element: ET.Element, original: bytes) -> bytes:
+        """Keep declarations referenced only by values such as mc:Ignorable."""
+        serialized = ET.tostring(element, encoding="utf-8", xml_declaration=True)
+        original_root_start = original.find(b"<", original.find(b"?>") + 2)
+        original_root_end = original.find(b">", original_root_start)
+        serialized_root_start = serialized.find(b"<", serialized.find(b"?>") + 2)
+        serialized_root_end = serialized.find(b">", serialized_root_start)
+        if original_root_start < 0 or original_root_end < 0 or serialized_root_start < 0 or serialized_root_end < 0:
+            return serialized
+        declarations = re.findall(
+            rb"\s(xmlns(?::[A-Za-z_][\w.-]*)?)=(['\"])(.*?)\2",
+            original[original_root_start:original_root_end],
+        )
+        root_tag = serialized[serialized_root_start:serialized_root_end]
+        additions = []
+        for attribute, quote, value in declarations:
+            if re.search(rb"\s" + re.escape(attribute) + rb"=", root_tag):
+                continue
+            additions.append(b" " + attribute + b"=" + quote + value + quote)
+        if not additions:
+            return serialized
+        return serialized[:serialized_root_end] + b"".join(additions) + serialized[serialized_root_end:]
+
+    @classmethod
+    def _validate_word_package(cls, path: Path) -> None:
+        """Reject package defects that make Microsoft Word offer a repair.
+
+        This deliberately validates OPC plumbing in addition to parsing XML:
+        Python's ZIP and ElementTree readers accept namespace and relationship
+        defects that Word's package reader rejects or silently repairs.
+        """
+        with ZipFile(path, "r") as archive:
+            names = set(archive.namelist())
+            content_types_xml = archive.read("[Content_Types].xml")
+            if f'<Types xmlns="{CONTENT_TYPES}"'.encode() not in content_types_xml:
+                raise ValueError("Invalid DOCX content-types namespace serialization.")
+            content_types = ET.fromstring(content_types_xml)
+            overrides: set[str] = set()
+            for item in content_types.findall(_q(CONTENT_TYPES, "Override")):
+                part = item.attrib.get("PartName", "").lstrip("/")
+                if not part or part in overrides or part not in names:
+                    raise ValueError(f"Invalid or duplicate DOCX content-type part: {part}")
+                overrides.add(part)
+
+            relationships_by_part: dict[str, set[str]] = {}
+            for rels_name in sorted(name for name in names if name.endswith(".rels")):
+                root = ET.fromstring(archive.read(rels_name))
+                ids: set[str] = set()
+                if rels_name == "_rels/.rels":
+                    owner, base = "", ""
+                else:
+                    rels_path = PurePosixPath(rels_name)
+                    owner = str(rels_path.parent.parent / rels_path.name[:-5])
+                    base = str(PurePosixPath(owner).parent)
+                relationships_by_part[owner] = ids
+                for relation in root.findall(_q(PKG_REL, "Relationship")):
+                    relation_id = relation.attrib.get("Id", "")
+                    if not relation_id or relation_id in ids:
+                        raise ValueError(f"Duplicate or missing relationship ID in {rels_name}: {relation_id}")
+                    ids.add(relation_id)
+                    if relation.attrib.get("TargetMode") == "External":
+                        continue
+                    target = relation.attrib.get("Target", "")
+                    resolved = posixpath.normpath(posixpath.join(base, target)).lstrip("/")
+                    if not target or resolved not in names:
+                        raise ValueError(f"Broken DOCX relationship target in {rels_name}: {target}")
+
+            drawing_ids: set[int] = set()
+            for name in sorted(part for part in names if part.startswith("word/") and part.endswith(".xml")):
+                part_xml = archive.read(name)
+                root = ET.fromstring(part_xml)
+                root_start = part_xml.find(b"<", part_xml.find(b"?>") + 2)
+                root_end = part_xml.find(b">", root_start)
+                declared_prefixes = {
+                    match.decode("ascii")
+                    for match in re.findall(rb"\sxmlns:([A-Za-z_][\w.-]*)=", part_xml[root_start:root_end])
+                }
+                for ignorable in re.findall(rb"Ignorable=['\"]([^'\"]+)['\"]", part_xml):
+                    missing = set(ignorable.decode("ascii").split()) - declared_prefixes
+                    if missing:
+                        raise ValueError(f"Undefined ignorable namespace prefix in {name}: {sorted(missing)}")
+                relation_ids = relationships_by_part.get(name, set())
+                for element in root.iter():
+                    for attribute, value in element.attrib.items():
+                        if attribute in {_q(R, "id"), _q(R, "embed"), _q(R, "link")} and value not in relation_ids:
+                            raise ValueError(f"Missing relationship {value} referenced by {name}.")
+                for item in root.findall(f".//{_q(WP, 'docPr')}"):
+                    value = item.attrib.get("id", "")
+                    if not value.isdigit() or int(value) in drawing_ids:
+                        raise ValueError(f"Invalid or duplicate DrawingML ID in {name}: {value}")
+                    drawing_ids.add(int(value))
 
     @classmethod
     def _metadata_parts(

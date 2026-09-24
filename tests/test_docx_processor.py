@@ -10,7 +10,7 @@ from PIL import Image
 
 from nenolink_ai_marker import __version__
 from nenolink_ai_marker.docx_preview import DocxPreviewRenderer
-from nenolink_ai_marker.docx_processor import DocxProcessor, W, WP, _q
+from nenolink_ai_marker.docx_processor import CONTENT_TYPES, DocxProcessor, W, WP, _q
 from nenolink_ai_marker.document_processing import DisclosureSettings, LogoSettings, ProcessingRequest
 from nenolink_ai_marker.inspection import inspect_file
 from nenolink_ai_marker.models import MarkerSettings
@@ -19,6 +19,9 @@ from nenolink_ai_marker.app import MarkerApp
 
 R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 PKG = "http://schemas.openxmlformats.org/package/2006/relationships"
+MC = "http://schemas.openxmlformats.org/markup-compatibility/2006"
+W14 = "http://schemas.microsoft.com/office/word/2010/wordml"
+WP14 = "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing"
 
 
 def _create_docx(
@@ -30,7 +33,7 @@ def _create_docx(
         for index in range(1, sections)
     )
     document = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="{W}" xmlns:r="{R}"><w:body>
+<w:document xmlns:w="{W}" xmlns:r="{R}" xmlns:mc="{MC}" xmlns:w14="{W14}" xmlns:wp14="{WP14}" mc:Ignorable="w14 wp14"><w:body>
 <w:p><w:r><w:t>Ordinary Unicode text ÆØÅ 日本語</w:t></w:r></w:p>
 <w:p><w:r><w:drawing><w:t>Existing image anchor</w:t></w:drawing></w:r></w:p>
 <w:tbl><w:tr><w:tc><w:p><w:r><w:t>Table value</w:t></w:r></w:p></w:tc></w:tr></w:tbl>
@@ -183,6 +186,48 @@ def test_docx_entire_document_marks_normal_and_first_pages_in_every_section(tmp_
         assert section[("footer", "default")]["anchors"] == 1
         assert section[("header", "first")]["anchors"] == 1
         assert section[("footer", "first")]["anchors"] == 1
+
+
+def test_docx_output_uses_word_compatible_opc_namespace_and_unique_drawing_ids(tmp_path):
+    """Regression: Word repaired outputs with ns0:Types and repeated docPr IDs."""
+    request = _request(
+        tmp_path, badge=True, logo=True, sections=2,
+        first_page_headers=True, later_title_page=True,
+    )
+    result = DocxProcessor().process(request, "entire-document")
+    DocxProcessor._validate_word_package(result.destination)
+    with ZipFile(result.destination) as archive:
+        content_types = archive.read("[Content_Types].xml")
+        assert f'<Types xmlns="{CONTENT_TYPES}"'.encode() in content_types
+        assert b"ns0:Types" not in content_types
+        document_xml = archive.read("word/document.xml")
+        assert b'mc:Ignorable="w14 wp14"' in document_xml or b'Ignorable="w14 wp14"' in document_xml
+        assert f'xmlns:w14="{W14}"'.encode() in document_xml
+        assert f'xmlns:wp14="{WP14}"'.encode() in document_xml
+        drawing_ids = []
+        for name in archive.namelist():
+            if name.startswith("word/") and name.endswith(".xml"):
+                root = ET.fromstring(archive.read(name))
+                drawing_ids.extend(
+                    int(item.attrib["id"])
+                    for item in root.findall(f".//{_q(WP, 'docPr')}")
+                )
+        assert len(drawing_ids) == len(set(drawing_ids)) == 8
+
+
+def test_docx_package_audit_rejects_the_content_types_form_that_triggered_word_repair(tmp_path):
+    result = DocxProcessor().process(_request(tmp_path), "first-page")
+    corrupted = tmp_path / "word-repair-warning.docx"
+    with ZipFile(result.destination) as source, ZipFile(corrupted, "w") as destination:
+        for entry in source.infolist():
+            data = source.read(entry.filename)
+            if entry.filename == "[Content_Types].xml":
+                data = data.replace(b"<Types xmlns=", b"<ns0:Types xmlns:ns0=").replace(
+                    b"</Types>", b"</ns0:Types>"
+                )
+            destination.writestr(entry, data)
+    with pytest.raises(ValueError, match="content-types namespace"):
+        DocxProcessor._validate_word_package(corrupted)
 
 
 def test_docx_rejects_unknown_scope(tmp_path):
