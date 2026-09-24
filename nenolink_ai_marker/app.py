@@ -131,7 +131,7 @@ class MarkerApp(ctk.CTk):
         self.reset_button=ctk.CTkButton(header,text="",command=self.reset_application,width=100); self.reset_button.grid(row=0,column=3,padx=8)
         self.guide_button=ctk.CTkButton(header,text="",command=self.open_guide,width=170); self.guide_button.grid(row=0,column=4,padx=(8,20))
         self.content_display_to_kind={}; self.content_navigation_var=ctk.StringVar()
-        self.content_navigation_frame=ctk.CTkFrame(self,height=1,fg_color=("gray90","gray18"),corner_radius=8); self.content_navigation_frame.grid(row=1,column=0,padx=20,pady=(4,0),sticky="w")
+        self.content_navigation_frame=ctk.CTkFrame(self,height=1,fg_color=("gray90","gray18"),corner_radius=8); self.content_navigation_frame.grid(row=1,column=0,padx=20,pady=(6,0),sticky="w")
         group_font=ctk.CTkFont(size=13,weight="bold")
         media_group=ctk.CTkFrame(self.content_navigation_frame,height=1,fg_color="transparent"); media_group.grid(row=0,column=0,padx=(8,6),pady=(3,3),sticky="w")
         self.media_group_label=ctk.CTkLabel(media_group,text="",text_color=("gray35","gray75"),font=group_font,height=16); self.media_group_label.grid(row=0,column=0,pady=0,sticky="w")
@@ -139,8 +139,8 @@ class MarkerApp(ctk.CTk):
         ctk.CTkFrame(self.content_navigation_frame,width=1,height=1,fg_color=("gray72","gray35")).grid(row=0,column=1,padx=4,pady=4,sticky="ns")
         documents_group=ctk.CTkFrame(self.content_navigation_frame,height=1,fg_color="transparent"); documents_group.grid(row=0,column=2,padx=(6,8),pady=(3,3),sticky="w")
         self.documents_group_label=ctk.CTkLabel(documents_group,text="",text_color=("gray35","gray75"),font=group_font,height=16); self.documents_group_label.grid(row=0,column=0,pady=0,sticky="w")
-        self.document_navigation=ctk.CTkSegmentedButton(documents_group,variable=self.content_navigation_var,values=["PDF","PowerPoint / Slides","Word"],command=self.change_content_workspace,width=270,height=26,dynamic_resizing=True); self.document_navigation.grid(row=1,column=0,pady=0,sticky="w")
-        self.tabs=ctk.CTkTabview(self); self.tabs.grid(row=2,column=0,padx=16,pady=(3,8),sticky="nsew")
+        self.document_navigation=ctk.CTkSegmentedButton(documents_group,variable=self.content_navigation_var,values=["PDF","PowerPoint / Slides"],command=self.change_content_workspace,height=26,dynamic_resizing=True); self.document_navigation.grid(row=1,column=0,pady=0,sticky="w")
+        self.tabs=ctk.CTkTabview(self); self.tabs.grid(row=2,column=0,padx=16,pady=(0,8),sticky="nsew")
         self.tab_names={"single":self.translator.text("tab.single"),"documents":self.translator.text("content.workspace"),"batch":self.translator.text("tab.batch"),"badges":self.translator.text("tab.badges"),"inspect":self.translator.text("tab.inspect")}
         self.single_tab=self.tabs.add(self.tab_names["single"]); self.document_tab=self.tabs.add(self.tab_names["documents"]); self.batch_tab=self.tabs.add(self.tab_names["batch"]); self.settings_tab=self.tabs.add(self.tab_names["badges"]); self.inspect_tab=self.tabs.add(self.tab_names["inspect"])
         self._single_ui(); self._document_ui(); self._batch_ui(); self._settings_ui(); self._inspect_ui()
@@ -385,9 +385,9 @@ class MarkerApp(ctk.CTk):
 
     def apply_translations(self) -> None:
         t=self.translator.text; self.title(f"Nenolink AI Marker {__version__}"); self.guide_button.configure(text=t("button.user_guide")); self.reset_button.configure(text=t("button.reset")); self.batch_back_button.configure(text=t("button.back")); self.badges_back_button.configure(text=t("button.back")); self.inspect_back_button.configure(text=t("button.back")); self.automatic_update_checkbox.configure(text=t("update.automatic")); self.footer_update_link.configure(text=t("update.check")); self.update_privacy_label.configure(text=t("update.privacy")); self.desktop_shortcut_button.configure(text=t("shortcut.create")); self._render_update_notification()
-        content_pairs=(("image","content.images"),("video","content.video"),("pdf","content.pdf"),("pptx","content.powerpoint"),("docx","content.word"))
+        content_pairs=(("image","content.images"),("video","content.video"),("pdf","content.pdf"),("pptx","content.powerpoint"))
         self.content_display_to_kind={t(key):kind for kind,key in content_pairs}
-        self.media_navigation.configure(values=[t("content.images"),t("content.video")]); self.document_navigation.configure(values=[t("content.pdf"),t("content.powerpoint"),t("content.word")])
+        self.media_navigation.configure(values=[t("content.images"),t("content.video")]); self.document_navigation.configure(values=[t("content.pdf"),t("content.powerpoint")])
         self.media_group_label.configure(text=t("content.media_group")); self.documents_group_label.configure(text=t("content.documents_group")); self.content_navigation_var.set(next(label for label,kind in self.content_display_to_kind.items() if kind==self.workspace_state.active))
         current_key=next((key for key,name in self.tab_names.items() if name==self.tabs.get()),"single")
         for key,translation_key in (("single","tab.single"),("documents","content.workspace"),("batch","tab.batch"),("badges","tab.badges"),("inspect","tab.inspect")):

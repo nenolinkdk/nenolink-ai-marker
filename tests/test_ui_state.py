@@ -65,6 +65,24 @@ def test_document_workspace_headings_share_the_compact_top_row():
     assert 'pptx_controls.grid(row=1,column=0,columnspan=2,rowspan=2,padx=12,pady=(0,8)' in source
 
 
+def test_production_navigation_exposes_pdf_and_powerpoint_but_not_word():
+    build_source = inspect.getsource(MarkerApp._build_ui)
+    translation_source = inspect.getsource(MarkerApp.apply_translations)
+    assert 'values=["PDF","PowerPoint / Slides"]' in build_source
+    assert 'values=["PDF","PowerPoint / Slides","Word"]' not in build_source
+    assert 'content_pairs=(("image","content.images"),("video","content.video"),("pdf","content.pdf"),("pptx","content.powerpoint"))' in translation_source
+    assert 'self.document_navigation.configure(values=[t("content.pdf"),t("content.powerpoint")])' in translation_source
+    assert '("docx","content.word")' not in translation_source
+
+
+def test_navigation_groups_are_compact_and_aligned_to_workspace_boundary():
+    source = inspect.getsource(MarkerApp._build_ui)
+    assert 'content_navigation_frame.grid(row=1,column=0,padx=20,pady=(6,0),sticky="w")' in source
+    assert 'self.tabs.grid(row=2,column=0,padx=16,pady=(0,8),sticky="nsew")' in source
+    document_navigation = next(line for line in source.splitlines() if 'self.document_navigation=ctk.CTkSegmentedButton' in line)
+    assert 'width=' not in document_navigation
+
+
 def test_docx_ui_exposes_only_reliable_alignment_and_hides_margin_controls():
     source = inspect.getsource(MarkerApp.apply_translations)
     assert 't("docx.position.left"):"bottom-left"' in source
