@@ -28,6 +28,7 @@ WP14 = "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing"
 def _create_docx(
     path: Path, *, sections: int = 1, existing_metadata: bool = True,
     first_page_headers: bool = False, later_title_page: bool = False,
+    existing_footer_drawing_id: int | None = None,
 ) -> None:
     section_xml = "".join(
         f'<w:p><w:pPr><w:sectPr><w:pgSz w:w="12240" w:h="15840"/></w:sectPr></w:pPr><w:r><w:t>Section {index}</w:t></w:r></w:p>'
@@ -37,7 +38,7 @@ def _create_docx(
 <w:document xmlns:w="{W}" xmlns:r="{R}" xmlns:wp="{WP}" xmlns:a="{A}" xmlns:pic="{PIC}" xmlns:mc="{MC}" xmlns:w14="{W14}" xmlns:wp14="{WP14}" mc:Ignorable="w14 wp14"><w:body>
 <w:p><w:r><w:t>Ordinary Unicode text ÆØÅ 日本語</w:t></w:r></w:p>
 <w:p><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="914400" cy="457200"/><wp:docPr id="7" name="Existing picture"/><wp:cNvGraphicFramePr/><a:graphic><a:graphicData uri="{PIC}"><pic:pic><pic:nvPicPr><pic:cNvPr id="7" name="Existing picture"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="914400" cy="457200"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>
-<w:tbl><w:tr><w:tc><w:p><w:r><w:t>Table value</w:t></w:r></w:p></w:tc></w:tr></w:tbl>
+<w:tbl><w:tblPr/><w:tblGrid><w:gridCol w:w="2400"/></w:tblGrid><w:tr><w:tc><w:tcPr/><w:p><w:r><w:t>Table value</w:t></w:r></w:p></w:tc></w:tr></w:tbl>
 <w:p><w:r><w:t>Additional realistic body content before page two.</w:t><w:br w:type="page"/></w:r></w:p>
 <w:p><w:r><w:t>Page two contains ordinary paragraphs, a table and an image.</w:t><w:br w:type="page"/></w:r></w:p>
 <w:p><w:r><w:t>Page three verifies multi-page footer behaviour.</w:t></w:r></w:p>
@@ -51,6 +52,7 @@ def _create_docx(
 <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
 <Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>
 <Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>
+{f'<Override PartName="/word/footer.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>' if existing_footer_drawing_id is not None else ''}
 <Override PartName="/word/headerFirst.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>
 <Override PartName="/word/footerFirst.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>
 <Override PartName="/docProps/custom.xml" ContentType="application/vnd.openxmlformats-officedocument.custom-properties+xml"/>
@@ -61,19 +63,33 @@ def _create_docx(
 </Relationships>'''
     document = document.replace('<w:sectPr><w:pgSz', '<w:sectPr><w:headerReference w:type="default" r:id="rId2"/><w:footerReference w:type="default" r:id="rId3"/><w:pgSz')
     if first_page_headers:
-        document = document.replace('<w:sectPr>', '<w:sectPr><w:headerReference w:type="first" r:id="rId4"/><w:footerReference w:type="first" r:id="rId5"/><w:titlePg/>', 1)
+        document = document.replace('<w:sectPr>', '<w:sectPr><w:headerReference w:type="first" r:id="rId4"/><w:footerReference w:type="first" r:id="rId5"/>', 1)
+        document = document.replace('<w:pgSz w:w="12240" w:h="15840"/>', '<w:pgSz w:w="12240" w:h="15840"/><w:titlePg/>', 1)
     if later_title_page and sections > 1:
-        prefix, final = document.rsplit('<w:sectPr>', 1)
-        document = prefix + '<w:sectPr><w:titlePg/>' + final
+        prefix, final = document.rsplit('<w:pgSz w:w="12240" w:h="15840"/>', 1)
+        document = prefix + '<w:pgSz w:w="12240" w:h="15840"/><w:titlePg/>' + final
     doc_rels = f'''<Relationships xmlns="{PKG}"><Relationship Id="rId1" Type="{R}/image" Target="media/existing.png"/><Relationship Id="rId2" Type="{R}/header" Target="header1.xml"/><Relationship Id="rId3" Type="{R}/footer" Target="footer1.xml"/><Relationship Id="rId4" Type="{R}/header" Target="headerFirst.xml"/><Relationship Id="rId5" Type="{R}/footer" Target="footerFirst.xml"/></Relationships>'''
     custom = '''<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><property fmtid="{D5CDD505-2E9C-101B-9397-08002B2CF9AE}" pid="2" name="Customer Code"><vt:lpwstr>Preserve me</vt:lpwstr></property></Properties>'''
+    footer_xml = f'<w:ftr xmlns:w="{W}"><w:p><w:r><w:t>Existing footer</w:t></w:r></w:p></w:ftr>'
+    footer_rels = None
+    if existing_footer_drawing_id is not None:
+        footer_xml = f'''<w:ftr xmlns:w="{W}" xmlns:r="{R}" xmlns:wp="{WP}" xmlns:a="{A}" xmlns:pic="{PIC}">
+<w:p><w:r><w:t>Existing footer</w:t></w:r></w:p>
+<w:p><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="914400" cy="457200"/><wp:docPr id="{existing_footer_drawing_id}" name="Existing footer picture"/><wp:cNvGraphicFramePr/><a:graphic><a:graphicData uri="{PIC}"><pic:pic><pic:nvPicPr><pic:cNvPr id="{existing_footer_drawing_id}" name="Existing footer picture"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="914400" cy="457200"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>
+</w:ftr>'''
+        footer_rels = f'<Relationships xmlns="{PKG}"><Relationship Id="rId1" Type="{R}/image" Target="media/existing.png"/></Relationships>'
     with ZipFile(path, "w") as archive:
         archive.writestr("[Content_Types].xml", content_types)
         archive.writestr("_rels/.rels", root_rels)
         archive.writestr("word/document.xml", document)
         archive.writestr("word/_rels/document.xml.rels", doc_rels)
         archive.writestr("word/header1.xml", f'<w:hdr xmlns:w="{W}"><w:p><w:r><w:t>Existing header</w:t></w:r></w:p></w:hdr>')
-        archive.writestr("word/footer1.xml", f'<w:ftr xmlns:w="{W}"><w:p><w:r><w:t>Existing footer</w:t></w:r></w:p></w:ftr>')
+        archive.writestr("word/footer1.xml", footer_xml)
+        if footer_rels:
+            archive.writestr("word/_rels/footer1.xml.rels", footer_rels)
+            # Match the reported package naming: an existing footer.xml makes
+            # the first newly cloned part word/footer2.xml.
+            archive.writestr("word/footer.xml", f'<w:ftr xmlns:w="{W}"><w:p/></w:ftr>')
         archive.writestr("word/headerFirst.xml", f'<w:hdr xmlns:w="{W}"><w:p><w:r><w:t>Existing first header</w:t></w:r></w:p></w:hdr>')
         archive.writestr("word/footerFirst.xml", f'<w:ftr xmlns:w="{W}"><w:p><w:r><w:t>Existing first footer</w:t></w:r></w:p></w:ftr>')
         existing_image = BytesIO(); Image.new("RGB", (120, 60), "#336699").save(existing_image, "PNG")
@@ -90,12 +106,14 @@ def _overlay(path: Path, colour, size=(180, 60)) -> None:
 def _request(
     tmp_path: Path, *, badge=True, logo=False, unicode=False, sections=1,
     first_page_headers=False, later_title_page=False,
+    existing_footer_drawing_id=None,
     badge_position="bottom-right", logo_position="bottom-left",
 ):
     source = tmp_path / ("Årsrapport_日本語.docx" if unicode else "source.docx")
     _create_docx(
         source, sections=sections, first_page_headers=first_page_headers,
         later_title_page=later_title_page,
+        existing_footer_drawing_id=existing_footer_drawing_id,
     )
     badge_path = tmp_path / "badge.png"; _overlay(badge_path, (0, 140, 80, 220))
     logo_path = tmp_path / "logo.png"; _overlay(logo_path, (200, 20, 20, 128), (80, 80))
@@ -256,6 +274,56 @@ def test_docx_output_uses_word_compatible_opc_namespace_and_unique_drawing_ids(t
             for name in archive.namelist()
             if name.startswith("word/") and name.endswith(".xml")
         )
+
+
+@pytest.mark.parametrize(
+    ("scope", "badge", "logo", "sections", "first_page_headers", "later_title_page"),
+    [
+        ("first-page", True, False, 1, False, False),
+        ("entire-document", True, False, 1, False, False),
+        ("entire-document", False, True, 1, False, False),
+        ("entire-document", True, True, 1, False, False),
+        ("entire-document", True, False, 2, False, False),
+        ("entire-document", True, True, 2, True, True),
+    ],
+)
+def test_docx_cloned_footer_drawing_ids_are_remapped_package_wide(
+    tmp_path, scope, badge, logo, sections, first_page_headers, later_title_page,
+):
+    """Regression: footer2.xml retained Word's 267032876 ID when footer1 was cloned."""
+    request = _request(
+        tmp_path, badge=badge, logo=logo, sections=sections,
+        first_page_headers=first_page_headers, later_title_page=later_title_page,
+        existing_footer_drawing_id=267032876,
+    )
+    result = DocxProcessor().process(request, scope)
+    DocxProcessor._validate_word_package(result.destination)
+
+    with ZipFile(result.destination) as archive:
+        ids_by_part = {}
+        for name in sorted(archive.namelist()):
+            if not name.startswith("word/") or not name.endswith(".xml"):
+                continue
+            root = ET.fromstring(archive.read(name))
+            values = [
+                int(item.attrib["id"])
+                for item in root.findall(f".//{_q(WP, 'docPr')}")
+            ]
+            if values:
+                ids_by_part[name] = values
+        all_ids = [value for values in ids_by_part.values() for value in values]
+        assert len(all_ids) == len(set(all_ids))
+        assert all(value > 0 for value in all_ids)
+        assert ids_by_part["word/footer1.xml"] == [267032876]
+        assert 267032876 not in ids_by_part["word/footer2.xml"]
+        allocated = sorted(set(all_ids) - {7, 267032876})
+        expected = []
+        candidate = 1
+        while len(expected) < len(allocated):
+            if candidate not in {7, 267032876}:
+                expected.append(candidate)
+            candidate += 1
+        assert allocated == expected
 
 
 def test_docx_package_audit_rejects_the_content_types_form_that_triggered_word_repair(tmp_path):

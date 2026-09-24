@@ -65,6 +65,22 @@ class DocxResult:
     scope: DocxScope
 
 
+class _DrawingIdAllocator:
+    """Allocate small positive DrawingML IDs without package-wide collisions."""
+
+    def __init__(self, used: set[int]):
+        self.used = {value for value in used if value > 0}
+        self.candidate = 1
+
+    def allocate(self) -> int:
+        while self.candidate in self.used:
+            self.candidate += 1
+        value = self.candidate
+        self.used.add(value)
+        self.candidate += 1
+        return value
+
+
 class DocxProcessor(DocumentProcessor):
     """Add conservative inline pictures to Word footers and write metadata.
 
@@ -144,12 +160,7 @@ class DocxProcessor(DocumentProcessor):
                     raise ValueError("The document does not define any sections.")
                 effective = self._effective_references(sections, relationship_targets)
                 shape_counts = {"badge": 0, "logo": 0}
-                used_drawing_ids = self._drawing_ids(source_zip, names)
-
-                def next_drawing_id() -> int:
-                    candidate = max(used_drawing_ids, default=0) + 1
-                    used_drawing_ids.add(candidate)
-                    return candidate
+                drawing_ids = _DrawingIdAllocator(self._drawing_ids(source_zip, names))
 
                 def clone_footer(section_index, reference_type, source_part, applicable):
                     part_kind = "footer"
@@ -160,11 +171,14 @@ class DocxProcessor(DocumentProcessor):
                         part_rels = source_zip.read(source_rels) if source_rels in names else None
                     else:
                         part_xml = self._empty_part(part_kind); part_rels = None
+                    # A cloned footer is a new story part. Its retained pictures
+                    # must not reuse the source part's package-wide docPr IDs.
+                    part_xml = self._remap_drawing_ids(part_xml, drawing_ids)
                     if applicable:
                         part_xml, part_rels = self._add_overlays(
                             part_xml, part_rels, part_name,
                             self._page_size(sections[section_index]), applicable, media_paths,
-                            next_drawing_id,
+                            drawing_ids,
                         )
                         for item in applicable:
                             shape_counts[item[0]] += 1
@@ -377,7 +391,7 @@ class DocxProcessor(DocumentProcessor):
     def _add_overlays(
         self, part_xml: bytes, rels_xml: bytes | None, part_name: str,
         page_size: tuple[int, int], overlays: list[tuple], media_paths: dict[str, str],
-        next_drawing_id,
+        drawing_ids: _DrawingIdAllocator,
     ) -> tuple[bytes, bytes]:
         root = ET.fromstring(part_xml)
         relationships = (
@@ -385,7 +399,7 @@ class DocxProcessor(DocumentProcessor):
             else ET.Element(_q(PKG_REL, "Relationships"))
         )
         for kind, _image_bytes, pixels, settings in overlays:
-            doc_id = next_drawing_id()
+            doc_id = drawing_ids.allocate()
             relation_id = self._add_relationship(
                 relationships, IMAGE_REL,
                 posixpath.relpath(media_paths[kind], str(PurePosixPath(part_name).parent)),
@@ -398,9 +412,9 @@ class DocxProcessor(DocumentProcessor):
 
     @staticmethod
     def _drawing_ids(source_zip: ZipFile, names: set[str]) -> set[int]:
-        """Collect package-wide DrawingML IDs; Word requires them to be unique."""
+        """Collect package-wide WordprocessingDrawing IDs before any cloning."""
         result: set[int] = set()
-        for name in names:
+        for name in sorted(names):
             if not name.startswith("word/") or not name.endswith(".xml"):
                 continue
             try:
@@ -412,6 +426,24 @@ class DocxProcessor(DocumentProcessor):
                 if value.isdigit():
                     result.add(int(value))
         return result
+
+    @classmethod
+    def _remap_drawing_ids(
+        cls, part_xml: bytes, drawing_ids: _DrawingIdAllocator
+    ) -> bytes:
+        """Give every retained picture in a cloned story part a fresh ID."""
+        root = ET.fromstring(part_xml)
+        changed = False
+        for drawing in root.findall(f".//{_q(W, 'drawing')}"):
+            for doc_properties in drawing.findall(f".//{_q(WP, 'docPr')}"):
+                old_id = doc_properties.attrib.get("id", "")
+                fresh_id = drawing_ids.allocate()
+                doc_properties.attrib["id"] = str(fresh_id)
+                for picture_properties in drawing.findall(f".//{_q(PIC, 'cNvPr')}"):
+                    if picture_properties.attrib.get("id", "") == old_id:
+                        picture_properties.attrib["id"] = str(fresh_id)
+                changed = True
+        return cls._serialize_preserving_root_namespaces(root, part_xml) if changed else part_xml
 
     @staticmethod
     def _inline_picture_paragraph(
@@ -426,8 +458,8 @@ class DocxProcessor(DocumentProcessor):
         paragraph = ET.Element(_q(W, "p"))
         props = ET.SubElement(paragraph, _q(W, "pPr"))
         alignment = "center" if position == "center" else "left" if position.endswith("left") else "right"
-        ET.SubElement(props, _q(W, "jc"), {_q(W, "val"): alignment})
         ET.SubElement(props, _q(W, "spacing"), {_q(W, "before"): "0", _q(W, "after"): "0"})
+        ET.SubElement(props, _q(W, "jc"), {_q(W, "val"): alignment})
         run = ET.SubElement(paragraph, _q(W, "r")); drawing = ET.SubElement(run, _q(W, "drawing"))
         inline = ET.SubElement(drawing, _q(WP, "inline"), {
             "distT": "0", "distB": "0", "distL": "0", "distR": "0",
