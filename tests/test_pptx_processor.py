@@ -114,6 +114,15 @@ def test_pptx_selection_modes_add_badge_only_to_requested_slides(tmp_path, selec
         assert "ppt/media/nenolink-ai-marker-badge.png" in archive.namelist()
 
 
+def test_pptx_arbitrary_non_contiguous_slides_2_5_8(tmp_path):
+    request, source = _request(tmp_path)
+    _create_pptx(source, 8)
+    result = PptxProcessor().process(request, ItemSelection("selected", (2, 5, 8)))
+    assert result.selected_slides == (2, 5, 8)
+    with ZipFile(result.destination) as archive:
+        assert [_picture_count(archive, number) for number in range(1, 9)] == [0, 1, 0, 0, 1, 0, 0, 1]
+
+
 def test_pptx_badge_and_logo_have_independent_geometry_and_opacity(tmp_path):
     request, _ = _request(tmp_path, logo=True)
 

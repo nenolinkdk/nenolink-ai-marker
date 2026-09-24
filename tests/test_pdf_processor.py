@@ -71,6 +71,15 @@ def test_pdf_badge_overlay_selected_pages_preserves_source(tmp_path,selection,ex
         assert bool(page.get("/Contents"))==(ordinal in expected)
 
 
+def test_pdf_arbitrary_non_contiguous_pages_2_5_8(tmp_path):
+    source=tmp_path/"eight.pdf"; output=tmp_path/"eight_ai.pdf"; badge=tmp_path/"badge.png"; _pdf(source,8); _badge(badge)
+    request=ProcessingRequest(source,output,DisclosureSettings("ai-assisted.png","AI Assisted"),badge_path=badge)
+    result=PdfProcessor().process(request,ItemSelection("selected",(2,5,8)))
+    assert result.selected_pages==(2,5,8)
+    reader=PdfReader(output)
+    assert [bool(page.get("/Contents")) for page in reader.pages]==[False,True,False,False,True,False,False,True]
+
+
 def test_pdf_never_overwrites_source(tmp_path):
     source=tmp_path/"source.pdf"; badge=tmp_path/"badge.png"; _pdf(source); _badge(badge)
     with pytest.raises(ValueError,match="different from the source"):

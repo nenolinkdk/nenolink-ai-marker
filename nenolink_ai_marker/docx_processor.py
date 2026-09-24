@@ -7,6 +7,7 @@ from io import BytesIO
 from pathlib import Path, PurePosixPath
 import posixpath
 import tempfile
+from typing import Literal
 from xml.etree import ElementTree as ET
 from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile
 
@@ -36,6 +37,7 @@ CUSTOM_PROPERTIES_TYPE = "application/vnd.openxmlformats-officedocument.custom-p
 CUSTOM_PROPERTIES_FORMAT_ID = "{D5CDD505-2E9C-101B-9397-08002B2CF9AE}"
 EMU_PER_PIXEL = 9525
 DEFAULT_PAGE_SIZE = (7_772_400, 10_058_400)  # 8.5 x 11 inches
+DocxScope = Literal["first-page", "entire-document"]
 
 for prefix, uri in (("w", W), ("wp", WP), ("a", A), ("pic", PIC), ("r", R)):
     ET.register_namespace(prefix, uri)
@@ -61,6 +63,7 @@ class DocxResult:
     badge_shapes: int
     logo_shapes: int
     metadata_written: bool
+    scope: DocxScope
 
 
 class DocxProcessor(DocumentProcessor):
@@ -89,8 +92,12 @@ class DocxProcessor(DocumentProcessor):
         sections = document.findall(f".//{_q(W, 'sectPr')}")
         return DocxInfo(DocumentMetrics(source.stat().st_size, 0), max(1, len(sections)))
 
-    def process(self, request: ProcessingRequest) -> DocxResult:
+    def process(
+        self, request: ProcessingRequest, scope: DocxScope = "entire-document"
+    ) -> DocxResult:
         request = request.validated()
+        if scope not in {"first-page", "entire-document"}:
+            raise ValueError(f"Unsupported DOCX marking scope: {scope}")
         if not self.capabilities.supports(request.source):
             raise ValueError("Only .docx documents are supported.")
         badge_path = request.badge_path if request.badge_path and request.badge_path.is_file() else None
@@ -131,47 +138,76 @@ class DocxProcessor(DocumentProcessor):
                 }
                 settings = source_zip.read("word/settings.xml") if "word/settings.xml" in names else b""
                 even_pages = b"evenAndOddHeaders" in settings
-                shape_count = 0
                 sections = document.findall(f".//{_q(W, 'sectPr')}")
-                for section_index, section in enumerate(sections or [document], start=1):
-                    page_size = self._page_size(section)
-                    reference_types = ["default"]
-                    if section.find(_q(W, "titlePg")) is not None:
-                        reference_types.append("first")
-                    if even_pages:
-                        reference_types.append("even")
+                if not sections:
+                    raise ValueError("The document does not define any sections.")
+                effective = self._effective_references(sections, relationship_targets)
+                shape_counts = {"badge": 0, "logo": 0}
+
+                def clone_part(section_index, part_kind, reference_type, source_part, applicable):
+                    part_name = self._available_name(names | set(additions), f"word/{part_kind}", ".xml")
+                    if source_part and source_part in names:
+                        part_xml = source_zip.read(source_part)
+                        source_rels = self._rels_path(source_part)
+                        part_rels = source_zip.read(source_rels) if source_rels in names else None
+                    else:
+                        part_xml = self._empty_part(part_kind); part_rels = None
+                    if applicable:
+                        part_xml, part_rels = self._add_overlays(
+                            part_xml, part_rels, part_name,
+                            self._page_size(sections[section_index]), applicable, media_paths,
+                        )
+                        for item in applicable:
+                            shape_counts[item[0]] += 1
+                    additions[part_name] = part_xml
+                    additions[self._rels_path(part_name)] = part_rels or self._serialize(ET.Element(_q(PKG_REL, "Relationships")))
+                    self._ensure_part_override(content_types, part_name, part_kind)
+                    relation_id = self._add_relationship(
+                        document_rels, HEADER_REL if part_kind == "header" else FOOTER_REL,
+                        posixpath.relpath(part_name, "word"),
+                    )
+                    self._set_reference(sections[section_index], part_kind, reference_type, relation_id)
+
+                if scope == "first-page":
+                    first = sections[0]
+                    had_title_page = first.find(_q(W, "titlePg")) is not None
+                    if not had_title_page:
+                        self._enable_title_page(first)
                     for part_kind in ("header", "footer"):
                         applicable = [item for item in overlays if self._part_kind(item[3].position) == part_kind]
-                        if not applicable:
+                        source_part = (
+                            effective[0].get((part_kind, "first"))
+                            if had_title_page else effective[0].get((part_kind, "default"))
+                        )
+                        clone_part(0, part_kind, "first", source_part, applicable)
+                    # A later section with Different First Page and a linked first
+                    # header/footer would otherwise inherit the newly marked part.
+                    for section_index, section in enumerate(sections[1:], start=1):
+                        if section.find(_q(W, "titlePg")) is None:
                             continue
-                        for reference_type in reference_types:
-                            source_part = self._referenced_part(
-                                section, part_kind, reference_type, relationship_targets
-                            )
-                            part_name = self._available_name(
-                                names | set(additions), f"word/{part_kind}", ".xml"
-                            )
-                            if source_part and source_part in names:
-                                part_xml = source_zip.read(source_part)
-                                source_rels = self._rels_path(source_part)
-                                part_rels = source_zip.read(source_rels) if source_rels in names else None
-                            else:
-                                part_xml = self._empty_part(part_kind)
-                                part_rels = None
-                            part_xml, part_rels = self._add_overlays(
-                                part_xml, part_rels, part_name, page_size,
-                                applicable, media_paths,
-                            )
-                            additions[part_name] = part_xml
-                            additions[self._rels_path(part_name)] = part_rels
-                            self._ensure_part_override(content_types, part_name, part_kind)
-                            relation_id = self._add_relationship(
-                                document_rels,
-                                HEADER_REL if part_kind == "header" else FOOTER_REL,
-                                posixpath.relpath(part_name, "word"),
-                            )
-                            self._set_reference(section, part_kind, reference_type, relation_id)
-                            shape_count += len(applicable)
+                        for part_kind in ("header", "footer"):
+                            if not self._has_reference(section, part_kind, "first"):
+                                clone_part(
+                                    section_index, part_kind, "first",
+                                    effective[section_index].get((part_kind, "first")), [],
+                                )
+                else:
+                    for section_index, section in enumerate(sections):
+                        reference_types = ["default"]
+                        if section.find(_q(W, "titlePg")) is not None:
+                            reference_types.append("first")
+                        if even_pages:
+                            reference_types.append("even")
+                        for part_kind in ("header", "footer"):
+                            applicable = [item for item in overlays if self._part_kind(item[3].position) == part_kind]
+                            if not applicable:
+                                continue
+                            for reference_type in reference_types:
+                                clone_part(
+                                    section_index, part_kind, reference_type,
+                                    effective[section_index].get((part_kind, reference_type)),
+                                    applicable,
+                                )
 
                 metadata = request.metadata or marker_metadata(
                     request.disclosure.badge_name, request.disclosure.label
@@ -215,10 +251,10 @@ class DocxProcessor(DocumentProcessor):
         except (BadZipFile, KeyError, ET.ParseError) as error:
             raise ValueError(f"The document is missing a required DOCX part: {error}") from error
 
-        per_section = shape_count
-        badge_shapes = per_section if badge_path and not logo_path else (per_section // 2 if badge_path else 0)
-        logo_shapes = per_section if logo_path and not badge_path else (per_section // 2 if logo_path else 0)
-        return DocxResult(request.destination, info.section_count, badge_shapes, logo_shapes, True)
+        return DocxResult(
+            request.destination, info.section_count, shape_counts["badge"],
+            shape_counts["logo"], True, scope,
+        )
 
     @staticmethod
     def _part_kind(position: str) -> str:
@@ -274,6 +310,48 @@ class DocxProcessor(DocumentProcessor):
                 if target:
                     return posixpath.normpath(posixpath.join("word", target)).lstrip("/")
         return None
+
+    @staticmethod
+    def _has_reference(section: ET.Element, kind: str, reference_type: str) -> bool:
+        return any(
+            item.attrib.get(_q(W, "type"), "default") == reference_type
+            for item in section.findall(_q(W, f"{kind}Reference"))
+        )
+
+    @staticmethod
+    def _enable_title_page(section: ET.Element) -> None:
+        title_page = ET.Element(_q(W, "titlePg"))
+        later_elements = {
+            _q(W, name) for name in
+            ("textDirection", "bidi", "rtlGutter", "docGrid", "printerSettings", "sectPrChange")
+        }
+        insertion = next(
+            (index for index, child in enumerate(section) if child.tag in later_elements),
+            len(section),
+        )
+        section.insert(insertion, title_page)
+
+    @classmethod
+    def _effective_references(
+        cls, sections: list[ET.Element], relationship_targets: dict[str, str]
+    ) -> list[dict[tuple[str, str], str | None]]:
+        """Resolve Word's linked-to-previous inheritance before any references change."""
+        current = {
+            (kind, reference_type): None
+            for kind in ("header", "footer")
+            for reference_type in ("default", "first", "even")
+        }
+        result = []
+        for section in sections:
+            for key in current:
+                kind, reference_type = key
+                explicit = cls._referenced_part(
+                    section, kind, reference_type, relationship_targets
+                )
+                if explicit:
+                    current[key] = explicit
+            result.append(dict(current))
+        return result
 
     @staticmethod
     def _set_reference(section: ET.Element, kind: str, reference_type: str, relation_id: str) -> None:
