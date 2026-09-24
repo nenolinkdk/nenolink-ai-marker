@@ -1,8 +1,10 @@
 from pathlib import Path
+import inspect
 
 import pytest
 
 from nenolink_ai_marker.ui_state import ContentWorkspaceState, pptx_item_selection, show_welcome
+from nenolink_ai_marker.app import MarkerApp
 
 
 def test_welcome_is_visible_without_an_image():
@@ -51,3 +53,22 @@ def test_pptx_ui_selection_modes(mode, values, expected):
 def test_pptx_ui_rejects_invalid_slide_input():
     with pytest.raises(ValueError, match="whole numbers"):
         pptx_item_selection("selected", selected="2, slide 4")
+
+
+def test_document_workspace_headings_share_the_compact_top_row():
+    source = inspect.getsource(MarkerApp._document_ui)
+    assert 'document_format_label=ctk.CTkLabel(panel' in source
+    assert 'document_format_label.grid(row=0,column=0' in source
+    assert 'pptx_scope_label=ctk.CTkLabel(panel' in source
+    assert 'pptx_scope_label.grid(row=0,column=1' in source
+    assert 'panel.grid(row=0,column=0,padx=20,pady=(4,8)' in source
+    assert 'pptx_controls.grid(row=1,column=0,columnspan=2,rowspan=2,padx=12,pady=(0,8)' in source
+
+
+def test_docx_ui_exposes_only_reliable_alignment_and_hides_margin_controls():
+    source = inspect.getsource(MarkerApp.apply_translations)
+    assert 't("docx.position.left"):"bottom-left"' in source
+    assert 't("docx.position.center"):"center"' in source
+    assert 't("docx.position.right"):"bottom-right"' in source
+    assert 'self.pptx_margin_label.grid_remove()' in source
+    assert 'self.pptx_logo_margin_label.grid_remove()' in source

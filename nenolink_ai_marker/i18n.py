@@ -68,6 +68,7 @@ DEFAULT_ENGLISH = {
     "badge.custom_missing": "Custom badge folder could not be found.",
     "position.top_left": "Top left", "position.top_right": "Top right",
     "position.bottom_left": "Bottom left", "position.bottom_right": "Bottom right", "position.center": "Center",
+    "docx.position.left": "Left", "docx.position.center": "Center", "docx.position.right": "Right",
     "logo.title": "Own Logo", "logo.enable": "Add own logo to images",
     "logo.choose": "Choose Logo", "logo.position": "Logo Position",
     "logo.size": "Logo Size: {value}%", "logo.margin": "Logo Margin: {value} px",

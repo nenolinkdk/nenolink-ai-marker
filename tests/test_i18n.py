@@ -85,7 +85,7 @@ class TranslationTests(unittest.TestCase):
 
     def test_word_workspace_is_translated_in_every_locale(self):
         locales=Path(__file__).resolve().parent.parent/"locales"
-        keys={"document.summary.docx","document.docx_warning","document.docx_hard","docx.choose","docx.no_file","docx.selected","docx.whole_document","docx.scope","docx.scope.first","docx.scope.all","docx.add_badge","docx.process","docx.preview_hint","docx.preview_unavailable","docx.preview_approximate","docx.metadata_note","docx.overlay_required","docx.error","docx.choose_first","docx.save_as","docx.extension_error","docx.saved"}
+        keys={"document.summary.docx","document.docx_warning","document.docx_hard","docx.choose","docx.no_file","docx.selected","docx.whole_document","docx.scope","docx.scope.first","docx.scope.all","docx.position.left","docx.position.center","docx.position.right","docx.add_badge","docx.process","docx.preview_hint","docx.preview_unavailable","docx.preview_approximate","docx.metadata_note","docx.overlay_required","docx.error","docx.choose_first","docx.save_as","docx.extension_error","docx.saved"}
         for code in LANGUAGES.values():
             data=json.loads((locales/f"{code}.json").read_text(encoding="utf-8"))
             self.assertTrue(keys.issubset(data),code)

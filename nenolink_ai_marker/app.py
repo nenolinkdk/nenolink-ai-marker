@@ -152,12 +152,12 @@ class MarkerApp(ctk.CTk):
 
     def _document_ui(self) -> None:
         tab=self.document_tab; tab.grid_columnconfigure(0,weight=1); tab.grid_rowconfigure(0,weight=1)
-        panel=ctk.CTkFrame(tab); panel.grid(row=0,column=0,padx=20,pady=14,sticky="nsew"); panel.grid_columnconfigure((0,1),weight=1); panel.grid_rowconfigure(2,weight=1)
-        self.document_format_label=ctk.CTkLabel(panel,text="",font=ctk.CTkFont(size=24,weight="bold")); self.document_format_label.grid(row=0,column=0,columnspan=2,padx=20,pady=(16,6),sticky="w")
+        panel=ctk.CTkFrame(tab); panel.grid(row=0,column=0,padx=20,pady=(4,8),sticky="nsew"); panel.grid_columnconfigure((0,1),weight=1); panel.grid_rowconfigure(2,weight=1)
+        self.document_format_label=ctk.CTkLabel(panel,text="",font=ctk.CTkFont(size=24,weight="bold")); self.document_format_label.grid(row=0,column=0,padx=20,pady=(4,2),sticky="w")
         self.document_planned_title=ctk.CTkLabel(panel,text="",font=ctk.CTkFont(size=18,weight="bold")); self.document_planned_title.grid(row=1,column=0,columnspan=2,padx=20,pady=8)
         self.document_planned_message=ctk.CTkLabel(panel,text="",text_color="gray60",wraplength=760,justify="center"); self.document_planned_message.grid(row=2,column=0,columnspan=2,padx=20,pady=(4,24),sticky="n")
 
-        self.pptx_controls=ctk.CTkFrame(panel,fg_color="transparent"); self.pptx_controls.grid(row=1,column=0,columnspan=2,rowspan=2,padx=12,pady=(2,12),sticky="nsew"); self.pptx_controls.grid_columnconfigure((0,1),weight=1)
+        self.pptx_controls=ctk.CTkFrame(panel,fg_color="transparent"); self.pptx_controls.grid(row=1,column=0,columnspan=2,rowspan=2,padx=12,pady=(0,8),sticky="nsew"); self.pptx_controls.grid_columnconfigure((0,1),weight=1)
         left=ctk.CTkFrame(self.pptx_controls); left.grid(row=0,column=0,padx=(0,6),sticky="nsew"); left.grid_columnconfigure(0,weight=1)
         right=ctk.CTkFrame(self.pptx_controls); right.grid(row=0,column=1,padx=(6,0),sticky="nsew"); right.grid_columnconfigure(0,weight=1)
         self.pptx_choose_button=ctk.CTkButton(left,text="",command=self.choose_active_document,height=28); self.pptx_choose_button.grid(row=0,column=0,padx=12,pady=(8,2),sticky="ew")
@@ -168,11 +168,11 @@ class MarkerApp(ctk.CTk):
         self.pptx_position_label=ctk.CTkLabel(left,text=""); self.pptx_position_label.grid(row=4,column=0,padx=12,pady=(3,0),sticky="w")
         self.pptx_position_menu=ctk.CTkOptionMenu(left,variable=self.position_display_var,values=["—"],command=self.change_position_display,height=28); self.pptx_position_menu.grid(row=5,column=0,padx=12,pady=1,sticky="ew")
         self.pptx_size_label=ctk.CTkLabel(left,text=""); self.pptx_size_label.grid(row=6,column=0,padx=12,pady=(2,0),sticky="w")
-        ctk.CTkSlider(left,from_=1,to=100,number_of_steps=99,variable=self.size_var,command=self.changed).grid(row=7,column=0,padx=14,sticky="ew")
+        self.pptx_size_slider=ctk.CTkSlider(left,from_=1,to=100,number_of_steps=99,variable=self.size_var,command=self.changed); self.pptx_size_slider.grid(row=7,column=0,padx=14,sticky="ew")
         self.pptx_opacity_label=ctk.CTkLabel(left,text=""); self.pptx_opacity_label.grid(row=8,column=0,padx=14,pady=(4,0),sticky="w")
-        ctk.CTkSlider(left,from_=0,to=100,number_of_steps=100,variable=self.opacity_var,command=self.changed).grid(row=9,column=0,padx=14,sticky="ew")
+        self.pptx_opacity_slider=ctk.CTkSlider(left,from_=0,to=100,number_of_steps=100,variable=self.opacity_var,command=self.changed); self.pptx_opacity_slider.grid(row=9,column=0,padx=14,sticky="ew")
         self.pptx_margin_label=ctk.CTkLabel(left,text=""); self.pptx_margin_label.grid(row=10,column=0,padx=14,pady=(4,0),sticky="w")
-        ctk.CTkSlider(left,from_=0,to=250,number_of_steps=250,variable=self.margin_var,command=self.changed).grid(row=11,column=0,padx=14,sticky="ew")
+        self.pptx_margin_slider=ctk.CTkSlider(left,from_=0,to=250,number_of_steps=250,variable=self.margin_var,command=self.changed); self.pptx_margin_slider.grid(row=11,column=0,padx=14,sticky="ew")
         self.pptx_logo_enable=ctk.CTkCheckBox(left,text="",variable=self.logo_enabled_var,command=self.logo_changed); self.pptx_logo_enable.grid(row=12,column=0,padx=12,pady=(3,1),sticky="w")
         self.pptx_logo_choose=ctk.CTkButton(left,text="",command=self.choose_logo,height=26); self.pptx_logo_choose.grid(row=13,column=0,padx=12,pady=1,sticky="ew")
         ctk.CTkLabel(left,textvariable=self.logo_filename_var,text_color="gray60",anchor="w").grid(row=14,column=0,padx=12,pady=(0,2),sticky="ew")
@@ -182,10 +182,10 @@ class MarkerApp(ctk.CTk):
         ctk.CTkSlider(self.pptx_logo_settings,from_=1,to=100,number_of_steps=99,variable=self.logo_size_var,command=self.changed,height=12).grid(row=2,column=0,columnspan=2,sticky="ew")
         self.pptx_logo_margin_label=ctk.CTkLabel(self.pptx_logo_settings,text="",height=20); self.pptx_logo_margin_label.grid(row=3,column=0,padx=(0,4),sticky="w")
         self.pptx_logo_opacity_label=ctk.CTkLabel(self.pptx_logo_settings,text="",height=20); self.pptx_logo_opacity_label.grid(row=3,column=1,padx=(4,0),sticky="w")
-        ctk.CTkSlider(self.pptx_logo_settings,from_=0,to=250,number_of_steps=250,variable=self.logo_margin_var,command=self.changed,height=12).grid(row=4,column=0,padx=(0,4),sticky="ew")
+        self.pptx_logo_margin_slider=ctk.CTkSlider(self.pptx_logo_settings,from_=0,to=250,number_of_steps=250,variable=self.logo_margin_var,command=self.changed,height=12); self.pptx_logo_margin_slider.grid(row=4,column=0,padx=(0,4),sticky="ew")
         ctk.CTkSlider(self.pptx_logo_settings,from_=0,to=100,number_of_steps=100,variable=self.logo_opacity_var,command=self.changed,height=12).grid(row=4,column=1,padx=(4,0),sticky="ew")
 
-        self.pptx_scope_label=ctk.CTkLabel(right,text="",font=ctk.CTkFont(weight="bold")); self.pptx_scope_label.grid(row=0,column=0,padx=14,pady=(14,2),sticky="w")
+        self.pptx_scope_label=ctk.CTkLabel(panel,text="",font=ctk.CTkFont(weight="bold")); self.pptx_scope_label.grid(row=0,column=1,padx=26,pady=(4,2),sticky="w")
         self.pptx_selection_menu=ctk.CTkOptionMenu(right,variable=self.pptx_selection_display_var,values=["—"],command=self.change_pptx_selection_mode); self.pptx_selection_menu.grid(row=1,column=0,padx=14,pady=2,sticky="ew")
         self.pptx_single_frame=ctk.CTkFrame(right,fg_color="transparent"); self.pptx_single_frame.grid_columnconfigure(1,weight=1)
         self.pptx_single_label=ctk.CTkLabel(self.pptx_single_frame,text=""); self.pptx_single_label.grid(row=0,column=0,padx=(0,8)); ctk.CTkEntry(self.pptx_single_frame,textvariable=self.pptx_single_var).grid(row=0,column=1,sticky="ew")
@@ -415,7 +415,18 @@ class MarkerApp(ctk.CTk):
         self._render_document_workspace()
         is_pdf=self.workspace_state.active=="pdf"; is_docx=self.workspace_state.active=="docx"; badge_optional=is_pdf or is_docx
         self.pptx_choose_button.configure(text=t("docx.choose") if is_docx else t("pdf.choose") if is_pdf else t("pptx.choose")); self.pptx_badge_label.configure(text=t("badge")); self.pdf_badge_enable.configure(text=t("docx.add_badge") if is_docx else t("pdf.add_badge")); self.pptx_badge_label.grid_remove() if badge_optional else self.pptx_badge_label.grid(); self.pdf_badge_enable.grid() if badge_optional else self.pdf_badge_enable.grid_remove(); self.pptx_badge_menu.configure(state="normal" if not badge_optional or self.pdf_badge_enabled_var.get() else "disabled"); self.pptx_position_label.configure(text=t("position")); self.pptx_size_label.configure(text=t("size.value",value=self.size_var.get())); self.pptx_opacity_label.configure(text=t("opacity.value",value=self.opacity_var.get())); self.pptx_margin_label.configure(text=t("margin.value",value=self.margin_var.get())); self.pptx_logo_enable.configure(text=t("logo.enable")); self.pptx_logo_choose.configure(text=t("logo.choose")); self.pptx_logo_size_label.configure(text=t("logo.size",value=self.logo_size_var.get())); self.pptx_logo_margin_label.configure(text=t("logo.margin",value=self.logo_margin_var.get())); self.pptx_logo_opacity_label.configure(text=t("logo.opacity",value=self.logo_opacity_var.get()))
-        self.pptx_badge_menu.configure(values=list(self.badge_display_to_file) or [t("badge.none")]); self.pptx_position_menu.configure(values=list(self.position_display_to_value)); self.pptx_logo_position_menu.configure(values=list(self.logo_position_display_to_value))
+        self.pptx_badge_menu.configure(values=list(self.badge_display_to_file) or [t("badge.none")])
+        if is_docx:
+            self.docx_position_display_to_value={t("docx.position.left"):"bottom-left",t("docx.position.center"):"center",t("docx.position.right"):"bottom-right"}
+            self.pptx_position_menu.configure(values=list(self.docx_position_display_to_value)); self.pptx_logo_position_menu.configure(values=list(self.docx_position_display_to_value))
+            badge_alignment="center" if self.position_var.get()=="center" else "bottom-left" if self.position_var.get().endswith("left") else "bottom-right"
+            logo_alignment="center" if self.logo_position_var.get()=="center" else "bottom-left" if self.logo_position_var.get().endswith("left") else "bottom-right"
+            self.position_display_var.set(next(label for label,value in self.docx_position_display_to_value.items() if value==badge_alignment))
+            self.logo_position_display_var.set(next(label for label,value in self.docx_position_display_to_value.items() if value==logo_alignment))
+            self.pptx_margin_label.grid_remove(); self.pptx_margin_slider.grid_remove(); self.pptx_logo_margin_label.grid_remove(); self.pptx_logo_margin_slider.grid_remove()
+        else:
+            self.pptx_position_menu.configure(values=list(self.position_display_to_value)); self.pptx_logo_position_menu.configure(values=list(self.logo_position_display_to_value))
+            self.pptx_margin_label.grid(); self.pptx_margin_slider.grid(); self.pptx_logo_margin_label.grid(); self.pptx_logo_margin_slider.grid()
         scope_prefix="pdf.scope" if is_pdf else "pptx.scope"
         if is_docx:
             self.pptx_scope_label.configure(text=t("docx.scope")); self.pptx_selection_display_to_value={t("docx.scope.first"):"first-page",t("docx.scope.all"):"entire-document"}; self.pptx_selection_menu.configure(values=list(self.pptx_selection_display_to_value)); self.pptx_selection_display_var.set(next((label for label,value in self.pptx_selection_display_to_value.items() if value==self.docx_scope_var.get()),t("docx.scope.all")))
@@ -760,8 +771,8 @@ class MarkerApp(ctk.CTk):
         self.batch_video_duration_label.grid() if visible else self.batch_video_duration_label.grid_remove()
         self.batch_video_duration_entry.grid() if visible else self.batch_video_duration_entry.grid_remove()
         self.single_controls.after_idle(self.single_controls.update_scrollbar_visibility)
-    def change_position_display(self,label): self.position_var.set(self.position_display_to_value[label]); self.changed()
-    def change_logo_position(self,label): self.logo_position_var.set(self.logo_position_display_to_value[label]); self.logo_changed()
+    def change_position_display(self,label): self.position_var.set((self.docx_position_display_to_value if self.workspace_state.active=="docx" else self.position_display_to_value)[label]); self.changed()
+    def change_logo_position(self,label): self.logo_position_var.set((self.docx_position_display_to_value if self.workspace_state.active=="docx" else self.logo_position_display_to_value)[label]); self.logo_changed()
     def _logo_path(self):
         path=Path(self.logo_path_var.get()).expanduser() if self.logo_path_var.get() else None
         return path if path and path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS else None

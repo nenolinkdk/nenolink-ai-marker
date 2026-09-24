@@ -1,6 +1,6 @@
 """Lightweight approximate DOCX placement preview; not a Word renderer."""
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 import textwrap
 from xml.etree import ElementTree as ET
@@ -36,8 +36,7 @@ class DocxPreviewRenderer:
         source = Path(source)
         key = (source.resolve(), source.stat().st_mtime_ns, max_size)
         if key == self._cache_key and self._cache_value is not None:
-            canvas, page_width_pixels = self._cache_value
-            canvas = canvas.copy()
+            canvas = self._cache_value.copy()
         else:
             with ZipFile(source, "r") as archive:
                 document = ET.fromstring(archive.read("word/document.xml"))
@@ -56,20 +55,38 @@ class DocxPreviewRenderer:
                 y += 16
                 if y > height * .78:
                     break
-            page_width_pixels = max(1, round(width_emu / 9525))
-            self._cache_key = key; self._cache_value = (canvas.copy(), page_width_pixels)
-        scale = canvas.width / page_width_pixels
-        preview_settings = replace(
-            settings,
-            margin=max(0, round(settings.margin * scale)),
-            logo_margin=max(0, round(settings.logo_margin * scale)),
-        )
-        badge = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+            self._cache_key = key; self._cache_value = canvas.copy()
+        badge = None
         if badge_path:
             with Image.open(badge_path) as opened:
                 badge = opened.convert("RGBA")
         logo = None
-        if preview_settings.logo_enabled and logo_path:
+        if settings.logo_enabled and logo_path:
             with Image.open(logo_path) as opened:
                 logo = opened.convert("RGBA")
-        return DocxPreview(self.processor.compose(canvas, badge, preview_settings, logo))
+        result = canvas.convert("RGBA")
+        if badge is not None:
+            self._footer_picture(result, badge, settings.position, settings.size_percent, settings.opacity)
+        if logo is not None:
+            self._footer_picture(result, logo, settings.logo_position, settings.logo_size_percent, settings.logo_opacity)
+        return DocxPreview(result)
+
+    @staticmethod
+    def _footer_picture(
+        page: Image.Image, picture: Image.Image, position: str,
+        size_percent: int, opacity: int,
+    ) -> None:
+        width = max(1, round(page.width * size_percent / 100))
+        height = max(1, round(picture.height * width / max(1, picture.width)))
+        picture = picture.resize((width, height), Image.Resampling.LANCZOS)
+        if opacity < 100:
+            alpha = picture.getchannel("A").point(lambda value: round(value * opacity / 100))
+            picture.putalpha(alpha)
+        inset = max(4, round(page.width * .04)); y = max(0, page.height - height - inset)
+        if position == "center":
+            x = max(0, (page.width - width) // 2)
+        elif position.endswith("left"):
+            x = inset
+        else:
+            x = max(0, page.width - width - inset)
+        page.alpha_composite(picture, (x, y))

@@ -1,4 +1,4 @@
-"""Targeted, non-destructive DOCX disclosure overlays and metadata."""
+"""Targeted, non-destructive DOCX disclosure pictures and metadata."""
 
 from __future__ import annotations
 
@@ -26,7 +26,6 @@ PIC = "http://schemas.openxmlformats.org/drawingml/2006/picture"
 R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 PKG_REL = "http://schemas.openxmlformats.org/package/2006/relationships"
 IMAGE_REL = f"{R}/image"
-HEADER_REL = f"{R}/header"
 FOOTER_REL = f"{R}/footer"
 CONTENT_TYPES = "http://schemas.openxmlformats.org/package/2006/content-types"
 HEADER_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"
@@ -36,7 +35,6 @@ VT = "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"
 CUSTOM_PROPERTIES_REL = f"{R}/custom-properties"
 CUSTOM_PROPERTIES_TYPE = "application/vnd.openxmlformats-officedocument.custom-properties+xml"
 CUSTOM_PROPERTIES_FORMAT_ID = "{D5CDD505-2E9C-101B-9397-08002B2CF9AE}"
-EMU_PER_PIXEL = 9525
 DEFAULT_PAGE_SIZE = (7_772_400, 10_058_400)  # 8.5 x 11 inches
 DocxScope = Literal["first-page", "entire-document"]
 
@@ -68,11 +66,12 @@ class DocxResult:
 
 
 class DocxProcessor(DocumentProcessor):
-    """Patch only header/footer relationships, image parts and custom properties.
+    """Add conservative inline pictures to Word footers and write metadata.
 
-    Floating page-relative drawings avoid reflowing body paragraphs, tables and
-    images. Existing package parts are copied byte-for-byte unless they must be
-    cloned to add a disclosure to a specific section.
+    Existing package parts are copied byte-for-byte unless a footer must be
+    cloned for a specific section. Inline drawings with paragraph alignment are
+    intentionally used instead of floating, page-relative anchors because they
+    are substantially more reliable in Microsoft Word.
     """
 
     capabilities = ProcessorCapabilities(
@@ -152,7 +151,8 @@ class DocxProcessor(DocumentProcessor):
                     used_drawing_ids.add(candidate)
                     return candidate
 
-                def clone_part(section_index, part_kind, reference_type, source_part, applicable):
+                def clone_footer(section_index, reference_type, source_part, applicable):
+                    part_kind = "footer"
                     part_name = self._available_name(names | set(additions), f"word/{part_kind}", ".xml")
                     if source_part and source_part in names:
                         part_xml = source_zip.read(source_part)
@@ -172,7 +172,7 @@ class DocxProcessor(DocumentProcessor):
                     additions[self._rels_path(part_name)] = part_rels or self._serialize(ET.Element(_q(PKG_REL, "Relationships")))
                     self._ensure_part_override(content_types, part_name, part_kind)
                     relation_id = self._add_relationship(
-                        document_rels, HEADER_REL if part_kind == "header" else FOOTER_REL,
+                        document_rels, FOOTER_REL,
                         posixpath.relpath(part_name, "word"),
                     )
                     self._set_reference(sections[section_index], part_kind, reference_type, relation_id)
@@ -182,24 +182,21 @@ class DocxProcessor(DocumentProcessor):
                     had_title_page = first.find(_q(W, "titlePg")) is not None
                     if not had_title_page:
                         self._enable_title_page(first)
-                    for part_kind in ("header", "footer"):
-                        applicable = [item for item in overlays if self._part_kind(item[3].position) == part_kind]
-                        source_part = (
-                            effective[0].get((part_kind, "first"))
-                            if had_title_page else effective[0].get((part_kind, "default"))
-                        )
-                        clone_part(0, part_kind, "first", source_part, applicable)
+                    source_part = (
+                        effective[0].get(("footer", "first"))
+                        if had_title_page else effective[0].get(("footer", "default"))
+                    )
+                    clone_footer(0, "first", source_part, overlays)
                     # A later section with Different First Page and a linked first
                     # header/footer would otherwise inherit the newly marked part.
                     for section_index, section in enumerate(sections[1:], start=1):
                         if section.find(_q(W, "titlePg")) is None:
                             continue
-                        for part_kind in ("header", "footer"):
-                            if not self._has_reference(section, part_kind, "first"):
-                                clone_part(
-                                    section_index, part_kind, "first",
-                                    effective[section_index].get((part_kind, "first")), [],
-                                )
+                        if not self._has_reference(section, "footer", "first"):
+                            clone_footer(
+                                section_index, "first",
+                                effective[section_index].get(("footer", "first")), [],
+                            )
                 else:
                     for section_index, section in enumerate(sections):
                         reference_types = ["default"]
@@ -207,16 +204,12 @@ class DocxProcessor(DocumentProcessor):
                             reference_types.append("first")
                         if even_pages:
                             reference_types.append("even")
-                        for part_kind in ("header", "footer"):
-                            applicable = [item for item in overlays if self._part_kind(item[3].position) == part_kind]
-                            if not applicable:
-                                continue
-                            for reference_type in reference_types:
-                                clone_part(
-                                    section_index, part_kind, reference_type,
-                                    effective[section_index].get((part_kind, reference_type)),
-                                    applicable,
-                                )
+                        for reference_type in reference_types:
+                            clone_footer(
+                                section_index, reference_type,
+                                effective[section_index].get(("footer", reference_type)),
+                                overlays,
+                            )
 
                 metadata = request.metadata or marker_metadata(
                     request.disclosure.badge_name, request.disclosure.label
@@ -265,10 +258,6 @@ class DocxProcessor(DocumentProcessor):
             request.destination, info.section_count, shape_counts["badge"],
             shape_counts["logo"], True, scope,
         )
-
-    @staticmethod
-    def _part_kind(position: str) -> str:
-        return "footer" if position.startswith("bottom") else "header"
 
     @staticmethod
     def _page_size(section: ET.Element) -> tuple[int, int]:
@@ -401,9 +390,9 @@ class DocxProcessor(DocumentProcessor):
                 relationships, IMAGE_REL,
                 posixpath.relpath(media_paths[kind], str(PurePosixPath(part_name).parent)),
             )
-            root.append(self._overlay_paragraph(
+            root.append(self._inline_picture_paragraph(
                 relation_id, page_size, pixels, settings.position,
-                settings.size_percent, settings.margin, f"Nenolink AI Marker {kind}", doc_id,
+                settings.size_percent, f"Nenolink AI Marker {kind}", doc_id,
             ))
         return self._serialize_preserving_root_namespaces(root, part_xml), self._serialize(relationships)
 
@@ -425,42 +414,30 @@ class DocxProcessor(DocumentProcessor):
         return result
 
     @staticmethod
-    def _overlay_paragraph(
+    def _inline_picture_paragraph(
         relation_id: str, page_size: tuple[int, int], pixels: tuple[int, int],
-        position: str, size_percent: int, margin_pixels: int, name: str, doc_id: int,
+        position: str, size_percent: int, name: str, doc_id: int,
     ) -> ET.Element:
         page_width, page_height = page_size
         width = max(1, round(page_width * size_percent / 100))
         height = max(1, round(width * pixels[1] / max(1, pixels[0])))
         if height > page_height:
             scale = page_height / height; width = round(width * scale); height = page_height
-        margin = max(0, margin_pixels * EMU_PER_PIXEL)
-        x = margin if position.endswith("left") else page_width - width - margin
-        y = margin if position.startswith("top") else page_height - height - margin
-        if position == "center":
-            x, y = (page_width - width) // 2, (page_height - height) // 2
-        x, y = max(0, x), max(0, y)
-
         paragraph = ET.Element(_q(W, "p"))
         props = ET.SubElement(paragraph, _q(W, "pPr"))
-        ET.SubElement(props, _q(W, "spacing"), {_q(W, "before"): "0", _q(W, "after"): "0", _q(W, "line"): "1", _q(W, "lineRule"): "exact"})
+        alignment = "center" if position == "center" else "left" if position.endswith("left") else "right"
+        ET.SubElement(props, _q(W, "jc"), {_q(W, "val"): alignment})
+        ET.SubElement(props, _q(W, "spacing"), {_q(W, "before"): "0", _q(W, "after"): "0"})
         run = ET.SubElement(paragraph, _q(W, "r")); drawing = ET.SubElement(run, _q(W, "drawing"))
-        anchor = ET.SubElement(drawing, _q(WP, "anchor"), {
+        inline = ET.SubElement(drawing, _q(WP, "inline"), {
             "distT": "0", "distB": "0", "distL": "0", "distR": "0",
-            "simplePos": "0", "relativeHeight": str(251658240 + doc_id),
-            "behindDoc": "0", "locked": "0", "layoutInCell": "1", "allowOverlap": "1",
         })
-        ET.SubElement(anchor, _q(WP, "simplePos"), x="0", y="0")
-        horizontal = ET.SubElement(anchor, _q(WP, "positionH"), relativeFrom="page")
-        ET.SubElement(horizontal, _q(WP, "posOffset")).text = str(x)
-        vertical = ET.SubElement(anchor, _q(WP, "positionV"), relativeFrom="page")
-        ET.SubElement(vertical, _q(WP, "posOffset")).text = str(y)
-        ET.SubElement(anchor, _q(WP, "extent"), cx=str(width), cy=str(height))
-        ET.SubElement(anchor, _q(WP, "effectExtent"), l="0", t="0", r="0", b="0")
-        ET.SubElement(anchor, _q(WP, "wrapNone"))
-        ET.SubElement(anchor, _q(WP, "docPr"), id=str(doc_id), name=name)
-        ET.SubElement(anchor, _q(WP, "cNvGraphicFramePr"))
-        graphic = ET.SubElement(anchor, _q(A, "graphic"))
+        ET.SubElement(inline, _q(WP, "extent"), cx=str(width), cy=str(height))
+        ET.SubElement(inline, _q(WP, "effectExtent"), l="0", t="0", r="0", b="0")
+        ET.SubElement(inline, _q(WP, "docPr"), id=str(doc_id), name=name)
+        frame_properties = ET.SubElement(inline, _q(WP, "cNvGraphicFramePr"))
+        ET.SubElement(frame_properties, _q(A, "graphicFrameLocks"), noChangeAspect="1")
+        graphic = ET.SubElement(inline, _q(A, "graphic"))
         data = ET.SubElement(graphic, _q(A, "graphicData"), uri=PIC)
         picture = ET.SubElement(data, _q(PIC, "pic"))
         non_visual = ET.SubElement(picture, _q(PIC, "nvPicPr"))
@@ -599,6 +576,13 @@ class DocxProcessor(DocumentProcessor):
                     if not value.isdigit() or int(value) in drawing_ids:
                         raise ValueError(f"Invalid or duplicate DrawingML ID in {name}: {value}")
                     drawing_ids.add(int(value))
+                for inline in root.findall(f".//{_q(WP, 'inline')}"):
+                    if (
+                        inline.find(_q(WP, "extent")) is None
+                        or inline.find(_q(WP, "docPr")) is None
+                        or inline.find(_q(A, "graphic")) is None
+                    ):
+                        raise ValueError(f"Incomplete inline DrawingML picture in {name}.")
 
     @classmethod
     def _metadata_parts(
