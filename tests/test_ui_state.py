@@ -6,9 +6,10 @@ from unittest.mock import Mock, patch
 import pytest
 from customtkinter import CTkTabview
 
-from nenolink_ai_marker.ui_state import ContentWorkspaceState, pptx_item_selection, show_welcome
+from nenolink_ai_marker.ui_state import ContentWorkspaceState, DocumentPreviewState, pptx_item_selection, show_welcome
 from nenolink_ai_marker.app import MarkerApp
 from nenolink_ai_marker.badges import BadgeRepository
+from nenolink_ai_marker.document_processing import ItemSelection
 from nenolink_ai_marker.models import MarkerSettings
 from nenolink_ai_marker.pptx_preview import PptxPreviewRenderer
 from nenolink_ai_marker.pptx_processor import PptxProcessor
@@ -36,6 +37,9 @@ def _pptx_preview_app(source: Path, badge: Path):
         pptx_path=None, pptx_metrics=None, pptx_slide_number=7, pptx_slide_count=0,
         pptx_preview_renderer=PptxPreviewRenderer(), pptx_processor=PptxProcessor(),
         _pptx_warning_approved=None, pptx_file_var=_Variable(), status_var=_Variable(),
+        document_preview_states={"pptx":DocumentPreviewState(),"pdf":DocumentPreviewState()},
+        pptx_selection_mode_var=_Variable("all"), pptx_single_var=_Variable("1"),
+        pptx_selected_var=_Variable("1, 3"), pptx_range_start_var=_Variable("1"), pptx_range_end_var=_Variable("2"),
         badge_var=_Variable(badge.name), badges=BadgeRepository(badge.parent),
         pptx_preview_photo=None, pptx_preview_label=Mock(), pptx_slide_status=Mock(),
         pptx_previous_button=Mock(), pptx_next_button=Mock(),
@@ -44,6 +48,7 @@ def _pptx_preview_app(source: Path, badge: Path):
     )
     app._set_pptx_file_summary=MethodType(MarkerApp._set_pptx_file_summary,app)
     app.update_pptx_preview=MethodType(MarkerApp.update_pptx_preview,app)
+    app._rebuild_document_preview_selection=MethodType(MarkerApp._rebuild_document_preview_selection,app)
     return app
 
 
@@ -153,9 +158,10 @@ def test_selecting_ten_slide_pptx_initializes_and_renders_slide_one(tmp_path):
 def test_pptx_preview_navigation_changes_index_and_keeps_rendered_image(tmp_path):
     source=tmp_path/"ten-slides.pptx"; _create_pptx(source,10)
     badge=tmp_path/"ai-assisted.png"; _write_overlay(badge,(190,20,40,255),(160,50))
-    app=_pptx_preview_app(source,badge); app.pptx_path=source; app.pptx_slide_count=10; app.pptx_slide_number=1
+    app=_pptx_preview_app(source,badge); app.pptx_path=source; app.pptx_metrics=app.pptx_processor.document_metrics(source); app.pptx_slide_count=10; app.pptx_slide_number=1
     app.update_pptx_preview=MethodType(MarkerApp.update_pptx_preview,app)
     with patch("nenolink_ai_marker.app.ctk.CTkImage",return_value="preview-image"):
+        app._rebuild_document_preview_selection()
         MarkerApp.change_pptx_preview_slide(app,1)
         assert app.pptx_slide_number==2
         MarkerApp.change_pptx_preview_slide(app,-1)
@@ -171,8 +177,50 @@ def test_missing_badge_replaces_stale_choose_placeholder_with_unavailable(tmp_pa
     app.pptx_preview_label.configure.assert_called_with(image=None,text="pptx.preview_unavailable")
 
 
-def test_pptx_control_changes_refresh_preview_and_scope_does_not_clear_it():
+def test_pptx_control_changes_refresh_preview_and_scope_rebuilds_it():
     changed_source=inspect.getsource(MarkerApp.changed)
     selection_source=inspect.getsource(MarkerApp.change_pptx_selection_mode)
     assert "self.update_pptx_preview()" in changed_source
-    assert "self.update_pptx_preview()" in selection_source
+    assert "self._rebuild_document_preview_selection()" in selection_source
+
+
+def test_document_preview_state_rebuilds_all_single_arbitrary_and_range():
+    state=DocumentPreviewState()
+    assert state.rebuild(ItemSelection(),10)==1 and state.items==tuple(range(1,11))
+    assert state.rebuild(ItemSelection("single",(1,)),10)==1 and state.items==(1,)
+    assert state.move(1)==1
+    assert state.rebuild(ItemSelection("selected",(2,5,8)),10)==2
+    assert [state.current,state.move(1),state.move(1),state.move(-1),state.move(-1)]==[2,5,8,5,2]
+    assert state.rebuild(ItemSelection("range",start=3,end=7),10)==3 and state.items==(3,4,5,6,7)
+
+
+def test_pptx_scope_change_rebuilds_preview_from_first_selected_slide(tmp_path):
+    source=tmp_path/"ten-slides.pptx"; _create_pptx(source,10)
+    badge=tmp_path/"ai-assisted.png"; _write_overlay(badge,(190,20,40,255),(160,50))
+    app=_pptx_preview_app(source,badge); app.pptx_path=source; app.pptx_metrics=app.pptx_processor.document_metrics(source)
+    app.pptx_selection_display_to_value={"All":"all","Single":"single","Selected":"selected","Range":"range"}
+    app._update_pptx_selection_fields=Mock(); app.update_pptx_preview=Mock()
+    app._rebuild_document_preview_selection()
+    assert app.document_preview_states["pptx"].items==tuple(range(1,11))
+    app.pptx_single_var.set("1"); MarkerApp.change_pptx_selection_mode(app,"Single")
+    assert app.document_preview_states["pptx"].items==(1,) and app.pptx_slide_number==1
+    app.pptx_selected_var.set("2,5,8"); MarkerApp.change_pptx_selection_mode(app,"Selected")
+    assert app.document_preview_states["pptx"].items==(2,5,8) and app.pptx_slide_number==2
+    app.pptx_range_start_var.set("3"); app.pptx_range_end_var.set("7"); MarkerApp.change_pptx_selection_mode(app,"Range")
+    assert app.document_preview_states["pptx"].items==(3,4,5,6,7) and app.pptx_slide_number==3
+
+
+def test_pdf_selection_uses_same_preview_sequence_semantics():
+    app=SimpleNamespace(
+        workspace_state=SimpleNamespace(active="pdf"), document_preview_states={"pdf":DocumentPreviewState()},
+        pptx_metrics=None, pdf_info=SimpleNamespace(metrics=SimpleNamespace(item_count=8)),
+        pptx_selection_mode_var=_Variable("selected"), pptx_single_var=_Variable("1"), pptx_selected_var=_Variable("2,5,8"),
+        pptx_range_start_var=_Variable("1"), pptx_range_end_var=_Variable("2"), pptx_slide_number=1, pptx_slide_count=0,
+        pptx_preview_photo=object(), update_pptx_preview=Mock(), status_var=_Variable(), translator=_Translator(),
+        pptx_preview_label=Mock(), pptx_slide_status=Mock(), pptx_previous_button=Mock(), pptx_next_button=Mock(),
+    )
+    assert MarkerApp._rebuild_document_preview_selection(app)
+    assert app.document_preview_states["pdf"].items==(2,5,8) and app.pptx_slide_number==2
+    app.update_pdf_preview=Mock(); MarkerApp.change_pdf_preview_page(app,1); assert app.pptx_slide_number==5
+    MarkerApp.change_pdf_preview_page(app,1); assert app.pptx_slide_number==8
+    MarkerApp.change_pdf_preview_page(app,-1); assert app.pptx_slide_number==5

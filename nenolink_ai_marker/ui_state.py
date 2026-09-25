@@ -31,6 +31,33 @@ class ContentWorkspaceState:
         self.active = "image"
 
 
+@dataclass(slots=True)
+class DocumentPreviewState:
+    """Ordered selected items and the current position within that selection."""
+
+    items: tuple[int, ...] = ()
+    index: int = 0
+
+    @property
+    def current(self) -> int | None:
+        return self.items[self.index] if self.items else None
+
+    def rebuild(self, selection: ItemSelection, item_count: int) -> int:
+        self.items = selection.resolve(item_count)
+        self.index = 0
+        return self.items[0]
+
+    def move(self, delta: int) -> int | None:
+        if not self.items:
+            return None
+        self.index = min(len(self.items) - 1, max(0, self.index + delta))
+        return self.current
+
+    def clear(self) -> None:
+        self.items = ()
+        self.index = 0
+
+
 def pptx_item_selection(
     mode: str,
     *,
