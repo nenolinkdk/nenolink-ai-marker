@@ -33,29 +33,33 @@ class ContentWorkspaceState:
 
 @dataclass(slots=True)
 class DocumentPreviewState:
-    """Ordered selected items and the current position within that selection."""
+    """Physical document preview position, independent of output selection."""
 
-    items: tuple[int, ...] = ()
-    index: int = 0
+    current: int = 1
+    count: int = 0
 
     @property
-    def current(self) -> int | None:
-        return self.items[self.index] if self.items else None
+    def can_previous(self) -> bool:
+        return self.count > 0 and self.current > 1
 
-    def rebuild(self, selection: ItemSelection, item_count: int) -> int:
-        self.items = selection.resolve(item_count)
-        self.index = 0
-        return self.items[0]
+    @property
+    def can_next(self) -> bool:
+        return self.count > 0 and self.current < self.count
+
+    def initialize(self, item_count: int) -> int | None:
+        self.count = max(0, item_count)
+        self.current = 1
+        return self.current if self.count else None
 
     def move(self, delta: int) -> int | None:
-        if not self.items:
+        if not self.count:
             return None
-        self.index = min(len(self.items) - 1, max(0, self.index + delta))
+        self.current = min(self.count, max(1, self.current + delta))
         return self.current
 
     def clear(self) -> None:
-        self.items = ()
-        self.index = 0
+        self.current = 1
+        self.count = 0
 
 
 def pptx_item_selection(

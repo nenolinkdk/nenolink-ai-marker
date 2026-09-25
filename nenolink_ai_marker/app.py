@@ -79,8 +79,8 @@ class MarkerApp(ctk.CTk):
         self.sources: list[Path] = []; self.workspace_state=ContentWorkspaceState(); self.scan: FolderScan | None = None
         self.pptx_path: Path | None = None; self.pptx_processor=PptxProcessor(); self.pptx_preview_renderer=PptxPreviewRenderer(self.processor)
         self.pptx_metrics: DocumentMetrics | None=None; self._pptx_warning_approved=None
-        self.pptx_preview_photo=None; self.pptx_slide_number=1; self.pptx_slide_count=0
-        self.document_preview_states={"pptx":DocumentPreviewState(),"pdf":DocumentPreviewState()}
+        self.pptx_preview_photo=None
+        self.pptx_preview_state=DocumentPreviewState(); self.pdf_preview_state=DocumentPreviewState()
         self.pdf_path: Path | None=None; self.pdf_processor=PdfProcessor(); self.pdf_preview_renderer=PdfPreviewRenderer(self.processor); self.pdf_info: PdfInfo | None=None; self._pdf_warning_approved=None; self._pdf_signature_approved=None
         self.docx_path: Path | None=None; self.docx_processor=DocxProcessor(); self.docx_preview_renderer=DocxPreviewRenderer(self.processor); self.docx_info: DocxInfo | None=None; self._docx_warning_approved=None
         self.inspection_path: Path | None = None; self.inspection_result: InspectionResult | None = None; self.inspection_error = ""
@@ -450,9 +450,8 @@ class MarkerApp(ctk.CTk):
         kind=self.workspace_state.active
         if kind not in {"pptx","pdf"}:return
         metrics=self.pptx_metrics if kind=="pptx" else self.pdf_info.metrics if self.pdf_info else None
-        if metrics is None:
-            self.pptx_slide_number=1; self.pptx_slide_count=0; return
-        self._rebuild_document_preview_selection(render=False)
+        state=self.pptx_preview_state if kind=="pptx" else self.pdf_preview_state
+        state.initialize(metrics.item_count) if metrics else state.clear()
     def _render_document_workspace(self):
         if not hasattr(self,"document_format_label"):return
         label=next((display for display,kind in self.content_display_to_kind.items() if kind==self.workspace_state.active),self.workspace_state.active.upper())
@@ -494,9 +493,9 @@ class MarkerApp(ctk.CTk):
         try:self.pdf_info=self.pdf_processor.inspect(self.pdf_path)
         except PasswordProtectedPdfError:messagebox.showerror(self.translator.text("error.title"),self.translator.text("pdf.encrypted")); self.pdf_path=None; self.pdf_info=None; self._set_active_document_summary(); return
         except (OSError,ValueError) as error:messagebox.showerror(self.translator.text("error.title"),self.translator.text("pdf.error",error=error)); self.pdf_path=None; self.pdf_info=None; self._set_active_document_summary(); return
-        self.pptx_slide_count=self.pdf_info.metrics.item_count; self._set_active_document_summary()
+        self.pdf_preview_state.initialize(self.pdf_info.metrics.item_count); self._set_active_document_summary()
         if not self._confirm_pdf_limits():return
-        self.status_var.set(self.translator.text("pdf.selected",name=self.pdf_path.name)); self._rebuild_document_preview_selection()
+        self.status_var.set(self.translator.text("pdf.selected",name=self.pdf_path.name)); self.update_pdf_preview()
 
     def _confirm_pdf_limits(self):
         if not self.pdf_path or not self.pdf_info:return False
@@ -515,19 +514,21 @@ class MarkerApp(ctk.CTk):
         self._pdf_signature_approved=fingerprint; return True
 
     def change_pdf_preview_page(self,delta):
-        current=self.document_preview_states["pdf"].move(delta)
-        if current is not None:self.pptx_slide_number=current; self.update_pdf_preview()
+        current=self.pdf_preview_state.move(delta)
+        if current is not None:
+            if self.pptx_selection_mode_var.get()=="single":self.pptx_single_var.set(str(current))
+            self.update_pdf_preview()
 
     def update_pdf_preview(self):
         t=self.translator.text
         if not self.pdf_path or not self.pdf_info:
-            self.pptx_preview_photo=None; self.pptx_preview_label.configure(image=None,text=t("pdf.preview_hint")); self.pptx_slide_status.configure(text="—"); return
+            self.pptx_preview_photo=None; self.pptx_preview_label.configure(image=None,text=t("pdf.preview_hint")); self.pptx_slide_status.configure(text=""); self.pptx_previous_button.configure(state="disabled"); self.pptx_next_button.configure(state="disabled"); return
         badge=self.badges.find(self.badge_var.get()) if self.pdf_badge_enabled_var.get() else None
         logo=self._logo_path() if self.logo_enabled_var.get() else None
         if not badge and not logo:return
         try:
-            result=self.pdf_preview_renderer.render(self.pdf_path,self.pptx_slide_number,badge,self.settings(),logo); self.pptx_slide_number=result.page_number; self.pptx_slide_count=result.page_count; self.pptx_preview_photo=ctk.CTkImage(result.image,size=result.image.size); self.pptx_preview_label.configure(image=self.pptx_preview_photo,text=""); self.pptx_slide_status.configure(text=t("pdf.page_status",current=result.page_number,count=result.page_count)); state="normal" if len(self.document_preview_states["pdf"].items)>1 else "disabled"; self.pptx_previous_button.configure(state=state); self.pptx_next_button.configure(state=state)
-        except (OSError,ValueError):self.pptx_preview_photo=None; self.pptx_preview_label.configure(image=None,text=t("pdf.preview_unavailable")); self.pptx_slide_status.configure(text="—")
+            result=self.pdf_preview_renderer.render(self.pdf_path,self.pdf_preview_state.current,badge,self.settings(),logo); self.pdf_preview_state.current=result.page_number; self.pdf_preview_state.count=result.page_count; self.pptx_preview_photo=ctk.CTkImage(result.image,size=result.image.size); self.pptx_preview_label.configure(image=self.pptx_preview_photo,text=""); self.pptx_slide_status.configure(text=t("pdf.page_status",current=result.page_number,count=result.page_count)); self.pptx_previous_button.configure(state="normal" if self.pdf_preview_state.can_previous else "disabled"); self.pptx_next_button.configure(state="normal" if self.pdf_preview_state.can_next else "disabled")
+        except (OSError,ValueError):self.pptx_preview_photo=None; self.pptx_preview_label.configure(image=None,text=t("pdf.preview_unavailable")); self.pptx_slide_status.configure(text="")
 
     def process_pdf(self):
         if not self.pdf_path or not self.pdf_info:messagebox.showwarning(self.translator.text("warning.title"),self.translator.text("pdf.choose_first")); return
@@ -590,23 +591,23 @@ class MarkerApp(ctk.CTk):
     def choose_pptx(self):
         selected=filedialog.askopenfilename(title=self.translator.text("pptx.choose"),filetypes=[("PowerPoint (*.pptx)","*.pptx"),(self.translator.text("files.all"),"*.*")])
         if selected:
-            self.pptx_path=Path(selected); self.pptx_slide_number=1; self.pptx_slide_count=0; self.pptx_preview_renderer.clear(); self._pptx_warning_approved=None
+            self.pptx_path=Path(selected); self.pptx_preview_state.clear(); self.pptx_preview_renderer.clear(); self._pptx_warning_approved=None
             try:self.pptx_metrics=self.pptx_processor.document_metrics(self.pptx_path)
             except (OSError,ValueError,KeyError):
                 self.pptx_metrics=None; self.pptx_file_var.set(self.pptx_path.name); self.update_pptx_preview(); return
-            self.pptx_slide_count=self.pptx_metrics.item_count
+            self.pptx_preview_state.initialize(self.pptx_metrics.item_count)
             self._set_pptx_file_summary()
             if not self._confirm_pptx_limits():
                 if not assess_document("pptx",self.pptx_metrics).blocked:self._clear_pptx_selection()
                 return
-            self.status_var.set(self.translator.text("pptx.selected",name=self.pptx_path.name)); self._rebuild_document_preview_selection()
+            self.status_var.set(self.translator.text("pptx.selected",name=self.pptx_path.name)); self.update_pptx_preview()
 
     def _set_pptx_file_summary(self):
         if not self.pptx_path or not self.pptx_metrics:return
         self.pptx_file_var.set(f"{self.pptx_path.name}\n{self.translator.text('document.summary.slides',size=human_file_size(self.pptx_metrics.size_bytes),count=self.pptx_metrics.item_count)}")
 
     def _clear_pptx_selection(self):
-        self.pptx_path=None; self.pptx_metrics=None; self._pptx_warning_approved=None; self.document_preview_states["pptx"].clear(); self.pptx_slide_number=1; self.pptx_slide_count=0; self.pptx_preview_photo=None; self.pptx_preview_renderer.clear(); self.pptx_file_var.set(self.translator.text("pptx.no_file")); self.update_pptx_preview()
+        self.pptx_path=None; self.pptx_metrics=None; self._pptx_warning_approved=None; self.pptx_preview_state.clear(); self.pptx_preview_photo=None; self.pptx_preview_renderer.clear(); self.pptx_file_var.set(self.translator.text("pptx.no_file")); self.update_pptx_preview()
 
     def _confirm_pptx_limits(self):
         if not self.pptx_path or not self.pptx_metrics:return False
@@ -620,28 +621,20 @@ class MarkerApp(ctk.CTk):
 
     def change_pptx_selection_mode(self,label):
         if self.workspace_state.active=="docx":self.docx_scope_var.set(self.pptx_selection_display_to_value.get(label,"entire-document")); return
-        self.pptx_selection_mode_var.set(self.pptx_selection_display_to_value.get(label,"all")); self._update_pptx_selection_fields(); self._rebuild_document_preview_selection()
+        self.pptx_selection_mode_var.set(self.pptx_selection_display_to_value.get(label,"all")); self._update_pptx_selection_fields()
+        if self.pptx_selection_mode_var.get()=="single":
+            state=self.pdf_preview_state if self.workspace_state.active=="pdf" else self.pptx_preview_state
+            if state.count:self.pptx_single_var.set(str(state.current))
 
     def commit_document_selection(self,_event=None):
-        if self.workspace_state.active in {"pptx","pdf"}:self._rebuild_document_preview_selection()
-
-    def _rebuild_document_preview_selection(self,render=True):
-        kind=self.workspace_state.active
-        if kind not in {"pptx","pdf"}:return False
-        state=self.document_preview_states[kind]
-        metrics=self.pptx_metrics if kind=="pptx" else self.pdf_info.metrics if self.pdf_info else None
-        if metrics is None:
-            state.clear(); self.pptx_slide_number=1; self.pptx_slide_count=0
-            return False
+        if self.workspace_state.active not in {"pptx","pdf"}:return
+        metrics=self.pptx_metrics if self.workspace_state.active=="pptx" else self.pdf_info.metrics if self.pdf_info else None
+        if not metrics:return
         try:
             selection=pptx_item_selection(self.pptx_selection_mode_var.get(),single=self.pptx_single_var.get(),selected=self.pptx_selected_var.get(),start=self.pptx_range_start_var.get(),end=self.pptx_range_end_var.get())
-            self.pptx_slide_number=state.rebuild(selection,metrics.item_count)
+            selection.resolve(metrics.item_count)
         except ValueError as error:
-            state.clear(); self.pptx_slide_number=1; self.pptx_preview_photo=None; self.pptx_preview_label.configure(image=None,text=self.translator.text("pptx.preview_unavailable") if kind=="pptx" else self.translator.text("pdf.preview_unavailable")); self.pptx_slide_status.configure(text="—"); self.pptx_previous_button.configure(state="disabled"); self.pptx_next_button.configure(state="disabled"); self.status_var.set(str(error)); return False
-        self.pptx_slide_count=metrics.item_count; self.pptx_preview_photo=None
-        if kind=="pptx":self.pptx_preview_renderer.clear()
-        if render:self.update_pptx_preview()
-        return True
+            self.status_var.set(str(error))
 
     def _update_pptx_selection_fields(self):
         for frame in (self.pptx_single_frame,self.pptx_selected_frame,self.pptx_range_frame):frame.grid_remove()
@@ -658,8 +651,10 @@ class MarkerApp(ctk.CTk):
         self.pptx_badge_menu.configure(state="normal" if self.pdf_badge_enabled_var.get() else "disabled"); self.update_pptx_preview()
 
     def change_pptx_preview_slide(self,delta):
-        current=self.document_preview_states["pptx"].move(delta)
-        if current is not None:self.pptx_slide_number=current; self.update_pptx_preview()
+        current=self.pptx_preview_state.move(delta)
+        if current is not None:
+            if self.pptx_selection_mode_var.get()=="single":self.pptx_single_var.set(str(current))
+            self.update_pptx_preview()
 
     def update_pptx_preview(self):
         if not hasattr(self,"pptx_preview_label"):return
@@ -667,16 +662,16 @@ class MarkerApp(ctk.CTk):
         if self.workspace_state.active=="pdf":self.update_pdf_preview(); return
         t=self.translator.text
         if not self.pptx_path or not self.pptx_path.is_file():
-            self.pptx_preview_photo=None; self.pptx_preview_label.configure(image=None,text=t("pptx.preview_hint")); self.pptx_slide_status.configure(text="—"); return
+            self.pptx_preview_photo=None; self.pptx_preview_label.configure(image=None,text=t("pptx.preview_hint")); self.pptx_slide_status.configure(text=""); self.pptx_previous_button.configure(state="disabled"); self.pptx_next_button.configure(state="disabled"); return
         badge=self.badges.find(self.badge_var.get())
         if not badge:
-            self.pptx_preview_photo=None; self.pptx_preview_label.configure(image=None,text=t("pptx.preview_unavailable")); self.pptx_slide_status.configure(text="—"); return
+            self.pptx_preview_photo=None; self.pptx_preview_label.configure(image=None,text=t("pptx.preview_unavailable")); self.pptx_slide_status.configure(text=""); return
         try:
-            result=self.pptx_preview_renderer.render(self.pptx_path,self.pptx_slide_number,badge,self.settings(),self._logo_path())
-            self.pptx_slide_number=result.slide_number; self.pptx_slide_count=result.slide_count; self.pptx_preview_photo=ctk.CTkImage(result.image,size=result.image.size); self.pptx_preview_label.configure(image=self.pptx_preview_photo,text=""); self.pptx_slide_status.configure(text=t("pptx.slide_status",current=result.slide_number,count=result.slide_count))
-            state="normal" if len(self.document_preview_states["pptx"].items)>1 else "disabled"; self.pptx_previous_button.configure(state=state); self.pptx_next_button.configure(state=state)
+            result=self.pptx_preview_renderer.render(self.pptx_path,self.pptx_preview_state.current,badge,self.settings(),self._logo_path())
+            self.pptx_preview_state.current=result.slide_number; self.pptx_preview_state.count=result.slide_count; self.pptx_preview_photo=ctk.CTkImage(result.image,size=result.image.size); self.pptx_preview_label.configure(image=self.pptx_preview_photo,text=""); self.pptx_slide_status.configure(text=t("pptx.slide_status",current=result.slide_number,count=result.slide_count))
+            self.pptx_previous_button.configure(state="normal" if self.pptx_preview_state.can_previous else "disabled"); self.pptx_next_button.configure(state="normal" if self.pptx_preview_state.can_next else "disabled")
         except (OSError,ValueError,KeyError):
-            self.pptx_preview_photo=None; self.pptx_preview_label.configure(image=None,text=t("pptx.preview_unavailable")); self.pptx_slide_status.configure(text="—")
+            self.pptx_preview_photo=None; self.pptx_preview_label.configure(image=None,text=t("pptx.preview_unavailable")); self.pptx_slide_status.configure(text="")
 
     def process_pptx(self):
         if not self.pptx_path or not self.pptx_path.is_file():messagebox.showwarning(self.translator.text("warning.title"),self.translator.text("pptx.choose_first")); return
@@ -798,11 +793,11 @@ class MarkerApp(ctk.CTk):
         self.pptx_path=None; self.pptx_metrics=None; self._pptx_warning_approved=None
         self.pdf_path=None; self.pdf_info=None; self._pdf_warning_approved=None; self._pdf_signature_approved=None
         self.docx_path=None; self.docx_info=None; self._docx_warning_approved=None
-        for state in self.document_preview_states.values():state.clear()
+        self.pptx_preview_state.clear(); self.pdf_preview_state.clear()
         self.pptx_selection_mode_var.set("all"); self.pptx_single_var.set("1"); self.pptx_selected_var.set("1, 3"); self.pptx_range_start_var.set("1"); self.pptx_range_end_var.set("2")
-        self.pptx_file_var.set(""); self.pptx_preview_photo=None; self.pptx_slide_number=1; self.pptx_slide_count=0
+        self.pptx_file_var.set(""); self.pptx_preview_photo=None
         self.pptx_preview_renderer.clear(); self.pdf_preview_renderer=PdfPreviewRenderer(self.processor); self.docx_preview_renderer.clear()
-        self.pptx_preview_label.configure(image=None,text=""); self.pptx_slide_status.configure(text="—"); self.pptx_previous_button.configure(state="disabled"); self.pptx_next_button.configure(state="disabled")
+        self.pptx_preview_label.configure(image=None,text=""); self.pptx_slide_status.configure(text=""); self.pptx_previous_button.configure(state="disabled"); self.pptx_next_button.configure(state="disabled")
     def changed(self,*_):
         try:self.video_duration_var.set(max(1,int(self.video_duration_var.get())))
         except (ValueError,TypeError):self.video_duration_var.set(5)
