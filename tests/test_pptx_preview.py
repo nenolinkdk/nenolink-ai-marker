@@ -4,8 +4,11 @@ import hashlib
 from pathlib import Path
 
 from PIL import Image, ImageChops
+import pytest
 
+from nenolink_ai_marker.document_processing import DisclosureSettings, ItemSelection, ProcessingRequest
 from nenolink_ai_marker.models import MarkerSettings
+from nenolink_ai_marker.pptx_processor import PptxProcessor
 from nenolink_ai_marker.pptx_preview import PptxPreviewRenderer
 from test_pptx_processor import _create_pptx, _write_overlay
 
@@ -46,3 +49,37 @@ def test_preview_without_logo_has_no_logo_overlay(tmp_path):
     settings.logo_enabled=True
     with_logo=renderer.render(source,1,badge,settings,logo).image
     assert ImageChops.difference(without.convert("RGB"),with_logo.convert("RGB")).getbbox() is not None
+
+
+@pytest.mark.parametrize(
+    "changed",
+    [
+        MarkerSettings(position="top-left"),
+        MarkerSettings(size_percent=35),
+        MarkerSettings(margin=70),
+        MarkerSettings(opacity=35),
+    ],
+)
+def test_preview_refreshes_for_each_badge_placement_setting(tmp_path,changed):
+    source=tmp_path/"slides.pptx"; _create_pptx(source,1)
+    badge=tmp_path/"badge.png"; _write_overlay(badge,(0,150,70,255),(160,50))
+    renderer=PptxPreviewRenderer()
+    baseline=renderer.render(source,1,badge,MarkerSettings()).image
+    updated=renderer.render(source,1,badge,changed).image
+    assert ImageChops.difference(baseline.convert("RGB"),updated.convert("RGB")).getbbox() is not None
+
+
+def test_pptx_output_still_processes_after_preview_navigation(tmp_path):
+    source=tmp_path/"slides.pptx"; _create_pptx(source,3)
+    badge=tmp_path/"badge.png"; _write_overlay(badge,(0,150,70,255),(160,50))
+    renderer=PptxPreviewRenderer(); before=_hash(source)
+    renderer.render(source,1,badge,MarkerSettings())
+    renderer.render(source,3,badge,MarkerSettings(position="top-left",opacity=60))
+    request=ProcessingRequest(
+        source, tmp_path/"slides_ai.pptx",
+        DisclosureSettings("ai-assisted.png","AI Assisted"), badge_path=badge,
+    )
+    result=PptxProcessor().process(request,ItemSelection("single",(2,)))
+    assert result.selected_slides==(2,)
+    assert result.destination.is_file()
+    assert _hash(source)==before

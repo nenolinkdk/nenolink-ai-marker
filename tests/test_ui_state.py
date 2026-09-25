@@ -1,11 +1,50 @@
 from pathlib import Path
 import inspect
+from types import MethodType, SimpleNamespace
+from unittest.mock import Mock, patch
 
 import pytest
 from customtkinter import CTkTabview
 
 from nenolink_ai_marker.ui_state import ContentWorkspaceState, pptx_item_selection, show_welcome
 from nenolink_ai_marker.app import MarkerApp
+from nenolink_ai_marker.badges import BadgeRepository
+from nenolink_ai_marker.models import MarkerSettings
+from nenolink_ai_marker.pptx_preview import PptxPreviewRenderer
+from nenolink_ai_marker.pptx_processor import PptxProcessor
+from test_pptx_processor import _create_pptx, _write_overlay
+
+
+class _Variable:
+    def __init__(self, value=""):
+        self.value=value
+    def get(self):
+        return self.value
+    def set(self, value):
+        self.value=value
+
+
+class _Translator:
+    @staticmethod
+    def text(key, **values):
+        return key.format(**values) if values else key
+
+
+def _pptx_preview_app(source: Path, badge: Path):
+    app=SimpleNamespace(
+        translator=_Translator(), workspace_state=SimpleNamespace(active="pptx"),
+        pptx_path=None, pptx_metrics=None, pptx_slide_number=7, pptx_slide_count=0,
+        pptx_preview_renderer=PptxPreviewRenderer(), pptx_processor=PptxProcessor(),
+        _pptx_warning_approved=None, pptx_file_var=_Variable(), status_var=_Variable(),
+        badge_var=_Variable(badge.name), badges=BadgeRepository(badge.parent),
+        pptx_preview_photo=None, pptx_preview_label=Mock(), pptx_slide_status=Mock(),
+        pptx_previous_button=Mock(), pptx_next_button=Mock(),
+        settings=lambda:MarkerSettings(), _logo_path=lambda:None,
+        _confirm_pptx_limits=lambda:True,
+    )
+    app._set_pptx_file_summary=MethodType(MarkerApp._set_pptx_file_summary,app)
+    app.update_pptx_preview=MethodType(MarkerApp.update_pptx_preview,app)
+    return app
 
 
 def test_welcome_is_visible_without_an_image():
@@ -97,3 +136,43 @@ def test_docx_ui_exposes_only_reliable_alignment_and_hides_margin_controls():
     assert 't("docx.position.right"):"bottom-right"' in source
     assert 'self.pptx_margin_label.grid_remove()' in source
     assert 'self.pptx_logo_margin_label.grid_remove()' in source
+
+
+def test_selecting_ten_slide_pptx_initializes_and_renders_slide_one(tmp_path):
+    source=tmp_path/"ten-slides.pptx"; _create_pptx(source,10)
+    badge=tmp_path/"ai-assisted.png"; _write_overlay(badge,(190,20,40,255),(160,50))
+    app=_pptx_preview_app(source,badge)
+    with patch("nenolink_ai_marker.app.filedialog.askopenfilename",return_value=str(source)), patch("nenolink_ai_marker.app.ctk.CTkImage",return_value="preview-image"):
+        MarkerApp.choose_pptx(app)
+    assert app.pptx_metrics.item_count==10
+    assert (app.pptx_slide_number,app.pptx_slide_count)==(1,10)
+    app.pptx_preview_label.configure.assert_called_with(image="preview-image",text="")
+    app.pptx_slide_status.configure.assert_called_with(text="pptx.slide_status")
+
+
+def test_pptx_preview_navigation_changes_index_and_keeps_rendered_image(tmp_path):
+    source=tmp_path/"ten-slides.pptx"; _create_pptx(source,10)
+    badge=tmp_path/"ai-assisted.png"; _write_overlay(badge,(190,20,40,255),(160,50))
+    app=_pptx_preview_app(source,badge); app.pptx_path=source; app.pptx_slide_count=10; app.pptx_slide_number=1
+    app.update_pptx_preview=MethodType(MarkerApp.update_pptx_preview,app)
+    with patch("nenolink_ai_marker.app.ctk.CTkImage",return_value="preview-image"):
+        MarkerApp.change_pptx_preview_slide(app,1)
+        assert app.pptx_slide_number==2
+        MarkerApp.change_pptx_preview_slide(app,-1)
+    assert app.pptx_slide_number==1
+    assert app.pptx_preview_label.configure.call_args.kwargs["text"]==""
+
+
+def test_missing_badge_replaces_stale_choose_placeholder_with_unavailable(tmp_path):
+    source=tmp_path/"ten-slides.pptx"; _create_pptx(source,10)
+    badge=tmp_path/"ai-assisted.png"; _write_overlay(badge,(190,20,40,255),(160,50))
+    app=_pptx_preview_app(source,badge); app.pptx_path=source; app.badge_var.set("missing.png")
+    MarkerApp.update_pptx_preview(app)
+    app.pptx_preview_label.configure.assert_called_with(image=None,text="pptx.preview_unavailable")
+
+
+def test_pptx_control_changes_refresh_preview_and_scope_does_not_clear_it():
+    changed_source=inspect.getsource(MarkerApp.changed)
+    selection_source=inspect.getsource(MarkerApp.change_pptx_selection_mode)
+    assert "self.update_pptx_preview()" in changed_source
+    assert "self.update_pptx_preview()" in selection_source

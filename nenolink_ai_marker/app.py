@@ -578,10 +578,11 @@ class MarkerApp(ctk.CTk):
     def choose_pptx(self):
         selected=filedialog.askopenfilename(title=self.translator.text("pptx.choose"),filetypes=[("PowerPoint (*.pptx)","*.pptx"),(self.translator.text("files.all"),"*.*")])
         if selected:
-            self.pptx_path=Path(selected); self.pptx_slide_number=1; self.pptx_preview_renderer.clear(); self._pptx_warning_approved=None
+            self.pptx_path=Path(selected); self.pptx_slide_number=1; self.pptx_slide_count=0; self.pptx_preview_renderer.clear(); self._pptx_warning_approved=None
             try:self.pptx_metrics=self.pptx_processor.document_metrics(self.pptx_path)
             except (OSError,ValueError,KeyError):
                 self.pptx_metrics=None; self.pptx_file_var.set(self.pptx_path.name); self.update_pptx_preview(); return
+            self.pptx_slide_count=self.pptx_metrics.item_count
             self._set_pptx_file_summary()
             if not self._confirm_pptx_limits():
                 if not assess_document("pptx",self.pptx_metrics).blocked:self._clear_pptx_selection()
@@ -607,7 +608,7 @@ class MarkerApp(ctk.CTk):
 
     def change_pptx_selection_mode(self,label):
         if self.workspace_state.active=="docx":self.docx_scope_var.set(self.pptx_selection_display_to_value.get(label,"entire-document")); return
-        self.pptx_selection_mode_var.set(self.pptx_selection_display_to_value.get(label,"all")); self._update_pptx_selection_fields()
+        self.pptx_selection_mode_var.set(self.pptx_selection_display_to_value.get(label,"all")); self._update_pptx_selection_fields(); self.update_pptx_preview()
 
     def _update_pptx_selection_fields(self):
         for frame in (self.pptx_single_frame,self.pptx_selected_frame,self.pptx_range_frame):frame.grid_remove()
@@ -635,7 +636,8 @@ class MarkerApp(ctk.CTk):
         if not self.pptx_path or not self.pptx_path.is_file():
             self.pptx_preview_photo=None; self.pptx_preview_label.configure(image=None,text=t("pptx.preview_hint")); self.pptx_slide_status.configure(text="—"); return
         badge=self.badges.find(self.badge_var.get())
-        if not badge:return
+        if not badge:
+            self.pptx_preview_photo=None; self.pptx_preview_label.configure(image=None,text=t("pptx.preview_unavailable")); self.pptx_slide_status.configure(text="—"); return
         try:
             result=self.pptx_preview_renderer.render(self.pptx_path,self.pptx_slide_number,badge,self.settings(),self._logo_path())
             self.pptx_slide_number=result.slide_number; self.pptx_slide_count=result.slide_count; self.pptx_preview_photo=ctk.CTkImage(result.image,size=result.image.size); self.pptx_preview_label.configure(image=self.pptx_preview_photo,text=""); self.pptx_slide_status.configure(text=t("pptx.slide_status",current=result.slide_number,count=result.slide_count))
