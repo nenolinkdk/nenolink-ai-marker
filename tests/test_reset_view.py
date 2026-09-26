@@ -85,6 +85,8 @@ def test_clear_document_states_removes_pdf_pptx_files_scopes_and_previews():
 
 
 def test_global_reset_clears_media_and_document_state_through_central_operations():
-    source=inspect.getsource(MarkerApp.reset_application)
+    source=inspect.getsource(MarkerApp._reset_application_state)
+    wrapper=inspect.getsource(MarkerApp.reset_application)
     assert "self.workspace_state.clear()" in source
     assert "self._clear_document_states()" in source
+    assert "finally:" in wrapper

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from PIL import Image, ImageChops
 from pypdf import PdfReader, PdfWriter
@@ -14,6 +15,9 @@ from nenolink_ai_marker.models import MarkerSettings
 from nenolink_ai_marker.pdf_preview import PdfPreviewRenderer
 from nenolink_ai_marker.pdf_processor import PasswordProtectedPdfError, PdfProcessor
 from nenolink_ai_marker.app import MarkerApp
+from nenolink_ai_marker.badges import BadgeRepository
+from nenolink_ai_marker.processor import ImageProcessor
+from nenolink_ai_marker.ui_state import DocumentPreviewState, DocumentScopeState
 
 
 def _pdf(path,pages=4,password=None):
@@ -30,6 +34,41 @@ def _badge(path):Image.new("RGBA",(180,54),(0,145,75,220)).save(path)
 
 
 def _logo(path):Image.new("RGBA",(80,80),(210,25,25,160)).save(path)
+
+
+class _Var:
+    def __init__(self,value=""):self.value=value
+    def get(self):return self.value
+    def set(self,value):self.value=value
+
+
+class _Text:
+    def text(self,key,**values):return key.format(**values) if values else key
+
+
+def test_pdf_repeated_scope_sequence_keeps_file_and_rebuilds_preview(tmp_path):
+    source=tmp_path/"sequence.pdf"; badge=tmp_path/"ai-assisted.png"; _pdf(source,6); _badge(badge); processor=ImageProcessor(); info=PdfProcessor.inspect(source)
+    app=SimpleNamespace(
+        workspace_state=SimpleNamespace(active="pdf"),processor=processor,pdf_path=source,pdf_info=info,
+        pdf_preview_state=DocumentPreviewState(1,6),pdf_preview_renderer=PdfPreviewRenderer(processor),
+        document_scope_states={"pdf":DocumentScopeState(),"pptx":DocumentScopeState()},
+        pptx_selection_mode_var=_Var("all"),pptx_single_var=_Var("1"),pptx_selected_var=_Var(""),pptx_range_start_var=_Var("1"),pptx_range_end_var=_Var("2"),
+        pptx_selection_display_to_value={"All":"all","One":"single","Multiple":"selected","Range":"range"},
+        pptx_preview_photo=None,pptx_preview_label=SimpleNamespace(configure=Mock()),pptx_slide_status=SimpleNamespace(configure=Mock()),pptx_previous_button=SimpleNamespace(configure=Mock()),pptx_next_button=SimpleNamespace(configure=Mock()),
+        _update_pptx_selection_fields=Mock(),translator=_Text(),badges=BadgeRepository(tmp_path),badge_var=_Var(badge.name),pdf_badge_enabled_var=_Var(True),logo_enabled_var=_Var(False),
+        settings=lambda:MarkerSettings(),_logo_path=lambda:None,language_menu=Mock(),reset_button=Mock(),guide_button=Mock(),media_navigation=Mock(),document_navigation=Mock(),tools_navigation=Mock(),
+    )
+    app.update_pdf_preview=lambda:MarkerApp.update_pdf_preview(app)
+    app.update_pptx_preview=lambda:MarkerApp.update_pptx_preview(app)
+    with patch("nenolink_ai_marker.app.ctk.CTkImage",side_effect=lambda image,size:("preview",size)):
+        for label,mode in (("All","all"),("One","single"),("Range","range"),("Multiple","selected"),("All","all"),("One","single"),("All","all")):
+            MarkerApp.change_pptx_selection_mode(app,label)
+            assert app.pdf_path==source and app.pdf_info is info
+            assert app.document_scope_states["pdf"].mode==mode
+            assert (app.pdf_preview_state.current,app.pdf_preview_state.count)==(1,6)
+            assert app.pptx_preview_photo is not None
+            assert app.pptx_preview_label.configure.call_args.kwargs["text"]==""
+            app.reset_button.configure.assert_any_call(state="normal")
 
 
 def test_pdf_inspection_reports_size_and_page_count(tmp_path):

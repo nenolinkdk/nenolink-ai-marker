@@ -6,7 +6,7 @@ from unittest.mock import Mock, call, patch
 import pytest
 from customtkinter import CTkTabview
 
-from nenolink_ai_marker.ui_state import ContentWorkspaceState, DocumentPreviewState, pptx_item_selection, show_welcome
+from nenolink_ai_marker.ui_state import ContentWorkspaceState, DocumentPreviewState, DocumentScopeState, pptx_item_selection, show_welcome
 from nenolink_ai_marker.app import MarkerApp
 from nenolink_ai_marker.badges import BadgeRepository
 from nenolink_ai_marker.models import MarkerSettings
@@ -60,6 +60,11 @@ def _pptx_preview_app(source: Path, badge: Path):
     app._set_pptx_file_summary=MethodType(MarkerApp._set_pptx_file_summary,app)
     app.update_pptx_preview=MethodType(MarkerApp.update_pptx_preview,app)
     app.reset_format_context=MethodType(MarkerApp.reset_format_context,app)
+    app.document_scope_states={"pdf":DocumentScopeState(),"pptx":DocumentScopeState()}
+    app._sync_document_scope_controls=MethodType(MarkerApp._sync_document_scope_controls,app)
+    app._reset_document_scope=MethodType(MarkerApp._reset_document_scope,app)
+    app._rebuild_document_preview=MethodType(MarkerApp._rebuild_document_preview,app)
+    app._ensure_global_controls_enabled=MethodType(MarkerApp._ensure_global_controls_enabled,app)
     return app
 
 
@@ -152,13 +157,18 @@ def _navigation_app(active="image"):
         workspace_state=SimpleNamespace(active=active,media_sources={"image":[],"video":[]}), active_auxiliary=None,
         content_display_to_kind={"Images":"image","Video":"video","PDF":"pdf","PowerPoint":"pptx"},
         tab_names={"single":"Single File","documents":"Document Workspace","batch":"Batch Processing","badges":"Badges","inspect":"Inspect File"},
-        tabs=_Tabs(),sources=[],scan=None,pdf_path=None,pptx_path=None,tools_navigation=Mock(),content_navigation_var=_Variable(),
+        tabs=_Tabs(),sources=[],scan=None,pdf_path=None,pptx_path=None,tools_navigation=Mock(),media_navigation_var=_Variable(),document_navigation_var=_Variable(),
         reset_format_context=Mock(),video_controls=Mock(),_update_logo_controls=Mock(),update_preview=Mock(),_render_document_workspace=Mock(),
+        language_menu=Mock(),reset_button=Mock(),guide_button=Mock(),media_navigation=Mock(),document_navigation=Mock(),translator=_Translator(),
     )
     app._secondary_navigation_keys=MethodType(MarkerApp._secondary_navigation_keys,app)
     app._configure_secondary_navigation=MethodType(MarkerApp._configure_secondary_navigation,app)
     app._format_has_active_work=MethodType(MarkerApp._format_has_active_work,app)
-    app._restore_content_navigation=MethodType(MarkerApp._restore_content_navigation,app)
+    app._set_format_navigation=MethodType(MarkerApp._set_format_navigation,app)
+    app._restore_top_level_navigation=MethodType(MarkerApp._restore_top_level_navigation,app)
+    app.switch_top_level=MethodType(MarkerApp.switch_top_level,app)
+    app._switch_top_level=MethodType(MarkerApp._switch_top_level,app)
+    app._ensure_global_controls_enabled=MethodType(MarkerApp._ensure_global_controls_enabled,app)
     app._confirm_format_switch=Mock(return_value=True)
     app.show_tab=MethodType(MarkerApp.show_tab,app)
     app.apply_translations=MethodType(lambda self:self._configure_secondary_navigation(),app)
@@ -222,9 +232,9 @@ def test_global_reset_is_an_unconditional_locked_state_recovery_path():
     source=inspect.getsource(MarkerApp.reset_application)
     assert "active_auxiliary=None" in source
     assert "workspace_state.clear()" in source
-    assert "_clear_document_states()" in source
+    assert "_reset_application_state()" in source
     assert "_confirm_format_switch(" not in source and "askokcancel" not in source
-    assert "_format_switch_dialog.destroy()" in source
+    assert "_format_switch_dialog.destroy()" in inspect.getsource(MarkerApp._reset_application_state)
 
 
 def test_media_cannot_open_document_tab_and_documents_cannot_open_media_tabs():
@@ -358,7 +368,7 @@ def test_format_switch_clears_source_and_destination_contexts():
     app=SimpleNamespace(
         content_display_to_kind={"PowerPoint":"pptx"}, workspace_state=SimpleNamespace(active="pdf"), active_auxiliary=None, sources=[Path("old.pdf")],
         reset_format_context=Mock(), show_tab=Mock(), _render_document_workspace=Mock(), apply_translations=Mock(), tools_navigation=Mock(),
-        _format_has_active_work=Mock(return_value=False),
+        _format_has_active_work=Mock(return_value=False), language_menu=Mock(),reset_button=Mock(),guide_button=Mock(),media_navigation=Mock(),document_navigation=Mock(),media_navigation_var=_Variable(),document_navigation_var=_Variable(),
     )
     MarkerApp.change_content_workspace(app,"PowerPoint")
     assert app.reset_format_context.call_args_list==[call("pdf"),call("pptx")]
@@ -374,8 +384,9 @@ def test_pdf_scope_sequence_resets_navigation_and_old_scope_fields():
         pptx_range_start_var=_Variable("3"), pptx_range_end_var=_Variable("7"), pptx_preview_photo=object(),
         pptx_selection_display_to_value={"All":"all","One":"single","Selected":"selected","Range":"range"},
         pptx_selection_display_var=_Variable("All"),
-        _update_pptx_selection_fields=Mock(), update_pptx_preview=Mock(),
+        _update_pptx_selection_fields=Mock(), update_pptx_preview=Mock(),update_pdf_preview=Mock(),translator=_Translator(),
         pptx_preview_label=Mock(),pptx_slide_status=Mock(),pptx_previous_button=Mock(),pptx_next_button=Mock(),status_var=_Variable(),
+        language_menu=Mock(),reset_button=Mock(),guide_button=Mock(),media_navigation=Mock(),document_navigation=Mock(),tools_navigation=Mock(),
     )
     app.reset_format_context=MethodType(MarkerApp.reset_format_context,app)
     for label,mode in (("One","single"),("Selected","selected"),("Range","range"),("All","all")):
@@ -388,3 +399,62 @@ def test_pdf_scope_sequence_resets_navigation_and_old_scope_fields():
 def test_visual_setting_callbacks_do_not_reset_document_context():
     for method in (MarkerApp.changed,MarkerApp.select_badge,MarkerApp.logo_changed,MarkerApp.change_position_display):
         assert "reset_format_context" not in inspect.getsource(method)
+
+
+def _stateful_navigation_app(active="image"):
+    app=_navigation_app(active); app.pdf_path=None; app.pptx_path=None
+    def reset(kind):
+        if kind in {"image","video"}:app.sources=[]; app.workspace_state.media_sources[kind]=[]
+        elif kind=="pdf":app.pdf_path=None
+        elif kind=="pptx":app.pptx_path=None
+    app.reset_format_context=Mock(side_effect=reset)
+    return app
+
+
+@pytest.mark.parametrize("sequence",[
+    ("image","pptx","image","pdf","video","pptx","pdf","image"),
+    ("pdf","pptx","image","pdf"),
+    ("image","pptx","image","video","pdf"),
+    ("pptx","pdf","pptx","video","image"),
+])
+def test_repeated_top_level_sequences_never_retain_stale_files(sequence):
+    app=_stateful_navigation_app(sequence[0])
+    for target in sequence[1:]:
+        if app.workspace_state.active in {"image","video"}:app.sources=[Path(f"active-{app.workspace_state.active}")]
+        elif app.workspace_state.active=="pdf":app.pdf_path=Path("active.pdf")
+        else:app.pptx_path=Path("active.pptx")
+        assert MarkerApp.switch_top_level(app,target)
+        assert app.workspace_state.active==target and app.active_auxiliary is None
+        assert app.pdf_path is None and app.pptx_path is None and app.sources==[]
+        expected=app.tab_names["documents"] if target in {"pdf","pptx"} else app.tab_names["single"]
+        assert app.tabs.current==expected
+        for control in (app.media_navigation,app.document_navigation,app.tools_navigation,app.reset_button):control.configure.assert_any_call(state="normal")
+
+
+def test_pdf_badges_image_inspect_video_sequence_and_badges_back_are_defined():
+    app=_stateful_navigation_app("pdf"); app.pdf_path=Path("active.pdf"); app._render_inspection=Mock(); app.inspection_path=None; app.inspection_result=None; app.inspection_error=""
+    app.change_content_workspace=MethodType(MarkerApp.change_content_workspace,app)
+    assert MarkerApp.switch_top_level(app,"badges") and app.active_auxiliary=="badges" and app.pdf_path is None
+    assert MarkerApp.switch_top_level(app,"image") and app.tabs.current==app.tab_names["single"]
+    assert MarkerApp.switch_top_level(app,"inspect") and app.active_auxiliary=="inspect"
+    assert MarkerApp.switch_top_level(app,"video") and app.active_auxiliary is None and app.workspace_state.active=="video"
+    assert MarkerApp.switch_top_level(app,"badges")
+    assert MarkerApp.switch_top_level(app,"image")
+    assert MarkerApp.switch_top_level(app,"badges")
+    MarkerApp.navigate_home(app)
+    assert app.workspace_state.active=="image" and app.tabs.current==app.tab_names["single"]
+
+
+def test_global_reset_recovers_even_when_internal_reset_raises():
+    app=SimpleNamespace(
+        _reset_application_state=Mock(side_effect=RuntimeError("broken preview")),active_auxiliary="badges",
+        workspace_state=ContentWorkspaceState(active="pdf"),sources=[Path("stale.pdf")],tools_navigation=Mock(),
+        scan=object(),inspection_path=Path("old.png"),inspection_result=object(),inspection_error="old",pdf_path=Path("old.pdf"),pdf_info=object(),pptx_path=Path("old.pptx"),pptx_metrics=object(),
+        pdf_preview_state=DocumentPreviewState(3,4),pptx_preview_state=DocumentPreviewState(2,5),pptx_preview_photo=object(),document_scope_states={"pdf":DocumentScopeState("range"),"pptx":DocumentScopeState("single")},
+        media_navigation_var=_Variable(),document_navigation_var=_Variable(),content_display_to_kind={"Images":"image"},
+        _configure_secondary_navigation=Mock(),render_start_view=Mock(),language_menu=Mock(),reset_button=Mock(),guide_button=Mock(),media_navigation=Mock(),document_navigation=Mock(),
+    )
+    MarkerApp.reset_application(app)
+    assert app.workspace_state.active=="image" and app.sources==[] and app.active_auxiliary is None
+    assert app.pdf_path is app.pptx_path is None and app.scan is None and app.inspection_path is None
+    app.reset_button.configure.assert_called_with(state="normal")

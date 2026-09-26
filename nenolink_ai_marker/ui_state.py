@@ -64,6 +64,24 @@ class DocumentPreviewState:
         self.count = 0
 
 
+@dataclass(slots=True)
+class DocumentScopeState:
+    """Selection fields owned by one document type."""
+
+    mode: str = "all"
+    single: str = "1"
+    selected: str = ""
+    range_start: str = "1"
+    range_end: str = "2"
+
+    def reset(self, mode: str = "all") -> None:
+        self.mode = mode
+        self.single = "1"
+        self.selected = ""
+        self.range_start = "1"
+        self.range_end = "2"
+
+
 def pptx_item_selection(
     mode: str,
     *,
