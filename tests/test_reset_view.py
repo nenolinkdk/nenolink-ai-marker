@@ -46,11 +46,17 @@ def test_render_start_view_restores_localized_welcome_state():
 
 
 def test_back_navigation_only_selects_single_file_tab():
-    app = SimpleNamespace(show_tab=Mock())
+    app = SimpleNamespace(show_tab=Mock(),workspace_state=SimpleNamespace(active="image"))
 
     MarkerApp.navigate_home(app)
 
     app.show_tab.assert_called_once_with("single")
+
+
+def test_back_navigation_returns_documents_to_document_workspace():
+    app=SimpleNamespace(show_tab=Mock(),workspace_state=SimpleNamespace(active="pdf"))
+    MarkerApp.navigate_home(app)
+    app.show_tab.assert_called_once_with("documents")
 
 
 def test_clear_document_states_removes_pdf_pptx_files_scopes_and_previews():

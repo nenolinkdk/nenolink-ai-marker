@@ -10,6 +10,7 @@ from nenolink_ai_marker.ui_state import ContentWorkspaceState, DocumentPreviewSt
 from nenolink_ai_marker.app import MarkerApp
 from nenolink_ai_marker.badges import BadgeRepository
 from nenolink_ai_marker.models import MarkerSettings
+from nenolink_ai_marker.inspection import INSPECT_EXTENSIONS
 from nenolink_ai_marker.pptx_preview import PptxPreviewRenderer
 from nenolink_ai_marker.pptx_processor import PptxProcessor
 from test_pptx_processor import _create_pptx, _write_overlay
@@ -28,6 +29,17 @@ class _Translator:
     @staticmethod
     def text(key, **values):
         return key.format(**values) if values else key
+
+
+class _Segmented:
+    def __init__(self):self.values=[]
+    def configure(self,**values):self.values=list(values.get("values",self.values))
+
+
+class _Tabs:
+    def __init__(self):self._segmented_button=_Segmented(); self.current=""
+    def set(self,value):self.current=value
+    def get(self):return self.current
 
 
 def _pptx_preview_app(source: Path, badge: Path):
@@ -131,6 +143,50 @@ def test_navigation_groups_share_one_compact_workspace_boundary_row():
     format_button_center = 3 + 16 + (26 / 2)
     workspace_tab_center = 9 + CTkTabview._outer_spacing + (CTkTabview._button_height / 2)
     assert format_button_center == workspace_tab_center
+
+
+def test_context_sensitive_navigation_sequence_and_default_workspaces():
+    app=SimpleNamespace(
+        workspace_state=SimpleNamespace(active="image"),
+        content_display_to_kind={"Images":"image","Video":"video","PDF":"pdf","PowerPoint":"pptx"},
+        tab_names={"single":"Single File","documents":"Document Workspace","batch":"Batch Processing","badges":"Badges","inspect":"Inspect File"},
+        tabs=_Tabs(),sources=[],reset_format_context=Mock(),video_controls=Mock(),_update_logo_controls=Mock(),update_preview=Mock(),_render_document_workspace=Mock(),
+    )
+    app._secondary_navigation_keys=MethodType(MarkerApp._secondary_navigation_keys,app)
+    app._configure_secondary_navigation=MethodType(MarkerApp._configure_secondary_navigation,app)
+    app.show_tab=MethodType(MarkerApp.show_tab,app)
+    app.apply_translations=MethodType(lambda self:self._configure_secondary_navigation(),app)
+    MarkerApp._configure_secondary_navigation(app)
+    expected=(
+        ("Video",("single","batch","badges","inspect"),"Single File"),
+        ("PDF",("documents","badges"),"Document Workspace"),
+        ("PowerPoint",("documents","badges"),"Document Workspace"),
+        ("Video",("single","batch","badges","inspect"),"Single File"),
+        ("Images",("single","batch","badges","inspect"),"Single File"),
+    )
+    for label,keys,default in expected:
+        MarkerApp.change_content_workspace(app,label)
+        assert app._secondary_navigation_keys()==keys
+        assert app.tabs._segmented_button.values==[app.tab_names[key] for key in keys]
+        assert app.tabs.current==default
+    assert app._render_document_workspace.call_count==2
+    assert app.reset_format_context.call_count==10
+
+
+def test_media_cannot_open_document_tab_and_documents_cannot_open_media_tabs():
+    app=SimpleNamespace(workspace_state=SimpleNamespace(active="video"),tabs=_Tabs(),tab_names={"single":"Single","documents":"Documents","batch":"Batch","badges":"Badges","inspect":"Inspect"})
+    app._secondary_navigation_keys=MethodType(MarkerApp._secondary_navigation_keys,app)
+    MarkerApp.show_tab(app,"documents"); assert app.tabs.current==""
+    MarkerApp.show_tab(app,"single"); assert app.tabs.current=="Single"
+    app.workspace_state.active="pdf"; app.tabs.current=""
+    MarkerApp.show_tab(app,"single"); MarkerApp.show_tab(app,"batch"); MarkerApp.show_tab(app,"inspect"); assert app.tabs.current==""
+    MarkerApp.show_tab(app,"documents"); assert app.tabs.current=="Documents"
+
+
+def test_document_inspect_is_hidden_until_pdf_and_pptx_are_supported():
+    assert ".pdf" not in INSPECT_EXTENSIONS and ".pptx" not in INSPECT_EXTENSIONS
+    app=SimpleNamespace(workspace_state=SimpleNamespace(active="pdf"))
+    assert MarkerApp._secondary_navigation_keys(app)==("documents","badges")
 
 
 def test_docx_ui_exposes_only_reliable_alignment_and_hides_margin_controls():

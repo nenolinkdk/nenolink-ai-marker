@@ -152,6 +152,17 @@ class MarkerApp(ctk.CTk):
         self.footer_update_link=ctk.CTkLabel(footer_left,text="",text_color="gray60",cursor="hand2"); self.footer_update_link.grid(row=0,column=1,padx=(4,0),sticky="w"); self._footer_update_callback=lambda _event:self.check_for_updates(); self.footer_update_link.bind("<Button-1>",self._footer_update_callback)
         self.status_label=ctk.CTkLabel(footer,textvariable=self.status_var,text_color="gray60",anchor="e"); self.status_label.grid(row=0,column=1,padx=(20,0),sticky="ew")
 
+    def _secondary_navigation_keys(self):
+        if self.workspace_state.active in {"pdf","pptx"}:
+            return ("documents","badges")
+        return ("single","batch","badges","inspect")
+
+    def _configure_secondary_navigation(self,preferred=None):
+        keys=self._secondary_navigation_keys(); values=[self.tab_names[key] for key in keys]
+        self.tabs._segmented_button.configure(values=values)
+        target=preferred if preferred in keys else ("documents" if self.workspace_state.active in {"pdf","pptx"} else "single")
+        self.tabs.set(self.tab_names[target])
+
     def _document_ui(self) -> None:
         tab=self.document_tab; tab.grid_columnconfigure(0,weight=1); tab.grid_rowconfigure(0,weight=1)
         panel=ctk.CTkFrame(tab); panel.grid(row=0,column=0,padx=20,pady=(4,8),sticky="nsew"); panel.grid_columnconfigure((0,1),weight=1); panel.grid_rowconfigure(2,weight=1)
@@ -394,10 +405,11 @@ class MarkerApp(ctk.CTk):
         self.media_navigation.configure(values=[t("content.images"),t("content.video")]); self.document_navigation.configure(values=[t("content.pdf"),t("content.powerpoint")])
         self.media_group_label.configure(text=t("content.media_group")); self.documents_group_label.configure(text=t("content.documents_group")); self.content_navigation_var.set(next(label for label,kind in self.content_display_to_kind.items() if kind==self.workspace_state.active))
         current_key=next((key for key,name in self.tab_names.items() if name==self.tabs.get()),"single")
+        self.tabs._segmented_button.configure(values=list(self.tab_names.values()))
         for key,translation_key in (("single","tab.single"),("documents","content.workspace"),("batch","tab.batch"),("badges","tab.badges"),("inspect","tab.inspect")):
             new=t(translation_key); old=self.tab_names[key]
             if old != new:self.tabs.rename(old,new); self.tab_names[key]=new
-        self.tabs.set(self.tab_names[current_key])
+        self._configure_secondary_navigation(current_key)
         self.open_button.configure(text="1. "+t("button.open_media")); self.process_button.configure(text=t("button.process_video") if self.workspace_state.active=="video" else t("button.process")); self.file_label.configure(text=t("files.none") if not self.sources else t("files.selected",count=len(self.sources),name=self.sources[0].name))
         self.file_size_guidance.configure(text=t("files.size_guidance")); self.batch_size_guidance.configure(text=t("files.size_guidance_short"))
         self.video_mode_display_to_value={t("video.mode.permanent"):"permanent",t("video.mode.beginning"):"beginning",t("video.mode.end"):"end"}
@@ -446,9 +458,9 @@ class MarkerApp(ctk.CTk):
         self.workspace_state.active=target
         if target in {"image","video"}:self.sources=[]
         if target in {"image","video"}:
-            self.show_tab("single"); self.video_controls.grid() if target=="video" else self.video_controls.grid_remove(); self._update_logo_controls(); self.update_preview()
-        else:self.show_tab("documents"); self._render_document_workspace()
-        self.apply_translations()
+            self.video_controls.grid() if target=="video" else self.video_controls.grid_remove(); self._update_logo_controls(); self.update_preview()
+        else:self._render_document_workspace()
+        self.apply_translations(); self.show_tab("single" if target in {"image","video"} else "documents")
 
     def reset_format_context(self,format_type,preserve_visual_settings=True,*,keep_file=False,scope="all"):
         """Reset file/navigation state without touching shared badge/logo styling."""
@@ -783,8 +795,9 @@ class MarkerApp(ctk.CTk):
             except TclError:pass
         self.shortcut_offer_dialog=None
     def _accept_shortcut_offer(self):self._dismiss_shortcut_offer(); self.create_shortcut()
-    def show_tab(self,key): self.tabs.set(self.tab_names[key])
-    def navigate_home(self): self.show_tab("single")
+    def show_tab(self,key):
+        if key in self._secondary_navigation_keys():self.tabs.set(self.tab_names[key])
+    def navigate_home(self): self.show_tab("documents" if self.workspace_state.active in {"pdf","pptx"} else "single")
     def choose_inspection_file(self):
         patterns=" ".join(f"*{extension}" for extension in sorted(INSPECT_EXTENSIONS))
         selected=filedialog.askopenfilename(title=self.translator.text("inspect.choose"),filetypes=[(self.translator.text("inspect.supported"),patterns),(self.translator.text("files.all"),"*.*")])
