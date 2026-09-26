@@ -159,6 +159,9 @@ class MarkerApp(ctk.CTk):
         self.status_label=ctk.CTkLabel(footer,textvariable=self.status_var,text_color="gray60",anchor="e"); self.status_label.grid(row=0,column=1,padx=(20,0),sticky="ew")
 
     def _secondary_navigation_keys(self):
+        auxiliary=getattr(self,"active_auxiliary",None)
+        if auxiliary in {"badges","inspect"}:
+            return (auxiliary,)
         if self.workspace_state.active in {"pdf","pptx"}:
             return ("documents",)
         return ("single","batch")
@@ -422,9 +425,7 @@ class MarkerApp(ctk.CTk):
         for key,translation_key in (("single","tab.single"),("documents","content.workspace"),("batch","tab.batch"),("badges","tab.badges"),("inspect","tab.inspect")):
             new=t(translation_key); old=self.tab_names[key]
             if old != new:self.tabs.rename(old,new); self.tab_names[key]=new
-        if self.active_auxiliary in {"badges","inspect"}:
-            self.tabs.set(self.tab_names[self.active_auxiliary])
-        else:self._configure_secondary_navigation(current_key)
+        self._configure_secondary_navigation(self.active_auxiliary or current_key)
         self.open_button.configure(text="1. "+t("button.open_media")); self.process_button.configure(text=t("button.process_video") if self.workspace_state.active=="video" else t("button.process")); self.file_label.configure(text=t("files.none") if not self.sources else t("files.selected",count=len(self.sources),name=self.sources[0].name))
         self.file_size_guidance.configure(text=t("files.size_guidance")); self.batch_size_guidance.configure(text=t("files.size_guidance_short"))
         self.video_mode_display_to_value={t("video.mode.permanent"):"permanent",t("video.mode.beginning"):"beginning",t("video.mode.end"):"end"}
@@ -487,7 +488,7 @@ class MarkerApp(ctk.CTk):
         if target in {"badges","inspect"}:
             self.active_auxiliary=target; MarkerApp._set_format_navigation(self,None); self.tools_navigation.set(self.translator.text("tab.badges" if target=="badges" else "tab.inspect"))
             if target=="inspect":self.inspection_path=None; self.inspection_result=None; self.inspection_error=""; self._render_inspection()
-            self.tabs.set(self.tab_names[target]); return True
+            self._configure_secondary_navigation(target); return True
         self.reset_format_context(target); self.active_auxiliary=None; self.tools_navigation.set(""); self.workspace_state.active=target; MarkerApp._set_format_navigation(self,target)
         if target in {"image","video"}:
             self.sources=[]; self.video_controls.grid() if target=="video" else self.video_controls.grid_remove(); self._update_logo_controls(); self.update_preview()
@@ -568,10 +569,14 @@ class MarkerApp(ctk.CTk):
         """Internal reset: preserve the file and visuals, rebuild preview safely."""
         if not hasattr(self,"document_scope_states"):self.document_scope_states={"pdf":DocumentScopeState(),"pptx":DocumentScopeState()}
         state=self.document_scope_states[format_type]; state.reset(mode); MarkerApp._sync_document_scope_controls(self,format_type)
+        total=self.pdf_info.metrics.item_count if format_type=="pdf" and self.pdf_info else self.pptx_metrics.item_count if format_type=="pptx" and self.pptx_metrics else 0
+        items=state.preview_items(total) if total else ()
         if format_type=="pdf":
-            self.pdf_preview_state.initialize(self.pdf_info.metrics.item_count if self.pdf_info else 0); self.pdf_preview_renderer=PdfPreviewRenderer(self.processor)
+            self.pdf_preview_state.initialize(total,items); self.pdf_preview_renderer=PdfPreviewRenderer(self.processor)
         else:
-            self.pptx_preview_state.initialize(self.pptx_metrics.item_count if self.pptx_metrics else 0); self.pptx_preview_renderer.clear()
+            self.pptx_preview_state.initialize(total,items); self.pptx_preview_renderer.clear()
+        display=next((label for label,value in self.pptx_selection_display_to_value.items() if value==mode),None)
+        if display and hasattr(self,"pptx_selection_display_var"):self.pptx_selection_display_var.set(display)
         self._update_pptx_selection_fields()
         try:MarkerApp._rebuild_document_preview(self,format_type)
         finally:MarkerApp._ensure_global_controls_enabled(self)
@@ -656,7 +661,6 @@ class MarkerApp(ctk.CTk):
     def change_pdf_preview_page(self,delta):
         current=self.pdf_preview_state.move(delta)
         if current is not None:
-            if self.pptx_selection_mode_var.get()=="single":self.pptx_single_var.set(str(current)); MarkerApp._capture_document_scope_controls(self,"pdf")
             self.update_pdf_preview()
 
     def update_pdf_preview(self):
@@ -667,7 +671,7 @@ class MarkerApp(ctk.CTk):
         logo=self._logo_path() if self.logo_enabled_var.get() else None
         if not badge and not logo:return
         try:
-            result=self.pdf_preview_renderer.render(self.pdf_path,self.pdf_preview_state.current,badge,self.settings(),logo); self.pdf_preview_state.current=result.page_number; self.pdf_preview_state.count=result.page_count; self.pptx_preview_photo=ctk.CTkImage(result.image,size=result.image.size); self.pptx_preview_label.configure(image=self.pptx_preview_photo,text=""); self.pptx_slide_status.configure(text=t("pdf.page_status",current=result.page_number,count=result.page_count)); self.pptx_previous_button.configure(state="normal" if self.pdf_preview_state.can_previous else "disabled"); self.pptx_next_button.configure(state="normal" if self.pdf_preview_state.can_next else "disabled")
+            result=self.pdf_preview_renderer.render(self.pdf_path,self.pdf_preview_state.current,badge,self.settings(),logo); self.pdf_preview_state.current=result.page_number; self.pptx_preview_photo=ctk.CTkImage(result.image,size=result.image.size); self.pptx_preview_label.configure(image=self.pptx_preview_photo,text=""); self.pptx_slide_status.configure(text=t("pdf.page_status",current=result.page_number,count=result.page_count)); self.pptx_previous_button.configure(state="normal" if self.pdf_preview_state.can_previous else "disabled"); self.pptx_next_button.configure(state="normal" if self.pdf_preview_state.can_next else "disabled")
         except (OSError,ValueError):self.pptx_preview_photo=None; self.pptx_preview_label.configure(image=None,text=t("pdf.preview_unavailable")); self.pptx_slide_status.configure(text="")
 
     def process_pdf(self):
@@ -772,9 +776,15 @@ class MarkerApp(ctk.CTk):
         if not metrics:return
         try:
             selection=pptx_item_selection(self.pptx_selection_mode_var.get(),single=self.pptx_single_var.get(),selected=self.pptx_selected_var.get(),start=self.pptx_range_start_var.get(),end=self.pptx_range_end_var.get())
-            selection.resolve(metrics.item_count)
+            items=selection.resolve(metrics.item_count)
         except ValueError as error:
             self.status_var.set(str(error))
+            return
+        state=self.document_scope_states[self.workspace_state.active]
+        preview_state=self.pptx_preview_state if self.workspace_state.active=="pptx" else self.pdf_preview_state
+        preview_state.initialize(metrics.item_count,items)
+        self.status_var.set("")
+        MarkerApp._rebuild_document_preview(self,self.workspace_state.active)
 
     def _update_pptx_selection_fields(self):
         for frame in (self.pptx_single_frame,self.pptx_selected_frame,self.pptx_range_frame):frame.grid_remove()
@@ -793,7 +803,6 @@ class MarkerApp(ctk.CTk):
     def change_pptx_preview_slide(self,delta):
         current=self.pptx_preview_state.move(delta)
         if current is not None:
-            if self.pptx_selection_mode_var.get()=="single":self.pptx_single_var.set(str(current)); MarkerApp._capture_document_scope_controls(self,"pptx")
             self.update_pptx_preview()
 
     def update_pptx_preview(self):
@@ -808,7 +817,7 @@ class MarkerApp(ctk.CTk):
             self.pptx_preview_photo=None; self.pptx_preview_label.configure(image=None,text=t("pptx.preview_unavailable")); self.pptx_slide_status.configure(text=""); return
         try:
             result=self.pptx_preview_renderer.render(self.pptx_path,self.pptx_preview_state.current,badge,self.settings(),self._logo_path())
-            self.pptx_preview_state.current=result.slide_number; self.pptx_preview_state.count=result.slide_count; self.pptx_preview_photo=ctk.CTkImage(result.image,size=result.image.size); self.pptx_preview_label.configure(image=self.pptx_preview_photo,text=""); self.pptx_slide_status.configure(text=t("pptx.slide_status",current=result.slide_number,count=result.slide_count))
+            self.pptx_preview_state.current=result.slide_number; self.pptx_preview_photo=ctk.CTkImage(result.image,size=result.image.size); self.pptx_preview_label.configure(image=self.pptx_preview_photo,text=""); self.pptx_slide_status.configure(text=t("pptx.slide_status",current=result.slide_number,count=result.slide_count))
             self.pptx_previous_button.configure(state="normal" if self.pptx_preview_state.can_previous else "disabled"); self.pptx_next_button.configure(state="normal" if self.pptx_preview_state.can_next else "disabled")
         except (OSError,ValueError,KeyError):
             self.pptx_preview_photo=None; self.pptx_preview_label.configure(image=None,text=t("pptx.preview_unavailable")); self.pptx_slide_status.configure(text="")
@@ -925,16 +934,54 @@ class MarkerApp(ctk.CTk):
         try:self._reset_application_state()
         except Exception:pass
         finally:
-            self.active_auxiliary=None; self.workspace_state.clear(); self.sources=[]
-            self.scan=None; self.inspection_path=None; self.inspection_result=None; self.inspection_error=""
-            self.pdf_path=None; self.pdf_info=None; self.pptx_path=None; self.pptx_metrics=None
-            self.pdf_preview_state.clear(); self.pptx_preview_state.clear(); self.pptx_preview_photo=None
-            for state in self.document_scope_states.values():state.reset()
-            try:self.tools_navigation.set(""); MarkerApp._set_format_navigation(self,"image"); self._configure_secondary_navigation("single")
-            except (TclError,AttributeError):pass
-            try:self.render_start_view()
-            except (TclError,AttributeError):pass
+            MarkerApp._force_startup_state(self)
             MarkerApp._ensure_global_controls_enabled(self)
+
+    def _force_startup_state(self):
+        """Best-effort canonical startup state, independent of damaged controllers."""
+        dialog=getattr(self,"_format_switch_dialog",None)
+        if dialog is not None:
+            try:dialog.destroy()
+            except (TclError,AttributeError):pass
+        self._format_switch_dialog=None
+        after_id=getattr(self,"_reset_after_id",None)
+        if after_id:
+            try:self.after_cancel(after_id)
+            except (TclError,AttributeError):pass
+        self._reset_after_id=None
+        self.active_auxiliary=None; self.workspace_state.clear(); self.sources=[]; self.scan=None
+        self.inspection_path=None; self.inspection_result=None; self.inspection_error=""
+        self.pdf_path=None; self.pdf_info=None; self.pptx_path=None; self.pptx_metrics=None
+        self._pdf_warning_approved=None; self._pdf_signature_approved=None; self._pptx_warning_approved=None
+        self.pdf_preview_state.clear(); self.pptx_preview_state.clear(); self.pptx_preview_photo=None
+        self.preview_photo=None; self.preview_image=None
+        cancel_event=getattr(self,"cancel_event",None)
+        if cancel_event is not None:cancel_event.clear()
+        for renderer_name in ("preview_renderer","pdf_preview_renderer","pptx_preview_renderer"):
+            renderer=getattr(self,renderer_name,None)
+            if renderer is not None:
+                try:renderer.clear()
+                except (AttributeError,TclError,RuntimeError):pass
+        for state in self.document_scope_states.values():state.reset()
+        defaults=MarkerSettings()
+        for name,value in (("badge_source_var","standard"),("badge_var",defaults.badge_name),("position_var",defaults.position),("size_var",defaults.size_percent),("margin_var",defaults.margin),("opacity_var",defaults.opacity),("video_mode_var",defaults.video_mode),("video_duration_var",defaults.video_duration),("logo_enabled_var",False),("pdf_badge_enabled_var",True),("pptx_selection_mode_var","all"),("pptx_single_var","1"),("pptx_selected_var","1"),("pptx_range_start_var","1"),("pptx_range_end_var","2")):
+            variable=getattr(self,name,None)
+            if variable is not None:
+                try:variable.set(value)
+                except (TclError,AttributeError):pass
+        for name,value in (("status_var",""),("scan_summary_var",""),("progress_text_var",""),("pptx_file_var","")):
+            variable=getattr(self,name,None)
+            if variable is not None:
+                try:variable.set(value)
+                except (TclError,AttributeError):pass
+        progress=getattr(self,"progress",None)
+        if progress is not None:
+            try:progress.set(0)
+            except (TclError,AttributeError):pass
+        try:self.tools_navigation.set(""); MarkerApp._set_format_navigation(self,"image"); self._configure_secondary_navigation("single")
+        except (TclError,AttributeError):pass
+        try:self.render_start_view()
+        except (TclError,AttributeError):pass
 
     def _reset_application_state(self):
         defaults=MarkerSettings(); custom_folder=self.custom_badge_var.get()

@@ -54,21 +54,33 @@ def test_pdf_repeated_scope_sequence_keeps_file_and_rebuilds_preview(tmp_path):
         document_scope_states={"pdf":DocumentScopeState(),"pptx":DocumentScopeState()},
         pptx_selection_mode_var=_Var("all"),pptx_single_var=_Var("1"),pptx_selected_var=_Var(""),pptx_range_start_var=_Var("1"),pptx_range_end_var=_Var("2"),
         pptx_selection_display_to_value={"All":"all","One":"single","Multiple":"selected","Range":"range"},
+        pptx_selection_display_var=_Var("All"),
         pptx_preview_photo=None,pptx_preview_label=SimpleNamespace(configure=Mock()),pptx_slide_status=SimpleNamespace(configure=Mock()),pptx_previous_button=SimpleNamespace(configure=Mock()),pptx_next_button=SimpleNamespace(configure=Mock()),
         _update_pptx_selection_fields=Mock(),translator=_Text(),badges=BadgeRepository(tmp_path),badge_var=_Var(badge.name),pdf_badge_enabled_var=_Var(True),logo_enabled_var=_Var(False),
         settings=lambda:MarkerSettings(),_logo_path=lambda:None,language_menu=Mock(),reset_button=Mock(),guide_button=Mock(),media_navigation=Mock(),document_navigation=Mock(),tools_navigation=Mock(),
+        status_var=_Var(),
     )
     app.update_pdf_preview=lambda:MarkerApp.update_pdf_preview(app)
     app.update_pptx_preview=lambda:MarkerApp.update_pptx_preview(app)
     with patch("nenolink_ai_marker.app.ctk.CTkImage",side_effect=lambda image,size:("preview",size)):
-        for label,mode in (("All","all"),("One","single"),("Range","range"),("Multiple","selected"),("All","all"),("One","single"),("All","all")):
+        expected={"all":(1,2,3,4,5,6),"single":(1,),"range":(1,2),"selected":(1,)}
+        for label,mode in (("All","all"),("One","single"),("Range","range"),("Multiple","selected"),("All","all")):
             MarkerApp.change_pptx_selection_mode(app,label)
             assert app.pdf_path==source and app.pdf_info is info
             assert app.document_scope_states["pdf"].mode==mode
             assert (app.pdf_preview_state.current,app.pdf_preview_state.count)==(1,6)
+            assert app.pdf_preview_state.items==expected[mode]
             assert app.pptx_preview_photo is not None
             assert app.pptx_preview_label.configure.call_args.kwargs["text"]==""
             app.reset_button.configure.assert_any_call(state="normal")
+        MarkerApp.change_pptx_selection_mode(app,"One"); app.pptx_single_var.set("4"); MarkerApp.commit_document_selection(app)
+        assert app.pdf_preview_state.items==(4,) and app.pdf_preview_state.current==4
+        MarkerApp.change_pptx_selection_mode(app,"Range"); app.pptx_range_start_var.set("2"); app.pptx_range_end_var.set("5"); MarkerApp.commit_document_selection(app)
+        assert app.pdf_preview_state.items==(2,3,4,5) and app.pdf_preview_state.current==2
+        MarkerApp.change_pptx_selection_mode(app,"Multiple"); app.pptx_selected_var.set("2,5,6"); MarkerApp.commit_document_selection(app)
+        assert app.pdf_preview_state.items==(2,5,6) and app.pdf_preview_state.current==2
+        MarkerApp.change_pptx_selection_mode(app,"All")
+        assert app.pdf_preview_state.items==(1,2,3,4,5,6)
 
 
 def test_pdf_inspection_reports_size_and_page_count(tmp_path):
