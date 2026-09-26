@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 from unittest.mock import Mock
 import inspect
+from types import MethodType
 
 from nenolink_ai_marker.app import MarkerApp
 from nenolink_ai_marker.ui_state import DocumentPreviewState
@@ -63,12 +64,13 @@ def test_clear_document_states_removes_pdf_pptx_files_scopes_and_previews():
         pptx_file_var=_Variable("old filename"),pptx_preview_photo=object(),
         pptx_preview_renderer=Mock(),docx_preview_renderer=Mock(),processor=Mock(),pptx_preview_label=Mock(),pptx_slide_status=Mock(),pptx_previous_button=Mock(),pptx_next_button=Mock(),
     )
+    app.reset_format_context=MethodType(MarkerApp.reset_format_context,app)
     MarkerApp._clear_document_states(app)
     assert app.pptx_path is app.pdf_path is None
     assert app.pptx_metrics is app.pdf_info is None
     assert (pptx_state.current,pptx_state.count)==(1,0) and (pdf_state.current,pdf_state.count)==(1,0)
     assert app.pptx_selection_mode_var.get()=="all"
-    assert (app.pptx_single_var.get(),app.pptx_selected_var.get(),app.pptx_range_start_var.get(),app.pptx_range_end_var.get())==("1","1, 3","1","2")
+    assert (app.pptx_single_var.get(),app.pptx_selected_var.get(),app.pptx_range_start_var.get(),app.pptx_range_end_var.get())==("1","","1","2")
     assert app.pptx_file_var.get()=="" and app.pptx_preview_photo is None
     app.pptx_previous_button.configure.assert_called_with(state="disabled")
     app.pptx_next_button.configure.assert_called_with(state="disabled")

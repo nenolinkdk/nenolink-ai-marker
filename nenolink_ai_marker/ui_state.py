@@ -12,7 +12,7 @@ def show_welcome(sources: Collection[object]) -> bool:
 
 @dataclass(slots=True)
 class ContentWorkspaceState:
-    """Keep image and video selections independent while navigating workspaces."""
+    """Track the active format while treating every format switch as new work."""
 
     active: str = "image"
     media_sources: dict[str, list[Path]] = field(
@@ -21,9 +21,11 @@ class ContentWorkspaceState:
 
     def switch(self, target: str, current_sources: Collection[Path]) -> list[Path]:
         if self.active in self.media_sources:
-            self.media_sources[self.active] = list(current_sources)
+            self.media_sources[self.active].clear()
+        if target in self.media_sources:
+            self.media_sources[target].clear()
         self.active = target
-        return list(self.media_sources.get(target, []))
+        return []
 
     def clear(self) -> None:
         for sources in self.media_sources.values():

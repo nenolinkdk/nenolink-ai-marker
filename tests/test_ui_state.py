@@ -1,7 +1,7 @@
 from pathlib import Path
 import inspect
 from types import MethodType, SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import pytest
 from customtkinter import CTkTabview
@@ -37,7 +37,7 @@ def _pptx_preview_app(source: Path, badge: Path):
         pptx_preview_renderer=PptxPreviewRenderer(), pptx_processor=PptxProcessor(),
         _pptx_warning_approved=None, pptx_file_var=_Variable(), status_var=_Variable(),
         pptx_preview_state=DocumentPreviewState(), pdf_preview_state=DocumentPreviewState(),
-        pptx_selection_mode_var=_Variable("all"), pptx_single_var=_Variable("1"),
+        pptx_selection_mode_var=_Variable("all"), pptx_selection_display_var=_Variable(), pptx_single_var=_Variable("1"),
         pptx_selected_var=_Variable("1, 3"), pptx_range_start_var=_Variable("1"), pptx_range_end_var=_Variable("2"),
         badge_var=_Variable(badge.name), badges=BadgeRepository(badge.parent),
         pptx_preview_photo=None, pptx_preview_label=Mock(), pptx_slide_status=Mock(),
@@ -47,6 +47,7 @@ def _pptx_preview_app(source: Path, badge: Path):
     )
     app._set_pptx_file_summary=MethodType(MarkerApp._set_pptx_file_summary,app)
     app.update_pptx_preview=MethodType(MarkerApp.update_pptx_preview,app)
+    app.reset_format_context=MethodType(MarkerApp.reset_format_context,app)
     return app
 
 
@@ -64,18 +65,18 @@ def test_welcome_returns_when_images_are_cleared():
     assert show_welcome(sources)
 
 
-def test_content_workspaces_preserve_image_and_video_selections_independently():
+def test_content_workspace_switch_starts_a_clean_media_context():
     state=ContentWorkspaceState()
     assert state.switch("video",[Path("photo.png")])==[]
-    assert state.media_sources["image"]==[Path("photo.png")]
-    assert state.switch("image",[Path("clip.mp4")])==[Path("photo.png")]
-    assert state.media_sources["video"]==[Path("clip.mp4")]
+    assert state.media_sources["image"]==[]
+    assert state.switch("image",[Path("clip.mp4")])==[]
+    assert state.media_sources["video"]==[]
 
 
-def test_document_workspace_keeps_media_selections_and_reset_clears_all():
+def test_document_workspace_does_not_retain_hidden_media_selections():
     state=ContentWorkspaceState(); state.switch("video",[Path("photo.png")]); state.switch("pptx",[Path("clip.mp4")])
-    assert state.media_sources=={"image":[Path("photo.png")],"video":[Path("clip.mp4")]}
-    assert state.switch("image",[])==[Path("photo.png")]
+    assert state.media_sources=={"image":[],"video":[]}
+    assert state.switch("image",[])==[]
     state.clear()
     assert state.active=="image" and state.media_sources=={"image":[],"video":[]}
 
@@ -190,23 +191,23 @@ def test_document_preview_state_navigates_physical_items_with_boundaries():
     assert state.move(-99)==1
 
 
-def test_pptx_scope_does_not_change_physical_preview_and_single_tracks_current(tmp_path):
+def test_pptx_scope_change_starts_a_fresh_context_at_slide_one(tmp_path):
     source=tmp_path/"ten-slides.pptx"; _create_pptx(source,10)
     badge=tmp_path/"ai-assisted.png"; _write_overlay(badge,(190,20,40,255),(160,50))
     app=_pptx_preview_app(source,badge); app.pptx_path=source; app.pptx_metrics=app.pptx_processor.document_metrics(source)
     app.pptx_selection_display_to_value={"All":"all","Single":"single","Selected":"selected","Range":"range"}
     app._update_pptx_selection_fields=Mock(); app.update_pptx_preview=Mock(); app.pptx_preview_state.initialize(10); app.pptx_preview_state.move(3)
     MarkerApp.change_pptx_selection_mode(app,"Single")
-    assert app.pptx_single_var.get()=="4" and app.pptx_preview_state.current==4
+    assert app.pptx_single_var.get()=="1" and app.pptx_preview_state.current==1
     app.pptx_selected_var.set("2,5,8"); MarkerApp.change_pptx_selection_mode(app,"Selected")
-    assert app.pptx_preview_state.current==4
+    assert app.pptx_preview_state.current==1 and app.pptx_selected_var.get()==""
     app.pptx_range_start_var.set("3"); app.pptx_range_end_var.set("7"); MarkerApp.change_pptx_selection_mode(app,"Range")
-    assert app.pptx_preview_state.current==4
+    assert app.pptx_preview_state.current==1 and (app.pptx_range_start_var.get(),app.pptx_range_end_var.get())==("1","2")
     MarkerApp.change_pptx_selection_mode(app,"All")
-    assert app.pptx_preview_state.current==4
+    assert app.pptx_preview_state.current==1
     MarkerApp.change_pptx_selection_mode(app,"Single")
     MarkerApp.change_pptx_preview_slide(app,3)
-    assert app.pptx_preview_state.current==7 and app.pptx_single_var.get()=="7"
+    assert app.pptx_preview_state.current==4 and app.pptx_single_var.get()=="4"
 
 
 def test_pdf_scope_is_independent_from_physical_preview_navigation():
@@ -225,16 +226,53 @@ def test_pdf_scope_is_independent_from_physical_preview_navigation():
     assert app.pptx_selected_var.get()=="2,5,8"
 
 
-def test_document_types_have_independent_physical_preview_states():
+def test_document_format_contexts_are_unloaded_instead_of_preserved():
     app=SimpleNamespace(
-        workspace_state=SimpleNamespace(active="pdf"),
+        processor=Mock(), pdf_path=Path("old.pdf"), pptx_path=Path("old.pptx"),
         pdf_info=SimpleNamespace(metrics=SimpleNamespace(item_count=43)), pptx_metrics=SimpleNamespace(item_count=10),
         pdf_preview_state=DocumentPreviewState(), pptx_preview_state=DocumentPreviewState(),
+        _pdf_warning_approved=object(),_pdf_signature_approved=object(),_pptx_warning_approved=object(),
+        pptx_preview_renderer=Mock(), pptx_selection_mode_var=_Variable("selected"),pptx_single_var=_Variable("5"),
+        pptx_selected_var=_Variable("2,5,8"),pptx_range_start_var=_Variable("3"),pptx_range_end_var=_Variable("7"),
+        pptx_preview_photo=object(),pptx_preview_label=Mock(),pptx_slide_status=Mock(),pptx_previous_button=Mock(),pptx_next_button=Mock(),status_var=_Variable(),
     )
-    MarkerApp._activate_document_preview_state(app)
-    app.pdf_preview_state.move(11)
-    assert app.pdf_preview_state.current==12
-    app.workspace_state.active="pptx"; MarkerApp._activate_document_preview_state(app)
-    assert (app.pptx_preview_state.current,app.pptx_preview_state.count)==(1,10)
-    app.workspace_state.active="pdf"; MarkerApp._activate_document_preview_state(app)
-    assert (app.pdf_preview_state.current,app.pdf_preview_state.count)==(1,43)
+    app.pdf_preview_state.initialize(43); app.pdf_preview_state.move(11); app.pptx_preview_state.initialize(10)
+    MarkerApp.reset_format_context(app,"pdf")
+    assert app.pdf_path is None and app.pdf_info is None and (app.pdf_preview_state.current,app.pdf_preview_state.count)==(1,0)
+    MarkerApp.reset_format_context(app,"pptx")
+    assert app.pptx_path is None and app.pptx_metrics is None and (app.pptx_preview_state.current,app.pptx_preview_state.count)==(1,0)
+
+
+def test_format_switch_clears_source_and_destination_contexts():
+    app=SimpleNamespace(
+        content_display_to_kind={"PowerPoint":"pptx"}, workspace_state=SimpleNamespace(active="pdf"), sources=[Path("old.pdf")],
+        reset_format_context=Mock(), show_tab=Mock(), _render_document_workspace=Mock(), apply_translations=Mock(),
+    )
+    MarkerApp.change_content_workspace(app,"PowerPoint")
+    assert app.reset_format_context.call_args_list==[call("pdf"),call("pptx")]
+    assert app.workspace_state.active=="pptx"
+
+
+def test_pdf_scope_sequence_resets_navigation_and_old_scope_fields():
+    app=SimpleNamespace(
+        workspace_state=SimpleNamespace(active="pdf"), processor=Mock(),
+        pdf_path=Path("document.pdf"), pdf_info=SimpleNamespace(metrics=SimpleNamespace(item_count=43)),
+        pdf_preview_state=DocumentPreviewState(5,43), _pdf_warning_approved=object(), _pdf_signature_approved=object(),
+        pptx_selection_mode_var=_Variable("all"), pptx_single_var=_Variable("9"), pptx_selected_var=_Variable("2,5,8"),
+        pptx_range_start_var=_Variable("3"), pptx_range_end_var=_Variable("7"), pptx_preview_photo=object(),
+        pptx_selection_display_to_value={"All":"all","One":"single","Selected":"selected","Range":"range"},
+        pptx_selection_display_var=_Variable("All"),
+        _update_pptx_selection_fields=Mock(), update_pptx_preview=Mock(),
+        pptx_preview_label=Mock(),pptx_slide_status=Mock(),pptx_previous_button=Mock(),pptx_next_button=Mock(),status_var=_Variable(),
+    )
+    app.reset_format_context=MethodType(MarkerApp.reset_format_context,app)
+    for label,mode in (("One","single"),("Selected","selected"),("Range","range"),("All","all")):
+        MarkerApp.change_pptx_selection_mode(app,label)
+        assert app.pptx_selection_mode_var.get()==mode
+        assert app.pdf_preview_state.current==1 and app.pdf_preview_state.count==43
+        assert (app.pptx_single_var.get(),app.pptx_selected_var.get(),app.pptx_range_start_var.get(),app.pptx_range_end_var.get())==("1","","1","2")
+
+
+def test_visual_setting_callbacks_do_not_reset_document_context():
+    for method in (MarkerApp.changed,MarkerApp.select_badge,MarkerApp.logo_changed,MarkerApp.change_position_display):
+        assert "reset_format_context" not in inspect.getsource(method)

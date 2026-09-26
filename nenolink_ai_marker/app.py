@@ -440,18 +440,46 @@ class MarkerApp(ctk.CTk):
 
     def change_language(self,name): self.translator.set_language(LANGUAGES.get(name,"en")); self.apply_translations(); self._save()
     def change_content_workspace(self,label):
-        target=self.content_display_to_kind.get(label,"image"); self.sources=self.workspace_state.switch(target,self.sources)
+        target=self.content_display_to_kind.get(label,"image")
+        if target!=self.workspace_state.active:
+            self.reset_format_context(self.workspace_state.active); self.reset_format_context(target)
+        self.workspace_state.active=target
+        if target in {"image","video"}:self.sources=[]
         if target in {"image","video"}:
             self.show_tab("single"); self.video_controls.grid() if target=="video" else self.video_controls.grid_remove(); self._update_logo_controls(); self.update_preview()
-        else:self.show_tab("documents"); self._render_document_workspace(); self._activate_document_preview_state()
+        else:self.show_tab("documents"); self._render_document_workspace()
         self.apply_translations()
 
-    def _activate_document_preview_state(self):
-        kind=self.workspace_state.active
-        if kind not in {"pptx","pdf"}:return
-        metrics=self.pptx_metrics if kind=="pptx" else self.pdf_info.metrics if self.pdf_info else None
-        state=self.pptx_preview_state if kind=="pptx" else self.pdf_preview_state
-        state.initialize(metrics.item_count) if metrics else state.clear()
+    def reset_format_context(self,format_type,preserve_visual_settings=True,*,keep_file=False,scope="all"):
+        """Reset file/navigation state without touching shared badge/logo styling."""
+        if format_type in {"image","video"}:
+            self.workspace_state.media_sources[format_type]=[]
+            if self.workspace_state.active==format_type:self.sources=[]
+            self.preview_photo=None; self.preview_image=None; self.preview_renderer.clear()
+            if hasattr(self,"status_var"):self.status_var.set("")
+            return
+        if format_type not in {"pdf","pptx","docx"}:return
+        self.pptx_selection_mode_var.set(scope); self.pptx_single_var.set("1"); self.pptx_selected_var.set(""); self.pptx_range_start_var.set("1"); self.pptx_range_end_var.set("2"); self.pptx_preview_photo=None
+        if format_type=="pdf":
+            self._pdf_warning_approved=None; self._pdf_signature_approved=None; self.pdf_preview_renderer=PdfPreviewRenderer(self.processor)
+            if not keep_file:self.pdf_path=None; self.pdf_info=None; self.pdf_preview_state.clear()
+            elif self.pdf_info:self.pdf_preview_state.initialize(self.pdf_info.metrics.item_count)
+        elif format_type=="pptx":
+            self._pptx_warning_approved=None; self.pptx_preview_renderer.clear()
+            if not keep_file:self.pptx_path=None; self.pptx_metrics=None; self.pptx_preview_state.clear()
+            elif self.pptx_metrics:self.pptx_preview_state.initialize(self.pptx_metrics.item_count)
+        else:
+            self._docx_warning_approved=None; self.docx_preview_renderer.clear()
+            if not keep_file:self.docx_path=None; self.docx_info=None
+        if format_type in {"pdf","pptx"} and hasattr(self,"pptx_selection_display_to_value"):
+            display=next((label for label,value in self.pptx_selection_display_to_value.items() if value==scope),None)
+            if display:self.pptx_selection_display_var.set(display)
+        if format_type in {"pdf","pptx"} and hasattr(self,"pptx_single_frame"):self._update_pptx_selection_fields()
+        if hasattr(self,"pptx_preview_label"):self.pptx_preview_label.configure(image=None,text="")
+        if hasattr(self,"pptx_slide_status"):self.pptx_slide_status.configure(text="")
+        if hasattr(self,"pptx_previous_button"):self.pptx_previous_button.configure(state="disabled"); self.pptx_next_button.configure(state="disabled")
+        if hasattr(self,"status_var"):self.status_var.set("")
+
     def _render_document_workspace(self):
         if not hasattr(self,"document_format_label"):return
         label=next((display for display,kind in self.content_display_to_kind.items() if kind==self.workspace_state.active),self.workspace_state.active.upper())
@@ -489,6 +517,7 @@ class MarkerApp(ctk.CTk):
     def choose_pdf(self):
         selected=filedialog.askopenfilename(title=self.translator.text("pdf.choose"),filetypes=[("PDF (*.pdf)","*.pdf"),(self.translator.text("files.all"),"*.*")])
         if not selected:return
+        self.reset_format_context("pdf")
         self.pdf_path=Path(selected); self.pdf_preview_renderer=PdfPreviewRenderer(self.processor); self._pdf_warning_approved=None; self._pdf_signature_approved=None
         try:self.pdf_info=self.pdf_processor.inspect(self.pdf_path)
         except PasswordProtectedPdfError:messagebox.showerror(self.translator.text("error.title"),self.translator.text("pdf.encrypted")); self.pdf_path=None; self.pdf_info=None; self._set_active_document_summary(); return
@@ -591,6 +620,7 @@ class MarkerApp(ctk.CTk):
     def choose_pptx(self):
         selected=filedialog.askopenfilename(title=self.translator.text("pptx.choose"),filetypes=[("PowerPoint (*.pptx)","*.pptx"),(self.translator.text("files.all"),"*.*")])
         if selected:
+            self.reset_format_context("pptx")
             self.pptx_path=Path(selected); self.pptx_preview_state.clear(); self.pptx_preview_renderer.clear(); self._pptx_warning_approved=None
             try:self.pptx_metrics=self.pptx_processor.document_metrics(self.pptx_path)
             except (OSError,ValueError,KeyError):
@@ -621,10 +651,8 @@ class MarkerApp(ctk.CTk):
 
     def change_pptx_selection_mode(self,label):
         if self.workspace_state.active=="docx":self.docx_scope_var.set(self.pptx_selection_display_to_value.get(label,"entire-document")); return
-        self.pptx_selection_mode_var.set(self.pptx_selection_display_to_value.get(label,"all")); self._update_pptx_selection_fields()
-        if self.pptx_selection_mode_var.get()=="single":
-            state=self.pdf_preview_state if self.workspace_state.active=="pdf" else self.pptx_preview_state
-            if state.count:self.pptx_single_var.set(str(state.current))
+        mode=self.pptx_selection_display_to_value.get(label,"all"); kind=self.workspace_state.active
+        self.reset_format_context(kind,keep_file=True,scope=mode); self._update_pptx_selection_fields(); self.update_pptx_preview()
 
     def commit_document_selection(self,_event=None):
         if self.workspace_state.active not in {"pptx","pdf"}:return
@@ -790,14 +818,8 @@ class MarkerApp(ctk.CTk):
         self._reset_after_id=self.after(150,self._finish_reset_view); self.status_var.set(self.translator.text("status.reset")); self._save()
 
     def _clear_document_states(self):
-        self.pptx_path=None; self.pptx_metrics=None; self._pptx_warning_approved=None
-        self.pdf_path=None; self.pdf_info=None; self._pdf_warning_approved=None; self._pdf_signature_approved=None
-        self.docx_path=None; self.docx_info=None; self._docx_warning_approved=None
-        self.pptx_preview_state.clear(); self.pdf_preview_state.clear()
-        self.pptx_selection_mode_var.set("all"); self.pptx_single_var.set("1"); self.pptx_selected_var.set("1, 3"); self.pptx_range_start_var.set("1"); self.pptx_range_end_var.set("2")
-        self.pptx_file_var.set(""); self.pptx_preview_photo=None
-        self.pptx_preview_renderer.clear(); self.pdf_preview_renderer=PdfPreviewRenderer(self.processor); self.docx_preview_renderer.clear()
-        self.pptx_preview_label.configure(image=None,text=""); self.pptx_slide_status.configure(text=""); self.pptx_previous_button.configure(state="disabled"); self.pptx_next_button.configure(state="disabled")
+        self.reset_format_context("pptx"); self.reset_format_context("pdf"); self.reset_format_context("docx")
+        self.pptx_selection_mode_var.set("all"); self.pptx_file_var.set("")
     def changed(self,*_):
         try:self.video_duration_var.set(max(1,int(self.video_duration_var.get())))
         except (ValueError,TypeError):self.video_duration_var.set(5)
@@ -909,6 +931,7 @@ class MarkerApp(ctk.CTk):
         if selected:
             candidates=[Path(p) for p in selected if Path(p).suffix.lower() in extensions]
             if any(is_above_recommended_size(p) for p in candidates) and not messagebox.askokcancel(self.translator.text("warning.large_title"),self.translator.text("warning.large_file")):return
+            self.reset_format_context(self.workspace_state.active)
             self.sources=candidates; self.workspace_state.media_sources[self.workspace_state.active]=list(candidates); self.file_label.configure(text=self.translator.text("files.selected",count=len(self.sources),name=self.sources[0].name) if self.sources else self.translator.text("files.none_supported")); self.process_button.configure(text=self.translator.text("button.process_video") if video else self.translator.text("button.process")); self.video_controls.grid() if video else self.video_controls.grid_remove(); self._update_logo_controls(); self.update_preview()
 
     def update_preview(self):
