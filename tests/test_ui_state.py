@@ -138,6 +138,8 @@ def test_navigation_groups_share_one_compact_workspace_boundary_row():
     assert 'self.tabs.grid(row=1,column=0,padx=16,pady=(9,8),sticky="nsew")' in source
     assert 'self.content_navigation_frame.lift()' in source
     assert 'footer.grid(row=2,column=0' in source
+    assert 'self.tools_group_label=' in source
+    assert 'self.tools_navigation=' in source
     document_navigation = next(line for line in source.splitlines() if 'self.document_navigation=ctk.CTkSegmentedButton' in line)
     assert 'width=' not in document_navigation
     format_button_center = 3 + 16 + (26 / 2)
@@ -145,32 +147,84 @@ def test_navigation_groups_share_one_compact_workspace_boundary_row():
     assert format_button_center == workspace_tab_center
 
 
-def test_context_sensitive_navigation_sequence_and_default_workspaces():
+def _navigation_app(active="image"):
     app=SimpleNamespace(
-        workspace_state=SimpleNamespace(active="image"),
+        workspace_state=SimpleNamespace(active=active,media_sources={"image":[],"video":[]}), active_auxiliary=None,
         content_display_to_kind={"Images":"image","Video":"video","PDF":"pdf","PowerPoint":"pptx"},
         tab_names={"single":"Single File","documents":"Document Workspace","batch":"Batch Processing","badges":"Badges","inspect":"Inspect File"},
-        tabs=_Tabs(),sources=[],reset_format_context=Mock(),video_controls=Mock(),_update_logo_controls=Mock(),update_preview=Mock(),_render_document_workspace=Mock(),
+        tabs=_Tabs(),sources=[],scan=None,pdf_path=None,pptx_path=None,tools_navigation=Mock(),content_navigation_var=_Variable(),
+        reset_format_context=Mock(),video_controls=Mock(),_update_logo_controls=Mock(),update_preview=Mock(),_render_document_workspace=Mock(),
     )
     app._secondary_navigation_keys=MethodType(MarkerApp._secondary_navigation_keys,app)
     app._configure_secondary_navigation=MethodType(MarkerApp._configure_secondary_navigation,app)
+    app._format_has_active_work=MethodType(MarkerApp._format_has_active_work,app)
+    app._restore_content_navigation=MethodType(MarkerApp._restore_content_navigation,app)
+    app._confirm_format_switch=Mock(return_value=True)
     app.show_tab=MethodType(MarkerApp.show_tab,app)
     app.apply_translations=MethodType(lambda self:self._configure_secondary_navigation(),app)
+    return app
+
+
+@pytest.mark.parametrize("source,target",[(a,b) for a in ("image","video","pdf","pptx") for b in ("image","video","pdf","pptx") if a!=b])
+def test_all_directed_content_transitions_start_clean(source,target):
+    labels={"image":"Images","video":"Video","pdf":"PDF","pptx":"PowerPoint"}; app=_navigation_app(source)
     MarkerApp._configure_secondary_navigation(app)
-    expected=(
-        ("Video",("single","batch","badges","inspect"),"Single File"),
-        ("PDF",("documents","badges"),"Document Workspace"),
-        ("PowerPoint",("documents","badges"),"Document Workspace"),
-        ("Video",("single","batch","badges","inspect"),"Single File"),
-        ("Images",("single","batch","badges","inspect"),"Single File"),
-    )
-    for label,keys,default in expected:
-        MarkerApp.change_content_workspace(app,label)
-        assert app._secondary_navigation_keys()==keys
-        assert app.tabs._segmented_button.values==[app.tab_names[key] for key in keys]
-        assert app.tabs.current==default
-    assert app._render_document_workspace.call_count==2
-    assert app.reset_format_context.call_count==10
+    MarkerApp.change_content_workspace(app,labels[target])
+    assert app.workspace_state.active==target
+    assert app.reset_format_context.call_args_list==[call(source),call(target)]
+    expected=("documents",) if target in {"pdf","pptx"} else ("single","batch")
+    assert app._secondary_navigation_keys()==expected
+    assert app.tabs.current==(app.tab_names["documents"] if target in {"pdf","pptx"} else app.tab_names["single"])
+
+
+def test_format_switch_cancel_preserves_everything_and_continue_clears_both_contexts():
+    app=_navigation_app("image"); app.sources=[Path("active.png")]; app._confirm_format_switch=Mock(return_value=False)
+    MarkerApp.change_content_workspace(app,"PDF")
+    assert app.workspace_state.active=="image" and app.sources==[Path("active.png")]
+    app.reset_format_context.assert_not_called()
+    app._confirm_format_switch.return_value=True
+    MarkerApp.change_content_workspace(app,"PDF")
+    assert app.workspace_state.active=="pdf"
+    assert app.reset_format_context.call_args_list==[call("image"),call("pdf")]
+
+
+@pytest.mark.parametrize("tool",["badges","inspect"])
+def test_auxiliary_entry_cancel_preserves_work_and_continue_clears_active_format(tool):
+    app=_navigation_app("pptx"); app.pptx_path=Path("active.pptx"); app.translator=_Translator(); app._render_inspection=Mock()
+    app.inspection_path=None; app.inspection_result=None; app.inspection_error=""
+    app._confirm_format_switch=Mock(return_value=False)
+    MarkerApp.change_auxiliary_workspace(app,tool)
+    assert app.active_auxiliary is None and app.pptx_path==Path("active.pptx")
+    app.reset_format_context.assert_not_called()
+    app._confirm_format_switch.return_value=True
+    MarkerApp.change_auxiliary_workspace(app,tool)
+    assert app.active_auxiliary==tool
+    app.reset_format_context.assert_called_once_with("pptx")
+    assert app.tabs.current==app.tab_names[tool]
+
+
+@pytest.mark.parametrize("tool,target",[(tool,target) for tool in ("badges","inspect") for target in ("image","video","pdf","pptx")])
+def test_leaving_auxiliary_for_any_format_opens_clean_destination(tool,target):
+    labels={"image":"Images","video":"Video","pdf":"PDF","pptx":"PowerPoint"}; app=_navigation_app("image"); app.active_auxiliary=tool
+    MarkerApp.change_content_workspace(app,labels[target])
+    assert app.active_auxiliary is None and app.workspace_state.active==target
+    assert call(target) in app.reset_format_context.call_args_list
+
+
+def test_batch_is_internal_and_clears_incompatible_single_file_state():
+    app=_navigation_app("image"); app.internal_workspace="single"; app.tabs.current=app.tab_names["batch"]
+    MarkerApp._on_internal_workspace_changed(app)
+    app.reset_format_context.assert_called_once_with("image")
+    assert app.internal_workspace=="batch"
+
+
+def test_global_reset_is_an_unconditional_locked_state_recovery_path():
+    source=inspect.getsource(MarkerApp.reset_application)
+    assert "active_auxiliary=None" in source
+    assert "workspace_state.clear()" in source
+    assert "_clear_document_states()" in source
+    assert "_confirm_format_switch(" not in source and "askokcancel" not in source
+    assert "_format_switch_dialog.destroy()" in source
 
 
 def test_media_cannot_open_document_tab_and_documents_cannot_open_media_tabs():
@@ -183,10 +237,11 @@ def test_media_cannot_open_document_tab_and_documents_cannot_open_media_tabs():
     MarkerApp.show_tab(app,"documents"); assert app.tabs.current=="Documents"
 
 
-def test_document_inspect_is_hidden_until_pdf_and_pptx_are_supported():
+def test_document_inspect_is_global_but_pdf_and_pptx_processing_remains_unsupported():
     assert ".pdf" not in INSPECT_EXTENSIONS and ".pptx" not in INSPECT_EXTENSIONS
     app=SimpleNamespace(workspace_state=SimpleNamespace(active="pdf"))
-    assert MarkerApp._secondary_navigation_keys(app)==("documents","badges")
+    assert MarkerApp._secondary_navigation_keys(app)==("documents",)
+    assert 'INSPECT_EXTENSIONS | {".pdf",".pptx"}' in inspect.getsource(MarkerApp.choose_inspection_file)
 
 
 def test_docx_ui_exposes_only_reliable_alignment_and_hides_margin_controls():
@@ -301,8 +356,9 @@ def test_document_format_contexts_are_unloaded_instead_of_preserved():
 
 def test_format_switch_clears_source_and_destination_contexts():
     app=SimpleNamespace(
-        content_display_to_kind={"PowerPoint":"pptx"}, workspace_state=SimpleNamespace(active="pdf"), sources=[Path("old.pdf")],
-        reset_format_context=Mock(), show_tab=Mock(), _render_document_workspace=Mock(), apply_translations=Mock(),
+        content_display_to_kind={"PowerPoint":"pptx"}, workspace_state=SimpleNamespace(active="pdf"), active_auxiliary=None, sources=[Path("old.pdf")],
+        reset_format_context=Mock(), show_tab=Mock(), _render_document_workspace=Mock(), apply_translations=Mock(), tools_navigation=Mock(),
+        _format_has_active_work=Mock(return_value=False),
     )
     MarkerApp.change_content_workspace(app,"PowerPoint")
     assert app.reset_format_context.call_args_list==[call("pdf"),call("pptx")]
