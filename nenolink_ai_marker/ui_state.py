@@ -35,84 +35,75 @@ class ContentWorkspaceState:
 
 @dataclass(slots=True)
 class DocumentPreviewState:
-    """Preview position constrained to the active document processing scope."""
+    """Physical document position, independent of the processing scope."""
 
     current: int = 1
     count: int = 0
-    items: tuple[int, ...] = ()
 
     @property
     def can_previous(self) -> bool:
-        return self.current in self.items and self.items.index(self.current) > 0
+        return self.count > 0 and self.current > 1
 
     @property
     def can_next(self) -> bool:
-        return self.current in self.items and self.items.index(self.current) < len(self.items) - 1
+        return self.count > 0 and self.current < self.count
 
-    def initialize(self, item_count: int, items: Collection[int] | None = None) -> int | None:
+    def initialize(self, item_count: int, current: int = 1) -> int | None:
         self.count = max(0, item_count)
-        candidates = tuple(items) if items is not None else tuple(range(1, self.count + 1))
-        self.items = tuple(item for item in candidates if 1 <= item <= self.count)
-        self.current = self.items[0] if self.items else 1
-        return self.current if self.items else None
+        self.current = min(self.count, max(1, current)) if self.count else 1
+        return self.current if self.count else None
 
     def move(self, delta: int) -> int | None:
-        if not self.items:
+        if not self.count:
             return None
-        if self.current not in self.items:
-            self.current = self.items[0]
-        position = self.items.index(self.current)
-        position = min(len(self.items) - 1, max(0, position + delta))
-        self.current = self.items[position]
+        self.current = min(self.count, max(1, self.current + delta))
         return self.current
 
     def clear(self) -> None:
         self.current = 1
         self.count = 0
-        self.items = ()
 
 
 @dataclass(slots=True)
 class DocumentScopeState:
-    """Selection fields owned by one document type."""
+    """Normalised processing scope owned by one document type."""
 
     mode: str = "all"
-    single: str = "1"
-    selected: str = "1"
+    selected: str = ""
     range_start: str = "1"
     range_end: str = "2"
+    active_scope: tuple[int, ...] = ()
 
     def reset(self, mode: str = "all") -> None:
         self.mode = mode
-        self.single = "1"
-        self.selected = "1"
+        self.selected = ""
         self.range_start = "1"
         self.range_end = "2"
+        self.active_scope = ()
 
-    def preview_items(self, item_count: int) -> tuple[int, ...]:
-        """Resolve the one active scope into its ordered preview sequence."""
+    def normalize(self, item_count: int) -> tuple[int, ...]:
+        """Replace the active scope with one validated ordered item set."""
         selection = pptx_item_selection(
             self.mode,
-            single=self.single,
             selected=self.selected,
             start=self.range_start,
             end=self.range_end,
         )
-        return selection.resolve(item_count)
+        self.active_scope = selection.resolve(item_count)
+        return self.active_scope
 
 
 def pptx_item_selection(
     mode: str,
     *,
-    single: str = "",
     selected: str = "",
     start: str = "",
     end: str = "",
 ) -> ItemSelection:
     """Parse compact PowerPoint UI fields into the shared selection model."""
     try:
-        if mode == "single":
-            return ItemSelection("single", (int(single.strip()),))
+        if mode == "first":
+            return ItemSelection("selected", (1,))
         if mode == "selected":
             values = tuple(int(value.strip()) for value in selected.split(",") if value.strip())
             return ItemSelection("selected", values)

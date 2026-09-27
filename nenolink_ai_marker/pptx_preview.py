@@ -37,7 +37,7 @@ class PptxPreviewRenderer:
         self,
         source: Path,
         slide_number: int,
-        badge_path: Path,
+        badge_path: Path | None,
         settings: MarkerSettings,
         logo_path: Path | None = None,
         max_size: tuple[int, int] = (680, 220),
@@ -50,8 +50,11 @@ class PptxPreviewRenderer:
             margin=max(0, round(settings.margin * scale)),
             logo_margin=max(0, round(settings.logo_margin * scale)),
         )
-        with Image.open(badge_path) as opened:
-            badge = opened.convert("RGBA")
+        if badge_path:
+            with Image.open(badge_path) as opened:
+                badge = opened.convert("RGBA")
+        else:
+            badge = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
         logo = None
         if preview_settings.logo_enabled and logo_path:
             with Image.open(logo_path) as opened:

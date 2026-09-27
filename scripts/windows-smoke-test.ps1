@@ -57,7 +57,7 @@ try {
             if (-not $offer.visible -or -not $offer.persisted -or $offer.title -eq "shortcut.offer_title" -or $offer.message -eq "shortcut.offer_message" -or $offer.create -eq "shortcut.offer_create" -or $offer.not_now -eq "shortcut.offer_not_now") { throw "Packaged first-run desktop-shortcut offer verification failed." }
             if (-not $report.packaged_ui_evidence.update_notification_present -or $report.packaged_ui_evidence.update_notification_cursor -ne "hand2" -or -not $report.packaged_ui_evidence.approved_update_handler) { throw "Packaged update-notification functionality is missing." }
             $pptx=$report.packaged_ui_evidence.pptx_workspace
-            if (-not $pptx.visible -or $pptx.badge_count -lt 11 -or -not $pptx.logo_visible -or -not $pptx.metadata_supported -or -not $pptx.process_callable -or ($pptx.selection_modes -join ",") -ne "all,range,selected,single") { throw "Packaged PowerPoint workspace verification failed." }
+            if (-not $pptx.visible -or $pptx.badge_count -lt 11 -or -not $pptx.logo_visible -or -not $pptx.metadata_supported -or -not $pptx.process_callable -or ($pptx.selection_modes -join ",") -ne "all,first,range,selected") { throw "Packaged PowerPoint workspace verification failed." }
             if (-not $report.ffmpeg_found) { throw "Packaged application could not discover bundled FFmpeg." }
             if ($report.layout_verification) {
                 foreach ($size in @("1280x720", "1366x768", "1920x1080")) { if (-not $report.layout_verification.sizes.$size.process_reachable) { throw "Single File action is inaccessible at $size." } }
