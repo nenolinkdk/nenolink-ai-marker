@@ -1,6 +1,5 @@
 from collections.abc import Collection
-from dataclasses import dataclass, field
-from pathlib import Path
+from dataclasses import dataclass
 
 from .document_processing import ItemSelection
 
@@ -8,29 +7,6 @@ from .document_processing import ItemSelection
 def show_welcome(sources: Collection[object]) -> bool:
     """The welcome panel is the empty-state view for Single File."""
     return not sources
-
-
-@dataclass(slots=True)
-class ContentWorkspaceState:
-    """Track the active format while treating every format switch as new work."""
-
-    active: str = "image"
-    media_sources: dict[str, list[Path]] = field(
-        default_factory=lambda: {"image": [], "video": []}
-    )
-
-    def switch(self, target: str, current_sources: Collection[Path]) -> list[Path]:
-        if self.active in self.media_sources:
-            self.media_sources[self.active].clear()
-        if target in self.media_sources:
-            self.media_sources[target].clear()
-        self.active = target
-        return []
-
-    def clear(self) -> None:
-        for sources in self.media_sources.values():
-            sources.clear()
-        self.active = "image"
 
 
 @dataclass(slots=True)

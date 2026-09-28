@@ -49,7 +49,7 @@ class _Text:
 def test_pdf_repeated_scope_sequence_keeps_file_and_rebuilds_preview(tmp_path):
     source=tmp_path/"sequence.pdf"; badge=tmp_path/"ai-assisted.png"; _pdf(source,6); _badge(badge); processor=ImageProcessor(); info=PdfProcessor.inspect(source)
     app=SimpleNamespace(
-        workspace_state=SimpleNamespace(active="pdf"),processor=processor,pdf_path=source,pdf_info=info,
+        active_content_type="pdf",processor=processor,pdf_path=source,pdf_info=info,
         pdf_preview_state=DocumentPreviewState(1,6),pdf_preview_renderer=PdfPreviewRenderer(processor),
         document_scope_states={"pdf":DocumentScopeState(),"pptx":DocumentScopeState()},
         pptx_selection_mode_var=_Var("all"),pptx_selected_var=_Var(""),pptx_range_var=_Var("1-2"),pptx_scope_validation_label=SimpleNamespace(configure=Mock()),

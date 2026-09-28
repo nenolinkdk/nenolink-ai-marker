@@ -46,23 +46,25 @@ def test_render_start_view_restores_localized_welcome_state():
 
 
 def test_back_navigation_only_selects_single_file_tab():
-    app = SimpleNamespace(change_content_workspace=Mock(),content_display_to_kind={"Images":"image"},workspace_state=SimpleNamespace(active="image"))
+    app = SimpleNamespace(active_tool="badges",active_content_type="image",_render_authoritative_state=Mock())
 
     MarkerApp.navigate_home(app)
 
-    app.change_content_workspace.assert_called_once_with("Images")
+    assert app.active_tool is None
+    app._render_authoritative_state.assert_called_once()
 
 
 def test_back_navigation_returns_documents_to_document_workspace():
-    app=SimpleNamespace(change_content_workspace=Mock(),content_display_to_kind={"PDF":"pdf"},workspace_state=SimpleNamespace(active="pdf"))
+    app=SimpleNamespace(active_tool="inspect",active_content_type="pdf",_render_authoritative_state=Mock())
     MarkerApp.navigate_home(app)
-    app.change_content_workspace.assert_called_once_with("PDF")
+    assert app.active_tool is None
+    app._render_authoritative_state.assert_called_once()
 
 
 def test_clear_document_states_removes_pdf_pptx_files_scopes_and_previews():
     pptx_state=DocumentPreviewState(8,10); pdf_state=DocumentPreviewState(4,8)
     app=SimpleNamespace(
-        pptx_path="slides.pptx",pptx_metrics=object(),_pptx_warning_approved=object(),
+        active_content_type="pptx",pptx_path="slides.pptx",pptx_metrics=object(),_pptx_warning_approved=object(),
         pdf_path="pages.pdf",pdf_info=object(),_pdf_warning_approved=object(),_pdf_signature_approved=object(),
         docx_path=None,docx_info=None,_docx_warning_approved=None,
         pptx_preview_state=pptx_state,pdf_preview_state=pdf_state,
@@ -85,8 +87,12 @@ def test_clear_document_states_removes_pdf_pptx_files_scopes_and_previews():
 
 
 def test_global_reset_clears_media_and_document_state_through_central_operations():
-    source=inspect.getsource(MarkerApp._reset_application_state)
+    destroy=inspect.getsource(MarkerApp._destroy_all_runtime_contexts)
+    source=inspect.getsource(MarkerApp._create_fresh_runtime_state)
     wrapper=inspect.getsource(MarkerApp.reset_application)
-    assert "self.workspace_state.clear()" in source
-    assert "self._clear_document_states()" in source
-    assert "finally:" in wrapper
+    assert 'self.active_content_type="image"' in source
+    assert 'self.media_sources={"image":[],"video":[]}' in source
+    assert 'self.active_tool=None' in source
+    assert 'for renderer_name in ("preview_renderer","pdf_preview_renderer","pptx_preview_renderer")' in destroy
+    assert "MarkerApp._destroy_all_runtime_contexts(self)" in wrapper
+    assert "MarkerApp._create_fresh_runtime_state(self)" in wrapper
