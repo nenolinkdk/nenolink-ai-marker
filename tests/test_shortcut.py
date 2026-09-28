@@ -24,11 +24,19 @@ def test_packaged_smoke_test_requires_footer_and_shortcut_evidence():
     assert "packaged_ui_evidence.footer_text" in source
     assert "packaged_ui_evidence.footer_update_visible" in source
     assert "packaged_ui_evidence.badges_update_button_present" in source
-    assert "packaged_ui_evidence.shortcut_visible" in source
     assert "packaged_ui_evidence.update_notification_present" in source
     assert 'shortcut_module -ne "nenolink_ai_marker.shortcut"' in source
     assert '$report.version -ne "1.0.3"' in source
     assert "first_run_offer" in source
+
+
+def test_packaged_smoke_test_uses_external_fsm_tool_invariants():
+    source = (Path(__file__).parents[1] / "scripts" / "windows-smoke-test.ps1").read_text(encoding="utf-8-sig")
+    assert 'foreach ($tab in @("single", "batch"))' in source
+    assert 'foreach ($tool in @("badges", "inspect"))' in source
+    assert "Global Tool '$tool' leaked into media secondary navigation." in source
+    assert "back_navigation.badges_preserved" not in source
+    assert "shortcut_visible" not in source
 
 
 def test_first_run_offer_actions_keep_manual_shortcut_available():

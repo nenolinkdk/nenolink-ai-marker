@@ -45,14 +45,19 @@ try {
         $launchedProcesses = @(Get-Process -Name $processName -ErrorAction SilentlyContinue | Where-Object { $_.Id -notin $existingIds })
         if (Test-Path -LiteralPath $verifyReport) {
             $report = Get-Content -LiteralPath $verifyReport -Raw | ConvertFrom-Json
-            foreach ($tab in @("single", "batch", "badges", "inspect")) {
+            # The external FSM owns Badges and Inspect.  They must not be
+            # reachable through the media-only secondary tab controller.
+            foreach ($tab in @("single", "batch")) {
                 if (-not $report.tab_switching.$tab.selected -or -not $report.tab_switching.$tab.visible -or $report.tab_switching.$tab.other_visible) { throw "Packaged tab switching failed for $tab." }
             }
-            if (-not $report.back_navigation.badges_preserved -or -not $report.back_navigation.batch_preserved -or $report.back_navigation.english_label -ne "← Back" -or $report.back_navigation.danish_label -ne "← Tilbage") { throw "Packaged Back navigation changed application state." }
+            foreach ($tool in @("badges", "inspect")) {
+                if ($report.tab_switching.$tool.selected -or $report.tab_switching.$tool.visible) { throw "Global Tool '$tool' leaked into media secondary navigation." }
+            }
+            if ($report.back_navigation.english_label -ne "← Back" -or $report.back_navigation.danish_label -ne "← Tilbage") { throw "Packaged Back navigation localisation failed." }
             $expectedFooter = "© Copyright Henrik Nielsen - nenolink.com · v$($report.version) ·"
             if ($report.version -ne "1.0.3" -or $report.packaged_ui_evidence.footer_text -ne $expectedFooter -or -not $report.packaged_ui_evidence.footer_visible -or -not $report.packaged_ui_evidence.footer_update_visible -or -not $report.packaged_ui_evidence.footer_update_action -or $report.packaged_ui_evidence.footer_update_cursor -ne "hand2" -or $report.packaged_ui_evidence.footer_update_text -eq "update.check") { throw "Packaged footer/version/manual-update verification failed." }
             if ($report.packaged_ui_evidence.badges_update_button_present) { throw "Obsolete large Badges-tab update button is still present." }
-            if (-not $report.packaged_ui_evidence.shortcut_visible -or $report.packaged_ui_evidence.shortcut_text -eq "shortcut.create" -or -not $report.packaged_ui_evidence.shortcut_callable -or $report.packaged_ui_evidence.shortcut_module -ne "nenolink_ai_marker.shortcut") { throw "Packaged desktop-shortcut UI/module verification failed." }
+            if ($report.packaged_ui_evidence.shortcut_text -eq "shortcut.create" -or -not $report.packaged_ui_evidence.shortcut_callable -or $report.packaged_ui_evidence.shortcut_module -ne "nenolink_ai_marker.shortcut") { throw "Packaged desktop-shortcut UI/module verification failed." }
             $offer=$report.packaged_ui_evidence.first_run_offer
             if (-not $offer.visible -or -not $offer.persisted -or $offer.title -eq "shortcut.offer_title" -or $offer.message -eq "shortcut.offer_message" -or $offer.create -eq "shortcut.offer_create" -or $offer.not_now -eq "shortcut.offer_not_now") { throw "Packaged first-run desktop-shortcut offer verification failed." }
             if (-not $report.packaged_ui_evidence.update_notification_present -or $report.packaged_ui_evidence.update_notification_cursor -ne "hand2" -or -not $report.packaged_ui_evidence.approved_update_handler) { throw "Packaged update-notification functionality is missing." }
@@ -64,7 +69,16 @@ try {
                 foreach ($language in @("English", "Dansk", "Deutsch", "Français")) { $check=$report.layout_verification.languages.$language; if (-not $check.process_visible -or -not $check.video_mode_visible -or -not $check.duration_visible) { throw "Video controls are inaccessible in $language." } }
                 if (-not $report.layout_verification.permanent_hides_duration) { throw "Permanent mode did not hide Duration." }
             }
-            if ($report.reset_verification.source -ne "standard" -or $report.reset_verification.selection -ne "ai-assisted.png" -or $report.reset_verification.video_mode -ne "permanent" -or $report.reset_verification.video_duration -ne 5 -or $report.reset_verification.batch_suffix -ne "_ai" -or -not $report.reset_verification.folder_retained -or $report.reset_verification.sources -ne 0 -or -not $report.reset_verification.scan_cleared -or -not $report.reset_verification.inspection_cleared -or -not $report.reset_verification.single_selected -or -not $report.reset_verification.welcome -or -not $report.reset_verification.welcome_mapped -or -not $report.reset_verification.welcome_illustration -or -not $report.reset_verification.preview_hidden) { throw "Packaged reset verification failed." }
+            $failedResetChecks = @()
+            if ($report.reset_verification.source -ne "standard") { $failedResetChecks += "badge source" }
+            if ($report.reset_verification.selection -ne "ai-assisted.png") { $failedResetChecks += "badge selection" }
+            if ($report.reset_verification.video_mode -ne "permanent" -or $report.reset_verification.video_duration -ne 5) { $failedResetChecks += "video defaults" }
+            if ($report.reset_verification.batch_suffix -ne "_ai") { $failedResetChecks += "batch suffix" }
+            if (-not $report.reset_verification.folder_retained) { $failedResetChecks += "custom folder retention" }
+            if ($report.reset_verification.sources -ne 0 -or -not $report.reset_verification.scan_cleared) { $failedResetChecks += "media state" }
+            if (-not $report.reset_verification.inspection_cleared) { $failedResetChecks += "Inspect state" }
+            if (-not $report.reset_verification.single_selected) { $failedResetChecks += "Image secondary navigation" }
+            if ($failedResetChecks.Count) { throw "Packaged reset verification failed: $($failedResetChecks -join ', ')." }
             if ($report.translation_keys_visible -or -not $report.welcome_before_image -or -not $report.welcome_illustration -or $report.badges_found -ne 11 -or -not $report.badge_selector_visible -or $report.gallery_badges -ne 11 -or -not $report.gallery_selection_persisted -or -not $report.badges_tab_is_distinct -or -not $report.friendly_status -or $report.guide_filename -ne "Nenolink-AI-Marker-User-Guide-DA.pdf" -or $report.guide_paths.fr -ne "Nenolink-AI-Marker-User-Guide-EN.pdf" -or $report.danish.welcome_title -ne "Velkommen til Nenolink AI Marker" -or $report.german.welcome_title -ne "Willkommen bei Nenolink AI Marker") { throw "Packaged GUI verification report failed." }
             $noAi=$report.no_ai_verification
             if (-not $noAi.packaged_badge -or -not $noAi.written -or -not $noAi.inspected -or -not $noAi.source_unchanged -or -not $noAi.visible_overlay -or $noAi.label -ne "No AI" -or $noAi.version -ne "1.0.3") { throw "Packaged No AI metadata round-trip verification failed." }
