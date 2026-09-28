@@ -171,6 +171,7 @@ def _navigation_app(active="image"):
     app._restore_top_level_navigation=MethodType(MarkerApp._restore_top_level_navigation,app)
     app.switch_top_level=MethodType(MarkerApp.switch_top_level,app)
     app._switch_top_level=MethodType(MarkerApp._switch_top_level,app)
+    app._activate_clean_content_type=MethodType(MarkerApp._activate_clean_content_type,app)
     app._ensure_global_controls_enabled=MethodType(MarkerApp._ensure_global_controls_enabled,app)
     app._confirm_format_switch=Mock(return_value=True)
     app.show_tab=MethodType(MarkerApp.show_tab,app)
@@ -489,6 +490,122 @@ def _stateful_navigation_app(active="image"):
         elif kind=="pptx":app.pptx_path=None
     app.reset_format_context=Mock(side_effect=reset)
     return app
+
+
+CONTENT_TYPES=("image","video","pdf","pptx")
+DIRECTED_CONTENT_TRANSITIONS=tuple((source,target) for source in CONTENT_TYPES for target in CONTENT_TYPES if source!=target)
+
+
+def _external_fsm_app(active):
+    app=_navigation_app(active)
+    app.pdf_info=None; app.pptx_metrics=None
+    app.pdf_preview_state=DocumentPreviewState(); app.pptx_preview_state=DocumentPreviewState()
+    app.document_scope_states={"pdf":DocumentScopeState(),"pptx":DocumentScopeState()}
+    app.format_cache={kind:None for kind in CONTENT_TYPES}
+    app.reset_log=[]
+    def reset(kind):
+        # Both source destruction and destination initialisation must happen
+        # while that format is the active owner of its state.
+        assert app.workspace_state.active==kind
+        app.reset_log.append(kind)
+        app.format_cache[kind]=None
+        if kind in {"image","video"}:
+            app.workspace_state.media_sources[kind]=[]
+            app.sources=[]
+        elif kind=="pdf":
+            app.pdf_path=None; app.pdf_info=None; app.pdf_preview_state.clear(); app.document_scope_states["pdf"].reset()
+        else:
+            app.pptx_path=None; app.pptx_metrics=None; app.pptx_preview_state.clear(); app.document_scope_states["pptx"].reset()
+    app.reset_format_context=Mock(side_effect=reset)
+    MarkerApp._set_format_navigation(app,active)
+    MarkerApp._configure_secondary_navigation(app)
+    return app
+
+
+def _dirty_format(app,kind):
+    app.format_cache[kind]=f"{kind}-cache"
+    if kind in {"image","video"}:
+        path=Path(f"active.{ 'mp4' if kind=='video' else 'png' }")
+        app.workspace_state.media_sources[kind]=[path]
+        if app.workspace_state.active==kind:app.sources=[path]
+    elif kind=="pdf":
+        app.pdf_path=Path("active.pdf"); app.pdf_info=object(); app.pdf_preview_state.initialize(9,6)
+        app.document_scope_states["pdf"]=DocumentScopeState("selected","2,5",active_scope=(2,5))
+    else:
+        app.pptx_path=Path("active.pptx"); app.pptx_metrics=object(); app.pptx_preview_state.initialize(8,4)
+        app.document_scope_states["pptx"]=DocumentScopeState("range",ranges="3-6",active_scope=(3,4,5,6))
+
+
+def _fsm_snapshot(app):
+    return (
+        app.workspace_state.active,app.active_auxiliary,tuple(app.sources),
+        tuple(app.workspace_state.media_sources["image"]),tuple(app.workspace_state.media_sources["video"]),
+        app.pdf_path,app.pdf_info,app.pdf_preview_state.current,app.pdf_preview_state.count,
+        app.document_scope_states["pdf"].mode,app.document_scope_states["pdf"].active_scope,
+        app.pptx_path,app.pptx_metrics,app.pptx_preview_state.current,app.pptx_preview_state.count,
+        app.document_scope_states["pptx"].mode,app.document_scope_states["pptx"].active_scope,
+        tuple(sorted(app.format_cache.items())),app.tabs.current,
+        app.media_navigation_var.get(),app.document_navigation_var.get(),
+    )
+
+
+def _assert_clean_destination(app,target):
+    assert app.workspace_state.active==target and app.active_auxiliary is None
+    assert app.format_cache[target] is None
+    if target in {"image","video"}:
+        assert app.sources==[] and app.workspace_state.media_sources[target]==[]
+        assert app.tabs.current==app.tab_names["single"]
+        assert app._secondary_navigation_keys()==("single","batch")
+        assert app.document_navigation_var.get()==""
+    elif target=="pdf":
+        assert app.pdf_path is None and app.pdf_info is None and app.pdf_preview_state==DocumentPreviewState()
+        assert app.document_scope_states["pdf"]==DocumentScopeState()
+        assert app.tabs.current==app.tab_names["documents"]
+        assert app._secondary_navigation_keys()==("documents",)
+        assert app.media_navigation_var.get()==""
+    else:
+        assert app.pptx_path is None and app.pptx_metrics is None and app.pptx_preview_state==DocumentPreviewState()
+        assert app.document_scope_states["pptx"]==DocumentScopeState()
+        assert app.tabs.current==app.tab_names["documents"]
+        assert app._secondary_navigation_keys()==("documents",)
+        assert app.media_navigation_var.get()==""
+
+
+@pytest.mark.parametrize(("source","target"),DIRECTED_CONTENT_TRANSITIONS)
+def test_external_fsm_no_data_opens_clean_destination(source,target):
+    app=_external_fsm_app(source); _dirty_format(app,target)
+    app._confirm_format_switch=Mock(return_value=False)
+    assert MarkerApp.switch_top_level(app,target)
+    app._confirm_format_switch.assert_not_called()
+    assert app.reset_log==[source,target]
+    _assert_clean_destination(app,target)
+
+
+@pytest.mark.parametrize(("source","target"),DIRECTED_CONTENT_TRANSITIONS)
+def test_external_fsm_active_data_cancel_preserves_source_exactly(source,target):
+    app=_external_fsm_app(source); _dirty_format(app,source); _dirty_format(app,target)
+    before=_fsm_snapshot(app); app._confirm_format_switch=Mock(return_value=False)
+    assert not MarkerApp.switch_top_level(app,target)
+    assert _fsm_snapshot(app)==before and app.reset_log==[]
+
+
+@pytest.mark.parametrize(("source","target"),DIRECTED_CONTENT_TRANSITIONS)
+def test_external_fsm_active_data_continue_destroys_source_and_activates_clean_destination(source,target):
+    app=_external_fsm_app(source); _dirty_format(app,source); _dirty_format(app,target)
+    app._confirm_format_switch=Mock(return_value=True)
+    assert MarkerApp.switch_top_level(app,target)
+    assert app.reset_log==[source,target]
+    assert app.format_cache[source] is None
+    _assert_clean_destination(app,target)
+
+
+def test_pdf_with_data_to_pptx_continue_regression_opens_clean_pptx():
+    app=_external_fsm_app("pdf"); _dirty_format(app,"pdf"); _dirty_format(app,"pptx")
+    app._confirm_format_switch=Mock(return_value=True)
+    assert MarkerApp.switch_top_level(app,"pptx")
+    assert app.pdf_path is None and app.pdf_preview_state==DocumentPreviewState()
+    assert app.document_scope_states["pdf"]==DocumentScopeState()
+    _assert_clean_destination(app,"pptx")
 
 
 @pytest.mark.parametrize("sequence",[

@@ -468,8 +468,10 @@ class MarkerApp(ctk.CTk):
 
     def change_language(self,name): self.translator.set_language(LANGUAGES.get(name,"en")); self.apply_translations(); self._save()
     def change_content_workspace(self,label):
-        target=self.content_display_to_kind.get(label,"image")
-        MarkerApp.switch_top_level(self,target)
+        target=self.content_display_to_kind.get(label)
+        if target is None:
+            MarkerApp._restore_top_level_navigation(self); return False
+        return MarkerApp.switch_top_level(self,target)
 
     def switch_top_level(self,target):
         """The single transition path for formats and global auxiliary tools."""
@@ -488,7 +490,13 @@ class MarkerApp(ctk.CTk):
             self.active_auxiliary=target; MarkerApp._set_format_navigation(self,None); self.tools_navigation.set(self.translator.text("tab.badges" if target=="badges" else "tab.inspect"))
             if target=="inspect":self.inspection_path=None; self.inspection_result=None; self.inspection_error=""; self.inspection_unsupported=False; self._render_inspection()
             self._configure_secondary_navigation(target); return True
-        self.reset_format_context(target); self.active_auxiliary=None; self.tools_navigation.set(""); self.workspace_state.active=target; MarkerApp._set_format_navigation(self,target)
+        return MarkerApp._activate_clean_content_type(self,target)
+
+    def _activate_clean_content_type(self,target):
+        """Activate and initialise one content type as a single FSM action."""
+        self.active_auxiliary=None; self.tools_navigation.set(""); self.workspace_state.active=target
+        MarkerApp._set_format_navigation(self,target)
+        self.reset_format_context(target)
         if target in {"image","video"}:
             self.sources=[]; self.video_controls.grid() if target=="video" else self.video_controls.grid_remove(); self._update_logo_controls(); self.update_preview()
         else:self._render_document_workspace()
