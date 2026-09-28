@@ -70,24 +70,26 @@ class DocumentScopeState:
 
     mode: str = "all"
     selected: str = ""
-    range_start: str = "1"
-    range_end: str = "2"
+    ranges: str = "1-2"
     active_scope: tuple[int, ...] = ()
 
     def reset(self, mode: str = "all") -> None:
         self.mode = mode
         self.selected = ""
-        self.range_start = "1"
-        self.range_end = "2"
+        self.ranges = "1-2"
         self.active_scope = ()
+
+    def begin_edit(self, mode: str) -> None:
+        if mode not in {"selected", "range"}:
+            raise ValueError(f"Unsupported editable scope: {mode}")
+        self.mode = mode
 
     def normalize(self, item_count: int) -> tuple[int, ...]:
         """Replace the active scope with one validated ordered item set."""
         selection = pptx_item_selection(
             self.mode,
             selected=self.selected,
-            start=self.range_start,
-            end=self.range_end,
+            ranges=self.ranges,
         )
         self.active_scope = selection.resolve(item_count)
         return self.active_scope
@@ -97,8 +99,7 @@ def pptx_item_selection(
     mode: str,
     *,
     selected: str = "",
-    start: str = "",
-    end: str = "",
+    ranges: str = "",
 ) -> ItemSelection:
     """Parse compact PowerPoint UI fields into the shared selection model."""
     try:
@@ -108,7 +109,16 @@ def pptx_item_selection(
             values = tuple(int(value.strip()) for value in selected.split(",") if value.strip())
             return ItemSelection("selected", values)
         if mode == "range":
-            return ItemSelection("range", start=int(start.strip()), end=int(end.strip()))
+            values: list[int] = []
+            for part in (value.strip() for value in ranges.split(",") if value.strip()):
+                bounds = part.split("-")
+                if len(bounds) != 2:
+                    raise ValueError("Ranges must use start-end syntax.")
+                start, end = (int(value.strip()) for value in bounds)
+                if start > end:
+                    raise ValueError("Range start must not exceed range end.")
+                values.extend(range(start, end + 1))
+            return ItemSelection("selected", tuple(dict.fromkeys(values)))
         if mode == "all":
             return ItemSelection()
     except ValueError as error:

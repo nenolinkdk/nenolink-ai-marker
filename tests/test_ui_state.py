@@ -49,8 +49,8 @@ def _pptx_preview_app(source: Path, badge: Path):
         pptx_preview_renderer=PptxPreviewRenderer(), pptx_processor=PptxProcessor(),
         _pptx_warning_approved=None, pptx_file_var=_Variable(), status_var=_Variable(),
         pptx_preview_state=DocumentPreviewState(), pdf_preview_state=DocumentPreviewState(),
-        pptx_selection_mode_var=_Variable("all"), pptx_selection_display_var=_Variable(), pptx_single_var=_Variable("1"),
-        pptx_selected_var=_Variable("1, 3"), pptx_range_start_var=_Variable("1"), pptx_range_end_var=_Variable("2"),
+        pptx_selection_mode_var=_Variable("all"), pptx_selection_display_var=_Variable(),
+        pptx_selected_var=_Variable("1, 3"), pptx_range_var=_Variable("1-2"), pptx_scope_validation_label=Mock(),
         badge_var=_Variable(badge.name), badges=BadgeRepository(badge.parent),
         pptx_preview_photo=None, pptx_preview_label=Mock(), pptx_slide_status=Mock(),
         pptx_previous_button=Mock(), pptx_next_button=Mock(),
@@ -103,7 +103,8 @@ def test_document_workspace_does_not_retain_hidden_media_selections():
     [
         ("first", {}, (1,)),
         ("selected", {"selected": "2, 4, 7"}, (2, 4, 7)),
-        ("range", {"start": "3", "end": "6"}, (3, 4, 5, 6)),
+        ("range", {"ranges": "3-6"}, (3, 4, 5, 6)),
+        ("range", {"ranges": "2-3, 6-7"}, (2, 3, 6, 7)),
         ("all", {}, (1, 2, 3, 4, 5, 6, 7)),
     ],
 )
@@ -114,6 +115,8 @@ def test_pptx_ui_selection_modes(mode, values, expected):
 def test_pptx_ui_rejects_invalid_slide_input():
     with pytest.raises(ValueError, match="whole numbers"):
         pptx_item_selection("selected", selected="2, slide 4")
+    with pytest.raises(ValueError):
+        pptx_item_selection("range", ranges="5-3").resolve(8)
 
 
 def test_document_workspace_headings_share_the_compact_top_row():
@@ -257,6 +260,44 @@ def test_document_inspect_is_global_but_pdf_and_pptx_processing_remains_unsuppor
     assert 'INSPECT_EXTENSIONS | {".pdf",".pptx"}' in inspect.getsource(MarkerApp.choose_inspection_file)
 
 
+@pytest.mark.parametrize("suffix",[".pdf",".pptx"])
+def test_known_unimplemented_document_inspection_reports_not_supported_not_error(tmp_path,suffix):
+    source=tmp_path/f"known{suffix}"; source.write_bytes(b"known-format")
+    app=SimpleNamespace(
+        translator=_Translator(),inspection_path=None,inspection_result=None,inspection_error="",inspection_unsupported=False,
+        inspect_file_var=_Variable(),inspect_format_var=_Variable(),inspect_status_var=_Variable(),inspect_software_var=_Variable(),inspect_label_var=_Variable(),inspect_version_var=_Variable(),inspect_message_var=_Variable(),
+    )
+    app._render_inspection=MethodType(MarkerApp._render_inspection,app)
+    with patch("nenolink_ai_marker.app.filedialog.askopenfilename",return_value=str(source)):
+        MarkerApp.choose_inspection_file(app)
+    assert app.inspection_unsupported and not app.inspection_error
+    assert app.inspect_status_var.get()=="inspect.not_supported_yet"
+    assert app.inspect_status_var.get()!="inspect.error"
+
+
+def test_supported_inspector_failure_still_reports_inspection_error(tmp_path):
+    source=tmp_path/"broken.png"; source.write_bytes(b"not-an-image")
+    app=SimpleNamespace(
+        translator=_Translator(),inspection_path=None,inspection_result=None,inspection_error="",inspection_unsupported=False,
+        inspect_file_var=_Variable(),inspect_format_var=_Variable(),inspect_status_var=_Variable(),inspect_software_var=_Variable(),inspect_label_var=_Variable(),inspect_version_var=_Variable(),inspect_message_var=_Variable(),
+    )
+    app._render_inspection=MethodType(MarkerApp._render_inspection,app)
+    with patch("nenolink_ai_marker.app.filedialog.askopenfilename",return_value=str(source)):
+        MarkerApp.choose_inspection_file(app)
+    assert app.inspection_error and not app.inspection_unsupported
+    assert app.inspect_status_var.get()=="inspect.error"
+
+
+@pytest.mark.parametrize(("source","target"),[("image","pdf"),("video","pdf"),("image","pptx"),("video","pptx"),("pdf","image"),("pptx","video")])
+def test_secondary_navigation_is_recreated_for_destination_owner(source,target):
+    labels={"image":"Images","video":"Video","pdf":"PDF","pptx":"PowerPoint"}; app=_navigation_app(source)
+    MarkerApp._configure_secondary_navigation(app)
+    MarkerApp.change_content_workspace(app,labels[target])
+    expected=("documents",) if target in {"pdf","pptx"} else ("single","batch")
+    assert app._secondary_navigation_keys()==expected
+    assert app.tabs._segmented_button.values==[app.tab_names[key] for key in expected]
+
+
 def test_docx_ui_exposes_only_reliable_alignment_and_hides_margin_controls():
     source = inspect.getsource(MarkerApp.apply_translations)
     assert 't("docx.position.left"):"bottom-left"' in source
@@ -337,22 +378,43 @@ def test_pptx_scope_and_physical_preview_navigation_are_independent(tmp_path):
     assert app.document_scope_states["pptx"].active_scope==(1,) and app.pptx_preview_state.current==1
     MarkerApp.change_pptx_preview_slide(app,3)
     assert app.pptx_preview_state.current==4 and app.document_scope_states["pptx"].active_scope==(1,)
-    MarkerApp.change_pptx_selection_mode(app,"Selected"); app.pptx_selected_var.set("2,5,8"); MarkerApp.commit_document_selection(app)
+    MarkerApp.change_pptx_selection_mode(app,"Selected")
+    assert app.document_scope_states["pptx"].active_scope==(1,) and app.pptx_preview_state.current==4
+    app.pptx_selected_var.set("2,5,8")
+    assert app.document_scope_states["pptx"].active_scope==(1,)
+    MarkerApp.commit_document_selection(app)
     assert app.pptx_preview_state.current==2 and app.document_scope_states["pptx"].active_scope==(2,5,8)
     MarkerApp.change_pptx_preview_slide(app,1)
     assert app.pptx_preview_state.current==3 and app.document_scope_states["pptx"].active_scope==(2,5,8)
-    MarkerApp.change_pptx_selection_mode(app,"Range"); app.pptx_range_start_var.set("3"); app.pptx_range_end_var.set("7"); MarkerApp.commit_document_selection(app)
+    MarkerApp.change_pptx_selection_mode(app,"Range"); app.pptx_range_var.set("3-7"); MarkerApp.commit_document_selection(app)
     assert app.pptx_preview_state.current==3 and app.document_scope_states["pptx"].active_scope==(3,4,5,6,7)
     MarkerApp.change_pptx_selection_mode(app,"All")
     assert app.pptx_preview_state.current==1 and app.document_scope_states["pptx"].active_scope==tuple(range(1,11))
+
+
+def test_editable_scope_requires_update_and_invalid_update_preserves_applied_scope(tmp_path):
+    source=tmp_path/"ten-slides.pptx"; _create_pptx(source,10)
+    badge=tmp_path/"ai-assisted.png"; _write_overlay(badge,(190,20,40,255),(160,50))
+    app=_pptx_preview_app(source,badge); app.pptx_path=source; app.pptx_metrics=app.pptx_processor.document_metrics(source)
+    app.pptx_selection_display_to_value={"All":"all","First":"first","Selected":"selected","Range":"range"}
+    app._update_pptx_selection_fields=Mock(); app.update_pptx_preview=Mock(); app.pptx_preview_state.initialize(10)
+    app.document_scope_states["pptx"].active_scope=tuple(range(1,11))
+    MarkerApp.change_pptx_selection_mode(app,"Selected")
+    app.pptx_selected_var.set("2,4,7")
+    assert app.document_scope_states["pptx"].active_scope==tuple(range(1,11)) and app.pptx_preview_state.current==1
+    MarkerApp.commit_document_selection(app)
+    assert app.document_scope_states["pptx"].active_scope==(2,4,7) and app.pptx_preview_state.current==2
+    app.pptx_selected_var.set("2,wrong")
+    MarkerApp.commit_document_selection(app)
+    assert app.document_scope_states["pptx"].active_scope==(2,4,7) and app.pptx_preview_state.current==2
+    app.pptx_scope_validation_label.configure.assert_called_with(text="document.scope_invalid")
 
 
 def test_pdf_preview_navigation_browses_all_pages_without_changing_scope():
     app=SimpleNamespace(
         workspace_state=SimpleNamespace(active="pdf"), pdf_preview_state=DocumentPreviewState(),
         pptx_metrics=None, pdf_info=SimpleNamespace(metrics=SimpleNamespace(item_count=8)),
-        pptx_selection_mode_var=_Variable("selected"), pptx_single_var=_Variable("1"), pptx_selected_var=_Variable("2,5,8"),
-        pptx_range_start_var=_Variable("1"), pptx_range_end_var=_Variable("2"),
+        pptx_selection_mode_var=_Variable("selected"), pptx_selected_var=_Variable("2,5,8"), pptx_range_var=_Variable("1-2"),
         pptx_preview_photo=object(), update_pptx_preview=Mock(), status_var=_Variable(), translator=_Translator(),
         pptx_preview_label=Mock(), pptx_slide_status=Mock(), pptx_previous_button=Mock(), pptx_next_button=Mock(),
     )
@@ -371,8 +433,8 @@ def test_document_format_contexts_are_unloaded_instead_of_preserved():
         pdf_info=SimpleNamespace(metrics=SimpleNamespace(item_count=43)), pptx_metrics=SimpleNamespace(item_count=10),
         pdf_preview_state=DocumentPreviewState(), pptx_preview_state=DocumentPreviewState(),
         _pdf_warning_approved=object(),_pdf_signature_approved=object(),_pptx_warning_approved=object(),
-        pptx_preview_renderer=Mock(), pptx_selection_mode_var=_Variable("selected"),pptx_single_var=_Variable("5"),
-        pptx_selected_var=_Variable("2,5,8"),pptx_range_start_var=_Variable("3"),pptx_range_end_var=_Variable("7"),
+        pptx_preview_renderer=Mock(), pptx_selection_mode_var=_Variable("selected"),
+        pptx_selected_var=_Variable("2,5,8"),pptx_range_var=_Variable("3-7"),
         pptx_preview_photo=object(),pptx_preview_label=Mock(),pptx_slide_status=Mock(),pptx_previous_button=Mock(),pptx_next_button=Mock(),status_var=_Variable(),
     )
     app.pdf_preview_state.initialize(43); app.pdf_preview_state.move(11); app.pptx_preview_state.initialize(10)
@@ -398,8 +460,8 @@ def test_pdf_scope_sequence_resets_navigation_and_old_scope_fields():
         workspace_state=SimpleNamespace(active="pdf"), processor=Mock(),
         pdf_path=Path("document.pdf"), pdf_info=SimpleNamespace(metrics=SimpleNamespace(item_count=43)),
         pdf_preview_state=DocumentPreviewState(5,43), _pdf_warning_approved=object(), _pdf_signature_approved=object(),
-        pptx_selection_mode_var=_Variable("all"), pptx_single_var=_Variable("9"), pptx_selected_var=_Variable("2,5,8"),
-        pptx_range_start_var=_Variable("3"), pptx_range_end_var=_Variable("7"), pptx_preview_photo=object(),
+        pptx_selection_mode_var=_Variable("all"), pptx_selected_var=_Variable("2,5,8"),
+        pptx_range_var=_Variable("3-7"), pptx_preview_photo=object(), pptx_scope_validation_label=Mock(),
         pptx_selection_display_to_value={"All":"all","First":"first","Selected":"selected","Range":"range"},
         pptx_selection_display_var=_Variable("All"),
         _update_pptx_selection_fields=Mock(), update_pptx_preview=Mock(),update_pdf_preview=Mock(),translator=_Translator(),
@@ -410,8 +472,8 @@ def test_pdf_scope_sequence_resets_navigation_and_old_scope_fields():
     for label,mode in (("First","first"),("Selected","selected"),("Range","range"),("All","all")):
         MarkerApp.change_pptx_selection_mode(app,label)
         assert app.pptx_selection_mode_var.get()==mode
-        assert app.pdf_preview_state.current==1 and app.pdf_preview_state.count==43
-        assert (app.pptx_selected_var.get(),app.pptx_range_start_var.get(),app.pptx_range_end_var.get())==("","1","2")
+        if mode in {"all","first"}:assert app.pdf_preview_state.current==1 and app.pdf_preview_state.count==43
+        assert (app.pptx_selected_var.get(),app.pptx_range_var.get())==("","1-2")
 
 
 def test_visual_setting_callbacks_do_not_reset_document_context():
@@ -493,7 +555,7 @@ def test_reset_from_complex_states_equals_canonical_fresh_start(active,auxiliary
         preview_renderer=Mock(),pdf_preview_renderer=Mock(),pptx_preview_renderer=Mock(),
         badge_source_var=_Variable("custom"),badge_var=_Variable("other.png"),position_var=_Variable("top-left"),size_var=_Variable(99),margin_var=_Variable(99),opacity_var=_Variable(1),
         video_mode_var=_Variable("end"),video_duration_var=_Variable(99),logo_enabled_var=_Variable(True),pdf_badge_enabled_var=_Variable(False),
-        pptx_selection_mode_var=_Variable(scope),pptx_single_var=_Variable("8"),pptx_selected_var=_Variable("2,5,8"),pptx_range_start_var=_Variable("3"),pptx_range_end_var=_Variable("7"),
+        pptx_selection_mode_var=_Variable(scope),pptx_selected_var=_Variable("2,5,8"),pptx_range_var=_Variable("3-7"),
         status_var=_Variable("stale"),scan_summary_var=_Variable("stale"),progress_text_var=_Variable("stale"),pptx_file_var=_Variable("stale"),progress=Mock(),cancel_event=Mock(),
         tools_navigation=Mock(),media_navigation_var=_Variable(),document_navigation_var=_Variable(),content_display_to_kind={"Images":"image","Video":"video","PDF":"pdf","PowerPoint":"pptx"},
         tabs=_Tabs(),tab_names={"single":"Single File","documents":"Document Workspace","batch":"Batch Processing","badges":"Badges","inspect":"Inspect File"},

@@ -66,7 +66,7 @@ def test_clear_document_states_removes_pdf_pptx_files_scopes_and_previews():
         pdf_path="pages.pdf",pdf_info=object(),_pdf_warning_approved=object(),_pdf_signature_approved=object(),
         docx_path=None,docx_info=None,_docx_warning_approved=None,
         pptx_preview_state=pptx_state,pdf_preview_state=pdf_state,
-        pptx_selection_mode_var=_Variable("selected"),pptx_selected_var=_Variable("2,5,8"),pptx_range_start_var=_Variable("3"),pptx_range_end_var=_Variable("7"),
+        pptx_selection_mode_var=_Variable("selected"),pptx_selected_var=_Variable("2,5,8"),pptx_range_var=_Variable("3-7"),
         pptx_file_var=_Variable("old filename"),pptx_preview_photo=object(),
         pptx_preview_renderer=Mock(),docx_preview_renderer=Mock(),processor=Mock(),pptx_preview_label=Mock(),pptx_slide_status=Mock(),pptx_previous_button=Mock(),pptx_next_button=Mock(),
     )
@@ -76,7 +76,7 @@ def test_clear_document_states_removes_pdf_pptx_files_scopes_and_previews():
     assert app.pptx_metrics is app.pdf_info is None
     assert (pptx_state.current,pptx_state.count)==(1,0) and (pdf_state.current,pdf_state.count)==(1,0)
     assert app.pptx_selection_mode_var.get()=="all"
-    assert (app.pptx_selected_var.get(),app.pptx_range_start_var.get(),app.pptx_range_end_var.get())==("","1","2")
+    assert (app.pptx_selected_var.get(),app.pptx_range_var.get())==("","1-2")
     assert app.pptx_file_var.get()=="" and app.pptx_preview_photo is None
     app.pptx_previous_button.configure.assert_called_with(state="disabled")
     app.pptx_next_button.configure.assert_called_with(state="disabled")

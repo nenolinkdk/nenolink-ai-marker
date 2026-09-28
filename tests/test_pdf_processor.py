@@ -52,7 +52,7 @@ def test_pdf_repeated_scope_sequence_keeps_file_and_rebuilds_preview(tmp_path):
         workspace_state=SimpleNamespace(active="pdf"),processor=processor,pdf_path=source,pdf_info=info,
         pdf_preview_state=DocumentPreviewState(1,6),pdf_preview_renderer=PdfPreviewRenderer(processor),
         document_scope_states={"pdf":DocumentScopeState(),"pptx":DocumentScopeState()},
-        pptx_selection_mode_var=_Var("all"),pptx_selected_var=_Var(""),pptx_range_start_var=_Var("1"),pptx_range_end_var=_Var("2"),
+        pptx_selection_mode_var=_Var("all"),pptx_selected_var=_Var(""),pptx_range_var=_Var("1-2"),pptx_scope_validation_label=SimpleNamespace(configure=Mock()),
         pptx_selection_display_to_value={"All":"all","First":"first","Selected":"selected","Range":"range"},
         pptx_selection_display_var=_Var("All"),
         pptx_preview_photo=None,pptx_preview_label=SimpleNamespace(configure=Mock()),pptx_slide_status=SimpleNamespace(configure=Mock()),pptx_previous_button=SimpleNamespace(configure=Mock()),pptx_next_button=SimpleNamespace(configure=Mock()),
@@ -63,7 +63,7 @@ def test_pdf_repeated_scope_sequence_keeps_file_and_rebuilds_preview(tmp_path):
     app.update_pdf_preview=lambda:MarkerApp.update_pdf_preview(app)
     app.update_pptx_preview=lambda:MarkerApp.update_pptx_preview(app)
     with patch("nenolink_ai_marker.app.ctk.CTkImage",side_effect=lambda image,size:("preview",size)):
-        for label,mode,scope in (("All","all",(1,2,3,4,5,6)),("First","first",(1,)),("Range","range",(1,2))):
+        for label,mode,scope in (("All","all",(1,2,3,4,5,6)),("First","first",(1,))):
             MarkerApp.change_pptx_selection_mode(app,label)
             assert app.pdf_path==source and app.pdf_info is info
             assert app.document_scope_states["pdf"].mode==mode
@@ -77,12 +77,16 @@ def test_pdf_repeated_scope_sequence_keeps_file_and_rebuilds_preview(tmp_path):
         assert app.pdf_preview_state.current==2
         assert app.document_scope_states["pdf"].active_scope==(1,)
         assert not MarkerApp._current_document_item_is_marked(app,"pdf")
-        MarkerApp.change_pptx_selection_mode(app,"Selected"); app.pptx_selected_var.set("2,4"); MarkerApp.commit_document_selection(app)
+        MarkerApp.change_pptx_selection_mode(app,"Selected")
+        assert app.document_scope_states["pdf"].active_scope==(1,) and app.pdf_preview_state.current==2
+        app.pptx_selected_var.set("2,4"); MarkerApp.commit_document_selection(app)
+        assert app.document_scope_states["pdf"].active_scope==(2,4) and app.pdf_preview_state.current==2
+        app.pptx_selected_var.set("2,invalid"); MarkerApp.commit_document_selection(app)
         assert app.document_scope_states["pdf"].active_scope==(2,4) and app.pdf_preview_state.current==2
         MarkerApp.change_pdf_preview_page(app,1)
         assert app.pdf_preview_state.current==3 and not MarkerApp._current_document_item_is_marked(app,"pdf")
         assert app.document_scope_states["pdf"].active_scope==(2,4)
-        MarkerApp.change_pptx_selection_mode(app,"Range"); app.pptx_range_start_var.set("3"); app.pptx_range_end_var.set("5"); MarkerApp.commit_document_selection(app)
+        MarkerApp.change_pptx_selection_mode(app,"Range"); app.pptx_range_var.set("3-5"); MarkerApp.commit_document_selection(app)
         assert app.document_scope_states["pdf"].active_scope==(3,4,5) and app.pdf_preview_state.current==3
         MarkerApp.change_pdf_preview_page(app,-2)
         assert app.pdf_preview_state.current==1 and app.document_scope_states["pdf"].active_scope==(3,4,5)
