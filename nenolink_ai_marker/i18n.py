@@ -27,7 +27,7 @@ DEFAULT_ENGLISH = {
     "shortcut.offer_create": "Create shortcut", "shortcut.offer_not_now": "Not now",
     "tab.batch": "Batch Processing", "tab.badges": "Badges", "tab.inspect": "Inspect File",
     "content.images": "Images", "content.video": "Video", "content.pdf": "PDF",
-    "content.powerpoint": "PowerPoint / Slides", "content.word": "Word", "content.workspace": "Document Workspace", "content.media_group": "MEDIA", "content.documents_group": "DOCUMENTS",
+    "content.powerpoint": "PowerPoint / Slides", "content.word": "Word", "content.media_group": "MEDIA", "content.documents_group": "DOCUMENTS",
     "content.planned_title": "Planned for 1.0.3",
     "content.planned_message": "{format} support is being implemented incrementally. No file will be changed until this workflow is ready.",
     "pptx.choose": "Choose PowerPoint file", "pptx.no_file": "No PowerPoint file selected",

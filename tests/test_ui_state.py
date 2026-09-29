@@ -32,8 +32,10 @@ class _Translator:
 
 
 class _Segmented:
-    def __init__(self):self.values=[]
+    def __init__(self):self.values=[]; self.visible=True
     def configure(self,**values):self.values=list(values.get("values",self.values))
+    def grid(self):self.visible=True
+    def grid_remove(self):self.visible=False
 
 
 class _Tabs:
@@ -141,11 +143,11 @@ def test_navigation_groups_share_one_compact_workspace_boundary_row():
 
 def _navigation_app(active="image"):
     app=SimpleNamespace(
-        active_content_type=active,media_sources={"image":[],"video":[]},active_tool=None,
+        active_content_type=active,active_runtime_context_type=active,media_sources={"image":[],"video":[]},active_tool=None,
         content_display_to_kind={"Images":"image","Video":"video","PDF":"pdf","PowerPoint":"pptx"},
-        tab_names={"single":"Single File","documents":"Document Workspace","batch":"Batch Processing","badges":"Badges","inspect":"Inspect File"},
+        tab_names={"single":"Single File","document_surface":"__document_surface__","batch":"Batch Processing","badges":"Badges","inspect":"Inspect File"},
         tabs=_Tabs(),sources=[],scan=None,pdf_path=None,pptx_path=None,tools_navigation=Mock(),media_navigation_var=_Variable(),document_navigation_var=_Variable(),
-        reset_format_context=Mock(),video_controls=Mock(),_update_logo_controls=Mock(),update_preview=Mock(),_render_document_workspace=Mock(),
+        reset_format_context=Mock(),video_controls=Mock(),_update_logo_controls=Mock(),update_preview=Mock(),_render_active_document=Mock(),
         language_menu=Mock(),reset_button=Mock(),guide_button=Mock(),media_navigation=Mock(),document_navigation=Mock(),translator=_Translator(),
     )
     app._secondary_navigation_keys=MethodType(MarkerApp._secondary_navigation_keys,app)
@@ -156,6 +158,8 @@ def _navigation_app(active="image"):
     app.destroy_runtime_context=MethodType(MarkerApp.destroy_runtime_context,app)
     app.initialize_clean_context=MethodType(MarkerApp.initialize_clean_context,app)
     app._render_authoritative_state=MethodType(MarkerApp._render_authoritative_state,app)
+    app._validate_content_invariant=MethodType(MarkerApp._validate_content_invariant,app)
+    app.visible_workspace_type=active; app.pdf_info=None; app.pptx_metrics=None; app.pdf_preview_state=DocumentPreviewState(); app.pptx_preview_state=DocumentPreviewState()
     app._ensure_global_controls_enabled=MethodType(MarkerApp._ensure_global_controls_enabled,app)
     app._confirm_format_switch=Mock(return_value=True)
     app.show_tab=MethodType(MarkerApp.show_tab,app)
@@ -170,9 +174,9 @@ def test_all_directed_content_transitions_start_clean(source,target):
     MarkerApp.change_content_workspace(app,labels[target])
     assert app.active_content_type==target
     assert app.reset_format_context.call_args_list==[call(source),call(target)]
-    expected=("documents",) if target in {"pdf","pptx"} else ("single","batch")
+    expected=() if target in {"pdf","pptx"} else ("single","batch")
     assert app._secondary_navigation_keys()==expected
-    assert app.tabs.current==(app.tab_names["documents"] if target in {"pdf","pptx"} else app.tab_names["single"])
+    assert app.tabs.current==(app.tab_names["document_surface"] if target in {"pdf","pptx"} else app.tab_names["single"])
 
 
 def test_format_switch_cancel_preserves_everything_and_continue_clears_both_contexts():
@@ -199,8 +203,8 @@ def test_auxiliary_entry_cancel_preserves_work_and_continue_clears_active_format
     assert app.active_tool==tool
     app.reset_format_context.assert_called_once_with("pptx")
     assert app.tabs.current==app.tab_names[tool]
-    assert app._secondary_navigation_keys()==(tool,)
-    assert app.tabs._segmented_button.values==[app.tab_names[tool]]
+    assert app._secondary_navigation_keys()==()
+    assert not app.tabs._segmented_button.visible
 
 
 @pytest.mark.parametrize("tool,target",[(tool,target) for tool in ("badges","inspect") for target in ("image","video","pdf","pptx")])
@@ -212,10 +216,10 @@ def test_leaving_auxiliary_for_any_format_opens_clean_destination(tool,target):
 
 
 def test_batch_is_internal_and_clears_incompatible_single_file_state():
-    app=_navigation_app("image"); app.internal_workspace="single"; app.tabs.current=app.tab_names["batch"]
-    MarkerApp._on_internal_workspace_changed(app)
+    app=_navigation_app("image"); app.active_media_mode="single"; app.tabs.current=app.tab_names["batch"]
+    MarkerApp._on_media_mode_changed(app)
     app.reset_format_context.assert_called_once_with("image")
-    assert app.internal_workspace=="batch"
+    assert app.active_media_mode=="batch"
 
 
 def test_global_reset_is_an_unconditional_locked_state_recovery_path():
@@ -228,20 +232,19 @@ def test_global_reset_is_an_unconditional_locked_state_recovery_path():
     assert "dialog.destroy()" in inspect.getsource(MarkerApp._destroy_all_runtime_contexts)
 
 
-def test_media_cannot_open_document_tab_and_documents_cannot_open_media_tabs():
-    app=SimpleNamespace(active_content_type="video",active_tool=None,tabs=_Tabs(),tab_names={"single":"Single","documents":"Documents","batch":"Batch","badges":"Badges","inspect":"Inspect"})
+def test_documents_have_no_secondary_navigation_and_media_cannot_open_document_surface():
+    app=SimpleNamespace(active_content_type="video",active_tool=None,tabs=_Tabs(),tab_names={"single":"Single","document_surface":"__document_surface__","batch":"Batch","badges":"Badges","inspect":"Inspect"})
     app._secondary_navigation_keys=MethodType(MarkerApp._secondary_navigation_keys,app)
-    MarkerApp.show_tab(app,"documents"); assert app.tabs.current==""
+    MarkerApp.show_tab(app,"document_surface"); assert app.tabs.current==""
     MarkerApp.show_tab(app,"single"); assert app.tabs.current=="Single"
     app.active_content_type="pdf"; app.tabs.current=""
-    MarkerApp.show_tab(app,"single"); MarkerApp.show_tab(app,"batch"); MarkerApp.show_tab(app,"inspect"); assert app.tabs.current==""
-    MarkerApp.show_tab(app,"documents"); assert app.tabs.current=="Documents"
+    MarkerApp.show_tab(app,"single"); MarkerApp.show_tab(app,"batch"); MarkerApp.show_tab(app,"inspect"); MarkerApp.show_tab(app,"document_surface"); assert app.tabs.current==""
 
 
 def test_document_inspect_is_global_but_pdf_and_pptx_processing_remains_unsupported():
     assert ".pdf" not in INSPECT_EXTENSIONS and ".pptx" not in INSPECT_EXTENSIONS
     app=SimpleNamespace(active_content_type="pdf",active_tool=None)
-    assert MarkerApp._secondary_navigation_keys(app)==("documents",)
+    assert MarkerApp._secondary_navigation_keys(app)==()
     assert 'INSPECT_EXTENSIONS | {".pdf",".pptx"}' in inspect.getsource(MarkerApp.choose_inspection_file)
 
 
@@ -278,9 +281,10 @@ def test_secondary_navigation_is_recreated_for_destination_owner(source,target):
     labels={"image":"Images","video":"Video","pdf":"PDF","pptx":"PowerPoint"}; app=_navigation_app(source)
     MarkerApp._configure_secondary_navigation(app)
     MarkerApp.change_content_workspace(app,labels[target])
-    expected=("documents",) if target in {"pdf","pptx"} else ("single","batch")
+    expected=() if target in {"pdf","pptx"} else ("single","batch")
     assert app._secondary_navigation_keys()==expected
-    assert app.tabs._segmented_button.values==[app.tab_names[key] for key in expected]
+    if expected:assert app.tabs._segmented_button.values==[app.tab_names[key] for key in expected] and app.tabs._segmented_button.visible
+    else:assert not app.tabs._segmented_button.visible
 
 
 def test_docx_ui_exposes_only_reliable_alignment_and_hides_margin_controls():
@@ -431,8 +435,8 @@ def test_document_format_contexts_are_unloaded_instead_of_preserved():
 
 def test_format_switch_clears_source_and_destination_contexts():
     app=SimpleNamespace(
-        content_display_to_kind={"PowerPoint":"pptx"}, active_content_type="pdf", active_tool=None, media_sources={"image":[],"video":[]}, sources=[Path("old.pdf")],
-        reset_format_context=Mock(), show_tab=Mock(), _render_document_workspace=Mock(), apply_translations=Mock(), tools_navigation=Mock(),
+        content_display_to_kind={"PowerPoint":"pptx"}, active_content_type="pdf", active_runtime_context_type="pdf", active_tool=None, media_sources={"image":[],"video":[]}, sources=[Path("old.pdf")],
+        reset_format_context=Mock(), show_tab=Mock(), _render_active_document=Mock(), apply_translations=Mock(), tools_navigation=Mock(),
         _format_has_active_work=Mock(return_value=False), language_menu=Mock(),reset_button=Mock(),guide_button=Mock(),media_navigation=Mock(),document_navigation=Mock(),media_navigation_var=_Variable(),document_navigation_var=_Variable(),
     )
     app.destroy_runtime_context=MethodType(MarkerApp.destroy_runtime_context,app); app.initialize_clean_context=MethodType(MarkerApp.initialize_clean_context,app); app._render_authoritative_state=Mock()
@@ -523,7 +527,7 @@ def _dirty_format(app,kind):
 
 def _fsm_snapshot(app):
     return (
-        app.active_content_type,app.active_tool,tuple(app.sources),
+        app.active_content_type,app.active_runtime_context_type,app.visible_workspace_type,app.active_tool,tuple(app.sources),
         tuple(app.media_sources["image"]),tuple(app.media_sources["video"]),
         app.pdf_path,app.pdf_info,app.pdf_preview_state.current,app.pdf_preview_state.count,
         app.document_scope_states["pdf"].mode,app.document_scope_states["pdf"].active_scope,
@@ -536,6 +540,7 @@ def _fsm_snapshot(app):
 
 def _assert_clean_destination(app,target):
     assert app.active_content_type==target and app.active_tool is None
+    assert app.active_runtime_context_type==target and app.visible_workspace_type==target
     assert app.format_cache[target] is None
     if target in {"image","video"}:
         assert app.sources==[] and app.media_sources[target]==[]
@@ -545,14 +550,14 @@ def _assert_clean_destination(app,target):
     elif target=="pdf":
         assert app.pdf_path is None and app.pdf_info is None and app.pdf_preview_state==DocumentPreviewState()
         assert app.document_scope_states["pdf"]==DocumentScopeState()
-        assert app.tabs.current==app.tab_names["documents"]
-        assert app._secondary_navigation_keys()==("documents",)
+        assert app.tabs.current==app.tab_names["document_surface"]
+        assert app._secondary_navigation_keys()==()
         assert app.media_navigation_var.get()==""
     else:
         assert app.pptx_path is None and app.pptx_metrics is None and app.pptx_preview_state==DocumentPreviewState()
         assert app.document_scope_states["pptx"]==DocumentScopeState()
-        assert app.tabs.current==app.tab_names["documents"]
-        assert app._secondary_navigation_keys()==("documents",)
+        assert app.tabs.current==app.tab_names["document_surface"]
+        assert app._secondary_navigation_keys()==()
         assert app.media_navigation_var.get()==""
 
 
@@ -568,7 +573,7 @@ def test_external_fsm_no_data_opens_clean_destination(source,target):
 
 @pytest.mark.parametrize(("source","target"),DIRECTED_CONTENT_TRANSITIONS)
 def test_external_fsm_active_data_cancel_preserves_source_exactly(source,target):
-    app=_external_fsm_app(source); _dirty_format(app,source); _dirty_format(app,target)
+    app=_external_fsm_app(source); _dirty_format(app,source)
     before=_fsm_snapshot(app); app._confirm_format_switch=Mock(return_value=False)
     assert not MarkerApp.request_content_transition(app,target)
     assert _fsm_snapshot(app)==before and app.reset_log==[]
@@ -608,7 +613,7 @@ def test_repeated_top_level_sequences_never_retain_stale_files(sequence):
         assert MarkerApp.request_content_transition(app,target)
         assert app.active_content_type==target and app.active_tool is None
         assert app.pdf_path is None and app.pptx_path is None and app.sources==[]
-        expected=app.tab_names["documents"] if target in {"pdf","pptx"} else app.tab_names["single"]
+        expected=app.tab_names["document_surface"] if target in {"pdf","pptx"} else app.tab_names["single"]
         assert app.tabs.current==expected
         for control in (app.media_navigation,app.document_navigation,app.tools_navigation,app.reset_button):control.configure.assert_any_call(state="normal")
 
@@ -645,6 +650,7 @@ def test_hard_reset_from_every_content_state_equals_fresh_start(active,data):
     app=_hard_reset_app(active,data)
     MarkerApp._destroy_all_runtime_contexts(app); MarkerApp._create_fresh_runtime_state(app)
     assert app.active_content_type=="image" and app.media_sources=={"image":[],"video":[]}
+    assert app.active_runtime_context_type==app.visible_workspace_type=="image"
     assert app.active_tool is None and app.sources==[] and app.scan is None
     assert app.pdf_path is None and app.pptx_path is None and app.inspection_path is None
     assert app.pdf_preview_state==DocumentPreviewState() and app.pptx_preview_state==DocumentPreviewState()
@@ -672,6 +678,18 @@ def test_repeated_reset_transition_sequence_without_process_restart():
         _assert_clean_destination(app,target)
 
 
+@pytest.mark.parametrize(("source","target"),[("pdf","pptx"),("pptx","video"),("video","pdf")])
+def test_global_reset_callback_then_immediate_navigation_matches_fresh_start(source,target):
+    app=_hard_reset_app(source,True); app.custom_badge_var=_Variable("retained-folder")
+    app.refresh_badges=Mock(); app.apply_translations=Mock(); app._save=Mock(); app.translator=_Translator(); app._ensure_global_controls_enabled=Mock()
+    MarkerApp.reset_application(app)
+    assert app.active_content_type==app.active_runtime_context_type==app.visible_workspace_type=="image"
+    assert app.custom_badge_var.get()=="retained-folder"
+    app.format_cache={kind:None for kind in CONTENT_TYPES}; app._render_authoritative_state=MethodType(MarkerApp._render_authoritative_state,app)
+    assert MarkerApp.request_content_transition(app,target)
+    _assert_clean_destination(app,target)
+
+
 def test_reported_pdf_pptx_image_video_pdf_sequence_uses_one_transition_controller():
     app=_external_fsm_app("pdf"); _dirty_format(app,"pdf")
     app._confirm_format_switch=Mock(return_value=True)
@@ -679,3 +697,44 @@ def test_reported_pdf_pptx_image_video_pdf_sequence_uses_one_transition_controll
         assert MarkerApp.request_content_transition(app,target)
         _assert_clean_destination(app,target)
         _dirty_format(app,target)
+
+
+def _attach_shared_document_widget_projection(app):
+    app.translator=_Translator(); app.pdf_file_var=_Variable(); app.pptx_file_var=_Variable()
+    app.pdf_badge_enabled_var=_Variable(True); app.pptx_selection_mode_var=_Variable("all"); app.pptx_selection_display_var=_Variable()
+    for name in ("pptx_file_label","pptx_choose_button","pptx_badge_label","pdf_badge_enable","pptx_badge_menu","pptx_scope_label","pptx_selection_menu","pptx_selected_label","pptx_range_label","pptx_metadata_note","pptx_process_button","pptx_language_label","pptx_language_menu"):
+        setattr(app,name,Mock())
+    app._sync_document_scope_controls=Mock(); app._update_pptx_selection_fields=Mock(); app._update_pptx_logo_controls=Mock(); app.update_pptx_preview=Mock()
+    def summary():
+        if app.active_content_type=="pdf":app.pdf_file_var.set("PDF clean")
+        else:app.pptx_file_var.set("PPTX clean")
+    app._set_active_document_summary=summary
+    app._synchronize_document_widgets=MethodType(MarkerApp._synchronize_document_widgets,app)
+    app._render_active_document=app._synchronize_document_widgets
+    return app
+
+
+def test_gui_command_pdf_data_to_pptx_continue_projects_only_clean_pptx_widgets():
+    app=_attach_shared_document_widget_projection(_external_fsm_app("pdf")); _dirty_format(app,"pdf")
+    app._confirm_format_switch=Mock(return_value=True)
+    assert MarkerApp.change_content_workspace(app,"PowerPoint")
+    _assert_clean_destination(app,"pptx")
+    app.pptx_choose_button.configure.assert_called_with(text="pptx.choose")
+    app.pptx_scope_label.configure.assert_called_with(text="pptx.scope")
+    app.pptx_process_button.configure.assert_called_with(text="pptx.process")
+    app.pptx_file_label.configure.assert_called_with(textvariable=app.pptx_file_var)
+    assert app.pdf_path is None and app.pdf_info is None and app.pdf_preview_state==DocumentPreviewState()
+    assert not app.tabs._segmented_button.visible
+
+
+def test_gui_command_pptx_data_to_pdf_continue_projects_only_clean_pdf_widgets():
+    app=_attach_shared_document_widget_projection(_external_fsm_app("pptx")); _dirty_format(app,"pptx")
+    app._confirm_format_switch=Mock(return_value=True)
+    assert MarkerApp.change_content_workspace(app,"PDF")
+    _assert_clean_destination(app,"pdf")
+    app.pptx_choose_button.configure.assert_called_with(text="pdf.choose")
+    app.pptx_scope_label.configure.assert_called_with(text="pdf.scope")
+    app.pptx_process_button.configure.assert_called_with(text="pdf.process")
+    app.pptx_file_label.configure.assert_called_with(textvariable=app.pdf_file_var)
+    assert app.pptx_path is None and app.pptx_metrics is None and app.pptx_preview_state==DocumentPreviewState()
+    assert not app.tabs._segmented_button.visible

@@ -68,7 +68,7 @@ class TranslationTests(unittest.TestCase):
 
     def test_content_type_shell_is_translated_in_every_locale(self):
         locales=Path(__file__).resolve().parent.parent/"locales"
-        keys={"content.images","content.video","content.pdf","content.powerpoint","content.word","content.workspace","content.planned_title","content.planned_message"}
+        keys={"content.images","content.video","content.pdf","content.powerpoint","content.word","content.planned_title","content.planned_message"}
         for code in LANGUAGES.values():
             data=json.loads((locales/f"{code}.json").read_text(encoding="utf-8"))
             self.assertTrue(keys.issubset(data),code)

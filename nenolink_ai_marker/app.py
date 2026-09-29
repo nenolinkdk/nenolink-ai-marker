@@ -78,7 +78,7 @@ class MarkerApp(ctk.CTk):
         self.badge_sources = BadgeSourceManager(badge_directory())
         self.badges = self.badge_sources.repository(saved.badge_source, saved.custom_badge_folder)
         self.sources: list[Path] = []; self.media_sources={"image":[],"video":[]}; self.scan: FolderScan | None = None
-        self.active_content_type="image"; self.active_tool: str | None = None; self.internal_workspace="single"; self._format_switch_dialog=None
+        self.active_content_type="image"; self.active_runtime_context_type="image"; self.active_tool: str | None = None; self.active_media_mode="single"; self.visible_workspace_type="image"; self._format_switch_dialog=None
         self.pptx_path: Path | None = None; self.pptx_processor=PptxProcessor(); self.pptx_preview_renderer=PptxPreviewRenderer(self.processor)
         self.pptx_metrics: DocumentMetrics | None=None; self._pptx_warning_approved=None
         self.pptx_preview_photo=None
@@ -109,7 +109,7 @@ class MarkerApp(ctk.CTk):
         self.shortcut_offer_shown=saved.shortcut_offer_shown; self.shortcut_offer_dialog=None
         self.status_var=ctk.StringVar(); self.badge_name_var=ctk.StringVar(); self.badge_description_var=ctk.StringVar(); self.badge_display_var=ctk.StringVar()
         self.scan_summary_var=ctk.StringVar(); self.progress_text_var=ctk.StringVar()
-        self.pptx_file_var=ctk.StringVar(); self.pptx_selection_mode_var=ctk.StringVar(value="all"); self.pptx_selection_display_var=ctk.StringVar()
+        self.pdf_file_var=ctk.StringVar(); self.pptx_file_var=ctk.StringVar(); self.pptx_selection_mode_var=ctk.StringVar(value="all"); self.pptx_selection_display_var=ctk.StringVar()
         self.pdf_badge_enabled_var=ctk.BooleanVar(value=True)
         self.docx_scope_var=ctk.StringVar(value="entire-document")
         self.pptx_selected_var=ctk.StringVar(value="1, 3"); self.pptx_range_var=ctk.StringVar(value="1-2"); self.pptx_language_var=ctk.StringVar(value=Translator.language_name("en"))
@@ -148,10 +148,10 @@ class MarkerApp(ctk.CTk):
         tools_group=ctk.CTkFrame(self.content_navigation_frame,height=1,fg_color="transparent"); tools_group.grid(row=0,column=4,padx=(6,8),pady=(3,3),sticky="w")
         self.tools_group_label=ctk.CTkLabel(tools_group,text="",text_color=("gray35","gray75"),font=group_font,height=16); self.tools_group_label.grid(row=0,column=0,pady=0,sticky="w")
         self.tools_navigation=ctk.CTkSegmentedButton(tools_group,values=["Badges","Inspect File"],command=self.change_auxiliary_workspace,height=26,dynamic_resizing=True); self.tools_navigation.grid(row=1,column=0,pady=0,sticky="w")
-        self.tabs=ctk.CTkTabview(self,command=self._on_internal_workspace_changed); self.tabs.grid(row=1,column=0,padx=16,pady=(9,8),sticky="nsew")
+        self.tabs=ctk.CTkTabview(self,command=self._on_media_mode_changed); self.tabs.grid(row=1,column=0,padx=16,pady=(9,8),sticky="nsew")
         self.content_navigation_frame.lift()
-        self.tab_names={"single":self.translator.text("tab.single"),"documents":self.translator.text("content.workspace"),"batch":self.translator.text("tab.batch"),"badges":self.translator.text("tab.badges"),"inspect":self.translator.text("tab.inspect")}
-        self.single_tab=self.tabs.add(self.tab_names["single"]); self.document_tab=self.tabs.add(self.tab_names["documents"]); self.batch_tab=self.tabs.add(self.tab_names["batch"]); self.settings_tab=self.tabs.add(self.tab_names["badges"]); self.inspect_tab=self.tabs.add(self.tab_names["inspect"])
+        self.tab_names={"single":self.translator.text("tab.single"),"document_surface":"__document_surface__","batch":self.translator.text("tab.batch"),"badges":self.translator.text("tab.badges"),"inspect":self.translator.text("tab.inspect")}
+        self.single_tab=self.tabs.add(self.tab_names["single"]); self.document_tab=self.tabs.add(self.tab_names["document_surface"]); self.batch_tab=self.tabs.add(self.tab_names["batch"]); self.settings_tab=self.tabs.add(self.tab_names["badges"]); self.inspect_tab=self.tabs.add(self.tab_names["inspect"])
         self._single_ui(); self._document_ui(); self._batch_ui(); self._settings_ui(); self._inspect_ui()
         footer=ctk.CTkFrame(self,corner_radius=0,fg_color="transparent"); footer.grid(row=2,column=0,padx=20,pady=(0,8),sticky="ew"); footer.grid_columnconfigure(1,weight=1)
         footer_left=ctk.CTkFrame(footer,corner_radius=0,fg_color="transparent"); footer_left.grid(row=0,column=0,sticky="w")
@@ -161,31 +161,32 @@ class MarkerApp(ctk.CTk):
 
     def _secondary_navigation_keys(self):
         if self.active_tool in {"badges","inspect"}:
-            return (self.active_tool,)
+            return ()
         if self.active_content_type in {"pdf","pptx"}:
-            return ("documents",)
+            return ()
         return ("single","batch")
 
     def _configure_secondary_navigation(self,preferred=None):
         keys=self._secondary_navigation_keys(); values=[self.tab_names[key] for key in keys]
-        self.tabs._segmented_button.configure(values=values)
-        target=preferred if preferred in keys else ("documents" if self.active_content_type in {"pdf","pptx"} else "single")
+        if keys:
+            self.tabs._segmented_button.configure(values=values); self.tabs._segmented_button.grid()
+            target=preferred if preferred in keys else "single"
+        else:
+            self.tabs._segmented_button.grid_remove()
+            target=self.active_tool or "document_surface"
         self.tabs.set(self.tab_names[target])
-        self.internal_workspace=target
+        if target in {"single","batch"}:self.active_media_mode=target
 
-    def _on_internal_workspace_changed(self):
+    def _on_media_mode_changed(self):
         key=next((key for key,name in self.tab_names.items() if name==self.tabs.get()),None)
-        if key not in self._secondary_navigation_keys() or key==self.internal_workspace:return
+        if key not in self._secondary_navigation_keys() or key==self.active_media_mode:return
         if key=="batch" and self.active_content_type in {"image","video"}:self.reset_format_context(self.active_content_type)
-        self.internal_workspace=key
+        self.active_media_mode=key
 
     def _document_ui(self) -> None:
         tab=self.document_tab; tab.grid_columnconfigure(0,weight=1); tab.grid_rowconfigure(0,weight=1)
         panel=ctk.CTkFrame(tab); panel.grid(row=0,column=0,padx=20,pady=(4,8),sticky="nsew"); panel.grid_columnconfigure((0,1),weight=1); panel.grid_rowconfigure(2,weight=1)
         self.document_format_label=ctk.CTkLabel(panel,text="",font=ctk.CTkFont(size=24,weight="bold")); self.document_format_label.grid(row=0,column=0,padx=20,pady=(4,2),sticky="w")
-        self.document_planned_title=ctk.CTkLabel(panel,text="",font=ctk.CTkFont(size=18,weight="bold")); self.document_planned_title.grid(row=1,column=0,columnspan=2,padx=20,pady=8)
-        self.document_planned_message=ctk.CTkLabel(panel,text="",text_color="gray60",wraplength=760,justify="center"); self.document_planned_message.grid(row=2,column=0,columnspan=2,padx=20,pady=(4,24),sticky="n")
-
         self.pptx_controls=ctk.CTkFrame(panel,fg_color="transparent"); self.pptx_controls.grid(row=1,column=0,columnspan=2,rowspan=2,padx=12,pady=(0,8),sticky="nsew"); self.pptx_controls.grid_columnconfigure((0,1),weight=1)
         left=ctk.CTkFrame(self.pptx_controls); left.grid(row=0,column=0,padx=(0,6),sticky="nsew"); left.grid_columnconfigure(0,weight=1)
         right=ctk.CTkFrame(self.pptx_controls); right.grid(row=0,column=1,padx=(6,0),sticky="nsew"); right.grid_columnconfigure(0,weight=1)
@@ -418,8 +419,7 @@ class MarkerApp(ctk.CTk):
         self.content_display_to_kind={t(key):kind for kind,key in content_pairs}
         self.media_navigation.configure(values=[t("content.images"),t("content.video")]); self.document_navigation.configure(values=[t("content.pdf"),t("content.powerpoint")])
         self.media_group_label.configure(text=t("content.media_group")); self.documents_group_label.configure(text=t("content.documents_group")); self.tools_group_label.configure(text=t("content.tools_group")); self.tools_navigation.configure(values=[t("tab.badges"),t("tab.inspect")])
-        self.tabs._segmented_button.configure(values=list(self.tab_names.values()))
-        for key,translation_key in (("single","tab.single"),("documents","content.workspace"),("batch","tab.batch"),("badges","tab.badges"),("inspect","tab.inspect")):
+        for key,translation_key in (("single","tab.single"),("batch","tab.batch"),("badges","tab.badges"),("inspect","tab.inspect")):
             new=t(translation_key); old=self.tab_names[key]
             if old != new:self.tabs.rename(old,new); self.tab_names[key]=new
         self.open_button.configure(text="1. "+t("button.open_media")); self.process_button.configure(text=t("button.process_video") if self.active_content_type=="video" else t("button.process")); self.file_label.configure(text=t("files.none") if not self.sources else t("files.selected",count=len(self.sources),name=self.sources[0].name))
@@ -440,7 +440,7 @@ class MarkerApp(ctk.CTk):
         for key,check in self.batch_checks: check.configure(text=t(key))
         self.scan_button.configure(text=t("button.scan_folder")); self.start_batch_button.configure(text=t("button.start_batch")); self.cancel_batch_button.configure(text=t("button.cancel_batch"))
         self.inspect_title.configure(text=t("inspect.title")); self.inspect_intro.configure(text=t("inspect.intro")); self.inspect_choose_button.configure(text=t("inspect.choose")); self.inspect_selected_heading.configure(text=t("inspect.selected")); self.inspect_file_label.configure(text=t("inspect.file")); self.inspect_format_label.configure(text=t("inspect.format_size")); self.inspect_metadata_heading.configure(text=t("inspect.metadata")); self.inspect_status_label.configure(text=t("inspect.status")); self.inspect_software_label.configure(text=t("inspect.software")); self.inspect_ai_label.configure(text=t("inspect.ai_label")); self.inspect_marker_version_label.configure(text=t("inspect.marker_version")); self._render_inspection()
-        self._render_document_workspace()
+        self._synchronize_document_widgets()
         is_pdf=self.active_content_type=="pdf"; is_docx=False; badge_optional=is_pdf
         self.pptx_choose_button.configure(text=t("docx.choose") if is_docx else t("pdf.choose") if is_pdf else t("pptx.choose")); self.pptx_badge_label.configure(text=t("badge")); self.pdf_badge_enable.configure(text=t("docx.add_badge") if is_docx else t("pdf.add_badge")); self.pptx_badge_label.grid_remove() if badge_optional else self.pptx_badge_label.grid(); self.pdf_badge_enable.grid() if badge_optional else self.pdf_badge_enable.grid_remove(); self.pptx_badge_menu.configure(state="normal" if not badge_optional or self.pdf_badge_enabled_var.get() else "disabled"); self.pptx_position_label.configure(text=t("position")); self.pptx_size_label.configure(text=t("size.value",value=self.size_var.get())); self.pptx_opacity_label.configure(text=t("opacity.value",value=self.opacity_var.get())); self.pptx_margin_label.configure(text=t("margin.value",value=self.margin_var.get())); self.pptx_logo_enable.configure(text=t("logo.enable")); self.pptx_logo_choose.configure(text=t("logo.choose")); self.pptx_logo_size_label.configure(text=t("logo.size",value=self.logo_size_var.get())); self.pptx_logo_margin_label.configure(text=t("logo.margin",value=self.logo_margin_var.get())); self.pptx_logo_opacity_label.configure(text=t("logo.opacity",value=self.logo_opacity_var.get()))
         self.pptx_badge_menu.configure(values=list(self.badge_display_to_file) or [t("badge.none")])
@@ -487,8 +487,11 @@ class MarkerApp(ctk.CTk):
             return True
         finally:MarkerApp._ensure_global_controls_enabled(self)
 
-    def destroy_runtime_context(self,content_type):self.reset_format_context(content_type)
-    def initialize_clean_context(self,content_type):self.reset_format_context(content_type)
+    def destroy_runtime_context(self,content_type):
+        self.reset_format_context(content_type)
+        if self.active_runtime_context_type==content_type:self.active_runtime_context_type=None
+    def initialize_clean_context(self,content_type):
+        self.reset_format_context(content_type); self.active_runtime_context_type=content_type
 
     def _render_authoritative_state(self):
         """Project authoritative state into widgets; widgets never own it."""
@@ -497,10 +500,12 @@ class MarkerApp(ctk.CTk):
             if self.active_tool=="inspect":self._render_inspection()
             return
         self.tools_navigation.set(""); MarkerApp._set_format_navigation(self,self.active_content_type)
-        self._configure_secondary_navigation("documents" if self.active_content_type in {"pdf","pptx"} else "single")
+        self._configure_secondary_navigation("single")
         if self.active_content_type in {"image","video"}:
             self.video_controls.grid() if self.active_content_type=="video" else self.video_controls.grid_remove(); self._update_logo_controls(); self.update_preview()
-        else:self._render_document_workspace()
+        else:self._render_active_document()
+        self.visible_workspace_type=self.active_content_type
+        MarkerApp._validate_content_invariant(self)
 
     def _format_has_active_work(self,format_type):
         if format_type in {"image","video"}:return bool(self.sources or self.media_sources.get(format_type) or self.scan)
@@ -615,14 +620,39 @@ class MarkerApp(ctk.CTk):
             try:control.configure(state="normal")
             except (TclError,AttributeError):pass
 
-    def _render_document_workspace(self):
+    def _render_active_document(self):
         if not hasattr(self,"document_format_label"):return
         label=next((display for display,kind in self.content_display_to_kind.items() if kind==self.active_content_type),self.active_content_type.upper())
         self.document_format_label.configure(text=label)
-        if self.active_content_type in {"pptx","pdf"}:
-            self.document_planned_title.grid_remove(); self.document_planned_message.grid_remove(); self.pptx_controls.grid()
-        else:
-            self.pptx_controls.grid_remove(); self.document_planned_title.grid(); self.document_planned_message.grid(); self.document_planned_title.configure(text=self.translator.text("content.planned_title")); self.document_planned_message.configure(text=self.translator.text("content.planned_message",format=label))
+        self.pptx_controls.grid()
+        self._synchronize_document_widgets()
+
+    def _synchronize_document_widgets(self):
+        """Render every shared document widget solely from active_content_type."""
+        if self.active_content_type not in {"pdf","pptx"} or not hasattr(self,"pptx_choose_button"):return
+        t=self.translator.text; is_pdf=self.active_content_type=="pdf"
+        self.pptx_file_label.configure(textvariable=self.pdf_file_var if is_pdf else self.pptx_file_var)
+        self.pptx_choose_button.configure(text=t("pdf.choose") if is_pdf else t("pptx.choose"))
+        self.pptx_badge_label.configure(text=t("badge")); self.pdf_badge_enable.configure(text=t("pdf.add_badge"))
+        if is_pdf:self.pptx_badge_label.grid_remove(); self.pdf_badge_enable.grid()
+        else:self.pptx_badge_label.grid(); self.pdf_badge_enable.grid_remove()
+        self.pptx_badge_menu.configure(state="normal" if not is_pdf or self.pdf_badge_enabled_var.get() else "disabled")
+        scope_prefix="pdf.scope" if is_pdf else "pptx.scope"
+        self._sync_document_scope_controls(self.active_content_type)
+        self.pptx_scope_label.configure(text=t(scope_prefix))
+        self.pptx_selection_display_to_value={t(scope_prefix+".first"):"first",t(scope_prefix+".selected"):"selected",t(scope_prefix+".range"):"range",t(scope_prefix+".all"):"all"}
+        self.pptx_selection_menu.configure(values=list(self.pptx_selection_display_to_value))
+        self.pptx_selection_display_var.set(next((display for display,value in self.pptx_selection_display_to_value.items() if value==self.pptx_selection_mode_var.get()),t(scope_prefix+".all")))
+        self.pptx_selected_label.configure(text=t("pdf.selected_hint") if is_pdf else t("pptx.selected_hint")); self.pptx_range_label.configure(text=t("pdf.range_hint") if is_pdf else t("pptx.range_hint"))
+        self.pptx_metadata_note.configure(text=t("pdf.metadata_note") if is_pdf else t("pptx.metadata_note")); self.pptx_process_button.configure(text=t("pdf.process") if is_pdf else t("pptx.process"))
+        if is_pdf:self.pptx_language_label.grid_remove(); self.pptx_language_menu.grid_remove()
+        else:self.pptx_language_label.grid(); self.pptx_language_menu.grid()
+        self._set_active_document_summary(); self._update_pptx_selection_fields(); self._update_pptx_logo_controls(); self.update_pptx_preview()
+
+    def _validate_content_invariant(self):
+        if self.visible_workspace_type!=self.active_content_type or self.active_runtime_context_type!=self.active_content_type:raise RuntimeError("Visible workspace/runtime context does not match active content type.")
+        if self.active_content_type=="pdf" and (self.pptx_path is not None or self.pptx_metrics is not None or self.pptx_preview_state.count):raise RuntimeError("PPTX runtime leaked into PDF state.")
+        if self.active_content_type=="pptx" and (self.pdf_path is not None or self.pdf_info is not None or self.pdf_preview_state.count):raise RuntimeError("PDF runtime leaked into PPTX state.")
 
     def choose_active_document(self):
         if self.active_content_type=="pdf":self.choose_pdf()
@@ -638,8 +668,8 @@ class MarkerApp(ctk.CTk):
 
     def _set_active_document_summary(self):
         if self.active_content_type=="pdf":
-            if self.pdf_path and self.pdf_info:self.pptx_file_var.set(f"{self.pdf_path.name}\n{self.translator.text('document.summary.pages',size=human_file_size(self.pdf_info.metrics.size_bytes),count=self.pdf_info.metrics.item_count)}")
-            else:self.pptx_file_var.set(self.translator.text("pdf.no_file"))
+            if self.pdf_path and self.pdf_info:self.pdf_file_var.set(f"{self.pdf_path.name}\n{self.translator.text('document.summary.pages',size=human_file_size(self.pdf_info.metrics.size_bytes),count=self.pdf_info.metrics.item_count)}")
+            else:self.pdf_file_var.set(self.translator.text("pdf.no_file"))
         else:
             self.pptx_file_var.set(self.pptx_path.name if self.pptx_path else self.translator.text("pptx.no_file")); self._set_pptx_file_summary()
 
@@ -929,7 +959,8 @@ class MarkerApp(ctk.CTk):
     def show_tab(self,key):
         if key in self._secondary_navigation_keys():self.tabs.set(self.tab_names[key])
     def navigate_home(self):
-        if self.active_tool:self.active_tool=None
+        if self.active_tool:
+            self.active_tool=None; self.initialize_clean_context(self.active_content_type)
         self._render_authoritative_state()
     def choose_inspection_file(self):
         patterns=" ".join(f"*{extension}" for extension in sorted(INSPECT_EXTENSIONS | {".pdf",".pptx"}))
@@ -982,7 +1013,7 @@ class MarkerApp(ctk.CTk):
 
     def _create_fresh_runtime_state(self):
         """Create state equivalent to a new application process."""
-        self.active_tool=None; self.active_content_type="image"; self.media_sources={"image":[],"video":[]}; self.sources=[]; self.scan=None
+        self.active_tool=None; self.active_content_type="image"; self.active_runtime_context_type="image"; self.visible_workspace_type="image"; self.active_media_mode="single"; self.media_sources={"image":[],"video":[]}; self.sources=[]; self.scan=None
         self.inspection_path=None; self.inspection_result=None; self.inspection_error=""; self.inspection_unsupported=False
         self.pdf_path=None; self.pdf_info=None; self.pptx_path=None; self.pptx_metrics=None
         self._pdf_warning_approved=None; self._pdf_signature_approved=None; self._pptx_warning_approved=None
@@ -995,7 +1026,7 @@ class MarkerApp(ctk.CTk):
             if variable is not None:
                 try:variable.set(value)
                 except (TclError,AttributeError):pass
-        for name,value in (("status_var",""),("scan_summary_var",""),("progress_text_var",""),("pptx_file_var","")):
+        for name,value in (("status_var",""),("scan_summary_var",""),("progress_text_var",""),("pdf_file_var",""),("pptx_file_var","")):
             variable=getattr(self,name,None)
             if variable is not None:
                 try:variable.set(value)

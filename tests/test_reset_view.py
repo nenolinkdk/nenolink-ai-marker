@@ -46,18 +46,20 @@ def test_render_start_view_restores_localized_welcome_state():
 
 
 def test_back_navigation_only_selects_single_file_tab():
-    app = SimpleNamespace(active_tool="badges",active_content_type="image",_render_authoritative_state=Mock())
+    app = SimpleNamespace(active_tool="badges",active_content_type="image",initialize_clean_context=Mock(),_render_authoritative_state=Mock())
 
     MarkerApp.navigate_home(app)
 
     assert app.active_tool is None
+    app.initialize_clean_context.assert_called_once_with("image")
     app._render_authoritative_state.assert_called_once()
 
 
-def test_back_navigation_returns_documents_to_document_workspace():
-    app=SimpleNamespace(active_tool="inspect",active_content_type="pdf",_render_authoritative_state=Mock())
+def test_back_navigation_returns_to_authoritative_document_content():
+    app=SimpleNamespace(active_tool="inspect",active_content_type="pdf",initialize_clean_context=Mock(),_render_authoritative_state=Mock())
     MarkerApp.navigate_home(app)
     assert app.active_tool is None
+    app.initialize_clean_context.assert_called_once_with("pdf")
     app._render_authoritative_state.assert_called_once()
 
 
