@@ -1698,7 +1698,7 @@ class MarkerApp(ctk.CTk):
         self.logo_position_var = ctk.StringVar(value=saved.logo_position); self.logo_position_display_var = ctk.StringVar()
         self.logo_size_var = ctk.IntVar(value=saved.logo_size_percent); self.logo_margin_var = ctk.IntVar(value=saved.logo_margin); self.logo_opacity_var = ctk.IntVar(value=saved.logo_opacity)
         self.badge_source_var = ctk.StringVar(value=saved.badge_source); self.custom_badge_var = ctk.StringVar(value=saved.custom_badge_folder)
-        self.pdf_path = None; self.pdf_info = None; self.pdf_processor = PdfProcessor(); self.pdf_current_page = 0; self.pdf_preview_photo = None
+        self.pdf_path = None; self.pdf_info = None; self.pdf_processor = PdfProcessor(); self.pdf_preview_renderer = PdfPreviewRenderer(self.processor); self.pdf_current_page = 0; self.pdf_preview_photo = None
 
     def _clear_content_host(self) -> None:
         for child in self.content_host.winfo_children():
@@ -1730,7 +1730,7 @@ class MarkerApp(ctk.CTk):
             info = self.pdf_processor.inspect(path)
         except PasswordProtectedPdfError:
             messagebox.showerror("PDF", "Encrypted or password-protected PDFs are not supported."); return
-        except (OSError, ValueError) as error:
+        except (OSError, ValueError, AttributeError) as error:
             messagebox.showerror("PDF", f"Could not read PDF: {error}"); return
         self.pdf_path, self.pdf_info = path, info
         self.pdf_current_page = 1; self.pdf_preview_photo = None

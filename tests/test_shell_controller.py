@@ -85,8 +85,29 @@ def test_pdf_phase_one_is_a_clean_marker_app_workspace_shell():
     assert "def _mount_pdf_workspace" in source
     assert 'text="PDF"' in source
     assert "Choose PDF" in source
-    assert "PdfPreviewRenderer" not in source
+    assert "PdfPreviewRenderer(self.processor)" in source
     assert "_document_context_ui" not in source
+
+
+def test_pdf_preview_updates_widget_indicator_and_navigation(monkeypatch, tmp_path):
+    from PIL import Image
+    import nenolink_ai_marker.app as app_module
+
+    class Widget:
+        def __init__(self): self.values = {}
+        def configure(self, **kwargs): self.values.update(kwargs)
+
+    class Renderer:
+        def render(self, path, page, badge, settings):
+            return SimpleNamespace(image=Image.new("RGBA", (20, 20)), page_number=page, page_count=43)
+
+    fake = SimpleNamespace(pdf_path=tmp_path / "original.pdf", pdf_info=SimpleNamespace(metrics=SimpleNamespace(item_count=43)), pdf_current_page=1, pdf_preview_renderer=Renderer(), pdf_preview_label=Widget(), pdf_page_status=Widget(), pdf_previous_button=Widget(), pdf_next_button=Widget(), pdf_preview_photo=None, settings=lambda: SimpleNamespace())
+    monkeypatch.setattr(app_module.ctk, "CTkImage", lambda **kwargs: kwargs)
+    MarkerApp.render_pdf_preview(fake)
+    assert fake.pdf_preview_label.values["image"]
+    assert fake.pdf_page_status.values["text"] == "1 / 43"
+    assert fake.pdf_previous_button.values["state"] == "disabled"
+    assert fake.pdf_next_button.values["state"] == "normal"
 
 
 def test_image_module_does_not_own_outer_navigation_state():
