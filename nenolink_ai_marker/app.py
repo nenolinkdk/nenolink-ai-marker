@@ -561,9 +561,7 @@ class LegacyMarkerApp(ctk.CTk):
             if self.video_controls is not None:
                 self.video_controls.grid() if self.active_content_type=="video" else self.video_controls.grid_remove()
             self._update_logo_controls(); self.update_preview()
-        elif self.active_content_type == "pdf": self._render_active_document()
-        else:
-            self._clear_content_host(); self.placeholder_label = ctk.CTkLabel(self.content_host, text="PPTX TEST", font=ctk.CTkFont(size=28, weight="bold")); self.placeholder_label.grid(row=0, column=0)
+        else:self._render_active_document()
         self.visible_workspace_type=self.active_content_type
         MarkerApp._validate_content_invariant(self)
 
@@ -1662,7 +1660,7 @@ class MarkerApp(LegacyMarkerApp):
     def _initialize_image_services(self) -> None:
         self.config_store = ConfigStore()
         saved = self.config_store.load()
-        self._settings_base = saved
+        self._saved_settings = saved
         self.processor = ImageProcessor()
         self.preview_renderer = ImagePreviewRenderer(self.processor)
         self.translator = Translator(locale_directory(), saved.language)
@@ -1708,7 +1706,7 @@ class MarkerApp(LegacyMarkerApp):
             for child in self.content_host.winfo_children(): child.destroy()
 
     def _create_context_widgets(self, content_type):
-        if content_type != "pdf": return
+        if content_type not in {"pdf", "pptx"}: return
         context = self._document_context_ui(self.content_host)
         setattr(self, f"{content_type}_context_widgets", context)
         self._bind_document_context_widgets(content_type)
@@ -2096,11 +2094,11 @@ class MarkerApp(LegacyMarkerApp):
         (messagebox.showerror if failures else messagebox.showinfo)(self.translator.text("error.completed") if failures else self.translator.text("complete.title"), summary + ("\n\n" + "\n".join(failures[:8]) if failures else "") + warning)
 
     def settings(self) -> MarkerSettings:
-        return replace(self._settings_base, badge_name=self.badge_var.get(), position=self.position_var.get(), size_percent=self.size_var.get(), margin=self.margin_var.get(), opacity=self.opacity_var.get(), language=self.translator.language, badge_source=self.badge_source_var.get(), custom_badge_folder=self.custom_badge_var.get(), logo_enabled=self.logo_enabled_var.get(), logo_path=self.logo_path_var.get(), logo_position=self.logo_position_var.get(), logo_size_percent=self.logo_size_var.get(), logo_margin=self.logo_margin_var.get(), logo_opacity=self.logo_opacity_var.get()).validated()
+        return replace(self._saved_settings, badge_name=self.badge_var.get(), position=self.position_var.get(), size_percent=self.size_var.get(), margin=self.margin_var.get(), opacity=self.opacity_var.get(), language=self.translator.language, badge_source=self.badge_source_var.get(), custom_badge_folder=self.custom_badge_var.get(), logo_enabled=self.logo_enabled_var.get(), logo_path=self.logo_path_var.get(), logo_position=self.logo_position_var.get(), logo_size_percent=self.logo_size_var.get(), logo_margin=self.logo_margin_var.get(), logo_opacity=self.logo_opacity_var.get()).validated()
 
     def _save(self) -> None:
         try:
-            self._settings_base = self.settings(); self.config_store.save(self._settings_base)
+            self._saved_settings = self.settings(); self.config_store.save(self._saved_settings)
         except OSError: pass
 
     def _save_image_settings(self) -> None:
