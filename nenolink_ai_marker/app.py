@@ -561,9 +561,11 @@ class LegacyMarkerApp(ctk.CTk):
             if self.video_controls is not None:
                 self.video_controls.grid() if self.active_content_type=="video" else self.video_controls.grid_remove()
             self._update_logo_controls(); self.update_preview()
-        else:self._render_active_document()
+        elif self.active_content_type == "pdf":
+            self._mount_pdf_workspace()
+        else:
+            self._clear_content_host(); self.placeholder_label = ctk.CTkLabel(self.content_host, text="PPTX TEST", font=ctk.CTkFont(size=28, weight="bold")); self.placeholder_label.grid(row=0, column=0)
         self.visible_workspace_type=self.active_content_type
-        MarkerApp._validate_content_invariant(self)
 
     def _format_has_active_work(self,format_type):
         if format_type in {"image","video"}:return bool(self.sources or self.media_sources.get(format_type) or self.scan)
@@ -1613,20 +1615,33 @@ class MarkerApp(ctk.CTk):
         if source == "video" and event != "video" and event != "reset" and self._video_has_active_work():
             if not messagebox.askokcancel(self.translator.text("navigation.switch_title"), self.translator.text("navigation.switch_message")):
                 return
+        if source == "pdf" and event not in {"pdf", "reset"} and getattr(self, "pdf_path", None) is not None:
+            if not messagebox.askokcancel(self.translator.text("navigation.switch_title"), self.translator.text("navigation.switch_message")):
+                return
         if source == "image" and event != "image":
             self._unmount_image_workspace()
         if source == "video" and event != "video":
             self._unmount_video_workspace()
+        if source == "pdf" and event != "pdf":
+            self.pdf_path = self.pdf_info = None
         self.shell_controller.dispatch(event)
         self.render_shell_state()
 
     def reset_shell(self) -> None:
         if self.shell_controller.active_content_type == "video":
             self._unmount_video_workspace()
+        elif self.shell_controller.active_content_type == "pdf":
+            self.pdf_path = self.pdf_info = None
         else:
             self._unmount_image_workspace()
         self.shell_controller.dispatch("reset")
         self.render_shell_state()
+
+    def _format_has_active_work(self, format_type: str) -> bool:
+        if format_type == "image": return self._image_has_active_work()
+        if format_type == "video": return self._video_has_active_work()
+        if format_type == "pdf": return self.pdf_path is not None
+        return False
 
     def render_shell_state(self) -> None:
         destination = self.shell_controller.active_content_type
@@ -1683,6 +1698,7 @@ class MarkerApp(ctk.CTk):
         self.logo_position_var = ctk.StringVar(value=saved.logo_position); self.logo_position_display_var = ctk.StringVar()
         self.logo_size_var = ctk.IntVar(value=saved.logo_size_percent); self.logo_margin_var = ctk.IntVar(value=saved.logo_margin); self.logo_opacity_var = ctk.IntVar(value=saved.logo_opacity)
         self.badge_source_var = ctk.StringVar(value=saved.badge_source); self.custom_badge_var = ctk.StringVar(value=saved.custom_badge_folder)
+        self.pdf_path = None; self.pdf_info = None; self.pdf_processor = PdfProcessor()
 
     def _clear_content_host(self) -> None:
         for child in self.content_host.winfo_children():
@@ -1691,12 +1707,31 @@ class MarkerApp(ctk.CTk):
 
     def _mount_pdf_workspace(self) -> None:
         """Phase PDF-1 shell only; no processor or legacy document runtime."""
+        if self.pdf_workspace is not None and self.pdf_workspace.winfo_exists():
+            self.pdf_workspace.grid(); return
         self._clear_content_host()
         self.pdf_workspace = ctk.CTkFrame(self.content_host, fg_color="transparent")
         self.pdf_workspace.grid(row=0, column=0, padx=24, pady=24, sticky="nsew")
         self.pdf_workspace.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(self.pdf_workspace, text="PDF", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0, column=0, pady=(8, 4), sticky="w")
-        ctk.CTkLabel(self.pdf_workspace, text="PDF workspace — file loading will be added in the next phase.", text_color="gray60", anchor="w").grid(row=1, column=0, pady=4, sticky="w")
+        self.pdf_choose_button = ctk.CTkButton(self.pdf_workspace, text="Choose PDF", command=self.choose_pdf_phase2); self.pdf_choose_button.grid(row=1, column=0, pady=(4, 8), sticky="w")
+        self.pdf_file_label = ctk.CTkLabel(self.pdf_workspace, text="No PDF selected", text_color="gray60", anchor="w"); self.pdf_file_label.grid(row=2, column=0, pady=4, sticky="w")
+
+    def choose_pdf_phase2(self) -> None:
+        selected = filedialog.askopenfilename(title="Choose PDF", filetypes=[("PDF (*.pdf)", "*.pdf")])
+        if not selected: return
+        path = Path(selected)
+        try:
+            info = self.pdf_processor.inspect(path)
+        except PasswordProtectedPdfError:
+            messagebox.showerror("PDF", "Encrypted or password-protected PDFs are not supported."); return
+        except (OSError, ValueError) as error:
+            messagebox.showerror("PDF", f"Could not read PDF: {error}"); return
+        self.pdf_path, self.pdf_info = path, info
+        size = human_file_size(info.metrics.size_bytes)
+        signed = "\nWarning: existing digital signatures may be invalidated when modified." if info.signed else ""
+        self.pdf_file_label.configure(text=f"{path.name}\n{size} · {info.metrics.item_count} pages{signed}")
+        self.status_var.set(f"PDF loaded: {path.name}")
 
     def _mount_image_workspace(self) -> None:
         if self.image_workspace is not None and self.image_workspace.winfo_exists():

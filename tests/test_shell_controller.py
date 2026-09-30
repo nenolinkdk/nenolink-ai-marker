@@ -84,8 +84,7 @@ def test_pdf_phase_one_is_a_clean_marker_app_workspace_shell():
     source = inspect.getsource(MarkerApp)
     assert "def _mount_pdf_workspace" in source
     assert 'text="PDF"' in source
-    assert "file loading will be added in the next phase" in source
-    assert "PdfProcessor" not in source
+    assert "Choose PDF" in source
     assert "PdfPreviewRenderer" not in source
     assert "_document_context_ui" not in source
 
