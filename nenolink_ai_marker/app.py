@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from dataclasses import replace
+from types import SimpleNamespace
 import hashlib
 import json
 import os
@@ -150,8 +151,10 @@ class MarkerApp(ctk.CTk):
         self.tools_navigation=ctk.CTkSegmentedButton(tools_group,values=["Badges","Inspect File"],command=self.change_auxiliary_workspace,height=26,dynamic_resizing=True); self.tools_navigation.grid(row=1,column=0,pady=0,sticky="w")
         self.tabs=ctk.CTkTabview(self,command=self._on_media_mode_changed); self.tabs.grid(row=1,column=0,padx=16,pady=(9,8),sticky="nsew")
         self.content_navigation_frame.lift()
-        self.tab_names={"single":self.translator.text("tab.single"),"document_surface":"__document_surface__","batch":self.translator.text("tab.batch"),"badges":self.translator.text("tab.badges"),"inspect":self.translator.text("tab.inspect")}
-        self.single_tab=self.tabs.add(self.tab_names["single"]); self.document_tab=self.tabs.add(self.tab_names["document_surface"]); self.batch_tab=self.tabs.add(self.tab_names["batch"]); self.settings_tab=self.tabs.add(self.tab_names["badges"]); self.inspect_tab=self.tabs.add(self.tab_names["inspect"])
+        # PDF and PPTX own separate, direct contexts.  The tabview's own
+        # selector is only the compact secondary navigation for media.
+        self.tab_names={"single":self.translator.text("tab.single"),"batch":self.translator.text("tab.batch"),"badges":self.translator.text("tab.badges"),"inspect":self.translator.text("tab.inspect"),"pdf":"__pdf_context__","pptx":"__pptx_context__"}
+        self.single_tab=self.tabs.add(self.tab_names["single"]); self.batch_tab=self.tabs.add(self.tab_names["batch"]); self.settings_tab=self.tabs.add(self.tab_names["badges"]); self.inspect_tab=self.tabs.add(self.tab_names["inspect"]); self.pdf_tab=self.tabs.add(self.tab_names["pdf"]); self.pptx_tab=self.tabs.add(self.tab_names["pptx"])
         self._single_ui(); self._document_ui(); self._batch_ui(); self._settings_ui(); self._inspect_ui()
         footer=ctk.CTkFrame(self,corner_radius=0,fg_color="transparent"); footer.grid(row=2,column=0,padx=20,pady=(0,8),sticky="ew"); footer.grid_columnconfigure(1,weight=1)
         footer_left=ctk.CTkFrame(footer,corner_radius=0,fg_color="transparent"); footer_left.grid(row=0,column=0,sticky="w")
@@ -173,7 +176,7 @@ class MarkerApp(ctk.CTk):
             target=preferred if preferred in keys else "single"
         else:
             self.tabs._segmented_button.grid_remove()
-            target=self.active_tool or "document_surface"
+            target=self.active_tool or self.active_content_type
         self.tabs.set(self.tab_names[target])
         if target in {"single","batch"}:self.active_media_mode=target
 
@@ -183,8 +186,13 @@ class MarkerApp(ctk.CTk):
         if key=="batch" and self.active_content_type in {"image","video"}:self.reset_format_context(self.active_content_type)
         self.active_media_mode=key
 
-    def _document_ui(self) -> None:
-        tab=self.document_tab; tab.grid_columnconfigure(0,weight=1); tab.grid_rowconfigure(0,weight=1)
+    def _document_context_ui(self, tab) -> SimpleNamespace:
+        """Build one direct PDF or PowerPoint presentation context.
+
+        The returned widgets are deliberately independent for each format;
+        only their construction is shared.
+        """
+        tab.grid_columnconfigure(0,weight=1); tab.grid_rowconfigure(0,weight=1)
         panel=ctk.CTkFrame(tab); panel.grid(row=0,column=0,padx=20,pady=(4,8),sticky="nsew"); panel.grid_columnconfigure((0,1),weight=1); panel.grid_rowconfigure(2,weight=1)
         self.document_format_label=ctk.CTkLabel(panel,text="",font=ctk.CTkFont(size=24,weight="bold")); self.document_format_label.grid(row=0,column=0,padx=20,pady=(4,2),sticky="w")
         self.pptx_controls=ctk.CTkFrame(panel,fg_color="transparent"); self.pptx_controls.grid(row=1,column=0,columnspan=2,rowspan=2,padx=12,pady=(0,8),sticky="nsew"); self.pptx_controls.grid_columnconfigure((0,1),weight=1)
@@ -233,7 +241,33 @@ class MarkerApp(ctk.CTk):
         self.pptx_next_button=ctk.CTkButton(self.pptx_preview_navigation,text="▶",width=42,height=25,command=lambda:self.change_document_preview_page(1)); self.pptx_next_button.grid(row=0,column=2,padx=3)
         self.pptx_metadata_note=ctk.CTkLabel(right,text="",text_color="gray60",wraplength=390,justify="left"); self.pptx_metadata_note.grid(row=9,column=0,padx=14,pady=(2,1),sticky="w")
         self.pptx_process_button=ctk.CTkButton(right,text="",command=self.process_active_document,height=28); self.pptx_process_button.grid(row=10,column=0,padx=14,pady=(3,8),sticky="ew")
-        self.pptx_controls.grid_remove()
+        return SimpleNamespace(**{name:getattr(self,name) for name in self._document_widget_names})
+
+    _document_widget_names=(
+        "document_format_label","pptx_controls","pptx_choose_button","pptx_file_label",
+        "pptx_badge_label","pdf_badge_enable","pptx_badge_menu","pptx_position_label",
+        "pptx_position_menu","pptx_size_label","pptx_size_slider","pptx_opacity_label",
+        "pptx_opacity_slider","pptx_margin_label","pptx_margin_slider","pptx_logo_enable",
+        "pptx_logo_choose","pptx_logo_settings","pptx_logo_position_menu","pptx_logo_size_label",
+        "pptx_logo_margin_label","pptx_logo_opacity_label","pptx_logo_margin_slider",
+        "pptx_scope_label","pptx_selection_menu","pptx_selected_frame","pptx_selected_label",
+        "pptx_selected_entry","pptx_selected_update_button","pptx_range_frame","pptx_range_label",
+        "pptx_range_entry","pptx_range_update_button","pptx_scope_validation_label",
+        "pptx_language_label","pptx_language_menu","pptx_preview_label","pptx_preview_navigation",
+        "pptx_previous_button","pptx_slide_status","pptx_next_button","pptx_metadata_note",
+        "pptx_process_button",
+    )
+
+    def _document_ui(self) -> None:
+        self.pdf_context_widgets=self._document_context_ui(self.pdf_tab)
+        self.pptx_context_widgets=self._document_context_ui(self.pptx_tab)
+        self._bind_document_context_widgets("pptx")
+
+    def _bind_document_context_widgets(self, format_type: str) -> None:
+        """Bind generic document actions to the visible, direct context."""
+        context=self.pdf_context_widgets if format_type=="pdf" else self.pptx_context_widgets
+        for name,value in vars(context).items():
+            setattr(self,name,value)
 
     def _single_ui(self) -> None:
         tab=self.single_tab; tab.grid_columnconfigure(1,weight=1); tab.grid_rowconfigure(0,weight=1)
@@ -468,6 +502,10 @@ class MarkerApp(ctk.CTk):
         target=self.content_display_to_kind.get(label)
         if target is None:
             MarkerApp._render_authoritative_state(self); return False
+        # CTkSegmentedButton updates its visual variable before it invokes the
+        # command. Restore the projection of the authoritative state while a
+        # possible loss-of-work confirmation is pending.
+        MarkerApp._set_format_navigation(self,None if self.active_tool else self.active_content_type)
         return MarkerApp.request_content_transition(self,target)
 
     def request_content_transition(self,destination):
@@ -621,10 +659,11 @@ class MarkerApp(ctk.CTk):
             except (TclError,AttributeError):pass
 
     def _render_active_document(self):
+        if self.active_content_type not in {"pdf","pptx"}:return
+        self._bind_document_context_widgets(self.active_content_type)
         if not hasattr(self,"document_format_label"):return
         label=next((display for display,kind in self.content_display_to_kind.items() if kind==self.active_content_type),self.active_content_type.upper())
         self.document_format_label.configure(text=label)
-        self.pptx_controls.grid()
         self._synchronize_document_widgets()
 
     def _synchronize_document_widgets(self):
@@ -957,7 +996,10 @@ class MarkerApp(ctk.CTk):
         self.shortcut_offer_dialog=None
     def _accept_shortcut_offer(self):self._dismiss_shortcut_offer(); self.create_shortcut()
     def show_tab(self,key):
-        if key in self._secondary_navigation_keys():self.tabs.set(self.tab_names[key])
+        if key in {"badges","inspect"}:
+            self.change_auxiliary_workspace(key)
+        elif key in self._secondary_navigation_keys():
+            self.tabs.set(self.tab_names[key])
     def navigate_home(self):
         if self.active_tool:
             self.active_tool=None; self.initialize_clean_context(self.active_content_type)

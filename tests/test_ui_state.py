@@ -105,8 +105,8 @@ def test_pptx_ui_rejects_invalid_slide_input():
         pptx_item_selection("range", ranges="5-3").resolve(8)
 
 
-def test_document_workspace_headings_share_the_compact_top_row():
-    source = inspect.getsource(MarkerApp._document_ui)
+def test_direct_document_contexts_share_the_compact_layout_factory():
+    source = inspect.getsource(MarkerApp._document_context_ui)
     assert 'document_format_label=ctk.CTkLabel(panel' in source
     assert 'document_format_label.grid(row=0,column=0' in source
     assert 'pptx_scope_label=ctk.CTkLabel(panel' in source
@@ -145,7 +145,7 @@ def _navigation_app(active="image"):
     app=SimpleNamespace(
         active_content_type=active,active_runtime_context_type=active,media_sources={"image":[],"video":[]},active_tool=None,
         content_display_to_kind={"Images":"image","Video":"video","PDF":"pdf","PowerPoint":"pptx"},
-        tab_names={"single":"Single File","document_surface":"__document_surface__","batch":"Batch Processing","badges":"Badges","inspect":"Inspect File"},
+        tab_names={"single":"Single File","batch":"Batch Processing","badges":"Badges","inspect":"Inspect File","pdf":"__pdf_context__","pptx":"__pptx_context__"},
         tabs=_Tabs(),sources=[],scan=None,pdf_path=None,pptx_path=None,tools_navigation=Mock(),media_navigation_var=_Variable(),document_navigation_var=_Variable(),
         reset_format_context=Mock(),video_controls=Mock(),_update_logo_controls=Mock(),update_preview=Mock(),_render_active_document=Mock(),
         language_menu=Mock(),reset_button=Mock(),guide_button=Mock(),media_navigation=Mock(),document_navigation=Mock(),translator=_Translator(),
@@ -176,7 +176,7 @@ def test_all_directed_content_transitions_start_clean(source,target):
     assert app.reset_format_context.call_args_list==[call(source),call(target)]
     expected=() if target in {"pdf","pptx"} else ("single","batch")
     assert app._secondary_navigation_keys()==expected
-    assert app.tabs.current==(app.tab_names["document_surface"] if target in {"pdf","pptx"} else app.tab_names["single"])
+    assert app.tabs.current==(app.tab_names[target] if target in {"pdf","pptx"} else app.tab_names["single"])
 
 
 def test_format_switch_cancel_preserves_everything_and_continue_clears_both_contexts():
@@ -188,6 +188,16 @@ def test_format_switch_cancel_preserves_everything_and_continue_clears_both_cont
     MarkerApp.change_content_workspace(app,"PDF")
     assert app.active_content_type=="pdf"
     assert app.reset_format_context.call_args_list==[call("image"),call("pdf")]
+
+
+def test_top_navigation_is_reprojected_from_authoritative_state_before_confirmation():
+    app=_navigation_app("pdf"); app.pdf_path=Path("active.pdf")
+    app.document_navigation_var.set("PowerPoint")
+    app._confirm_format_switch=Mock(return_value=False)
+    assert not MarkerApp.change_content_workspace(app,"PowerPoint")
+    assert app.active_content_type=="pdf"
+    assert app.document_navigation_var.get()=="PDF"
+    assert app.media_navigation_var.get()==""
 
 
 @pytest.mark.parametrize("tool",["badges","inspect"])
@@ -232,13 +242,13 @@ def test_global_reset_is_an_unconditional_locked_state_recovery_path():
     assert "dialog.destroy()" in inspect.getsource(MarkerApp._destroy_all_runtime_contexts)
 
 
-def test_documents_have_no_secondary_navigation_and_media_cannot_open_document_surface():
-    app=SimpleNamespace(active_content_type="video",active_tool=None,tabs=_Tabs(),tab_names={"single":"Single","document_surface":"__document_surface__","batch":"Batch","badges":"Badges","inspect":"Inspect"})
+def test_documents_have_no_secondary_navigation_and_media_cannot_open_document_contexts():
+    app=SimpleNamespace(active_content_type="video",active_tool=None,tabs=_Tabs(),tab_names={"single":"Single","batch":"Batch","badges":"Badges","inspect":"Inspect","pdf":"__pdf_context__","pptx":"__pptx_context__"})
     app._secondary_navigation_keys=MethodType(MarkerApp._secondary_navigation_keys,app)
-    MarkerApp.show_tab(app,"document_surface"); assert app.tabs.current==""
+    MarkerApp.show_tab(app,"pdf"); assert app.tabs.current==""
     MarkerApp.show_tab(app,"single"); assert app.tabs.current=="Single"
     app.active_content_type="pdf"; app.tabs.current=""
-    MarkerApp.show_tab(app,"single"); MarkerApp.show_tab(app,"batch"); MarkerApp.show_tab(app,"inspect"); MarkerApp.show_tab(app,"document_surface"); assert app.tabs.current==""
+    MarkerApp.show_tab(app,"single"); MarkerApp.show_tab(app,"batch"); assert app.tabs.current==""
 
 
 def test_document_inspect_is_global_but_pdf_and_pptx_processing_remains_unsupported():
@@ -550,13 +560,13 @@ def _assert_clean_destination(app,target):
     elif target=="pdf":
         assert app.pdf_path is None and app.pdf_info is None and app.pdf_preview_state==DocumentPreviewState()
         assert app.document_scope_states["pdf"]==DocumentScopeState()
-        assert app.tabs.current==app.tab_names["document_surface"]
+        assert app.tabs.current==app.tab_names["pdf"]
         assert app._secondary_navigation_keys()==()
         assert app.media_navigation_var.get()==""
     else:
         assert app.pptx_path is None and app.pptx_metrics is None and app.pptx_preview_state==DocumentPreviewState()
         assert app.document_scope_states["pptx"]==DocumentScopeState()
-        assert app.tabs.current==app.tab_names["document_surface"]
+        assert app.tabs.current==app.tab_names["pptx"]
         assert app._secondary_navigation_keys()==()
         assert app.media_navigation_var.get()==""
 
@@ -613,7 +623,7 @@ def test_repeated_top_level_sequences_never_retain_stale_files(sequence):
         assert MarkerApp.request_content_transition(app,target)
         assert app.active_content_type==target and app.active_tool is None
         assert app.pdf_path is None and app.pptx_path is None and app.sources==[]
-        expected=app.tab_names["document_surface"] if target in {"pdf","pptx"} else app.tab_names["single"]
+        expected=app.tab_names[target] if target in {"pdf","pptx"} else app.tab_names["single"]
         assert app.tabs.current==expected
         for control in (app.media_navigation,app.document_navigation,app.tools_navigation,app.reset_button):control.configure.assert_any_call(state="normal")
 
@@ -699,42 +709,46 @@ def test_reported_pdf_pptx_image_video_pdf_sequence_uses_one_transition_controll
         _dirty_format(app,target)
 
 
-def _attach_shared_document_widget_projection(app):
+def _attach_direct_document_context_projection(app):
     app.translator=_Translator(); app.pdf_file_var=_Variable(); app.pptx_file_var=_Variable()
     app.pdf_badge_enabled_var=_Variable(True); app.pptx_selection_mode_var=_Variable("all"); app.pptx_selection_display_var=_Variable()
-    for name in ("pptx_file_label","pptx_choose_button","pptx_badge_label","pdf_badge_enable","pptx_badge_menu","pptx_scope_label","pptx_selection_menu","pptx_selected_label","pptx_range_label","pptx_metadata_note","pptx_process_button","pptx_language_label","pptx_language_menu"):
-        setattr(app,name,Mock())
+    widget_names=("document_format_label","pptx_file_label","pptx_choose_button","pptx_badge_label","pdf_badge_enable","pptx_badge_menu","pptx_scope_label","pptx_selection_menu","pptx_selected_label","pptx_range_label","pptx_metadata_note","pptx_process_button","pptx_language_label","pptx_language_menu")
+    app.pdf_context_widgets=SimpleNamespace(**{name:Mock(name=f"pdf_{name}") for name in widget_names})
+    app.pptx_context_widgets=SimpleNamespace(**{name:Mock(name=f"pptx_{name}") for name in widget_names})
+    app._bind_document_context_widgets=MethodType(MarkerApp._bind_document_context_widgets,app)
     app._sync_document_scope_controls=Mock(); app._update_pptx_selection_fields=Mock(); app._update_pptx_logo_controls=Mock(); app.update_pptx_preview=Mock()
     def summary():
         if app.active_content_type=="pdf":app.pdf_file_var.set("PDF clean")
         else:app.pptx_file_var.set("PPTX clean")
     app._set_active_document_summary=summary
     app._synchronize_document_widgets=MethodType(MarkerApp._synchronize_document_widgets,app)
-    app._render_active_document=app._synchronize_document_widgets
+    app._render_active_document=MethodType(MarkerApp._render_active_document,app)
     return app
 
 
-def test_gui_command_pdf_data_to_pptx_continue_projects_only_clean_pptx_widgets():
-    app=_attach_shared_document_widget_projection(_external_fsm_app("pdf")); _dirty_format(app,"pdf")
+def test_gui_command_pdf_data_to_pptx_continue_renders_only_direct_pptx_context():
+    app=_attach_direct_document_context_projection(_external_fsm_app("pdf")); _dirty_format(app,"pdf")
     app._confirm_format_switch=Mock(return_value=True)
     assert MarkerApp.change_content_workspace(app,"PowerPoint")
     _assert_clean_destination(app,"pptx")
-    app.pptx_choose_button.configure.assert_called_with(text="pptx.choose")
-    app.pptx_scope_label.configure.assert_called_with(text="pptx.scope")
-    app.pptx_process_button.configure.assert_called_with(text="pptx.process")
-    app.pptx_file_label.configure.assert_called_with(textvariable=app.pptx_file_var)
+    app.pptx_context_widgets.pptx_choose_button.configure.assert_called_with(text="pptx.choose")
+    app.pptx_context_widgets.pptx_scope_label.configure.assert_called_with(text="pptx.scope")
+    app.pptx_context_widgets.pptx_process_button.configure.assert_called_with(text="pptx.process")
+    app.pptx_context_widgets.pptx_file_label.configure.assert_called_with(textvariable=app.pptx_file_var)
+    app.pdf_context_widgets.pptx_choose_button.configure.assert_not_called()
     assert app.pdf_path is None and app.pdf_info is None and app.pdf_preview_state==DocumentPreviewState()
     assert not app.tabs._segmented_button.visible
 
 
-def test_gui_command_pptx_data_to_pdf_continue_projects_only_clean_pdf_widgets():
-    app=_attach_shared_document_widget_projection(_external_fsm_app("pptx")); _dirty_format(app,"pptx")
+def test_gui_command_pptx_data_to_pdf_continue_renders_only_direct_pdf_context():
+    app=_attach_direct_document_context_projection(_external_fsm_app("pptx")); _dirty_format(app,"pptx")
     app._confirm_format_switch=Mock(return_value=True)
     assert MarkerApp.change_content_workspace(app,"PDF")
     _assert_clean_destination(app,"pdf")
-    app.pptx_choose_button.configure.assert_called_with(text="pdf.choose")
-    app.pptx_scope_label.configure.assert_called_with(text="pdf.scope")
-    app.pptx_process_button.configure.assert_called_with(text="pdf.process")
-    app.pptx_file_label.configure.assert_called_with(textvariable=app.pdf_file_var)
+    app.pdf_context_widgets.pptx_choose_button.configure.assert_called_with(text="pdf.choose")
+    app.pdf_context_widgets.pptx_scope_label.configure.assert_called_with(text="pdf.scope")
+    app.pdf_context_widgets.pptx_process_button.configure.assert_called_with(text="pdf.process")
+    app.pdf_context_widgets.pptx_file_label.configure.assert_called_with(textvariable=app.pdf_file_var)
+    app.pptx_context_widgets.pptx_choose_button.configure.assert_not_called()
     assert app.pptx_path is None and app.pptx_metrics is None and app.pptx_preview_state==DocumentPreviewState()
     assert not app.tabs._segmented_button.visible
