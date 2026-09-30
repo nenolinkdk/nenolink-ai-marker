@@ -32,6 +32,16 @@ class ProcessorTests(unittest.TestCase):
         self.assertEqual((red, alpha), (255, 255))
         self.assertTrue(120 <= green <= 135 and 120 <= blue <= 135)
 
+    def test_logo_only_processing_does_not_require_an_ai_badge(self):
+        logo = self.root / "logo.png"
+        Image.new("RGBA", (40, 40), (0, 0, 255, 255)).save(logo)
+        result = ImageProcessor().process(
+            self.source, None,
+            MarkerSettings(logo_enabled=True, logo_position="top-left", logo_size_percent=20, logo_margin=0),
+            logo,
+        )
+        self.assertEqual(result.getpixel((1, 1))[:3], (0, 0, 255))
+
     def test_output_path_does_not_overwrite(self):
         (self.root / "photo_ai.png").touch()
         self.assertEqual(output_path(self.source), self.root / "photo_ai_2.png")

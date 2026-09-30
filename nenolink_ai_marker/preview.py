@@ -41,7 +41,7 @@ class ImagePreviewRenderer:
         with Image.open(path) as opened:
             return opened.convert("RGBA")
 
-    def render(self, source: Path, badge: Path, settings: MarkerSettings, logo: Path | None = None) -> Image.Image:
+    def render(self, source: Path, badge: Path | None, settings: MarkerSettings, logo: Path | None = None) -> Image.Image:
         preview_source = self._source(source)
         original_size = self._original_size or preview_source.size
         scale = min(preview_source.width / max(1, original_size[0]), preview_source.height / max(1, original_size[1]))
@@ -50,6 +50,6 @@ class ImagePreviewRenderer:
             margin=round(settings.margin * scale),
             logo_margin=round(settings.logo_margin * scale),
         ).validated()
-        badge_image = self._open_overlay(badge)
+        badge_image = self._open_overlay(badge) if badge else None
         logo_image = self._open_overlay(logo) if preview_settings.logo_enabled and logo else None
         return self.processor.compose(preview_source, badge_image, preview_settings, logo_image)

@@ -58,13 +58,17 @@ def test_active_app_has_one_shell_owner_and_only_image_is_connected():
     source = inspect.getsource(MarkerApp)
     assert "self.shell_controller = ShellController()" in source
     assert "self.content_host = ctk.CTkFrame(self)" in source
-    assert "self._single_ui()" in source
+    assert "self._build_image_workspace()" in source
+    assert "def _build_image_workspace" in source
     assert "_mount_image_workspace" in source
     assert "_unmount_image_workspace" in source
     assert "_document_context_ui" not in source
     assert "_batch_ui" not in source
     assert "_settings_ui" not in source
     assert "_inspect_ui" not in source
+    assert "_single_ui" not in source
+    for legacy_state in ("video_mode_var", "batch_suffix_var", "media_sources", "active_media_mode"):
+        assert legacy_state not in source
 
 
 def test_image_module_does_not_own_outer_navigation_state():

@@ -14,7 +14,7 @@ class MediaProcessor(Protocol):
 
     def supports(self, path: Path) -> bool: ...
 
-    def process(self, source: Path, overlay: Path, settings: MarkerSettings, logo: Path | None = None) -> Image.Image: ...
+    def process(self, source: Path, overlay: Path | None, settings: MarkerSettings, logo: Path | None = None) -> Image.Image: ...
 
 
 class ImageProcessor:
@@ -40,15 +40,17 @@ class ImageProcessor:
         }
         return positions[settings_position(position)]
 
-    def process(self, source: Path, overlay: Path, settings: MarkerSettings, logo: Path | None = None) -> Image.Image:
+    def process(self, source: Path, overlay: Path | None, settings: MarkerSettings, logo: Path | None = None) -> Image.Image:
         settings.validated()
         if not self.supports(source):
             raise ValueError(f"Unsupported image type: {source.suffix or 'no extension'}")
         try:
             with Image.open(source) as opened:
                 base = opened.convert("RGBA")
-            with Image.open(overlay) as opened_badge:
-                badge = opened_badge.convert("RGBA")
+            badge = None
+            if overlay:
+                with Image.open(overlay) as opened_badge:
+                    badge = opened_badge.convert("RGBA")
         except (OSError, Image.UnidentifiedImageError) as error:
             raise ValueError(f"Could not open image: {error}") from error
 
@@ -63,11 +65,12 @@ class ImageProcessor:
                 raise ValueError(f"Could not open logo: {error}") from error
         return self.compose(base, badge, settings, logo_image)
 
-    def compose(self, base: Image.Image, badge: Image.Image, settings: MarkerSettings, logo: Image.Image | None = None) -> Image.Image:
+    def compose(self, base: Image.Image, badge: Image.Image | None, settings: MarkerSettings, logo: Image.Image | None = None) -> Image.Image:
         """Composite already-loaded images in memory without writing files or metadata."""
         settings.validated()
         result = base.convert("RGBA").copy()
-        self._composite(result, badge, settings.position, settings.size_percent, settings.margin, settings.opacity)
+        if badge is not None:
+            self._composite(result, badge, settings.position, settings.size_percent, settings.margin, settings.opacity)
         if settings.logo_enabled and logo:
             self._composite(result, logo.convert("RGBA"), settings.logo_position, settings.logo_size_percent, settings.logo_margin, settings.logo_opacity)
         return result

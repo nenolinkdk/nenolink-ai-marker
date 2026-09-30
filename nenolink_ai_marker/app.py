@@ -1631,21 +1631,20 @@ class MarkerApp(ctk.CTk):
     # --- Image module lifecycle -------------------------------------------------
 
     def _initialize_image_services(self) -> None:
-        saved = ConfigStore().load()
+        self.config_store = ConfigStore()
+        saved = self.config_store.load()
+        self._saved_settings = saved
         self.processor = ImageProcessor()
         self.preview_renderer = ImagePreviewRenderer(self.processor)
-        self.batch_processor = BatchProcessor(self.processor)
-        self.config_store = ConfigStore()
         self.translator = Translator(locale_directory(), saved.language)
         self.badge_sources = BadgeSourceManager(badge_directory())
         self.badges = self.badge_sources.repository(saved.badge_source, saved.custom_badge_folder)
         self.sources: list[Path] = []
-        self.media_sources = {"image": []}
-        self.cancel_event = threading.Event()
         self.preview_photo = self.preview_image = self.badge_photo = self.single_badge_photo = None
         self.welcome_photo = self.welcome_image = None
         self.badge_display_to_file = {}
         self.badge_var = ctk.StringVar(value=saved.badge_name); self.badge_display_var = ctk.StringVar()
+        self.badge_enabled_var = ctk.BooleanVar(value=True)
         self.badge_name_var = ctk.StringVar(); self.badge_description_var = ctk.StringVar()
         self.position_var = ctk.StringVar(value=saved.position); self.position_display_var = ctk.StringVar()
         self.size_var = ctk.IntVar(value=saved.size_percent); self.margin_var = ctk.IntVar(value=saved.margin); self.opacity_var = ctk.IntVar(value=saved.opacity)
@@ -1653,13 +1652,7 @@ class MarkerApp(ctk.CTk):
         self.logo_filename_var = ctk.StringVar(value=Path(saved.logo_path).name if saved.logo_path else "—")
         self.logo_position_var = ctk.StringVar(value=saved.logo_position); self.logo_position_display_var = ctk.StringVar()
         self.logo_size_var = ctk.IntVar(value=saved.logo_size_percent); self.logo_margin_var = ctk.IntVar(value=saved.logo_margin); self.logo_opacity_var = ctk.IntVar(value=saved.logo_opacity)
-        # Retain fields required by the shared MarkerSettings model.  They are
-        # data only here; their Video/Batch UI is not mounted in this phase.
         self.badge_source_var = ctk.StringVar(value=saved.badge_source); self.custom_badge_var = ctk.StringVar(value=saved.custom_badge_folder)
-        self.input_folder_var = ctk.StringVar(value=saved.input_folder); self.output_preference_var = ctk.StringVar(value=saved.output_preference); self.output_folder_var = ctk.StringVar(value=saved.output_folder); self.output_subfolder_var = ctk.StringVar(value=saved.output_subfolder)
-        self.recursive_var = ctk.BooleanVar(value=saved.include_subfolders); self.preserve_var = ctk.BooleanVar(value=saved.preserve_folder_structure); self.images_var = ctk.BooleanVar(value=saved.process_images); self.videos_var = ctk.BooleanVar(value=saved.process_videos); self.skip_var = ctk.BooleanVar(value=saved.skip_processed)
-        self.video_mode_var = ctk.StringVar(value=saved.video_mode); self.video_duration_var = ctk.IntVar(value=saved.video_duration); self.batch_suffix_var = ctk.StringVar(value=saved.batch_filename_suffix)
-        self.automatic_update_var = ctk.BooleanVar(value=saved.automatic_update_check); self.last_update_check = saved.last_update_check; self.shortcut_offer_shown = saved.shortcut_offer_shown
 
     def _clear_content_host(self) -> None:
         for child in self.content_host.winfo_children():
@@ -1673,34 +1666,93 @@ class MarkerApp(ctk.CTk):
         self.image_workspace = ctk.CTkFrame(self.content_host, fg_color="transparent")
         self.image_workspace.grid(row=0, column=0, sticky="nsew")
         self.image_workspace.grid_columnconfigure(0, weight=1); self.image_workspace.grid_rowconfigure(0, weight=1)
-        self.single_tab = self.image_workspace
-        self._single_ui()
+        self._build_image_workspace()
         self.refresh_image_badges()
         self.apply_image_translations()
         self._validate_saved_logo()
         self._show_welcome()
 
     def _unmount_image_workspace(self) -> None:
-        self.sources = []; self.media_sources["image"] = []
+        self.sources = []
         self.preview_renderer.clear(); self.preview_photo = self.preview_image = None
         self._clear_content_host()
 
     def _image_has_active_work(self) -> bool:
         return bool(self.sources)
 
-    # --- Image module, adapted from the legacy workspace -----------------------
+    # --- Image module -----------------------------------------------------------
 
-    _single_ui = LegacyMarkerApp._single_ui
-    _slider = LegacyMarkerApp._slider
-    _load_welcome_image = LegacyMarkerApp._load_welcome_image
-    _resize_welcome = LegacyMarkerApp._resize_welcome
-    _show_welcome = LegacyMarkerApp._show_welcome
-    _show_preview = LegacyMarkerApp._show_preview
-    settings = LegacyMarkerApp.settings
-    save_images = LegacyMarkerApp.save_images
-    _logo_path = LegacyMarkerApp._logo_path
-    choose_logo = LegacyMarkerApp.choose_logo
-    update_preview = LegacyMarkerApp.update_preview
+    def _build_image_workspace(self) -> None:
+        workspace = self.image_workspace
+        workspace.grid_columnconfigure(1, weight=1); workspace.grid_rowconfigure(0, weight=1)
+        left = AutoHideScrollableFrame(workspace, width=320, fg_color=("gray86", "gray17")); self.image_controls = left
+        left.grid(row=0, column=0, padx=(4, 8), pady=4, sticky="nsew"); left.grid_columnconfigure(0, weight=1)
+        self.open_button = ctk.CTkButton(left, command=self.open_images); self.open_button.grid(row=0, column=0, padx=14, pady=(10, 4), sticky="ew")
+        self.file_label = ctk.CTkLabel(left, anchor="w", justify="left", wraplength=280); self.file_label.grid(row=1, column=0, padx=14, pady=3, sticky="ew")
+        self.file_size_guidance = ctk.CTkLabel(left, anchor="w", justify="left", wraplength=280, text_color="gray60"); self.file_size_guidance.grid(row=2, column=0, padx=14, pady=(0, 4), sticky="ew")
+
+        badge_section = ctk.CTkFrame(left); badge_section.grid(row=3, column=0, padx=14, pady=(4, 4), sticky="ew"); badge_section.grid_columnconfigure(0, weight=1)
+        self.badge_enable = ctk.CTkCheckBox(badge_section, variable=self.badge_enabled_var, command=self.badge_enabled_changed); self.badge_enable.grid(row=0, column=0, padx=8, pady=(7, 3), sticky="w")
+        self.single_badge_label = ctk.CTkLabel(badge_section, font=ctk.CTkFont(weight="bold")); self.single_badge_label.grid(row=1, column=0, padx=8, pady=(2, 1), sticky="w")
+        self.badge_menu = ctk.CTkOptionMenu(badge_section, variable=self.badge_display_var, values=["—"], command=self.select_badge_display); self.badge_menu.grid(row=2, column=0, padx=8, pady=2, sticky="ew")
+        badge_preview = ctk.CTkFrame(badge_section); badge_preview.grid(row=3, column=0, padx=8, pady=(3, 7), sticky="ew"); badge_preview.grid_columnconfigure(1, weight=1)
+        self.single_badge_preview_label = ctk.CTkLabel(badge_preview, width=90, height=44); self.single_badge_preview_label.grid(row=0, column=0, padx=5, pady=5)
+        self.single_badge_name_label = ctk.CTkLabel(badge_preview, textvariable=self.badge_name_var, font=ctk.CTkFont(weight="bold"), anchor="w", wraplength=155); self.single_badge_name_label.grid(row=0, column=1, padx=(3, 5), pady=5, sticky="ew")
+
+        self.position_label = ctk.CTkLabel(left); self.position_label.grid(row=4, column=0, padx=14, pady=(5, 1), sticky="w")
+        self.position_menu = ctk.CTkOptionMenu(left, variable=self.position_display_var, values=["—"], command=self.change_position_display); self.position_menu.grid(row=5, column=0, padx=14, pady=2, sticky="ew")
+        self.size_label = self._image_slider(left, self.size_var, 1, 100, 6)
+        self.margin_label = self._image_slider(left, self.margin_var, 0, 250, 8)
+        self.opacity_label = self._image_slider(left, self.opacity_var, 0, 100, 10)
+
+        self.logo_controls = ctk.CTkFrame(left); self.logo_controls.grid(row=12, column=0, padx=14, pady=(5, 8), sticky="ew"); self.logo_controls.grid_columnconfigure(1, weight=1)
+        self.logo_heading = ctk.CTkLabel(self.logo_controls, font=ctk.CTkFont(weight="bold")); self.logo_heading.grid(row=0, column=0, columnspan=2, padx=8, pady=(6, 2), sticky="w")
+        self.logo_enable = ctk.CTkCheckBox(self.logo_controls, variable=self.logo_enabled_var, command=self.logo_changed); self.logo_enable.grid(row=1, column=0, columnspan=2, padx=8, pady=3, sticky="w")
+        self.logo_choose = ctk.CTkButton(self.logo_controls, command=self.choose_logo, height=28); self.logo_choose.grid(row=2, column=0, padx=8, pady=3, sticky="w")
+        self.logo_filename = ctk.CTkLabel(self.logo_controls, textvariable=self.logo_filename_var, anchor="w", wraplength=155); self.logo_filename.grid(row=2, column=1, padx=(2, 8), pady=3, sticky="ew")
+        self.logo_position_label = ctk.CTkLabel(self.logo_controls); self.logo_position_label.grid(row=3, column=0, padx=8, pady=2, sticky="w")
+        self.logo_position_menu = ctk.CTkOptionMenu(self.logo_controls, variable=self.logo_position_display_var, values=["—"], command=self.change_logo_position, height=28); self.logo_position_menu.grid(row=3, column=1, padx=8, pady=2, sticky="ew")
+        self.logo_size_label = ctk.CTkLabel(self.logo_controls); self.logo_size_label.grid(row=4, column=0, columnspan=2, padx=8, sticky="w")
+        self.logo_size_slider = ctk.CTkSlider(self.logo_controls, from_=1, to=100, number_of_steps=99, variable=self.logo_size_var, command=self.logo_changed); self.logo_size_slider.grid(row=5, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="ew")
+        self.logo_margin_label = ctk.CTkLabel(self.logo_controls); self.logo_margin_label.grid(row=6, column=0, columnspan=2, padx=8, sticky="w")
+        self.logo_margin_slider = ctk.CTkSlider(self.logo_controls, from_=0, to=250, number_of_steps=250, variable=self.logo_margin_var, command=self.logo_changed); self.logo_margin_slider.grid(row=7, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="ew")
+        self.logo_opacity_label = ctk.CTkLabel(self.logo_controls); self.logo_opacity_label.grid(row=8, column=0, columnspan=2, padx=8, sticky="w")
+        self.logo_opacity_slider = ctk.CTkSlider(self.logo_controls, from_=0, to=100, number_of_steps=100, variable=self.logo_opacity_var, command=self.logo_changed); self.logo_opacity_slider.grid(row=9, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="ew")
+        self.logo_images_only = ctk.CTkLabel(self.logo_controls, text_color="gray60"); self.logo_images_only.grid(row=10, column=0, columnspan=2, padx=8, pady=(0, 6), sticky="w")
+        self.process_button = ctk.CTkButton(left, command=self.save_images); self.process_button.grid(row=13, column=0, padx=14, pady=(2, 10), sticky="ew")
+
+        right = ctk.CTkFrame(workspace); right.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right.grid_columnconfigure(0, weight=1); right.grid_rowconfigure(0, weight=1)
+        self.preview_label = ctk.CTkLabel(right)
+        self.welcome_frame = ctk.CTkFrame(right, fg_color="transparent"); self.welcome_frame.grid(row=0, column=0, padx=18, pady=14, sticky="nsew"); self.welcome_frame.grid_columnconfigure(0, weight=1); self.welcome_frame.grid_rowconfigure(4, weight=1)
+        self.welcome_title = ctk.CTkLabel(self.welcome_frame, font=ctk.CTkFont(size=28, weight="bold")); self.welcome_title.grid(row=0, column=0, padx=12, pady=(12, 4))
+        self.welcome_tagline = ctk.CTkLabel(self.welcome_frame, font=ctk.CTkFont(size=18, weight="bold"), text_color=("#2469a0", "#65b6ef")); self.welcome_tagline.grid(row=1, column=0, padx=12, pady=(0, 10))
+        self.welcome_description1 = ctk.CTkLabel(self.welcome_frame, wraplength=720, justify="center"); self.welcome_description1.grid(row=2, column=0, padx=18, pady=2)
+        self.welcome_description2 = ctk.CTkLabel(self.welcome_frame, wraplength=720, justify="center"); self.welcome_description2.grid(row=3, column=0, padx=18, pady=(2, 10))
+        self.welcome_illustration = ctk.CTkLabel(self.welcome_frame, anchor="center"); self.welcome_illustration.grid(row=4, column=0, padx=12, pady=(4, 12), sticky="nsew")
+        self._load_image_welcome(); self.welcome_frame.bind("<Configure>", self._resize_image_welcome)
+
+    def _image_slider(self, parent, variable, start, end, row):
+        label = ctk.CTkLabel(parent); label.grid(row=row, column=0, padx=14, pady=(4, 0), sticky="w")
+        ctk.CTkSlider(parent, from_=start, to=end, number_of_steps=end-start, variable=variable, command=self.changed).grid(row=row+1, column=0, padx=14, pady=(1, 3), sticky="ew")
+        return label
+
+    def _load_image_welcome(self) -> None:
+        try:
+            with Image.open(welcome_image_path()) as opened: self.welcome_image = opened.convert("RGBA")
+        except OSError:
+            self.welcome_illustration.configure(text="◇")
+
+    def _resize_image_welcome(self, event=None) -> None:
+        if self.welcome_image is None: return
+        width = max(240, (event.width if event else self.welcome_frame.winfo_width()) - 48); height = max(135, (event.height if event else self.welcome_frame.winfo_height()) - 210)
+        ratio = min(width / self.welcome_image.width, height / self.welcome_image.height); size = (max(1, int(self.welcome_image.width * ratio)), max(1, int(self.welcome_image.height * ratio)))
+        self.welcome_photo = ctk.CTkImage(light_image=self.welcome_image, dark_image=self.welcome_image, size=size); self.welcome_illustration.configure(image=self.welcome_photo, text="")
+
+    def _show_welcome(self) -> None:
+        self.preview_label.grid_remove(); self.welcome_frame.grid(row=0, column=0, padx=18, pady=14, sticky="nsew"); self._resize_image_welcome()
+
+    def _show_preview(self) -> None:
+        self.welcome_frame.grid_remove(); self.preview_label.grid(row=0, column=0, padx=12, pady=12, sticky="nsew")
 
     def apply_image_translations(self) -> None:
         t = self.translator.text
@@ -1708,12 +1760,12 @@ class MarkerApp(ctk.CTk):
         self.reset_button.configure(text=t("button.reset")); self.guide_button.configure(text=t("button.user_guide"))
         self.open_button.configure(text="1. " + t("button.open_media")); self.process_button.configure(text=t("button.process"))
         self.file_label.configure(text=t("files.none") if not self.sources else t("files.selected", count=len(self.sources), name=self.sources[0].name)); self.file_size_guidance.configure(text=t("files.size_guidance"))
-        self.single_badge_label.configure(text="2. " + t("badge"))
+        self.badge_enable.configure(text=t("pdf.add_badge")); self.single_badge_label.configure(text="2. " + t("badge"))
         self.position_display_to_value = {t("position.top_left"): "top-left", t("position.top_right"): "top-right", t("position.bottom_left"): "bottom-left", t("position.bottom_right"): "bottom-right", t("position.center"): "center"}
         self.position_menu.configure(values=list(self.position_display_to_value)); self.position_display_var.set(next((label for label, value in self.position_display_to_value.items() if value == self.position_var.get()), t("position.bottom_right")))
         self.logo_position_display_to_value = dict(self.position_display_to_value); self.logo_position_menu.configure(values=list(self.logo_position_display_to_value)); self.logo_position_display_var.set(next((label for label, value in self.logo_position_display_to_value.items() if value == self.logo_position_var.get()), t("position.top_left")))
         self.position_label.configure(text="3. " + t("position")); self._update_image_slider_labels()
-        self.logo_heading.configure(text=t("logo.title")); self.logo_enable.configure(text=t("logo.enable")); self.logo_choose.configure(text=t("logo.choose")); self.logo_position_label.configure(text=t("logo.position")); self.logo_images_only.configure(text=t("logo.images_only")); self._update_logo_labels(); self._update_logo_controls()
+        self.logo_heading.configure(text=t("logo.title")); self.logo_enable.configure(text=t("logo.enable")); self.logo_choose.configure(text=t("logo.choose")); self.logo_position_label.configure(text=t("logo.position")); self.logo_images_only.configure(text=t("logo.images_only")); self._update_logo_labels(); self._update_logo_controls(); self._update_badge_controls()
         self.welcome_title.configure(text=t("welcome.title")); self.welcome_tagline.configure(text=t("welcome.tagline")); self.welcome_description1.configure(text=t("welcome.description1")); self.welcome_description2.configure(text=t("welcome.description2"))
 
     def change_image_language(self, name: str) -> None:
@@ -1728,6 +1780,14 @@ class MarkerApp(ctk.CTk):
 
     def changed(self, *_args) -> None:
         self._update_image_slider_labels(); self._update_logo_labels(); self.update_preview(); self._save()
+
+    def badge_enabled_changed(self) -> None:
+        self._update_badge_controls(); self.update_preview(); self._save()
+
+    def _update_badge_controls(self) -> None:
+        enabled = self.badge_enabled_var.get()
+        self.badge_menu.configure(state="normal" if enabled else "disabled")
+        self.single_badge_preview_label.configure(text="" if enabled else "—", image=self.single_badge_photo if enabled else None)
 
     def change_position_display(self, label: str) -> None:
         self.position_var.set(self.position_display_to_value[label]); self.changed()
@@ -1745,8 +1805,23 @@ class MarkerApp(ctk.CTk):
         self.logo_filename_var.set(Path(self.logo_path_var.get()).name if self.logo_path_var.get() else "—")
 
     def _validate_saved_logo(self) -> None:
-        if self.logo_enabled_var.get() and not self._logo_path(): self.logo_enabled_var.set(False)
+        if self.logo_enabled_var.get() and not self._logo_path():
+            self.logo_enabled_var.set(False); self.status_var.set(self.translator.text("logo.missing")); self._save()
         self._update_logo_controls()
+
+    def _logo_path(self) -> Path | None:
+        path = Path(self.logo_path_var.get()).expanduser() if self.logo_path_var.get() else None
+        return path if path and path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS else None
+
+    def choose_logo(self) -> None:
+        selected = filedialog.askopenfilename(title=self.translator.text("logo.choose"), filetypes=[(self.translator.text("logo.supported"), "*.png *.jpg *.jpeg *.webp"), (self.translator.text("files.all"), "*.*")])
+        if not selected: return
+        path = Path(selected)
+        try:
+            with Image.open(path) as opened: opened.verify()
+        except (OSError, Image.UnidentifiedImageError):
+            messagebox.showerror(self.translator.text("error.title"), self.translator.text("logo.invalid")); return
+        self.logo_path_var.set(str(path)); self.logo_enabled_var.set(True); self.logo_changed()
 
     def logo_changed(self, *_args) -> None:
         if self.logo_enabled_var.get() and not self._logo_path(): self.logo_enabled_var.set(False); self.status_var.set(self.translator.text("logo.missing"))
@@ -1781,11 +1856,53 @@ class MarkerApp(ctk.CTk):
         if not selected: return
         candidates = [Path(path) for path in selected if Path(path).suffix.lower() in SUPPORTED_EXTENSIONS]
         if any(is_above_recommended_size(path) for path in candidates) and not messagebox.askokcancel(self.translator.text("warning.large_title"), self.translator.text("warning.large_file")): return
-        self.sources = candidates; self.media_sources["image"] = list(candidates)
-        self.file_label.configure(text=self.translator.text("files.selected", count=len(candidates), name=candidates[0].name) if candidates else self.translator.text("files.none_supported")); self.update_preview()
+        self.sources = candidates
+        if candidates:
+            self.file_label.configure(text=f"{candidates[0].name} · {human_file_size(candidates[0].stat().st_size)}")
+        else:
+            self.file_label.configure(text=self.translator.text("files.none_supported"))
+        self.update_preview()
+
+    def update_preview(self) -> None:
+        if not self.sources:
+            self.preview_photo = self.preview_image = None; self._show_welcome(); return
+        badge = self.badges.find(self.badge_var.get()) if self.badge_enabled_var.get() else None
+        logo = self._logo_path() if self.logo_enabled_var.get() else None
+        self._show_preview()
+        try:
+            image = self.preview_renderer.render(self.sources[0], badge, self.settings(), logo)
+            self.preview_image = image.copy(); self.preview_photo = ctk.CTkImage(light_image=self.preview_image, dark_image=self.preview_image, size=self.preview_image.size)
+            self.preview_label.configure(image=self.preview_photo, text=""); self.preview_label.image = self.preview_photo
+        except (OSError, ValueError) as error:
+            self.preview_label.configure(image=None, text=self.translator.text("error.preview", error=error))
+
+    def save_images(self) -> None:
+        badge = self.badges.find(self.badge_var.get()) if self.badge_enabled_var.get() else None
+        logo = self._logo_path() if self.logo_enabled_var.get() else None
+        if not self.sources or (badge is None and logo is None):
+            messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("warning.nothing_to_save")); return
+        saved, failures, metadata_warnings = [], [], []
+        metadata = marker_metadata(self.badge_var.get(), self.badge_name_var.get()) if badge else None
+        for source in self.sources:
+            suggested = source.with_name(f"{source.stem}_ai{source.suffix}")
+            selected = filedialog.asksaveasfilename(title=self.translator.text("dialog.save_as"), initialdir=str(source.parent), initialfile=suggested.name, defaultextension=source.suffix, filetypes=[(self.translator.text("files.supported"), f"*{source.suffix}"), (self.translator.text("files.all"), "*.*")], confirmoverwrite=True)
+            if not selected: continue
+            try:
+                written = self.processor.save(self.processor.process(source, badge, self.settings(), logo), Path(selected), metadata)
+                saved.append(Path(selected))
+                if metadata and not written: metadata_warnings.append(source.name)
+            except (OSError, ValueError) as error:
+                failures.append(f"{source.name}: {error}")
+        summary = self.translator.text("process.summary", saved=len(saved), total=len(self.sources)); self.status_var.set(summary)
+        warning = "\n\n" + self.translator.text("warning.metadata_failed") if metadata_warnings else ""
+        (messagebox.showerror if failures else messagebox.showinfo)(self.translator.text("error.completed") if failures else self.translator.text("complete.title"), summary + ("\n\n" + "\n".join(failures[:8]) if failures else "") + warning)
+
+    def settings(self) -> MarkerSettings:
+        return replace(self._saved_settings, badge_name=self.badge_var.get(), position=self.position_var.get(), size_percent=self.size_var.get(), margin=self.margin_var.get(), opacity=self.opacity_var.get(), language=self.translator.language, badge_source=self.badge_source_var.get(), custom_badge_folder=self.custom_badge_var.get(), logo_enabled=self.logo_enabled_var.get(), logo_path=self.logo_path_var.get(), logo_position=self.logo_position_var.get(), logo_size_percent=self.logo_size_var.get(), logo_margin=self.logo_margin_var.get(), logo_opacity=self.logo_opacity_var.get()).validated()
 
     def _save(self) -> None:
-        try: self.config_store.save(self.settings())
+        try:
+            self._saved_settings = self.settings(); self.config_store.save(self._saved_settings)
         except OSError: pass
 
 
