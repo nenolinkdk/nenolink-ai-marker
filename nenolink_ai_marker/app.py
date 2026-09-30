@@ -1623,7 +1623,7 @@ class MarkerApp(ctk.CTk):
         if source == "video" and event != "video":
             self._unmount_video_workspace()
         if source == "pdf" and event != "pdf":
-            self.pdf_path = self.pdf_info = None
+            self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None
         self.shell_controller.dispatch(event)
         self.render_shell_state()
 
@@ -1631,7 +1631,7 @@ class MarkerApp(ctk.CTk):
         if self.shell_controller.active_content_type == "video":
             self._unmount_video_workspace()
         elif self.shell_controller.active_content_type == "pdf":
-            self.pdf_path = self.pdf_info = None
+            self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None
         else:
             self._unmount_image_workspace()
         self.shell_controller.dispatch("reset")
@@ -1698,7 +1698,7 @@ class MarkerApp(ctk.CTk):
         self.logo_position_var = ctk.StringVar(value=saved.logo_position); self.logo_position_display_var = ctk.StringVar()
         self.logo_size_var = ctk.IntVar(value=saved.logo_size_percent); self.logo_margin_var = ctk.IntVar(value=saved.logo_margin); self.logo_opacity_var = ctk.IntVar(value=saved.logo_opacity)
         self.badge_source_var = ctk.StringVar(value=saved.badge_source); self.custom_badge_var = ctk.StringVar(value=saved.custom_badge_folder)
-        self.pdf_path = None; self.pdf_info = None; self.pdf_processor = PdfProcessor()
+        self.pdf_path = None; self.pdf_info = None; self.pdf_processor = PdfProcessor(); self.pdf_current_page = 0; self.pdf_preview_photo = None
 
     def _clear_content_host(self) -> None:
         for child in self.content_host.winfo_children():
@@ -1716,6 +1716,11 @@ class MarkerApp(ctk.CTk):
         ctk.CTkLabel(self.pdf_workspace, text="PDF", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0, column=0, pady=(8, 4), sticky="w")
         self.pdf_choose_button = ctk.CTkButton(self.pdf_workspace, text="Choose PDF", command=self.choose_pdf_phase2); self.pdf_choose_button.grid(row=1, column=0, pady=(4, 8), sticky="w")
         self.pdf_file_label = ctk.CTkLabel(self.pdf_workspace, text="No PDF selected", text_color="gray60", anchor="w"); self.pdf_file_label.grid(row=2, column=0, pady=4, sticky="w")
+        self.pdf_preview_label = ctk.CTkLabel(self.pdf_workspace, text="", fg_color=("gray92", "gray13"), width=680, height=240); self.pdf_preview_label.grid(row=3, column=0, pady=(12, 4), sticky="ew")
+        nav = ctk.CTkFrame(self.pdf_workspace, fg_color="transparent"); nav.grid(row=4, column=0, pady=4)
+        self.pdf_previous_button = ctk.CTkButton(nav, text="◀", width=42, command=lambda: self.change_pdf_page(-1)); self.pdf_previous_button.grid(row=0, column=0, padx=4)
+        self.pdf_page_status = ctk.CTkLabel(nav, text="—", width=120); self.pdf_page_status.grid(row=0, column=1, padx=4)
+        self.pdf_next_button = ctk.CTkButton(nav, text="▶", width=42, command=lambda: self.change_pdf_page(1)); self.pdf_next_button.grid(row=0, column=2, padx=4)
 
     def choose_pdf_phase2(self) -> None:
         selected = filedialog.askopenfilename(title="Choose PDF", filetypes=[("PDF (*.pdf)", "*.pdf")])
@@ -1728,10 +1733,30 @@ class MarkerApp(ctk.CTk):
         except (OSError, ValueError) as error:
             messagebox.showerror("PDF", f"Could not read PDF: {error}"); return
         self.pdf_path, self.pdf_info = path, info
+        self.pdf_current_page = 1; self.pdf_preview_photo = None
         size = human_file_size(info.metrics.size_bytes)
         signed = "\nWarning: existing digital signatures may be invalidated when modified." if info.signed else ""
         self.pdf_file_label.configure(text=f"{path.name}\n{size} · {info.metrics.item_count} pages{signed}")
         self.status_var.set(f"PDF loaded: {path.name}")
+        self.render_pdf_preview()
+
+    def render_pdf_preview(self) -> None:
+        if not self.pdf_path or not self.pdf_info or not getattr(self, "pdf_preview_label", None): return
+        try:
+            result = self.pdf_preview_renderer.render(self.pdf_path, self.pdf_current_page, None, self.settings())
+            self.pdf_current_page = result.page_number
+            self.pdf_preview_photo = ctk.CTkImage(light_image=result.image, dark_image=result.image, size=result.image.size)
+            self.pdf_preview_label.configure(image=self.pdf_preview_photo, text="")
+            self.pdf_page_status.configure(text=f"{self.pdf_current_page} / {self.pdf_info.metrics.item_count}")
+            self.pdf_previous_button.configure(state="normal" if self.pdf_current_page > 1 else "disabled")
+            self.pdf_next_button.configure(state="normal" if self.pdf_current_page < self.pdf_info.metrics.item_count else "disabled")
+        except (OSError, ValueError) as error:
+            self.pdf_preview_label.configure(image=None, text=f"Could not render PDF page: {error}")
+
+    def change_pdf_page(self, delta: int) -> None:
+        if not self.pdf_info: return
+        self.pdf_current_page = max(1, min(self.pdf_info.metrics.item_count, self.pdf_current_page + delta))
+        self.render_pdf_preview()
 
     def _mount_image_workspace(self) -> None:
         if self.image_workspace is not None and self.image_workspace.winfo_exists():
