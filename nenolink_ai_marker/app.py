@@ -135,16 +135,16 @@ class MarkerApp(ctk.CTk):
         self.language_menu=ctk.CTkOptionMenu(header,variable=self.language_var,values=list(LANGUAGES),command=self.change_language,width=150); self.language_menu.grid(row=0,column=2,padx=8)
         self.reset_button=ctk.CTkButton(header,text="",command=self.reset_application,width=100); self.reset_button.grid(row=0,column=3,padx=8)
         self.guide_button=ctk.CTkButton(header,text="",command=self.open_guide,width=170); self.guide_button.grid(row=0,column=4,padx=(8,20))
-        self.content_display_to_kind={}; self.media_navigation_var=ctk.StringVar(); self.document_navigation_var=ctk.StringVar()
+        self.content_display_to_kind={}; self.content_buttons={}
         self.content_navigation_frame=ctk.CTkFrame(self,height=1,fg_color=("gray90","gray18"),corner_radius=8); self.content_navigation_frame.grid(row=1,column=0,padx=20,pady=0,sticky="nw")
         group_font=ctk.CTkFont(size=13,weight="bold")
         media_group=ctk.CTkFrame(self.content_navigation_frame,height=1,fg_color="transparent"); media_group.grid(row=0,column=0,padx=(8,6),pady=(3,3),sticky="w")
         self.media_group_label=ctk.CTkLabel(media_group,text="",text_color=("gray35","gray75"),font=group_font,height=16); self.media_group_label.grid(row=0,column=0,pady=0,sticky="w")
-        self.media_navigation=ctk.CTkSegmentedButton(media_group,variable=self.media_navigation_var,values=["Images","Video"],command=self.change_content_workspace,width=150,height=26,dynamic_resizing=True); self.media_navigation.grid(row=1,column=0,pady=0,sticky="w")
+        self.media_navigation=ctk.CTkFrame(media_group,fg_color="transparent"); self.media_navigation.grid(row=1,column=0,pady=0,sticky="w")
         ctk.CTkFrame(self.content_navigation_frame,width=1,height=1,fg_color=("gray72","gray35")).grid(row=0,column=1,padx=4,pady=4,sticky="ns")
         documents_group=ctk.CTkFrame(self.content_navigation_frame,height=1,fg_color="transparent"); documents_group.grid(row=0,column=2,padx=(6,8),pady=(3,3),sticky="w")
         self.documents_group_label=ctk.CTkLabel(documents_group,text="",text_color=("gray35","gray75"),font=group_font,height=16); self.documents_group_label.grid(row=0,column=0,pady=0,sticky="w")
-        self.document_navigation=ctk.CTkSegmentedButton(documents_group,variable=self.document_navigation_var,values=["PDF","PowerPoint / Slides"],command=self.change_content_workspace,height=26,dynamic_resizing=True); self.document_navigation.grid(row=1,column=0,pady=0,sticky="w")
+        self.document_navigation=ctk.CTkFrame(documents_group,fg_color="transparent"); self.document_navigation.grid(row=1,column=0,pady=0,sticky="w")
         ctk.CTkFrame(self.content_navigation_frame,width=1,height=1,fg_color=("gray72","gray35")).grid(row=0,column=3,padx=4,pady=4,sticky="ns")
         tools_group=ctk.CTkFrame(self.content_navigation_frame,height=1,fg_color="transparent"); tools_group.grid(row=0,column=4,padx=(6,8),pady=(3,3),sticky="w")
         self.tools_group_label=ctk.CTkLabel(tools_group,text="",text_color=("gray35","gray75"),font=group_font,height=16); self.tools_group_label.grid(row=0,column=0,pady=0,sticky="w")
@@ -155,7 +155,10 @@ class MarkerApp(ctk.CTk):
         # selector is only the compact secondary navigation for media.
         self.tab_names={"single":self.translator.text("tab.single"),"batch":self.translator.text("tab.batch"),"badges":self.translator.text("tab.badges"),"inspect":self.translator.text("tab.inspect"),"pdf":"__pdf_context__","pptx":"__pptx_context__"}
         self.single_tab=self.tabs.add(self.tab_names["single"]); self.batch_tab=self.tabs.add(self.tab_names["batch"]); self.settings_tab=self.tabs.add(self.tab_names["badges"]); self.inspect_tab=self.tabs.add(self.tab_names["inspect"]); self.pdf_tab=self.tabs.add(self.tab_names["pdf"]); self.pptx_tab=self.tabs.add(self.tab_names["pptx"])
-        self._single_ui(); self._document_ui(); self._batch_ui(); self._settings_ui(); self._inspect_ui()
+        # Only the active content owns live widgets.  PDF/PPTX contexts are
+        # created by the central transition controller, never by navigation.
+        self._single_ui(); self._batch_ui(); self._settings_ui(); self._inspect_ui()
+        self.pdf_context_widgets=None; self.pptx_context_widgets=None
         footer=ctk.CTkFrame(self,corner_radius=0,fg_color="transparent"); footer.grid(row=2,column=0,padx=20,pady=(0,8),sticky="ew"); footer.grid_columnconfigure(1,weight=1)
         footer_left=ctk.CTkFrame(footer,corner_radius=0,fg_color="transparent"); footer_left.grid(row=0,column=0,sticky="w")
         self.footer_copyright_label=ctk.CTkLabel(footer_left,text=f"© Copyright Henrik Nielsen - nenolink.com · v{__version__} ·",text_color="gray60"); self.footer_copyright_label.grid(row=0,column=0,sticky="w")
@@ -258,14 +261,11 @@ class MarkerApp(ctk.CTk):
         "pptx_process_button",
     )
 
-    def _document_ui(self) -> None:
-        self.pdf_context_widgets=self._document_context_ui(self.pdf_tab)
-        self.pptx_context_widgets=self._document_context_ui(self.pptx_tab)
-        self._bind_document_context_widgets("pptx")
-
     def _bind_document_context_widgets(self, format_type: str) -> None:
         """Bind generic document actions to the visible, direct context."""
         context=self.pdf_context_widgets if format_type=="pdf" else self.pptx_context_widgets
+        if context is None:
+            return
         for name,value in vars(context).items():
             setattr(self,name,value)
 
@@ -451,7 +451,7 @@ class MarkerApp(ctk.CTk):
         t=self.translator.text; self.title(f"Nenolink AI Marker {__version__}"); self.guide_button.configure(text=t("button.user_guide")); self.reset_button.configure(text=t("button.reset")); self.batch_back_button.configure(text=t("button.back")); self.badges_back_button.configure(text=t("button.back")); self.inspect_back_button.configure(text=t("button.back")); self.automatic_update_checkbox.configure(text=t("update.automatic")); self.footer_update_link.configure(text=t("update.check")); self.update_privacy_label.configure(text=t("update.privacy")); self.desktop_shortcut_button.configure(text=t("shortcut.create")); self._render_update_notification()
         content_pairs=(("image","content.images"),("video","content.video"),("pdf","content.pdf"),("pptx","content.powerpoint"))
         self.content_display_to_kind={t(key):kind for kind,key in content_pairs}
-        self.media_navigation.configure(values=[t("content.images"),t("content.video")]); self.document_navigation.configure(values=[t("content.pdf"),t("content.powerpoint")])
+        self._build_content_navigation()
         self.media_group_label.configure(text=t("content.media_group")); self.documents_group_label.configure(text=t("content.documents_group")); self.tools_group_label.configure(text=t("content.tools_group")); self.tools_navigation.configure(values=[t("tab.badges"),t("tab.inspect")])
         for key,translation_key in (("single","tab.single"),("batch","tab.batch"),("badges","tab.badges"),("inspect","tab.inspect")):
             new=t(translation_key); old=self.tab_names[key]
@@ -475,38 +475,23 @@ class MarkerApp(ctk.CTk):
         self.scan_button.configure(text=t("button.scan_folder")); self.start_batch_button.configure(text=t("button.start_batch")); self.cancel_batch_button.configure(text=t("button.cancel_batch"))
         self.inspect_title.configure(text=t("inspect.title")); self.inspect_intro.configure(text=t("inspect.intro")); self.inspect_choose_button.configure(text=t("inspect.choose")); self.inspect_selected_heading.configure(text=t("inspect.selected")); self.inspect_file_label.configure(text=t("inspect.file")); self.inspect_format_label.configure(text=t("inspect.format_size")); self.inspect_metadata_heading.configure(text=t("inspect.metadata")); self.inspect_status_label.configure(text=t("inspect.status")); self.inspect_software_label.configure(text=t("inspect.software")); self.inspect_ai_label.configure(text=t("inspect.ai_label")); self.inspect_marker_version_label.configure(text=t("inspect.marker_version")); self._render_inspection()
         self._synchronize_document_widgets()
-        is_pdf=self.active_content_type=="pdf"; is_docx=False; badge_optional=is_pdf
-        self.pptx_choose_button.configure(text=t("docx.choose") if is_docx else t("pdf.choose") if is_pdf else t("pptx.choose")); self.pptx_badge_label.configure(text=t("badge")); self.pdf_badge_enable.configure(text=t("docx.add_badge") if is_docx else t("pdf.add_badge")); self.pptx_badge_label.grid_remove() if badge_optional else self.pptx_badge_label.grid(); self.pdf_badge_enable.grid() if badge_optional else self.pdf_badge_enable.grid_remove(); self.pptx_badge_menu.configure(state="normal" if not badge_optional or self.pdf_badge_enabled_var.get() else "disabled"); self.pptx_position_label.configure(text=t("position")); self.pptx_size_label.configure(text=t("size.value",value=self.size_var.get())); self.pptx_opacity_label.configure(text=t("opacity.value",value=self.opacity_var.get())); self.pptx_margin_label.configure(text=t("margin.value",value=self.margin_var.get())); self.pptx_logo_enable.configure(text=t("logo.enable")); self.pptx_logo_choose.configure(text=t("logo.choose")); self.pptx_logo_size_label.configure(text=t("logo.size",value=self.logo_size_var.get())); self.pptx_logo_margin_label.configure(text=t("logo.margin",value=self.logo_margin_var.get())); self.pptx_logo_opacity_label.configure(text=t("logo.opacity",value=self.logo_opacity_var.get()))
-        self.pptx_badge_menu.configure(values=list(self.badge_display_to_file) or [t("badge.none")])
-        if is_docx:
-            self.docx_position_display_to_value={t("docx.position.left"):"bottom-left",t("docx.position.center"):"center",t("docx.position.right"):"bottom-right"}
-            self.pptx_position_menu.configure(values=list(self.docx_position_display_to_value)); self.pptx_logo_position_menu.configure(values=list(self.docx_position_display_to_value))
-            badge_alignment="center" if self.position_var.get()=="center" else "bottom-left" if self.position_var.get().endswith("left") else "bottom-right"
-            logo_alignment="center" if self.logo_position_var.get()=="center" else "bottom-left" if self.logo_position_var.get().endswith("left") else "bottom-right"
-            self.position_display_var.set(next(label for label,value in self.docx_position_display_to_value.items() if value==badge_alignment))
-            self.logo_position_display_var.set(next(label for label,value in self.docx_position_display_to_value.items() if value==logo_alignment))
-            self.pptx_margin_label.grid_remove(); self.pptx_margin_slider.grid_remove(); self.pptx_logo_margin_label.grid_remove(); self.pptx_logo_margin_slider.grid_remove()
-        else:
-            self.pptx_position_menu.configure(values=list(self.position_display_to_value)); self.pptx_logo_position_menu.configure(values=list(self.logo_position_display_to_value))
-            self.pptx_margin_label.grid(); self.pptx_margin_slider.grid(); self.pptx_logo_margin_label.grid(); self.pptx_logo_margin_slider.grid()
-        if self.active_content_type in {"pdf","pptx"}:self._sync_document_scope_controls(self.active_content_type)
-        scope_prefix="pdf.scope" if is_pdf else "pptx.scope"
-        if is_docx:
-            self.pptx_scope_label.configure(text=t("docx.scope")); self.pptx_selection_display_to_value={t("docx.scope.first"):"first-page",t("docx.scope.all"):"entire-document"}; self.pptx_selection_menu.configure(values=list(self.pptx_selection_display_to_value)); self.pptx_selection_display_var.set(next((label for label,value in self.pptx_selection_display_to_value.items() if value==self.docx_scope_var.get()),t("docx.scope.all")))
-        else:
-            self.pptx_scope_label.configure(text=t(scope_prefix)); self.pptx_selection_display_to_value={t(scope_prefix+".first"):"first",t(scope_prefix+".selected"):"selected",t(scope_prefix+".range"):"range",t(scope_prefix+".all"):"all"}; self.pptx_selection_menu.configure(values=list(self.pptx_selection_display_to_value)); self.pptx_selection_display_var.set(next((label for label,value in self.pptx_selection_display_to_value.items() if value==self.pptx_selection_mode_var.get()),t(scope_prefix+".all")))
-        self.pptx_selected_label.configure(text=t("pdf.selected_hint") if is_pdf else t("pptx.selected_hint")); self.pptx_range_label.configure(text=t("pdf.range_hint") if is_pdf else t("pptx.range_hint")); self.pptx_selected_update_button.configure(text=t("document.scope_update")); self.pptx_range_update_button.configure(text=t("document.scope_update")); self.pptx_language_label.configure(text=t("pptx.output_language")); self.pptx_metadata_note.configure(text=t("pdf.metadata_note") if is_pdf else t("pptx.metadata_note")); self.pptx_process_button.configure(text=t("pdf.process") if is_pdf else t("pptx.process")); self.pptx_language_label.grid_remove() if is_pdf else self.pptx_language_label.grid(); self.pptx_language_menu.grid_remove() if is_pdf else self.pptx_language_menu.grid(); self.pptx_selection_menu.grid(); self.pptx_preview_navigation.grid(); self._set_active_document_summary(); self._update_pptx_selection_fields(); self._update_pptx_logo_controls(); self.update_pptx_preview(); MarkerApp._render_authoritative_state(self)
 
     def change_language(self,name): self.translator.set_language(LANGUAGES.get(name,"en")); self.apply_translations(); self._save()
+    def _build_content_navigation(self):
+        """Build passive buttons: only the controller is allowed to select one."""
+        for frame, kinds in ((self.media_navigation, ("image", "video")), (self.document_navigation, ("pdf", "pptx"))):
+            for child in frame.winfo_children(): child.destroy()
+            for column, kind in enumerate(kinds):
+                label=next(label for label, value in self.content_display_to_kind.items() if value==kind)
+                button=ctk.CTkButton(frame, text=label, height=26, width=0,
+                    command=lambda destination=kind: self.request_content_transition(destination))
+                button.grid(row=0,column=column,padx=(0 if column==0 else 3,0),pady=0,sticky="w")
+                self.content_buttons[kind]=button
+
     def change_content_workspace(self,label):
-        target=self.content_display_to_kind.get(label)
-        if target is None:
-            MarkerApp._render_authoritative_state(self); return False
-        # CTkSegmentedButton updates its visual variable before it invokes the
-        # command. Restore the projection of the authoritative state while a
-        # possible loss-of-work confirmation is pending.
-        MarkerApp._set_format_navigation(self,None if self.active_tool else self.active_content_type)
-        return MarkerApp.request_content_transition(self,target)
+        """Compatibility entry point for tests/old callers; it owns no UI state."""
+        target=self.content_display_to_kind.get(label, label if label in {"image","video","pdf","pptx"} else None)
+        return self.request_content_transition(target) if target else False
 
     def request_content_transition(self,destination):
         """Authoritative transition controller for the four content states."""
@@ -525,11 +510,43 @@ class MarkerApp(ctk.CTk):
             return True
         finally:MarkerApp._ensure_global_controls_enabled(self)
 
+    def _destroy_context_widgets(self, content_type):
+        """Remove every format-owned widget before another format can render."""
+        if not hasattr(self,"single_tab"):
+            return
+        tabs={"image":(self.single_tab,self.batch_tab), "video":(self.single_tab,self.batch_tab),
+              "pdf":(self.pdf_tab,), "pptx":(self.pptx_tab,)}
+        for tab in tabs.get(content_type, ()):
+            for child in tab.winfo_children(): child.destroy()
+        if content_type in {"image","video"}:
+            for name in ("single_controls","preview_label","welcome_frame","video_controls","open_button","badge_menu"):
+                setattr(self,name,None)
+        elif content_type in {"pdf","pptx"}:
+            setattr(self, f"{content_type}_context_widgets", None)
+            for name in self._document_widget_names: setattr(self,name,None)
+
+    def _create_context_widgets(self, content_type):
+        if not hasattr(self,"single_tab"):
+            return
+        if content_type in {"image","video"}:
+            self._single_ui(); self._batch_ui()
+        else:
+            tab=self.pdf_tab if content_type=="pdf" else self.pptx_tab
+            context=self._document_context_ui(tab)
+            setattr(self, f"{content_type}_context_widgets", context)
+            self._bind_document_context_widgets(content_type)
+
     def destroy_runtime_context(self,content_type):
         self.reset_format_context(content_type)
+        MarkerApp._destroy_context_widgets(self,content_type)
         if self.active_runtime_context_type==content_type:self.active_runtime_context_type=None
+
     def initialize_clean_context(self,content_type):
-        self.reset_format_context(content_type); self.active_runtime_context_type=content_type
+        # A destination is recreated, rather than resurrected from a hidden tab.
+        MarkerApp._destroy_context_widgets(self,content_type)
+        self.reset_format_context(content_type)
+        self.active_runtime_context_type=content_type
+        MarkerApp._create_context_widgets(self,content_type)
 
     def _render_authoritative_state(self):
         """Project authoritative state into widgets; widgets never own it."""
@@ -540,7 +557,9 @@ class MarkerApp(ctk.CTk):
         self.tools_navigation.set(""); MarkerApp._set_format_navigation(self,self.active_content_type)
         self._configure_secondary_navigation("single")
         if self.active_content_type in {"image","video"}:
-            self.video_controls.grid() if self.active_content_type=="video" else self.video_controls.grid_remove(); self._update_logo_controls(); self.update_preview()
+            if self.video_controls is not None:
+                self.video_controls.grid() if self.active_content_type=="video" else self.video_controls.grid_remove()
+            self._update_logo_controls(); self.update_preview()
         else:self._render_active_document()
         self.visible_workspace_type=self.active_content_type
         MarkerApp._validate_content_invariant(self)
@@ -552,9 +571,9 @@ class MarkerApp(ctk.CTk):
         return False
 
     def _set_format_navigation(self,format_type):
-        label=next((label for label,kind in self.content_display_to_kind.items() if kind==format_type),"")
-        self.media_navigation_var.set(label if format_type in {"image","video"} else "")
-        self.document_navigation_var.set(label if format_type in {"pdf","pptx"} else "")
+        for kind, button in getattr(self,"content_buttons",{}).items():
+            selected=kind==format_type
+            button.configure(fg_color=("#2474ad","#1f6aa5") if selected else ("#6b6b6b","#454545"))
 
     def _confirm_format_switch(self,source,target):
         result={"continue":False}; dialog=ctk.CTkToplevel(self); self._format_switch_dialog=dialog; dialog.title(self.translator.text("navigation.switch_title")); dialog.transient(self); dialog.resizable(False,False)
@@ -580,20 +599,25 @@ class MarkerApp(ctk.CTk):
         if format_type in {"image","video"}:
             self.media_sources[format_type]=[]
             if self.active_content_type==format_type:self.sources=[]
-            self.preview_photo=None; self.preview_image=None; self.preview_renderer.clear()
+            self.preview_photo=None; self.preview_image=None
+            renderer=getattr(self,"preview_renderer",None)
+            if renderer is not None:renderer.clear()
             if hasattr(self,"status_var"):self.status_var.set("")
             return
         if format_type not in {"pdf","pptx","docx"}:return
         if not hasattr(self,"document_scope_states"):self.document_scope_states={"pdf":DocumentScopeState(),"pptx":DocumentScopeState()}
         if format_type in self.document_scope_states:self.document_scope_states[format_type].reset(scope)
-        if self.active_content_type==format_type:MarkerApp._sync_document_scope_controls(self,format_type)
+        if self.active_content_type==format_type and hasattr(self,"pptx_selection_mode_var"):MarkerApp._sync_document_scope_controls(self,format_type)
         self.pptx_preview_photo=None
         if format_type=="pdf":
-            self._pdf_warning_approved=None; self._pdf_signature_approved=None; self.pdf_preview_renderer=PdfPreviewRenderer(self.processor)
+            self._pdf_warning_approved=None; self._pdf_signature_approved=None
+            if hasattr(self,"processor"):self.pdf_preview_renderer=PdfPreviewRenderer(self.processor)
             if not keep_file:self.pdf_path=None; self.pdf_info=None; self.pdf_preview_state.clear()
             elif self.pdf_info:self.pdf_preview_state.initialize(self.pdf_info.metrics.item_count)
         elif format_type=="pptx":
-            self._pptx_warning_approved=None; self.pptx_preview_renderer.clear()
+            self._pptx_warning_approved=None
+            renderer=getattr(self,"pptx_preview_renderer",None)
+            if renderer is not None:renderer.clear()
             if not keep_file:self.pptx_path=None; self.pptx_metrics=None; self.pptx_preview_state.clear()
             elif self.pptx_metrics:self.pptx_preview_state.initialize(self.pptx_metrics.item_count)
         else:
@@ -603,10 +627,10 @@ class MarkerApp(ctk.CTk):
             display=next((label for label,value in self.pptx_selection_display_to_value.items() if value==scope),None)
             if display:self.pptx_selection_display_var.set(display)
         if format_type in {"pdf","pptx"} and hasattr(self,"pptx_selected_frame"):self._update_pptx_selection_fields()
-        if hasattr(self,"pptx_preview_label"):self.pptx_preview_label.configure(image=None,text="")
-        if hasattr(self,"pptx_slide_status"):self.pptx_slide_status.configure(text="")
-        if hasattr(self,"pptx_scope_validation_label"):self.pptx_scope_validation_label.configure(text="")
-        if hasattr(self,"pptx_previous_button"):self.pptx_previous_button.configure(state="disabled"); self.pptx_next_button.configure(state="disabled")
+        if getattr(self,"pptx_preview_label",None):self.pptx_preview_label.configure(image=None,text="")
+        if getattr(self,"pptx_slide_status",None):self.pptx_slide_status.configure(text="")
+        if getattr(self,"pptx_scope_validation_label",None):self.pptx_scope_validation_label.configure(text="")
+        if getattr(self,"pptx_previous_button",None):self.pptx_previous_button.configure(state="disabled"); self.pptx_next_button.configure(state="disabled")
         if hasattr(self,"status_var"):self.status_var.set("")
 
     def _sync_document_scope_controls(self,format_type):
@@ -673,6 +697,12 @@ class MarkerApp(ctk.CTk):
         self.pptx_file_label.configure(textvariable=self.pdf_file_var if is_pdf else self.pptx_file_var)
         self.pptx_choose_button.configure(text=t("pdf.choose") if is_pdf else t("pptx.choose"))
         self.pptx_badge_label.configure(text=t("badge")); self.pdf_badge_enable.configure(text=t("pdf.add_badge"))
+        value=lambda name, default: getattr(getattr(self,name,None),"get",lambda:default)()
+        for name, text in (("pptx_position_label",t("position")),("pptx_size_label",t("size.value",value=value("size_var",0))),("pptx_opacity_label",t("opacity.value",value=value("opacity_var",0))),("pptx_margin_label",t("margin.value",value=value("margin_var",0))),("pptx_logo_enable",t("logo.enable")),("pptx_logo_choose",t("logo.choose")),("pptx_logo_size_label",t("logo.size",value=value("logo_size_var",0))),("pptx_logo_margin_label",t("logo.margin",value=value("logo_margin_var",0))),("pptx_logo_opacity_label",t("logo.opacity",value=value("logo_opacity_var",0)))):
+            widget=getattr(self,name,None)
+            if widget:widget.configure(text=text)
+        if getattr(self,"pptx_badge_menu",None):self.pptx_badge_menu.configure(values=list(getattr(self,"badge_display_to_file",{})) or [t("badge.none")])
+        if getattr(self,"pptx_position_menu",None):self.pptx_position_menu.configure(values=list(self.position_display_to_value)); self.pptx_logo_position_menu.configure(values=list(self.logo_position_display_to_value))
         if is_pdf:self.pptx_badge_label.grid_remove(); self.pdf_badge_enable.grid()
         else:self.pptx_badge_label.grid(); self.pdf_badge_enable.grid_remove()
         self.pptx_badge_menu.configure(state="normal" if not is_pdf or self.pdf_badge_enabled_var.get() else "disabled")
@@ -683,6 +713,9 @@ class MarkerApp(ctk.CTk):
         self.pptx_selection_menu.configure(values=list(self.pptx_selection_display_to_value))
         self.pptx_selection_display_var.set(next((display for display,value in self.pptx_selection_display_to_value.items() if value==self.pptx_selection_mode_var.get()),t(scope_prefix+".all")))
         self.pptx_selected_label.configure(text=t("pdf.selected_hint") if is_pdf else t("pptx.selected_hint")); self.pptx_range_label.configure(text=t("pdf.range_hint") if is_pdf else t("pptx.range_hint"))
+        for name in ("pptx_selected_update_button","pptx_range_update_button"):
+            widget=getattr(self,name,None)
+            if widget:widget.configure(text=t("document.scope_update"))
         self.pptx_metadata_note.configure(text=t("pdf.metadata_note") if is_pdf else t("pptx.metadata_note")); self.pptx_process_button.configure(text=t("pdf.process") if is_pdf else t("pptx.process"))
         if is_pdf:self.pptx_language_label.grid_remove(); self.pptx_language_menu.grid_remove()
         else:self.pptx_language_label.grid(); self.pptx_language_menu.grid()
@@ -1047,6 +1080,9 @@ class MarkerApp(ctk.CTk):
             try:self.after_cancel(after_id)
             except (TclError,AttributeError):pass
         self._reset_after_id=None; self.cancel_event.clear()
+        # Reset is a hard lifecycle boundary, including hidden format trees.
+        for content_type in ("image","video","pdf","pptx"):
+            MarkerApp._destroy_context_widgets(self,content_type)
         for renderer_name in ("preview_renderer","pdf_preview_renderer","pptx_preview_renderer"):
             renderer=getattr(self,renderer_name,None)
             if renderer is not None:
@@ -1077,6 +1113,7 @@ class MarkerApp(ctk.CTk):
         if progress is not None:
             try:progress.set(0)
             except (TclError,AttributeError):pass
+        MarkerApp._create_context_widgets(self,"image")
         self._render_authoritative_state()
         try:self.render_start_view()
         except (TclError,AttributeError):pass
@@ -1094,7 +1131,15 @@ class MarkerApp(ctk.CTk):
     def changed(self,*_):
         try:self.video_duration_var.set(max(1,int(self.video_duration_var.get())))
         except (ValueError,TypeError):self.video_duration_var.set(5)
-        self.size_label.configure(text="4. "+self.translator.text("size.value",value=self.size_var.get())); self.margin_label.configure(text="5. "+self.translator.text("margin.value",value=self.margin_var.get())); self.opacity_label.configure(text="6. "+self.translator.text("opacity.value",value=self.opacity_var.get())); self.pptx_size_label.configure(text=self.translator.text("size.value",value=self.size_var.get())); self.pptx_margin_label.configure(text=self.translator.text("margin.value",value=self.margin_var.get())); self.pptx_opacity_label.configure(text=self.translator.text("opacity.value",value=self.opacity_var.get())); self.pptx_logo_size_label.configure(text=self.translator.text("logo.size",value=self.logo_size_var.get())); self.pptx_logo_margin_label.configure(text=self.translator.text("logo.margin",value=self.logo_margin_var.get())); self.pptx_logo_opacity_label.configure(text=self.translator.text("logo.opacity",value=self.logo_opacity_var.get())); self._update_logo_labels(); self._update_batch_logo_value(); self.update_preview(); self.update_pptx_preview(); self._save()
+        t=self.translator.text
+        if getattr(self,"size_label",None):
+            self.size_label.configure(text="4. "+t("size.value",value=self.size_var.get())); self.margin_label.configure(text="5. "+t("margin.value",value=self.margin_var.get())); self.opacity_label.configure(text="6. "+t("opacity.value",value=self.opacity_var.get()))
+        if getattr(self,"pptx_size_label",None):
+            self.pptx_size_label.configure(text=t("size.value",value=self.size_var.get())); self.pptx_margin_label.configure(text=t("margin.value",value=self.margin_var.get())); self.pptx_opacity_label.configure(text=t("opacity.value",value=self.opacity_var.get())); self.pptx_logo_size_label.configure(text=t("logo.size",value=self.logo_size_var.get())); self.pptx_logo_margin_label.configure(text=t("logo.margin",value=self.logo_margin_var.get())); self.pptx_logo_opacity_label.configure(text=t("logo.opacity",value=self.logo_opacity_var.get()))
+        self._update_logo_labels(); self._update_batch_logo_value()
+        if self.active_content_type in {"image","video"}:self.update_preview()
+        elif self.active_content_type in {"pdf","pptx"}:self.update_pptx_preview()
+        self._save()
     def change_video_mode(self,label):
         self.video_mode_var.set(self.video_mode_display_to_value[label]); self._update_video_duration_controls(); self.changed()
     def _update_video_duration_controls(self):
@@ -1130,6 +1175,7 @@ class MarkerApp(ctk.CTk):
     def _update_logo_labels(self):
         t=self.translator.text; self.logo_size_label.configure(text=t("logo.size",value=self.logo_size_var.get())); self.logo_margin_label.configure(text=t("logo.margin",value=self.logo_margin_var.get())); self.logo_opacity_label.configure(text=t("logo.opacity",value=self.logo_opacity_var.get()))
     def _update_logo_controls(self):
+        if not getattr(self,"logo_enable",None):return
         is_video=self.active_content_type=="video" or bool(self.sources and self.sources[0].suffix.lower() in VIDEO_EXTENSIONS)
         enabled=self.logo_enabled_var.get() and not is_video
         state="normal" if enabled else "disabled"
@@ -1147,7 +1193,10 @@ class MarkerApp(ctk.CTk):
         else:self.custom_controls.grid_remove()
     def select_badge(self):
         self.badge_display_var.set(self.badges.display_name(self.badge_var.get()))
-        self.update_badge_preview(); self.update_gallery_selection(); self.update_preview(); self.update_pptx_preview(); self._save()
+        self.update_badge_preview(); self.update_gallery_selection()
+        if self.active_content_type in {"image","video"}:self.update_preview()
+        elif self.active_content_type in {"pdf","pptx"}:self.update_pptx_preview()
+        self._save()
     def select_badge_display(self,display_name):
         filename=self.badge_display_to_file.get(display_name)
         if filename:self.badge_var.set(filename); self.select_badge()
@@ -1160,7 +1209,9 @@ class MarkerApp(ctk.CTk):
     def refresh_badges(self,show_dialog=True):
         self.badges=self.badge_sources.repository(self.badge_source_var.get(),self.custom_badge_var.get()); missing=self.badge_sources.fallback_reason
         names=[p.name for p in self.badges.display_badges()]
-        displays=[self.badges.display_name(name) for name in names]; self.badge_display_to_file=dict(zip(displays,names)); self.badge_menu.configure(values=displays or [self.translator.text("badge.none")]); self.pptx_badge_menu.configure(values=displays or [self.translator.text("badge.none")])
+        displays=[self.badges.display_name(name) for name in names]; self.badge_display_to_file=dict(zip(displays,names))
+        if getattr(self,"badge_menu",None):self.badge_menu.configure(values=displays or [self.translator.text("badge.none")])
+        if getattr(self,"pptx_badge_menu",None):self.pptx_badge_menu.configure(values=displays or [self.translator.text("badge.none")])
         self.badge_var.set(choose_badge_selection(self.badge_source_var.get(),names,self.badge_var.get()))
         if missing:text=self.translator.text("badge.custom_missing")
         elif names and self.badge_source_var.get()=="standard":text=self.translator.text("badge.loaded_standard",count=len(names))

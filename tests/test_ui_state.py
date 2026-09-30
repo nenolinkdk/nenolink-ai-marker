@@ -118,10 +118,9 @@ def test_direct_document_contexts_share_the_compact_layout_factory():
 def test_production_navigation_exposes_pdf_and_powerpoint_but_not_word():
     build_source = inspect.getsource(MarkerApp._build_ui)
     translation_source = inspect.getsource(MarkerApp.apply_translations)
-    assert 'values=["PDF","PowerPoint / Slides"]' in build_source
-    assert 'values=["PDF","PowerPoint / Slides","Word"]' not in build_source
+    assert 'self.document_navigation=ctk.CTkFrame' in build_source
+    assert 'self._build_content_navigation()' in translation_source
     assert 'content_pairs=(("image","content.images"),("video","content.video"),("pdf","content.pdf"),("pptx","content.powerpoint"))' in translation_source
-    assert 'self.document_navigation.configure(values=[t("content.pdf"),t("content.powerpoint")])' in translation_source
     assert '("docx","content.word")' not in translation_source
 
 
@@ -134,8 +133,7 @@ def test_navigation_groups_share_one_compact_workspace_boundary_row():
     assert 'footer.grid(row=2,column=0' in source
     assert 'self.tools_group_label=' in source
     assert 'self.tools_navigation=' in source
-    document_navigation = next(line for line in source.splitlines() if 'self.document_navigation=ctk.CTkSegmentedButton' in line)
-    assert 'width=' not in document_navigation
+    assert 'self.document_navigation=ctk.CTkFrame' in source
     format_button_center = 3 + 16 + (26 / 2)
     workspace_tab_center = 9 + CTkTabview._outer_spacing + (CTkTabview._button_height / 2)
     assert format_button_center == workspace_tab_center
@@ -192,12 +190,10 @@ def test_format_switch_cancel_preserves_everything_and_continue_clears_both_cont
 
 def test_top_navigation_is_reprojected_from_authoritative_state_before_confirmation():
     app=_navigation_app("pdf"); app.pdf_path=Path("active.pdf")
-    app.document_navigation_var.set("PowerPoint")
     app._confirm_format_switch=Mock(return_value=False)
     assert not MarkerApp.change_content_workspace(app,"PowerPoint")
     assert app.active_content_type=="pdf"
-    assert app.document_navigation_var.get()=="PDF"
-    assert app.media_navigation_var.get()==""
+    assert app.active_content_type=="pdf"
 
 
 @pytest.mark.parametrize("tool",["badges","inspect"])
@@ -297,13 +293,19 @@ def test_secondary_navigation_is_recreated_for_destination_owner(source,target):
     else:assert not app.tabs._segmented_button.visible
 
 
-def test_docx_ui_exposes_only_reliable_alignment_and_hides_margin_controls():
-    source = inspect.getsource(MarkerApp.apply_translations)
-    assert 't("docx.position.left"):"bottom-left"' in source
-    assert 't("docx.position.center"):"center"' in source
-    assert 't("docx.position.right"):"bottom-right"' in source
-    assert 'self.pptx_margin_label.grid_remove()' in source
-    assert 'self.pptx_logo_margin_label.grid_remove()' in source
+def test_document_context_is_created_only_by_the_external_controller():
+    source = inspect.getsource(MarkerApp._create_context_widgets)
+    assert 'self._document_context_ui(tab)' in source
+    assert 'self.pdf_context_widgets=None; self.pptx_context_widgets=None' in inspect.getsource(MarkerApp._build_ui)
+
+
+def test_top_level_buttons_only_emit_a_central_content_transition():
+    source = inspect.getsource(MarkerApp._build_content_navigation)
+    assert 'command=lambda destination=kind: self.request_content_transition(destination)' in source
+    assert 'CTkSegmentedButton' not in source
+    lifecycle = inspect.getsource(MarkerApp.destroy_runtime_context) + inspect.getsource(MarkerApp.initialize_clean_context)
+    assert 'MarkerApp._destroy_context_widgets' in lifecycle
+    assert 'MarkerApp._create_context_widgets' in lifecycle
 
 
 def test_selecting_ten_slide_pptx_initializes_and_renders_slide_one(tmp_path):
@@ -449,7 +451,7 @@ def test_format_switch_clears_source_and_destination_contexts():
         reset_format_context=Mock(), show_tab=Mock(), _render_active_document=Mock(), apply_translations=Mock(), tools_navigation=Mock(),
         _format_has_active_work=Mock(return_value=False), language_menu=Mock(),reset_button=Mock(),guide_button=Mock(),media_navigation=Mock(),document_navigation=Mock(),media_navigation_var=_Variable(),document_navigation_var=_Variable(),
     )
-    app.destroy_runtime_context=MethodType(MarkerApp.destroy_runtime_context,app); app.initialize_clean_context=MethodType(MarkerApp.initialize_clean_context,app); app._render_authoritative_state=Mock()
+    app.destroy_runtime_context=MethodType(MarkerApp.destroy_runtime_context,app); app.initialize_clean_context=MethodType(MarkerApp.initialize_clean_context,app); app._render_authoritative_state=Mock(); app.request_content_transition=MethodType(MarkerApp.request_content_transition,app)
     MarkerApp.change_content_workspace(app,"PowerPoint")
     assert app.reset_format_context.call_args_list==[call("pdf"),call("pptx")]
     assert app.active_content_type=="pptx"
