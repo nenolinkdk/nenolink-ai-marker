@@ -1697,9 +1697,12 @@ class MarkerApp(ctk.CTk):
         self.logo_filename_var = ctk.StringVar(value=Path(saved.logo_path).name if saved.logo_path else "—")
         self.logo_position_var = ctk.StringVar(value=saved.logo_position); self.logo_position_display_var = ctk.StringVar()
         self.logo_size_var = ctk.IntVar(value=saved.logo_size_percent); self.logo_margin_var = ctk.IntVar(value=saved.logo_margin); self.logo_opacity_var = ctk.IntVar(value=saved.logo_opacity)
+        self.position_display_to_value = {"Top left": "top-left", "Top right": "top-right", "Bottom left": "bottom-left", "Bottom right": "bottom-right", "Center": "center"}
+        self.position_display_var.set(next((k for k,v in self.position_display_to_value.items() if v == self.position_var.get()), "Bottom right"))
         self.badge_source_var = ctk.StringVar(value=saved.badge_source); self.custom_badge_var = ctk.StringVar(value=saved.custom_badge_folder)
         self.pdf_path = None; self.pdf_info = None; self.pdf_processor = PdfProcessor(); self.pdf_preview_renderer = PdfPreviewRenderer(self.processor); self.pdf_current_page = 0; self.pdf_preview_photo = None
         self.pdf_scope_mode = "all"; self.pdf_active_scope: tuple[int, ...] = (); self.pdf_scope_input = ""
+        self.pdf_badge_enabled_var = ctk.BooleanVar(value=True)
 
     def _clear_content_host(self) -> None:
         for child in self.content_host.winfo_children():
@@ -1711,22 +1714,43 @@ class MarkerApp(ctk.CTk):
         if self.pdf_workspace is not None and self.pdf_workspace.winfo_exists():
             self.pdf_workspace.grid(); return
         self._clear_content_host()
+        t = self.translator.text
         self.pdf_workspace = ctk.CTkFrame(self.content_host, fg_color="transparent")
         self.pdf_workspace.grid(row=0, column=0, padx=24, pady=24, sticky="nsew")
         self.pdf_workspace.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(self.pdf_workspace, text="PDF", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0, column=0, pady=(8, 4), sticky="w")
-        self.pdf_choose_button = ctk.CTkButton(self.pdf_workspace, text="Choose PDF", command=self.choose_pdf_phase2); self.pdf_choose_button.grid(row=1, column=0, pady=(4, 8), sticky="w")
-        self.pdf_file_label = ctk.CTkLabel(self.pdf_workspace, text="No PDF selected", text_color="gray60", anchor="w"); self.pdf_file_label.grid(row=2, column=0, pady=4, sticky="w")
-        self.pdf_preview_label = ctk.CTkLabel(self.pdf_workspace, text="", fg_color=("gray92", "gray13"), width=680, height=240); self.pdf_preview_label.grid(row=3, column=0, pady=(12, 4), sticky="ew")
-        nav = ctk.CTkFrame(self.pdf_workspace, fg_color="transparent"); nav.grid(row=4, column=0, pady=4)
+        self.pdf_choose_button = ctk.CTkButton(self.pdf_workspace, text=t("pdf.choose"), command=self.choose_pdf_phase2); self.pdf_choose_button.grid(row=1, column=0, pady=(4, 8), sticky="w")
+        self.pdf_file_label = ctk.CTkLabel(self.pdf_workspace, text=t("pdf.no_file"), text_color="gray60", anchor="w"); self.pdf_file_label.grid(row=2, column=0, pady=4, sticky="w")
+        self.pdf_badge_enable = ctk.CTkCheckBox(self.pdf_workspace, text=t("pdf.add_badge"), variable=self.pdf_badge_enabled_var, command=self.pdf_visual_changed); self.pdf_badge_enable.grid(row=3, column=0, pady=(8, 2), sticky="w")
+        self.pdf_badge_menu = ctk.CTkOptionMenu(self.pdf_workspace, variable=self.badge_display_var, values=["—"], command=self.select_badge_display); self.pdf_badge_menu.grid(row=4, column=0, pady=2, sticky="w")
+        self.pdf_logo_enable = ctk.CTkCheckBox(self.pdf_workspace, text=t("logo.enable"), variable=self.logo_enabled_var, command=self.pdf_visual_changed); self.pdf_logo_enable.grid(row=5, column=0, pady=(4, 2), sticky="w")
+        self.pdf_logo_choose = ctk.CTkButton(self.pdf_workspace, text=t("logo.choose"), command=self.choose_logo, width=150); self.pdf_logo_choose.grid(row=6, column=0, pady=2, sticky="w")
+        self.pdf_position_menu = ctk.CTkOptionMenu(self.pdf_workspace, variable=self.position_display_var, values=list(getattr(self, "position_display_to_value", {}).keys()) or ["Bottom right"], command=self.change_position_display); self.pdf_position_menu.grid(row=13, column=0, pady=2, sticky="w")
+        self.pdf_size_slider = ctk.CTkSlider(self.pdf_workspace, from_=1, to=100, number_of_steps=99, variable=self.size_var, command=self.pdf_visual_changed); self.pdf_size_slider.grid(row=14, column=0, pady=2, sticky="ew")
+        self.pdf_margin_slider = ctk.CTkSlider(self.pdf_workspace, from_=0, to=250, number_of_steps=250, variable=self.margin_var, command=self.pdf_visual_changed); self.pdf_margin_slider.grid(row=15, column=0, pady=2, sticky="ew")
+        self.pdf_opacity_slider = ctk.CTkSlider(self.pdf_workspace, from_=0, to=100, number_of_steps=100, variable=self.opacity_var, command=self.pdf_visual_changed); self.pdf_opacity_slider.grid(row=16, column=0, pady=2, sticky="ew")
+        self.pdf_logo_position_menu = ctk.CTkOptionMenu(self.pdf_workspace, variable=self.logo_position_display_var, values=list(self.position_display_to_value), command=self.change_logo_position); self.pdf_logo_position_menu.grid(row=17, column=0, pady=2, sticky="w")
+        self.pdf_logo_size_slider = ctk.CTkSlider(self.pdf_workspace, from_=1, to=100, number_of_steps=99, variable=self.logo_size_var, command=self.pdf_visual_changed); self.pdf_logo_size_slider.grid(row=18, column=0, pady=2, sticky="ew")
+        self.pdf_logo_margin_slider = ctk.CTkSlider(self.pdf_workspace, from_=0, to=250, number_of_steps=250, variable=self.logo_margin_var, command=self.pdf_visual_changed); self.pdf_logo_margin_slider.grid(row=19, column=0, pady=2, sticky="ew")
+        self.pdf_logo_opacity_slider = ctk.CTkSlider(self.pdf_workspace, from_=0, to=100, number_of_steps=100, variable=self.logo_opacity_var, command=self.pdf_visual_changed); self.pdf_logo_opacity_slider.grid(row=20, column=0, pady=2, sticky="ew")
+        self.pdf_preview_label = ctk.CTkLabel(self.pdf_workspace, text="", fg_color=("gray92", "gray13"), width=680, height=240); self.pdf_preview_label.grid(row=7, column=0, pady=(12, 4), sticky="ew")
+        nav = ctk.CTkFrame(self.pdf_workspace, fg_color="transparent"); nav.grid(row=8, column=0, pady=4)
         self.pdf_previous_button = ctk.CTkButton(nav, text="◀", width=42, command=lambda: self.change_pdf_page(-1)); self.pdf_previous_button.grid(row=0, column=0, padx=4)
         self.pdf_page_status = ctk.CTkLabel(nav, text="—", width=120); self.pdf_page_status.grid(row=0, column=1, padx=4)
         self.pdf_next_button = ctk.CTkButton(nav, text="▶", width=42, command=lambda: self.change_pdf_page(1)); self.pdf_next_button.grid(row=0, column=2, padx=4)
-        self.pdf_scope_menu = ctk.CTkOptionMenu(self.pdf_workspace, values=["All", "First", "Selected", "Range"], command=self.change_pdf_scope_mode); self.pdf_scope_menu.grid(row=5, column=0, pady=(12, 2), sticky="w")
-        self.pdf_scope_entry = ctk.CTkEntry(self.pdf_workspace, placeholder_text="2,4,7 or 5-7,10-12"); self.pdf_scope_entry.grid(row=6, column=0, pady=2, sticky="w")
-        self.pdf_scope_update = ctk.CTkButton(self.pdf_workspace, text="Update", command=self.update_pdf_scope, width=100); self.pdf_scope_update.grid(row=7, column=0, pady=(2, 4), sticky="w")
-        self.pdf_scope_message = ctk.CTkLabel(self.pdf_workspace, text="", text_color="#b42318", anchor="w"); self.pdf_scope_message.grid(row=8, column=0, sticky="w")
+        self.pdf_scope_menu = ctk.CTkOptionMenu(self.pdf_workspace, values=["All", "First", "Selected", "Range"], command=self.change_pdf_scope_mode); self.pdf_scope_menu.grid(row=9, column=0, pady=(12, 2), sticky="w")
+        self.pdf_scope_entry = ctk.CTkEntry(self.pdf_workspace, placeholder_text="2,4,7 or 5-7,10-12"); self.pdf_scope_entry.grid(row=10, column=0, pady=2, sticky="w")
+        self.pdf_scope_update = ctk.CTkButton(self.pdf_workspace, text=t("document.scope_update"), command=self.update_pdf_scope, width=100); self.pdf_scope_update.grid(row=11, column=0, pady=(2, 4), sticky="w")
+        self.pdf_scope_message = ctk.CTkLabel(self.pdf_workspace, text="", text_color="#b42318", anchor="w"); self.pdf_scope_message.grid(row=12, column=0, sticky="w")
+        self.refresh_image_badges()
         self._update_pdf_scope_controls()
+
+    def pdf_visual_changed(self, *_args) -> None:
+        """Rerender only the current page; PDF scope and navigation stay intact."""
+        if getattr(self, "pdf_badge_menu", None):
+            self.pdf_badge_menu.configure(state="normal" if self.pdf_badge_enabled_var.get() else "disabled")
+        self._update_logo_controls()
+        self.render_pdf_preview()
 
     def choose_pdf_phase2(self) -> None:
         selected = filedialog.askopenfilename(title="Choose PDF", filetypes=[("PDF (*.pdf)", "*.pdf")])
@@ -1745,6 +1769,15 @@ class MarkerApp(ctk.CTk):
         self.pdf_file_label.configure(text=f"{path.name}\n{size} · {info.metrics.item_count} pages{signed}")
         self.status_var.set(f"PDF loaded: {path.name}")
         self.render_pdf_preview()
+
+    def _confirm_pdf_signature(self) -> bool:
+        """Confirm the non-fatal signature warning before future PDF writes."""
+        if not self.pdf_info or not getattr(self.pdf_info, "signed", False):
+            return True
+        return messagebox.askokcancel(
+            self.translator.text("pdf.signature_title"),
+            self.translator.text("pdf.signature_warning"),
+        )
 
     def _update_pdf_scope_controls(self) -> None:
         if not getattr(self, "pdf_scope_menu", None): return
@@ -1785,7 +1818,10 @@ class MarkerApp(ctk.CTk):
     def render_pdf_preview(self) -> None:
         if not self.pdf_path or not self.pdf_info or not getattr(self, "pdf_preview_label", None): return
         try:
-            result = self.pdf_preview_renderer.render(self.pdf_path, self.pdf_current_page, None, self.settings())
+            marked = self.pdf_current_page in set(self.pdf_active_scope)
+            badge = self.badges.find(self.badge_var.get()) if marked and self.pdf_badge_enabled_var.get() else None
+            logo = self._logo_path() if marked and self.logo_enabled_var.get() else None
+            result = self.pdf_preview_renderer.render(self.pdf_path, self.pdf_current_page, badge, self.settings(), logo)
             self.pdf_current_page = result.page_number
             self.pdf_preview_photo = ctk.CTkImage(light_image=result.image, dark_image=result.image, size=result.image.size)
             self.pdf_preview_label.configure(image=self.pdf_preview_photo, text="")
@@ -2056,7 +2092,10 @@ class MarkerApp(ctk.CTk):
         t = self.translator.text; self.size_label.configure(text="4. " + t("size.value", value=self.size_var.get())); self.margin_label.configure(text="5. " + t("margin.value", value=self.margin_var.get())); self.opacity_label.configure(text="6. " + t("opacity.value", value=self.opacity_var.get()))
 
     def changed(self, *_args) -> None:
-        self._update_image_slider_labels(); self._update_logo_labels(); self.update_preview(); self._save()
+        self._update_image_slider_labels(); self._update_logo_labels()
+        if self.active_content_type == "pdf": self.render_pdf_preview()
+        else: self.update_preview()
+        self._save()
 
     def badge_enabled_changed(self) -> None:
         self._update_badge_controls(); self.update_preview(); self._save()
@@ -2129,6 +2168,7 @@ class MarkerApp(ctk.CTk):
         self.badge_display_var.set(self.badges.display_name(self.badge_var.get()));
         if getattr(self, "single_badge_preview_label", None): self.update_image_badge_preview()
         if self.active_content_type == "image": self.update_preview()
+        elif self.active_content_type == "pdf": self.render_pdf_preview()
         self._save()
 
     def open_images(self) -> None:
