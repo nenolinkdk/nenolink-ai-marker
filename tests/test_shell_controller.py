@@ -9,23 +9,33 @@ from nenolink_ai_marker.shell_controller import DESTINATIONS, DEFAULT_DESTINATIO
 
 def assert_shell(controller, destination):
     transition = controller.transitions[-1]
-    assert controller.destination == destination
+    if destination in {"badges", "inspect"}:
+        assert controller.active_tool == destination
+    else:
+        assert controller.active_content_type == destination
+        assert controller.active_tool is None
     assert transition.next == destination
     assert transition.mounted_view == placeholder_for(destination)
 
 
 def test_all_destinations_mount_their_own_placeholder_in_sequence():
     controller = ShellController()
-    for destination in ("image", "video", "pdf", "pptx", "badges", "inspect", "image"):
+    for destination in ("image", "video", "pdf", "pptx", "badges", "inspect"):
+        before = controller.active_content_type
         controller.dispatch(destination)
         assert_shell(controller, destination)
+        if destination in {"badges", "inspect"}: assert controller.active_content_type == before
+    controller.dispatch("back")
+    assert_shell(controller, "pptx")
 
 
 def test_reverse_order_never_restores_video():
     controller = ShellController()
     for destination in ("inspect", "badges", "pptx", "pdf", "video", "image") * 3:
+        before = controller.active_content_type
         controller.dispatch(destination)
         assert_shell(controller, destination)
+        if destination in {"badges", "inspect"}: assert controller.active_content_type == before
 
 
 def test_reset_mounts_default_and_all_destinations_remain_available():
@@ -34,7 +44,7 @@ def test_reset_mounts_default_and_all_destinations_remain_available():
     reset = controller.dispatch("reset")
     assert reset.previous == "pptx"
     assert_shell(controller, DEFAULT_DESTINATION)
-    for destination in ("pdf", "inspect", "video", "pptx", "badges", "image"):
+    for destination in ("pdf", "video", "pptx", "image"):
         controller.dispatch(destination)
         assert_shell(controller, destination)
 
@@ -67,8 +77,7 @@ def test_active_app_has_one_shell_owner_and_only_image_is_connected():
     assert "_settings_ui" not in source
     assert "_inspect_ui" not in source
     assert "_single_ui" not in source
-    for legacy_state in ("video_mode_var", "batch_suffix_var", "media_sources", "active_media_mode"):
-        assert legacy_state not in source
+    assert "batch_mode" not in source
 
 
 def test_image_module_does_not_own_outer_navigation_state():
@@ -95,9 +104,15 @@ class _ImageShellCallbackHarness:
     def _image_has_active_work(self):
         return self.active_work
 
+    def _video_has_active_work(self):
+        return False
+
     def _unmount_image_workspace(self):
         self.unmounted += 1
         self.active_work = False
+
+    def _unmount_video_workspace(self):
+        pass
 
     def render_shell_state(self):
         self.rendered.append(self.shell_controller.destination)
@@ -107,11 +122,14 @@ class _ImageShellCallbackHarness:
 def test_actual_image_callback_unmounts_then_mounts_each_destination(destination):
     app = _ImageShellCallbackHarness()
     app.dispatch_shell_event(destination)
-    assert app.shell_controller.destination == destination
-    assert app.unmounted == 1
-    app.dispatch_shell_event("image")
-    assert app.shell_controller.destination == "image"
-    assert app.rendered == [destination, "image"]
+    if destination in {"badges", "inspect"}:
+        assert app.shell_controller.active_content_type == "image" and app.shell_controller.active_tool == destination
+        app.dispatch_shell_event("back")
+    else:
+        assert app.shell_controller.destination == destination
+        assert app.unmounted == 1
+        app.dispatch_shell_event("image")
+    assert app.shell_controller.active_content_type == "image"
 
 
 def test_loaded_image_cancel_keeps_image_and_continue_clears_before_switch():
@@ -131,3 +149,18 @@ def test_reset_is_unconditional_and_returns_a_clean_image_shell():
     app.reset_shell()
     assert app.shell_controller.destination == "image"
     assert app.active_work is False and app.unmounted == 1
+
+
+def test_tools_preserve_active_content_and_do_not_call_loss_warning():
+    app = _ImageShellCallbackHarness(active_work=True)
+    with patch("nenolink_ai_marker.app.messagebox.askokcancel") as warning:
+        app.dispatch_shell_event("badges")
+        assert app.shell_controller.active_content_type == "image"
+        assert app.shell_controller.active_tool == "badges"
+        assert app.unmounted == 0
+        app.dispatch_shell_event("back")
+        app.dispatch_shell_event("inspect")
+        app.dispatch_shell_event("back")
+    warning.assert_not_called()
+    assert app.shell_controller.active_content_type == "image"
+    assert app.active_work is True

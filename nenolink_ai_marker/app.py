@@ -1561,6 +1561,8 @@ class MarkerApp(ctk.CTk):
         self.mounted_view = ""
         self._boot = lambda _message: None
         self.image_workspace = None
+        self.video_workspace = None
+        self.tool_workspace = None
         self.content_buttons: dict[str, ctk.CTkButton] = {}
         self._initialize_image_services()
         self._build_shell_ui()
@@ -1599,29 +1601,53 @@ class MarkerApp(ctk.CTk):
             self.content_buttons[destination] = button
 
     def dispatch_shell_event(self, event: str) -> None:
-        source = self.shell_controller.destination
+        source = self.shell_controller.active_content_type
+        if event in {"badges", "inspect"} or event == "back":
+            self.shell_controller.dispatch(event)
+            self.render_shell_state()
+            return
         if source == "image" and event != "image" and event != "reset" and self._image_has_active_work():
+            if not messagebox.askokcancel(self.translator.text("navigation.switch_title"), self.translator.text("navigation.switch_message")):
+                return
+        if source == "video" and event != "video" and event != "reset" and self._video_has_active_work():
             if not messagebox.askokcancel(self.translator.text("navigation.switch_title"), self.translator.text("navigation.switch_message")):
                 return
         if source == "image" and event != "image":
             self._unmount_image_workspace()
+        if source == "video" and event != "video":
+            self._unmount_video_workspace()
         self.shell_controller.dispatch(event)
         self.render_shell_state()
 
     def reset_shell(self) -> None:
-        self._unmount_image_workspace()
+        if self.shell_controller.active_content_type == "video":
+            self._unmount_video_workspace()
+        else:
+            self._unmount_image_workspace()
         self.shell_controller.dispatch("reset")
         self.render_shell_state()
 
     def render_shell_state(self) -> None:
-        destination = self.shell_controller.destination
+        destination = self.shell_controller.active_content_type
+        tool = self.shell_controller.active_tool
         self.active_content_type = destination
-        self.active_tool = destination if destination in {"badges", "inspect"} else None
+        self.active_tool = tool
         for key, button in self.content_buttons.items():
-            button.configure(fg_color=("#2474ad", "#1f6aa5") if key == destination else ("#6b6b6b", "#454545"))
+            selected = key == (tool or destination)
+            button.configure(fg_color=("#2474ad", "#1f6aa5") if selected else ("#6b6b6b", "#454545"))
+        if tool:
+            if self.image_workspace is not None: self.image_workspace.grid_remove()
+            if self.video_workspace is not None: self.video_workspace.grid_remove()
+            self._mount_tool(tool)
+            self.mounted_view = placeholder_for(tool)
+            return
+        self._unmount_tool()
         if destination == "image":
             self._mount_image_workspace()
             self.mounted_view = "IMAGE"
+        elif destination == "video":
+            self._mount_video_workspace()
+            self.mounted_view = "VIDEO"
         else:
             self._clear_content_host()
             self.mounted_view = placeholder_for(destination)
@@ -1657,10 +1683,11 @@ class MarkerApp(ctk.CTk):
     def _clear_content_host(self) -> None:
         for child in self.content_host.winfo_children():
             child.destroy()
-        self.image_workspace = None
+        self.image_workspace = self.video_workspace = self.tool_workspace = None
 
     def _mount_image_workspace(self) -> None:
         if self.image_workspace is not None and self.image_workspace.winfo_exists():
+            self.image_workspace.grid()
             return
         self._clear_content_host()
         self.image_workspace = ctk.CTkFrame(self.content_host, fg_color="transparent")
@@ -1672,6 +1699,51 @@ class MarkerApp(ctk.CTk):
         self._validate_saved_logo()
         self._show_welcome()
 
+    def _mount_video_workspace(self) -> None:
+        if self.video_workspace is not None and self.video_workspace.winfo_exists():
+            self.video_workspace.grid(); return
+        self._clear_content_host()
+        self.video_workspace = ctk.CTkFrame(self.content_host, fg_color="transparent")
+        self.video_workspace.grid(row=0, column=0, sticky="nsew"); self.video_workspace.grid_columnconfigure(1, weight=1); self.video_workspace.grid_rowconfigure(0, weight=1)
+        left = AutoHideScrollableFrame(self.video_workspace, width=320, fg_color=("gray86", "gray17")); left.grid(row=0, column=0, padx=(4, 8), pady=4, sticky="nsew"); left.grid_columnconfigure(0, weight=1)
+        self.video_open_button = ctk.CTkButton(left, command=self.open_video); self.video_open_button.grid(row=0, column=0, padx=14, pady=(10, 4), sticky="ew")
+        self.video_file_label = ctk.CTkLabel(left, anchor="w", justify="left", wraplength=280); self.video_file_label.grid(row=1, column=0, padx=14, pady=3, sticky="ew")
+        self.video_mode_label = ctk.CTkLabel(left); self.video_mode_label.grid(row=2, column=0, padx=14, pady=(8, 1), sticky="w")
+        self.video_mode_var = ctk.StringVar(value="permanent"); self.video_mode_display_var = ctk.StringVar()
+        self.video_mode_display_to_value = {"Permanent": "permanent", "Beginning": "beginning", "End": "end"}
+        self.video_mode_menu = ctk.CTkOptionMenu(left, variable=self.video_mode_display_var, values=list(self.video_mode_display_to_value), command=self.change_video_mode); self.video_mode_menu.grid(row=3, column=0, padx=14, pady=2, sticky="ew")
+        self.video_duration_label = ctk.CTkLabel(left); self.video_duration_label.grid(row=4, column=0, padx=14, pady=(4, 1), sticky="w")
+        self.video_duration_var = ctk.IntVar(value=5); self.video_duration_entry = ctk.CTkEntry(left, textvariable=self.video_duration_var); self.video_duration_entry.grid(row=5, column=0, padx=14, pady=2, sticky="ew")
+        self.video_position_label = ctk.CTkLabel(left); self.video_position_label.grid(row=6, column=0, padx=14, pady=(6, 1), sticky="w")
+        self.video_position_var = ctk.StringVar(value="bottom-right"); self.video_position_display_var = ctk.StringVar(value="Bottom right")
+        self.video_position_display_to_value = {"Top left":"top-left", "Top right":"top-right", "Bottom left":"bottom-left", "Bottom right":"bottom-right", "Center":"center"}
+        self.video_position_menu = ctk.CTkOptionMenu(left, variable=self.video_position_display_var, values=list(self.video_position_display_to_value), command=self.change_video_position); self.video_position_menu.grid(row=7, column=0, padx=14, pady=2, sticky="ew")
+        self.video_badge_label = ctk.CTkLabel(left); self.video_badge_label.grid(row=8, column=0, padx=14, pady=(6, 1), sticky="w")
+        self.video_badge_var = ctk.StringVar(value=self.badge_display_var.get()); self.video_badge_menu = ctk.CTkOptionMenu(left, variable=self.video_badge_var, values=["—"], command=self.change_video_badge); self.video_badge_menu.grid(row=9, column=0, padx=14, pady=2, sticky="ew")
+        self.video_size_var = ctk.IntVar(value=20); self.video_margin_var = ctk.IntVar(value=20); self.video_opacity_var = ctk.IntVar(value=100)
+        self.video_size_label = self._video_slider(left, self.video_size_var, 1, 100, 10, "Size"); self.video_margin_label = self._video_slider(left, self.video_margin_var, 0, 250, 12, "Margin"); self.video_opacity_label = self._video_slider(left, self.video_opacity_var, 0, 100, 14, "Opacity")
+        self.video_process_button = ctk.CTkButton(left, command=self.save_video); self.video_process_button.grid(row=16, column=0, padx=14, pady=(4, 10), sticky="ew")
+        right = ctk.CTkFrame(self.video_workspace); right.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right.grid_columnconfigure(0, weight=1); right.grid_rowconfigure(0, weight=1)
+        self.video_preview_label = ctk.CTkLabel(right, text=self.translator.text("preview.video_selected", name="")); self.video_preview_label.grid(row=0, column=0, padx=20, pady=20)
+        self._refresh_video_labels(); self._refresh_video_badges()
+
+    def _video_slider(self, parent, variable, start, end, row, label):
+        output = ctk.CTkLabel(parent, text=label); output.grid(row=row, column=0, padx=14, pady=(4, 0), sticky="w")
+        ctk.CTkSlider(parent, from_=start, to=end, number_of_steps=end-start, variable=variable, command=self._video_changed).grid(row=row+1, column=0, padx=14, pady=(1, 3), sticky="ew")
+        return output
+
+    def _mount_tool(self, tool: str) -> None:
+        if self.tool_workspace is not None and self.tool_workspace.winfo_exists():
+            self.tool_workspace.grid(); return
+        self.tool_workspace = ctk.CTkFrame(self.content_host); self.tool_workspace.grid(row=0, column=0, sticky="nsew"); self.tool_workspace.grid_columnconfigure(0, weight=1); self.tool_workspace.grid_rowconfigure(1, weight=1)
+        ctk.CTkButton(self.tool_workspace, text=self.translator.text("button.back"), command=lambda: self.dispatch_shell_event("back"), width=110).grid(row=0, column=0, padx=16, pady=(10, 4), sticky="w")
+        if tool == "badges": self._build_badges_tool()
+        else: self._build_inspect_tool()
+
+    def _unmount_tool(self) -> None:
+        if self.tool_workspace is not None and self.tool_workspace.winfo_exists(): self.tool_workspace.destroy()
+        self.tool_workspace = None
+
     def _unmount_image_workspace(self) -> None:
         self.sources = []
         self.preview_renderer.clear(); self.preview_photo = self.preview_image = None
@@ -1679,6 +1751,96 @@ class MarkerApp(ctk.CTk):
 
     def _image_has_active_work(self) -> bool:
         return bool(self.sources)
+
+    def _video_has_active_work(self) -> bool:
+        return bool(getattr(self, "video_sources", []))
+
+    def _unmount_video_workspace(self) -> None:
+        self.video_sources = []
+        self._clear_content_host()
+
+    def _refresh_video_labels(self) -> None:
+        if not getattr(self, "video_open_button", None): return
+        t = self.translator.text
+        self.video_open_button.configure(text="1. " + t("button.open_media")); self.video_badge_label.configure(text="2. " + t("badge")); self.video_position_label.configure(text="3. " + t("position")); self.video_process_button.configure(text=t("button.process_video")); self.video_mode_label.configure(text=t("video.badge")); self.video_duration_label.configure(text=t("video.duration"))
+        self.video_mode_display_to_value = {t("video.mode.permanent"): "permanent", t("video.mode.beginning"): "beginning", t("video.mode.end"): "end"}; self.video_mode_menu.configure(values=list(self.video_mode_display_to_value)); self.video_mode_display_var.set(next((label for label, value in self.video_mode_display_to_value.items() if value == self.video_mode_var.get()), list(self.video_mode_display_to_value)[0]))
+        self.video_position_display_to_value = {t("position.top_left"): "top-left", t("position.top_right"): "top-right", t("position.bottom_left"): "bottom-left", t("position.bottom_right"): "bottom-right", t("position.center"): "center"}; self.video_position_menu.configure(values=list(self.video_position_display_to_value)); self.video_position_display_var.set(next((label for label, value in self.video_position_display_to_value.items() if value == self.video_position_var.get()), t("position.bottom_right")))
+        self._update_video_duration_visibility()
+
+    def _refresh_video_badges(self) -> None:
+        if not getattr(self, "video_badge_menu", None): return
+        displays = [self.badges.display_name(path.name) for path in self.badges.display_badges()]; self.video_badge_menu.configure(values=displays or [self.translator.text("badge.none")]); self.video_badge_var.set(self.badges.display_name(self.badge_var.get()) if self.badges.find(self.badge_var.get()) else (displays[0] if displays else "—"))
+
+    def _update_video_duration_visibility(self) -> None:
+        if not getattr(self, "video_duration_entry", None): return
+        visible = self.video_mode_var.get() in {"beginning", "end"}
+        (self.video_duration_label.grid if visible else self.video_duration_label.grid_remove)(); (self.video_duration_entry.grid if visible else self.video_duration_entry.grid_remove)()
+
+    def change_video_mode(self, label: str) -> None:
+        self.video_mode_var.set(self.video_mode_display_to_value[label]); self._update_video_duration_visibility(); self._save_image_settings()
+
+    def change_video_position(self, label: str) -> None:
+        self.video_position_var.set(self.video_position_display_to_value[label]); self._save_image_settings()
+
+    def change_video_badge(self, label: str) -> None:
+        self.video_badge_var.set(label); self._save_image_settings()
+
+    def _video_changed(self, *_args) -> None:
+        self._save_image_settings()
+
+    def open_video(self) -> None:
+        selected = filedialog.askopenfilename(title=self.translator.text("dialog.open_media"), filetypes=[(self.translator.text("files.supported_videos"), "*.mp4 *.mov *.mkv *.avi *.webm"), (self.translator.text("files.all"), "*.*")])
+        if selected:
+            self.video_sources = [Path(selected)]; self.video_file_label.configure(text=self.video_sources[0].name); self.video_preview_label.configure(text=self.translator.text("preview.video_selected", name=self.video_sources[0].name)); self._save_image_settings()
+
+    def save_video(self) -> None:
+        if not self._video_has_active_work(): messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("warning.nothing_to_save")); return
+        badge_name = next((name for name in self.badge_display_to_file if name == self.video_badge_var.get()), self.badge_var.get()); badge = self.badges.find(badge_name)
+        if not badge: messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("warning.nothing_to_save")); return
+        source = self.video_sources[0]; suggested = source.with_name(f"{source.stem}_ai{source.suffix}"); target = filedialog.asksaveasfilename(title=self.translator.text("dialog.save_video_as"), initialdir=str(source.parent), initialfile=suggested.name, defaultextension=source.suffix, filetypes=[(self.translator.text("files.supported_videos"), "*.mp4 *.mov *.mkv *.avi *.webm"), (self.translator.text("files.all"), "*.*")], confirmoverwrite=True)
+        if not target: return
+        settings = MarkerSettings(badge_name=badge.name, position=self.video_position_var.get(), size_percent=self.video_size_var.get(), margin=self.video_margin_var.get(), opacity=self.video_opacity_var.get(), video_mode=self.video_mode_var.get(), video_duration=self.video_duration_var.get())
+        try:
+            if not find_ffmpeg(): raise ValueError(self.translator.text("error.video_component_missing"))
+            self.batch_processor = BatchProcessor(self.processor); self.batch_processor.process_video(source, badge, Path(target), settings, marker_metadata(badge.name, self.badges.display_name(badge.name))); self.status_var.set(self.translator.text("video.saved_name", name=Path(target).name))
+        except (OSError, ValueError) as error: messagebox.showerror(self.translator.text("error.title"), str(error))
+
+    def _build_badges_tool(self) -> None:
+        panel = ctk.CTkFrame(self.tool_workspace); panel.grid(row=1, column=0, padx=16, pady=6, sticky="nsew"); panel.grid_columnconfigure(0, weight=1); panel.grid_rowconfigure(4, weight=1)
+        ctk.CTkLabel(panel, text=self.translator.text("badge.source_label"), font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=12, pady=(8, 2), sticky="w")
+        self.tool_badge_source_var = ctk.StringVar(value=self.badge_source_var.get()); ctk.CTkRadioButton(panel, text=self.translator.text("badge.source_standard"), variable=self.tool_badge_source_var, value="standard", command=self._tool_refresh_badges).grid(row=1, column=0, padx=16, pady=2, sticky="w"); ctk.CTkRadioButton(panel, text=self.translator.text("badge.source_custom"), variable=self.tool_badge_source_var, value="custom", command=self._tool_refresh_badges).grid(row=2, column=0, padx=16, pady=2, sticky="w")
+        row = ctk.CTkFrame(panel, fg_color="transparent"); row.grid(row=3, column=0, padx=16, pady=4, sticky="ew"); row.grid_columnconfigure(0, weight=1); self.tool_badge_folder_var = ctk.StringVar(value=self.custom_badge_var.get()); ctk.CTkEntry(row, textvariable=self.tool_badge_folder_var).grid(row=0, column=0, sticky="ew"); ctk.CTkButton(row, text=self.translator.text("button.choose_badge_folder"), command=self._tool_choose_badge_folder, width=170).grid(row=0, column=1, padx=6); ctk.CTkButton(row, text=self.translator.text("badge.refresh"), command=self._tool_refresh_badges, width=100).grid(row=0, column=2)
+        self.tool_badge_gallery = ctk.CTkScrollableFrame(panel); self.tool_badge_gallery.grid(row=4, column=0, padx=16, pady=6, sticky="nsew"); self._tool_refresh_badges()
+
+    def _tool_choose_badge_folder(self) -> None:
+        value = filedialog.askdirectory(title=self.translator.text("dialog.custom_badges"));
+        if value: self.tool_badge_folder_var.set(value); self.tool_badge_source_var.set("custom"); self._tool_refresh_badges()
+
+    def _tool_refresh_badges(self) -> None:
+        if not getattr(self, "tool_badge_gallery", None): return
+        self.badge_source_var.set(self.tool_badge_source_var.get()); self.custom_badge_var.set(self.tool_badge_folder_var.get()); self.refresh_image_badges()
+        for child in self.tool_badge_gallery.winfo_children(): child.destroy()
+        for index, path in enumerate(self.badges.display_badges()):
+            button = ctk.CTkButton(self.tool_badge_gallery, text=self.badges.display_name(path.name), command=lambda name=path.name: self._tool_select_badge(name)); button.grid(row=index // 4, column=index % 4, padx=5, pady=5)
+
+    def _tool_select_badge(self, name: str) -> None:
+        self.badge_var.set(name); self.select_image_badge(); self._tool_refresh_badges()
+
+    def _build_inspect_tool(self) -> None:
+        panel = ctk.CTkFrame(self.tool_workspace); panel.grid(row=1, column=0, padx=16, pady=6, sticky="nsew"); panel.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(panel, text=self.translator.text("inspect.title"), font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, padx=12, pady=(12, 4), sticky="w")
+        ctk.CTkButton(panel, text=self.translator.text("inspect.choose"), command=self._tool_choose_inspection).grid(row=1, column=0, padx=12, pady=6, sticky="w")
+        self.tool_inspect_result = ctk.CTkLabel(panel, text=self.translator.text("inspect.none"), justify="left", anchor="w"); self.tool_inspect_result.grid(row=2, column=0, padx=12, pady=8, sticky="ew")
+
+    def _tool_choose_inspection(self) -> None:
+        selected = filedialog.askopenfilename(title=self.translator.text("inspect.choose"), filetypes=[(self.translator.text("files.all"), "*.*")]);
+        if not selected: return
+        path = Path(selected)
+        if path.suffix.lower() in {".pdf", ".pptx"}:
+            self.tool_inspect_result.configure(text=self.translator.text("inspect.document_unsupported")); return
+        try:
+            result = inspect_file(path); label = result.ai_label or self.translator.text("inspect.not_available"); self.tool_inspect_result.configure(text=f"{path.name}\n{self.translator.text('inspect.status')} {self.translator.text('inspect.found') if result.found else self.translator.text('inspect.not_found')}\n{self.translator.text('inspect.ai_label')} {label}")
+        except (OSError, ValueError) as error: self.tool_inspect_result.configure(text=self.translator.text("inspect.error_message", reason=error))
 
     # --- Image module -----------------------------------------------------------
 
@@ -1831,10 +1993,10 @@ class MarkerApp(ctk.CTk):
         self.badges = self.badge_sources.repository(self.badge_source_var.get(), self.custom_badge_var.get())
         names = [path.name for path in self.badges.display_badges()]
         displays = [self.badges.display_name(name) for name in names]; self.badge_display_to_file = dict(zip(displays, names))
-        self.badge_menu.configure(values=displays or [self.translator.text("badge.none")])
+        if getattr(self, "badge_menu", None): self.badge_menu.configure(values=displays or [self.translator.text("badge.none")])
         self.badge_var.set(choose_badge_selection(self.badge_source_var.get(), names, self.badge_var.get()))
         self.badge_display_var.set(self.badges.display_name(self.badge_var.get()))
-        self.update_image_badge_preview()
+        if getattr(self, "single_badge_preview_label", None): self.update_image_badge_preview()
 
     def update_image_badge_preview(self) -> None:
         badge = self.badges.find(self.badge_var.get())
@@ -1849,7 +2011,10 @@ class MarkerApp(ctk.CTk):
         if filename: self.badge_var.set(filename); self.select_image_badge()
 
     def select_image_badge(self) -> None:
-        self.badge_display_var.set(self.badges.display_name(self.badge_var.get())); self.update_image_badge_preview(); self.update_preview(); self._save()
+        self.badge_display_var.set(self.badges.display_name(self.badge_var.get()));
+        if getattr(self, "single_badge_preview_label", None): self.update_image_badge_preview()
+        if self.active_content_type == "image": self.update_preview()
+        self._save()
 
     def open_images(self) -> None:
         selected = filedialog.askopenfilenames(title=self.translator.text("dialog.open_media"), filetypes=[(self.translator.text("files.supported_media"), " ".join(f"*{extension}" for extension in sorted(SUPPORTED_EXTENSIONS))), (self.translator.text("files.all"), "*.*")])
@@ -1904,6 +2069,10 @@ class MarkerApp(ctk.CTk):
         try:
             self._saved_settings = self.settings(); self.config_store.save(self._saved_settings)
         except OSError: pass
+
+    def _save_image_settings(self) -> None:
+        """Persist shared preferences without letting Video own shell state."""
+        self._save()
 
 
 def run():

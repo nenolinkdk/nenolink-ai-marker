@@ -15,25 +15,42 @@ class ShellTransition:
     event: str
     next: str
     mounted_view: str
+    active_content_type: str = DEFAULT_DESTINATION
+    active_tool: str | None = None
 
 
 class ShellController:
     """The sole writer for the outer destination during shell isolation."""
 
     def __init__(self) -> None:
-        self.destination = DEFAULT_DESTINATION
+        self.active_content_type = DEFAULT_DESTINATION
+        self.active_tool: str | None = None
         self.transitions: list[ShellTransition] = []
 
+    @property
+    def destination(self) -> str:
+        """Compatibility view name; content state remains authoritative."""
+        return self.active_content_type
+
     def dispatch(self, event: str) -> ShellTransition:
-        previous = self.destination
+        previous = self.active_tool or self.active_content_type
         if event == "reset":
+            self.active_content_type = DEFAULT_DESTINATION
+            self.active_tool = None
             next_destination = DEFAULT_DESTINATION
-        elif event in DESTINATIONS:
+        elif event in {"badges", "inspect"}:
+            self.active_tool = event
+            next_destination = event
+        elif event == "back":
+            self.active_tool = None
+            next_destination = self.active_content_type
+        elif event in {"image", "video", "pdf", "pptx"}:
+            self.active_content_type = event
+            self.active_tool = None
             next_destination = event
         else:
             raise ValueError(f"Unknown shell event: {event}")
-        self.destination = next_destination
-        transition = ShellTransition(previous, event, next_destination, placeholder_for(next_destination))
+        transition = ShellTransition(previous, event, next_destination, placeholder_for(next_destination), self.active_content_type, self.active_tool)
         self.transitions.append(transition)
         return transition
 
