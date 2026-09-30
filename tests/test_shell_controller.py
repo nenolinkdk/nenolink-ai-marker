@@ -64,7 +64,7 @@ def test_unknown_event_is_rejected_without_changing_state():
     assert controller.destination == DEFAULT_DESTINATION
 
 
-def test_active_app_has_one_shell_owner_and_only_image_is_connected():
+def test_active_app_has_one_shell_owner_and_document_workspaces_are_direct_contexts():
     source = inspect.getsource(MarkerApp)
     assert "self.shell_controller = ShellController()" in source
     assert "self.content_host = ctk.CTkFrame(self)" in source
@@ -72,7 +72,7 @@ def test_active_app_has_one_shell_owner_and_only_image_is_connected():
     assert "def _build_image_workspace" in source
     assert "_mount_image_workspace" in source
     assert "_unmount_image_workspace" in source
-    assert "_document_context_ui" not in source
+    assert "_document_context_ui(self.content_host)" in source
     assert "_batch_ui" not in source
     assert "_settings_ui" not in source
     assert "_inspect_ui" not in source

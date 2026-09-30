@@ -1539,7 +1539,7 @@ class LegacyMarkerApp(ctk.CTk):
         super().destroy()
 
 
-class MarkerApp(ctk.CTk):
+class MarkerApp(LegacyMarkerApp):
     """Outer shell with the production Image workspace mounted as a child.
 
     The shell remains the sole owner of destinations.  Image is deliberately
@@ -1565,6 +1565,7 @@ class MarkerApp(ctk.CTk):
         self.tool_workspace = None
         self.content_buttons: dict[str, ctk.CTkButton] = {}
         self._initialize_image_services()
+        self._initialize_document_services()
         self._build_shell_ui()
         self.render_shell_state()
 
@@ -1666,6 +1667,7 @@ class MarkerApp(ctk.CTk):
         self.badge_sources = BadgeSourceManager(badge_directory())
         self.badges = self.badge_sources.repository(saved.badge_source, saved.custom_badge_folder)
         self.sources: list[Path] = []
+        self.media_sources = {"image": [], "video": []}; self.scan = None
         self.preview_photo = self.preview_image = self.badge_photo = self.single_badge_photo = None
         self.welcome_photo = self.welcome_image = None
         self.badge_display_to_file = {}
@@ -1679,6 +1681,35 @@ class MarkerApp(ctk.CTk):
         self.logo_position_var = ctk.StringVar(value=saved.logo_position); self.logo_position_display_var = ctk.StringVar()
         self.logo_size_var = ctk.IntVar(value=saved.logo_size_percent); self.logo_margin_var = ctk.IntVar(value=saved.logo_margin); self.logo_opacity_var = ctk.IntVar(value=saved.logo_opacity)
         self.badge_source_var = ctk.StringVar(value=saved.badge_source); self.custom_badge_var = ctk.StringVar(value=saved.custom_badge_folder)
+
+    def _initialize_document_services(self) -> None:
+        """Initialise document services without reviving legacy navigation."""
+        self.pdf_processor = PdfProcessor(); self.pptx_processor = PptxProcessor()
+        self.pdf_preview_renderer = PdfPreviewRenderer(self.processor)
+        self.pptx_preview_renderer = PptxPreviewRenderer(self.processor)
+        self.pdf_path = self.pptx_path = None; self.pdf_info = self.pptx_metrics = None
+        self.pdf_file_var = ctk.StringVar(); self.pptx_file_var = ctk.StringVar()
+        self.pdf_badge_enabled_var = ctk.BooleanVar(value=True)
+        self.pptx_selection_mode_var = ctk.StringVar(value="all"); self.pptx_selection_display_var = ctk.StringVar()
+        self.pptx_selected_var = ctk.StringVar(value="1, 3"); self.pptx_range_var = ctk.StringVar(value="1-2")
+        self.pptx_language_var = ctk.StringVar(value=Translator.language_name(self.translator.language))
+        self.document_scope_states = {"pdf": DocumentScopeState(), "pptx": DocumentScopeState()}
+        self.pdf_preview_state = DocumentPreviewState(); self.pptx_preview_state = DocumentPreviewState()
+        self.pptx_preview_photo = None; self._pdf_warning_approved = None; self._pdf_signature_approved = None; self._pptx_warning_approved = None
+
+    def _destroy_context_widgets(self, content_type):
+        if content_type == "image": self._unmount_image_workspace()
+        elif content_type == "video": self._unmount_video_workspace()
+        else:
+            setattr(self, f"{content_type}_context_widgets", None)
+            for name in self._document_widget_names: setattr(self, name, None)
+            for child in self.content_host.winfo_children(): child.destroy()
+
+    def _create_context_widgets(self, content_type):
+        if content_type not in {"pdf", "pptx"}: return
+        context = self._document_context_ui(self.content_host)
+        setattr(self, f"{content_type}_context_widgets", context)
+        self._bind_document_context_widgets(content_type)
 
     def _clear_content_host(self) -> None:
         for child in self.content_host.winfo_children():
