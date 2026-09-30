@@ -1540,10 +1540,11 @@ class LegacyMarkerApp(ctk.CTk):
 
 
 class MarkerApp(ctk.CTk):
-    """Phase 2 isolated outer shell.
+    """Outer shell with the production Image workspace mounted as a child.
 
-    No processor, preview, tab or legacy workspace is constructed here.  This
-    makes the shell controller the only owner of the mounted destination.
+    The shell remains the sole owner of destinations.  Image is deliberately
+    a hosted module: it can render and process images, but cannot select a
+    top-level destination or replace the common host.
     """
 
     _labels = {
@@ -1558,7 +1559,10 @@ class MarkerApp(ctk.CTk):
         self.active_content_type = self.shell_controller.destination
         self.active_tool = None
         self.mounted_view = ""
+        self._boot = lambda _message: None
+        self.image_workspace = None
         self.content_buttons: dict[str, ctk.CTkButton] = {}
+        self._initialize_image_services()
         self._build_shell_ui()
         self.render_shell_state()
 
@@ -1567,9 +1571,10 @@ class MarkerApp(ctk.CTk):
         header = ctk.CTkFrame(self, corner_radius=0); header.grid(row=0, column=0, sticky="ew")
         header.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(header, text="Nenolink AI Marker", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0, column=0, padx=20, pady=14, sticky="w")
-        self.language_menu = ctk.CTkOptionMenu(header, values=["English"], width=150); self.language_menu.grid(row=0, column=1, padx=8)
+        self.language_var = ctk.StringVar(value=Translator.language_name(self.translator.language))
+        self.language_menu = ctk.CTkOptionMenu(header, values=list(LANGUAGES), variable=self.language_var, command=self.change_image_language, width=150); self.language_menu.grid(row=0, column=1, padx=8)
         self.reset_button = ctk.CTkButton(header, text="Reset", command=self.reset_shell, width=100); self.reset_button.grid(row=0, column=2, padx=8)
-        self.guide_button = ctk.CTkButton(header, text="User Guide (PDF)", command=lambda: None, width=170); self.guide_button.grid(row=0, column=3, padx=(8,20))
+        self.guide_button = ctk.CTkButton(header, text="User Guide (PDF)", command=self.open_image_guide, width=170); self.guide_button.grid(row=0, column=3, padx=(8,20))
 
         navigation = ctk.CTkFrame(self, corner_radius=0); navigation.grid(row=1, column=0, sticky="ew")
         self._shell_group(navigation, "MEDIA", ("image", "video"), 0)
@@ -1579,6 +1584,9 @@ class MarkerApp(ctk.CTk):
         self.content_host = ctk.CTkFrame(self); self.content_host.grid(row=2, column=0, padx=16, pady=(8,8), sticky="nsew")
         self.content_host.grid_columnconfigure(0, weight=1); self.content_host.grid_rowconfigure(0, weight=1)
         self.placeholder_label = ctk.CTkLabel(self.content_host, font=ctk.CTkFont(size=28, weight="bold")); self.placeholder_label.grid(row=0, column=0)
+        self.status_var = ctk.StringVar()
+        self.status_label = ctk.CTkLabel(self, textvariable=self.status_var, text_color="gray60", anchor="e")
+        self.status_label.grid(row=3, column=0, padx=20, pady=(0,8), sticky="ew")
 
     def _shell_group(self, parent, title: str, destinations: tuple[str, ...], column: int) -> None:
         group = ctk.CTkFrame(parent, fg_color="transparent"); group.grid(row=0, column=column, padx=(20 if column == 0 else 8, 8), pady=7, sticky="w")
@@ -1591,11 +1599,19 @@ class MarkerApp(ctk.CTk):
             self.content_buttons[destination] = button
 
     def dispatch_shell_event(self, event: str) -> None:
+        source = self.shell_controller.destination
+        if source == "image" and event != "image" and event != "reset" and self._image_has_active_work():
+            if not messagebox.askokcancel(self.translator.text("navigation.switch_title"), self.translator.text("navigation.switch_message")):
+                return
+        if source == "image" and event != "image":
+            self._unmount_image_workspace()
         self.shell_controller.dispatch(event)
         self.render_shell_state()
 
     def reset_shell(self) -> None:
-        self.dispatch_shell_event("reset")
+        self._unmount_image_workspace()
+        self.shell_controller.dispatch("reset")
+        self.render_shell_state()
 
     def render_shell_state(self) -> None:
         destination = self.shell_controller.destination
@@ -1603,8 +1619,174 @@ class MarkerApp(ctk.CTk):
         self.active_tool = destination if destination in {"badges", "inspect"} else None
         for key, button in self.content_buttons.items():
             button.configure(fg_color=("#2474ad", "#1f6aa5") if key == destination else ("#6b6b6b", "#454545"))
-        self.mounted_view = placeholder_for(destination)
-        self.placeholder_label.configure(text=self.mounted_view)
+        if destination == "image":
+            self._mount_image_workspace()
+            self.mounted_view = "IMAGE"
+        else:
+            self._clear_content_host()
+            self.mounted_view = placeholder_for(destination)
+            self.placeholder_label = ctk.CTkLabel(self.content_host, text=self.mounted_view, font=ctk.CTkFont(size=28, weight="bold"))
+            self.placeholder_label.grid(row=0, column=0)
+
+    # --- Image module lifecycle -------------------------------------------------
+
+    def _initialize_image_services(self) -> None:
+        saved = ConfigStore().load()
+        self.processor = ImageProcessor()
+        self.preview_renderer = ImagePreviewRenderer(self.processor)
+        self.batch_processor = BatchProcessor(self.processor)
+        self.config_store = ConfigStore()
+        self.translator = Translator(locale_directory(), saved.language)
+        self.badge_sources = BadgeSourceManager(badge_directory())
+        self.badges = self.badge_sources.repository(saved.badge_source, saved.custom_badge_folder)
+        self.sources: list[Path] = []
+        self.media_sources = {"image": []}
+        self.cancel_event = threading.Event()
+        self.preview_photo = self.preview_image = self.badge_photo = self.single_badge_photo = None
+        self.welcome_photo = self.welcome_image = None
+        self.badge_display_to_file = {}
+        self.badge_var = ctk.StringVar(value=saved.badge_name); self.badge_display_var = ctk.StringVar()
+        self.badge_name_var = ctk.StringVar(); self.badge_description_var = ctk.StringVar()
+        self.position_var = ctk.StringVar(value=saved.position); self.position_display_var = ctk.StringVar()
+        self.size_var = ctk.IntVar(value=saved.size_percent); self.margin_var = ctk.IntVar(value=saved.margin); self.opacity_var = ctk.IntVar(value=saved.opacity)
+        self.logo_enabled_var = ctk.BooleanVar(value=saved.logo_enabled); self.logo_path_var = ctk.StringVar(value=saved.logo_path)
+        self.logo_filename_var = ctk.StringVar(value=Path(saved.logo_path).name if saved.logo_path else "—")
+        self.logo_position_var = ctk.StringVar(value=saved.logo_position); self.logo_position_display_var = ctk.StringVar()
+        self.logo_size_var = ctk.IntVar(value=saved.logo_size_percent); self.logo_margin_var = ctk.IntVar(value=saved.logo_margin); self.logo_opacity_var = ctk.IntVar(value=saved.logo_opacity)
+        # Retain fields required by the shared MarkerSettings model.  They are
+        # data only here; their Video/Batch UI is not mounted in this phase.
+        self.badge_source_var = ctk.StringVar(value=saved.badge_source); self.custom_badge_var = ctk.StringVar(value=saved.custom_badge_folder)
+        self.input_folder_var = ctk.StringVar(value=saved.input_folder); self.output_preference_var = ctk.StringVar(value=saved.output_preference); self.output_folder_var = ctk.StringVar(value=saved.output_folder); self.output_subfolder_var = ctk.StringVar(value=saved.output_subfolder)
+        self.recursive_var = ctk.BooleanVar(value=saved.include_subfolders); self.preserve_var = ctk.BooleanVar(value=saved.preserve_folder_structure); self.images_var = ctk.BooleanVar(value=saved.process_images); self.videos_var = ctk.BooleanVar(value=saved.process_videos); self.skip_var = ctk.BooleanVar(value=saved.skip_processed)
+        self.video_mode_var = ctk.StringVar(value=saved.video_mode); self.video_duration_var = ctk.IntVar(value=saved.video_duration); self.batch_suffix_var = ctk.StringVar(value=saved.batch_filename_suffix)
+        self.automatic_update_var = ctk.BooleanVar(value=saved.automatic_update_check); self.last_update_check = saved.last_update_check; self.shortcut_offer_shown = saved.shortcut_offer_shown
+
+    def _clear_content_host(self) -> None:
+        for child in self.content_host.winfo_children():
+            child.destroy()
+        self.image_workspace = None
+
+    def _mount_image_workspace(self) -> None:
+        if self.image_workspace is not None and self.image_workspace.winfo_exists():
+            return
+        self._clear_content_host()
+        self.image_workspace = ctk.CTkFrame(self.content_host, fg_color="transparent")
+        self.image_workspace.grid(row=0, column=0, sticky="nsew")
+        self.image_workspace.grid_columnconfigure(0, weight=1); self.image_workspace.grid_rowconfigure(0, weight=1)
+        self.single_tab = self.image_workspace
+        self._single_ui()
+        self.refresh_image_badges()
+        self.apply_image_translations()
+        self._validate_saved_logo()
+        self._show_welcome()
+
+    def _unmount_image_workspace(self) -> None:
+        self.sources = []; self.media_sources["image"] = []
+        self.preview_renderer.clear(); self.preview_photo = self.preview_image = None
+        self._clear_content_host()
+
+    def _image_has_active_work(self) -> bool:
+        return bool(self.sources)
+
+    # --- Image module, adapted from the legacy workspace -----------------------
+
+    _single_ui = LegacyMarkerApp._single_ui
+    _slider = LegacyMarkerApp._slider
+    _load_welcome_image = LegacyMarkerApp._load_welcome_image
+    _resize_welcome = LegacyMarkerApp._resize_welcome
+    _show_welcome = LegacyMarkerApp._show_welcome
+    _show_preview = LegacyMarkerApp._show_preview
+    settings = LegacyMarkerApp.settings
+    save_images = LegacyMarkerApp.save_images
+    _logo_path = LegacyMarkerApp._logo_path
+    choose_logo = LegacyMarkerApp.choose_logo
+    update_preview = LegacyMarkerApp.update_preview
+
+    def apply_image_translations(self) -> None:
+        t = self.translator.text
+        self.title(f"Nenolink AI Marker {__version__}")
+        self.reset_button.configure(text=t("button.reset")); self.guide_button.configure(text=t("button.user_guide"))
+        self.open_button.configure(text="1. " + t("button.open_media")); self.process_button.configure(text=t("button.process"))
+        self.file_label.configure(text=t("files.none") if not self.sources else t("files.selected", count=len(self.sources), name=self.sources[0].name)); self.file_size_guidance.configure(text=t("files.size_guidance"))
+        self.single_badge_label.configure(text="2. " + t("badge"))
+        self.position_display_to_value = {t("position.top_left"): "top-left", t("position.top_right"): "top-right", t("position.bottom_left"): "bottom-left", t("position.bottom_right"): "bottom-right", t("position.center"): "center"}
+        self.position_menu.configure(values=list(self.position_display_to_value)); self.position_display_var.set(next((label for label, value in self.position_display_to_value.items() if value == self.position_var.get()), t("position.bottom_right")))
+        self.logo_position_display_to_value = dict(self.position_display_to_value); self.logo_position_menu.configure(values=list(self.logo_position_display_to_value)); self.logo_position_display_var.set(next((label for label, value in self.logo_position_display_to_value.items() if value == self.logo_position_var.get()), t("position.top_left")))
+        self.position_label.configure(text="3. " + t("position")); self._update_image_slider_labels()
+        self.logo_heading.configure(text=t("logo.title")); self.logo_enable.configure(text=t("logo.enable")); self.logo_choose.configure(text=t("logo.choose")); self.logo_position_label.configure(text=t("logo.position")); self.logo_images_only.configure(text=t("logo.images_only")); self._update_logo_labels(); self._update_logo_controls()
+        self.welcome_title.configure(text=t("welcome.title")); self.welcome_tagline.configure(text=t("welcome.tagline")); self.welcome_description1.configure(text=t("welcome.description1")); self.welcome_description2.configure(text=t("welcome.description2"))
+
+    def change_image_language(self, name: str) -> None:
+        self.translator.set_language(LANGUAGES.get(name, "en")); self.apply_image_translations(); self.refresh_image_badges(); self._save()
+
+    def open_image_guide(self) -> None:
+        try: open_user_guide(localized_user_guide_path(self.translator.language))
+        except (OSError, FileNotFoundError) as error: messagebox.showerror(self.translator.text("error.title"), self.translator.text("guide.missing", error=error))
+
+    def _update_image_slider_labels(self) -> None:
+        t = self.translator.text; self.size_label.configure(text="4. " + t("size.value", value=self.size_var.get())); self.margin_label.configure(text="5. " + t("margin.value", value=self.margin_var.get())); self.opacity_label.configure(text="6. " + t("opacity.value", value=self.opacity_var.get()))
+
+    def changed(self, *_args) -> None:
+        self._update_image_slider_labels(); self._update_logo_labels(); self.update_preview(); self._save()
+
+    def change_position_display(self, label: str) -> None:
+        self.position_var.set(self.position_display_to_value[label]); self.changed()
+
+    def change_logo_position(self, label: str) -> None:
+        self.logo_position_var.set(self.logo_position_display_to_value[label]); self.logo_changed()
+
+    def _update_logo_labels(self) -> None:
+        t = self.translator.text; self.logo_size_label.configure(text=t("logo.size", value=self.logo_size_var.get())); self.logo_margin_label.configure(text=t("logo.margin", value=self.logo_margin_var.get())); self.logo_opacity_label.configure(text=t("logo.opacity", value=self.logo_opacity_var.get()))
+
+    def _update_logo_controls(self) -> None:
+        if not getattr(self, "logo_enable", None): return
+        enabled = self.logo_enabled_var.get() and bool(self._logo_path())
+        for widget in (self.logo_position_menu, self.logo_size_slider, self.logo_margin_slider, self.logo_opacity_slider): widget.configure(state="normal" if enabled else "disabled")
+        self.logo_filename_var.set(Path(self.logo_path_var.get()).name if self.logo_path_var.get() else "—")
+
+    def _validate_saved_logo(self) -> None:
+        if self.logo_enabled_var.get() and not self._logo_path(): self.logo_enabled_var.set(False)
+        self._update_logo_controls()
+
+    def logo_changed(self, *_args) -> None:
+        if self.logo_enabled_var.get() and not self._logo_path(): self.logo_enabled_var.set(False); self.status_var.set(self.translator.text("logo.missing"))
+        self._update_logo_controls(); self.changed()
+
+    def refresh_image_badges(self) -> None:
+        self.badges = self.badge_sources.repository(self.badge_source_var.get(), self.custom_badge_var.get())
+        names = [path.name for path in self.badges.display_badges()]
+        displays = [self.badges.display_name(name) for name in names]; self.badge_display_to_file = dict(zip(displays, names))
+        self.badge_menu.configure(values=displays or [self.translator.text("badge.none")])
+        self.badge_var.set(choose_badge_selection(self.badge_source_var.get(), names, self.badge_var.get()))
+        self.badge_display_var.set(self.badges.display_name(self.badge_var.get()))
+        self.update_image_badge_preview()
+
+    def update_image_badge_preview(self) -> None:
+        badge = self.badges.find(self.badge_var.get())
+        if not badge: self.single_badge_preview_label.configure(image=None, text=self.translator.text("badge.none")); return
+        with Image.open(badge) as opened: image = opened.convert("RGBA")
+        image.thumbnail((110, 54), Image.Resampling.LANCZOS); self.single_badge_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size); self.badge_photo = self.single_badge_photo
+        self.single_badge_preview_label.configure(image=self.single_badge_photo, text="")
+        info = self.badges.metadata(badge.name); self.badge_name_var.set(info.display_name if info else self.badges.display_name(badge.name))
+
+    def select_badge_display(self, display_name: str) -> None:
+        filename = self.badge_display_to_file.get(display_name)
+        if filename: self.badge_var.set(filename); self.select_image_badge()
+
+    def select_image_badge(self) -> None:
+        self.badge_display_var.set(self.badges.display_name(self.badge_var.get())); self.update_image_badge_preview(); self.update_preview(); self._save()
+
+    def open_images(self) -> None:
+        selected = filedialog.askopenfilenames(title=self.translator.text("dialog.open_media"), filetypes=[(self.translator.text("files.supported_media"), " ".join(f"*{extension}" for extension in sorted(SUPPORTED_EXTENSIONS))), (self.translator.text("files.all"), "*.*")])
+        if not selected: return
+        candidates = [Path(path) for path in selected if Path(path).suffix.lower() in SUPPORTED_EXTENSIONS]
+        if any(is_above_recommended_size(path) for path in candidates) and not messagebox.askokcancel(self.translator.text("warning.large_title"), self.translator.text("warning.large_file")): return
+        self.sources = candidates; self.media_sources["image"] = list(candidates)
+        self.file_label.configure(text=self.translator.text("files.selected", count=len(candidates), name=candidates[0].name) if candidates else self.translator.text("files.none_supported")); self.update_preview()
+
+    def _save(self) -> None:
+        try: self.config_store.save(self.settings())
+        except OSError: pass
 
 
 def run():
