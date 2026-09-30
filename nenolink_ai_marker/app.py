@@ -1562,6 +1562,7 @@ class MarkerApp(ctk.CTk):
         self._boot = lambda _message: None
         self.image_workspace = None
         self.video_workspace = None
+        self.pdf_workspace = None
         self.tool_workspace = None
         self.content_buttons: dict[str, ctk.CTkButton] = {}
         self._initialize_image_services()
@@ -1648,6 +1649,9 @@ class MarkerApp(ctk.CTk):
         elif destination == "video":
             self._mount_video_workspace()
             self.mounted_view = "VIDEO"
+        elif destination == "pdf":
+            self._mount_pdf_workspace()
+            self.mounted_view = "PDF"
         else:
             self._clear_content_host()
             self.mounted_view = placeholder_for(destination)
@@ -1683,7 +1687,16 @@ class MarkerApp(ctk.CTk):
     def _clear_content_host(self) -> None:
         for child in self.content_host.winfo_children():
             child.destroy()
-        self.image_workspace = self.video_workspace = self.tool_workspace = None
+        self.image_workspace = self.video_workspace = self.pdf_workspace = self.tool_workspace = None
+
+    def _mount_pdf_workspace(self) -> None:
+        """Phase PDF-1 shell only; no processor or legacy document runtime."""
+        self._clear_content_host()
+        self.pdf_workspace = ctk.CTkFrame(self.content_host, fg_color="transparent")
+        self.pdf_workspace.grid(row=0, column=0, padx=24, pady=24, sticky="nsew")
+        self.pdf_workspace.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(self.pdf_workspace, text="PDF", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0, column=0, pady=(8, 4), sticky="w")
+        ctk.CTkLabel(self.pdf_workspace, text="PDF workspace — file loading will be added in the next phase.", text_color="gray60", anchor="w").grid(row=1, column=0, pady=4, sticky="w")
 
     def _mount_image_workspace(self) -> None:
         if self.image_workspace is not None and self.image_workspace.winfo_exists():

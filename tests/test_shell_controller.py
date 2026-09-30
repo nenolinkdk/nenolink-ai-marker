@@ -80,6 +80,16 @@ def test_active_app_has_one_shell_owner_and_only_image_is_connected():
     assert "batch_mode" not in source
 
 
+def test_pdf_phase_one_is_a_clean_marker_app_workspace_shell():
+    source = inspect.getsource(MarkerApp)
+    assert "def _mount_pdf_workspace" in source
+    assert 'text="PDF"' in source
+    assert "file loading will be added in the next phase" in source
+    assert "PdfProcessor" not in source
+    assert "PdfPreviewRenderer" not in source
+    assert "_document_context_ui" not in source
+
+
 def test_image_module_does_not_own_outer_navigation_state():
     source = inspect.getsource(MarkerApp)
     image_module = source[source.index("# --- Image module lifecycle"):]
