@@ -1623,7 +1623,7 @@ class MarkerApp(ctk.CTk):
         if source == "video" and event != "video":
             self._unmount_video_workspace()
         if source == "pdf" and event != "pdf":
-            self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None
+            self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None; self.pdf_scope_mode = "all"; self.pdf_active_scope = (); self.pdf_scope_input = ""
         self.shell_controller.dispatch(event)
         self.render_shell_state()
 
@@ -1631,7 +1631,7 @@ class MarkerApp(ctk.CTk):
         if self.shell_controller.active_content_type == "video":
             self._unmount_video_workspace()
         elif self.shell_controller.active_content_type == "pdf":
-            self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None
+            self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None; self.pdf_scope_mode = "all"; self.pdf_active_scope = (); self.pdf_scope_input = ""
         else:
             self._unmount_image_workspace()
         self.shell_controller.dispatch("reset")
@@ -1699,6 +1699,7 @@ class MarkerApp(ctk.CTk):
         self.logo_size_var = ctk.IntVar(value=saved.logo_size_percent); self.logo_margin_var = ctk.IntVar(value=saved.logo_margin); self.logo_opacity_var = ctk.IntVar(value=saved.logo_opacity)
         self.badge_source_var = ctk.StringVar(value=saved.badge_source); self.custom_badge_var = ctk.StringVar(value=saved.custom_badge_folder)
         self.pdf_path = None; self.pdf_info = None; self.pdf_processor = PdfProcessor(); self.pdf_preview_renderer = PdfPreviewRenderer(self.processor); self.pdf_current_page = 0; self.pdf_preview_photo = None
+        self.pdf_scope_mode = "all"; self.pdf_active_scope: tuple[int, ...] = (); self.pdf_scope_input = ""
 
     def _clear_content_host(self) -> None:
         for child in self.content_host.winfo_children():
@@ -1721,6 +1722,11 @@ class MarkerApp(ctk.CTk):
         self.pdf_previous_button = ctk.CTkButton(nav, text="◀", width=42, command=lambda: self.change_pdf_page(-1)); self.pdf_previous_button.grid(row=0, column=0, padx=4)
         self.pdf_page_status = ctk.CTkLabel(nav, text="—", width=120); self.pdf_page_status.grid(row=0, column=1, padx=4)
         self.pdf_next_button = ctk.CTkButton(nav, text="▶", width=42, command=lambda: self.change_pdf_page(1)); self.pdf_next_button.grid(row=0, column=2, padx=4)
+        self.pdf_scope_menu = ctk.CTkOptionMenu(self.pdf_workspace, values=["All", "First", "Selected", "Range"], command=self.change_pdf_scope_mode); self.pdf_scope_menu.grid(row=5, column=0, pady=(12, 2), sticky="w")
+        self.pdf_scope_entry = ctk.CTkEntry(self.pdf_workspace, placeholder_text="2,4,7 or 5-7,10-12"); self.pdf_scope_entry.grid(row=6, column=0, pady=2, sticky="w")
+        self.pdf_scope_update = ctk.CTkButton(self.pdf_workspace, text="Update", command=self.update_pdf_scope, width=100); self.pdf_scope_update.grid(row=7, column=0, pady=(2, 4), sticky="w")
+        self.pdf_scope_message = ctk.CTkLabel(self.pdf_workspace, text="", text_color="#b42318", anchor="w"); self.pdf_scope_message.grid(row=8, column=0, sticky="w")
+        self._update_pdf_scope_controls()
 
     def choose_pdf_phase2(self) -> None:
         selected = filedialog.askopenfilename(title="Choose PDF", filetypes=[("PDF (*.pdf)", "*.pdf")])
@@ -1733,12 +1739,48 @@ class MarkerApp(ctk.CTk):
         except (OSError, ValueError, AttributeError) as error:
             messagebox.showerror("PDF", f"Could not read PDF: {error}"); return
         self.pdf_path, self.pdf_info = path, info
-        self.pdf_current_page = 1; self.pdf_preview_photo = None
+        self.pdf_current_page = 1; self.pdf_preview_photo = None; self.pdf_scope_mode = "all"; self.pdf_active_scope = tuple(range(1, info.metrics.item_count + 1)); self.pdf_scope_input = ""
         size = human_file_size(info.metrics.size_bytes)
         signed = "\nWarning: existing digital signatures may be invalidated when modified." if info.signed else ""
         self.pdf_file_label.configure(text=f"{path.name}\n{size} · {info.metrics.item_count} pages{signed}")
         self.status_var.set(f"PDF loaded: {path.name}")
         self.render_pdf_preview()
+
+    def _update_pdf_scope_controls(self) -> None:
+        if not getattr(self, "pdf_scope_menu", None): return
+        editable = self.pdf_scope_mode in {"selected", "range"}
+        self.pdf_scope_entry.configure(state="normal" if editable else "disabled")
+        self.pdf_scope_update.configure(state="normal" if editable else "disabled")
+
+    def change_pdf_scope_mode(self, label: str) -> None:
+        self.pdf_scope_mode = {"All": "all", "First": "first", "Selected": "selected", "Range": "range"}.get(label, "all")
+        if self.pdf_scope_mode == "all" and self.pdf_info: self.pdf_active_scope = tuple(range(1, self.pdf_info.metrics.item_count + 1)); self.pdf_current_page = 1; self.render_pdf_preview()
+        elif self.pdf_scope_mode == "first" and self.pdf_info: self.pdf_active_scope = (1,); self.pdf_current_page = 1; self.render_pdf_preview()
+        self._update_pdf_scope_controls()
+
+    def update_pdf_scope(self) -> None:
+        if not self.pdf_info or self.pdf_scope_mode not in {"selected", "range"}: return
+        text = self.pdf_scope_entry.get().strip()
+        try:
+            values = []
+            parts = [part.strip() for part in text.split(",") if part.strip()]
+            if not parts: raise ValueError("Enter at least one page.")
+            for part in parts:
+                if self.pdf_scope_mode == "selected":
+                    if "-" in part: raise ValueError("Selected pages must use comma-separated numbers.")
+                    values.append(int(part))
+                else:
+                    bounds = part.split("-")
+                    if len(bounds) != 2: raise ValueError("Ranges must use start-end syntax.")
+                    start, end = (int(value.strip()) for value in bounds)
+                    if start > end: raise ValueError("Range start must not exceed end.")
+                    values.extend(range(start, end + 1))
+            values = sorted(set(values))
+            if any(value < 1 or value > self.pdf_info.metrics.item_count for value in values): raise ValueError("Page is outside the PDF.")
+            self.pdf_active_scope = tuple(values); self.pdf_scope_input = text; self.pdf_scope_message.configure(text="")
+            self.pdf_current_page = values[0]; self.render_pdf_preview()
+        except (TypeError, ValueError):
+            self.pdf_scope_message.configure(text="Invalid page selection. The previous scope was preserved.")
 
     def render_pdf_preview(self) -> None:
         if not self.pdf_path or not self.pdf_info or not getattr(self, "pdf_preview_label", None): return

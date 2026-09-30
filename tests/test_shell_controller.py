@@ -110,6 +110,23 @@ def test_pdf_preview_updates_widget_indicator_and_navigation(monkeypatch, tmp_pa
     assert fake.pdf_next_button.values["state"] == "normal"
 
 
+def test_pdf_scope_update_is_independent_from_physical_preview():
+    class Entry:
+        def __init__(self, value): self.value = value
+        def get(self): return self.value
+    class Message:
+        def __init__(self): self.text = ""
+        def configure(self, **kwargs): self.text = kwargs["text"]
+    fake = SimpleNamespace(pdf_info=SimpleNamespace(metrics=SimpleNamespace(item_count=12)), pdf_scope_mode="selected", pdf_scope_entry=Entry("2,4,7"), pdf_scope_message=Message(), pdf_active_scope=(), pdf_scope_input="", pdf_current_page=9, render_pdf_preview=lambda: None)
+    MarkerApp.update_pdf_scope(fake)
+    assert fake.pdf_active_scope == (2, 4, 7)
+    assert fake.pdf_current_page == 2
+    fake.pdf_scope_entry.value = "2,99"
+    MarkerApp.update_pdf_scope(fake)
+    assert fake.pdf_active_scope == (2, 4, 7)
+    assert fake.pdf_current_page == 2
+
+
 def test_image_module_does_not_own_outer_navigation_state():
     source = inspect.getsource(MarkerApp)
     image_module = source[source.index("# --- Image module lifecycle"):]
