@@ -39,6 +39,7 @@ from .docx_preview import DocxPreviewRenderer
 from .shortcut import ShortcutError, create_desktop_shortcut
 from .ui_state import DocumentPreviewState, DocumentScopeState, pptx_item_selection, show_welcome
 from .update_check import UpdateCheckError, check_for_update, is_approved_update_url, should_check_automatically
+from .shell_controller import DESTINATIONS, ShellController, placeholder_for
 
 
 class AutoHideScrollableFrame(ctk.CTkScrollableFrame):
@@ -62,7 +63,7 @@ class AutoHideScrollableFrame(ctk.CTkScrollableFrame):
         self.scrollbar_needed = needed
 
 
-class MarkerApp(ctk.CTk):
+class LegacyMarkerApp(ctk.CTk):
     def __init__(self) -> None:
         boot_log=os.environ.get("NENOLINK_BOOT_LOG")
         def boot(message):
@@ -1536,6 +1537,74 @@ class MarkerApp(ctk.CTk):
             except ValueError:pass
             self._reset_after_id=None
         super().destroy()
+
+
+class MarkerApp(ctk.CTk):
+    """Phase 2 isolated outer shell.
+
+    No processor, preview, tab or legacy workspace is constructed here.  This
+    makes the shell controller the only owner of the mounted destination.
+    """
+
+    _labels = {
+        "image": "Images", "video": "Video", "pdf": "PDF",
+        "pptx": "PowerPoint / Slides", "badges": "Badges", "inspect": "Inspect File",
+    }
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.geometry("1280x720"); self.minsize(980, 680)
+        self.shell_controller = ShellController()
+        self.active_content_type = self.shell_controller.destination
+        self.active_tool = None
+        self.mounted_view = ""
+        self.content_buttons: dict[str, ctk.CTkButton] = {}
+        self._build_shell_ui()
+        self.render_shell_state()
+
+    def _build_shell_ui(self) -> None:
+        self.grid_columnconfigure(0, weight=1); self.grid_rowconfigure(2, weight=1)
+        header = ctk.CTkFrame(self, corner_radius=0); header.grid(row=0, column=0, sticky="ew")
+        header.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(header, text="Nenolink AI Marker", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0, column=0, padx=20, pady=14, sticky="w")
+        self.language_menu = ctk.CTkOptionMenu(header, values=["English"], width=150); self.language_menu.grid(row=0, column=1, padx=8)
+        self.reset_button = ctk.CTkButton(header, text="Reset", command=self.reset_shell, width=100); self.reset_button.grid(row=0, column=2, padx=8)
+        self.guide_button = ctk.CTkButton(header, text="User Guide (PDF)", command=lambda: None, width=170); self.guide_button.grid(row=0, column=3, padx=(8,20))
+
+        navigation = ctk.CTkFrame(self, corner_radius=0); navigation.grid(row=1, column=0, sticky="ew")
+        self._shell_group(navigation, "MEDIA", ("image", "video"), 0)
+        self._shell_group(navigation, "DOCUMENTS", ("pdf", "pptx"), 1)
+        self._shell_group(navigation, "TOOLS", ("badges", "inspect"), 2)
+
+        self.content_host = ctk.CTkFrame(self); self.content_host.grid(row=2, column=0, padx=16, pady=(8,8), sticky="nsew")
+        self.content_host.grid_columnconfigure(0, weight=1); self.content_host.grid_rowconfigure(0, weight=1)
+        self.placeholder_label = ctk.CTkLabel(self.content_host, font=ctk.CTkFont(size=28, weight="bold")); self.placeholder_label.grid(row=0, column=0)
+
+    def _shell_group(self, parent, title: str, destinations: tuple[str, ...], column: int) -> None:
+        group = ctk.CTkFrame(parent, fg_color="transparent"); group.grid(row=0, column=column, padx=(20 if column == 0 else 8, 8), pady=7, sticky="w")
+        ctk.CTkLabel(group, text=title, font=ctk.CTkFont(size=13, weight="bold")).grid(row=0, column=0, sticky="w")
+        buttons = ctk.CTkFrame(group, fg_color="transparent"); buttons.grid(row=1, column=0, pady=(1,0), sticky="w")
+        for index, destination in enumerate(destinations):
+            button = ctk.CTkButton(buttons, text=self._labels[destination], height=28, width=0,
+                command=lambda event=destination: self.dispatch_shell_event(event))
+            button.grid(row=0, column=index, padx=(0 if index == 0 else 4, 0))
+            self.content_buttons[destination] = button
+
+    def dispatch_shell_event(self, event: str) -> None:
+        self.shell_controller.dispatch(event)
+        self.render_shell_state()
+
+    def reset_shell(self) -> None:
+        self.dispatch_shell_event("reset")
+
+    def render_shell_state(self) -> None:
+        destination = self.shell_controller.destination
+        self.active_content_type = destination
+        self.active_tool = destination if destination in {"badges", "inspect"} else None
+        for key, button in self.content_buttons.items():
+            button.configure(fg_color=("#2474ad", "#1f6aa5") if key == destination else ("#6b6b6b", "#454545"))
+        self.mounted_view = placeholder_for(destination)
+        self.placeholder_label.configure(text=self.mounted_view)
 
 
 def run():
