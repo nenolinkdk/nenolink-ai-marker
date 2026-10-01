@@ -1742,6 +1742,7 @@ class MarkerApp(ctk.CTk):
         self.pdf_scope_entry = ctk.CTkEntry(self.pdf_workspace, placeholder_text="2,4,7 or 5-7,10-12"); self.pdf_scope_entry.grid(row=10, column=0, pady=2, sticky="w")
         self.pdf_scope_update = ctk.CTkButton(self.pdf_workspace, text=t("document.scope_update"), command=self.update_pdf_scope, width=100); self.pdf_scope_update.grid(row=11, column=0, pady=(2, 4), sticky="w")
         self.pdf_scope_message = ctk.CTkLabel(self.pdf_workspace, text="", text_color="#b42318", anchor="w"); self.pdf_scope_message.grid(row=12, column=0, sticky="w")
+        self.pdf_process_button = ctk.CTkButton(self.pdf_workspace, text=t("pdf.process"), command=self.process_pdf_phase6, width=180); self.pdf_process_button.grid(row=21, column=0, pady=(8, 4), sticky="w")
         self.refresh_image_badges()
         self._update_pdf_scope_controls()
 
@@ -1778,6 +1779,37 @@ class MarkerApp(ctk.CTk):
             self.translator.text("pdf.signature_title"),
             self.translator.text("pdf.signature_warning"),
         )
+
+    def _confirm_pdf_limits_phase6(self) -> bool:
+        if not self.pdf_info:
+            return False
+        assessment = assess_document("pdf", self.pdf_info.metrics)
+        if assessment.blocked:
+            messagebox.showerror(self.translator.text("document.limit_title"), self.translator.text("document.pdf_hard")); return False
+        if assessment.requires_warning:
+            return messagebox.askokcancel(self.translator.text("document.warning_title"), self.translator.text("document.pdf_warning"))
+        return True
+
+    def process_pdf_phase6(self) -> None:
+        """Save a new PDF using the already validated PDF-owned scope."""
+        if not self.pdf_path or not self.pdf_info:
+            messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("pdf.choose_first")); return
+        if not self._confirm_pdf_limits_phase6() or not self._confirm_pdf_signature(): return
+        badge = self.badges.find(self.badge_var.get()) if self.pdf_badge_enabled_var.get() else None
+        label = self.badges.display_name(self.badge_var.get()) if badge else ""
+        disclosure, logo = settings_for_documents(self.settings(), label=label, disclosure_language=self.translator.language)
+        if not badge and not logo.enabled:
+            messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("pdf.overlay_required")); return
+        selected = filedialog.asksaveasfilename(title=self.translator.text("pdf.save_as"), initialdir=str(self.pdf_path.parent), initialfile=f"{self.pdf_path.stem}_ai.pdf", defaultextension=".pdf", filetypes=[("PDF (*.pdf)", "*.pdf")], confirmoverwrite=True)
+        if not selected: return
+        destination = Path(selected)
+        if destination.resolve() == self.pdf_path.resolve():
+            messagebox.showerror(self.translator.text("error.title"), self.translator.text("pdf.extension_error")); return
+        try:
+            result = self.pdf_processor.process(ProcessingRequest(self.pdf_path, destination, disclosure, badge_path=badge, logo=logo, metadata=marker_metadata(disclosure.badge_name, disclosure.label)), ItemSelection("selected", tuple(self.pdf_active_scope)))
+        except (OSError, ValueError) as error:
+            messagebox.showerror(self.translator.text("error.title"), self.translator.text("pdf.error", error=error)); return
+        self.status_var.set(self.translator.text("pdf.saved", name=result.destination.name, count=len(result.selected_pages)))
 
     def _update_pdf_scope_controls(self) -> None:
         if not getattr(self, "pdf_scope_menu", None): return
