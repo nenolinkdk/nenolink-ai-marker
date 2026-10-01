@@ -1619,12 +1619,17 @@ class MarkerApp(ctk.CTk):
         if source == "pdf" and event not in {"pdf", "reset"} and getattr(self, "pdf_path", None) is not None:
             if not messagebox.askokcancel(self.translator.text("navigation.switch_title"), self.translator.text("navigation.switch_message")):
                 return
+        if source == "pptx" and event not in {"pptx", "reset"} and self._format_has_active_work("pptx"):
+            if not messagebox.askokcancel(self.translator.text("navigation.switch_title"), self.translator.text("navigation.switch_message")):
+                return
         if source == "image" and event != "image":
             self._unmount_image_workspace()
         if source == "video" and event != "video":
             self._unmount_video_workspace()
         if source == "pdf" and event != "pdf":
             self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None; self.pdf_scope_mode = "all"; self.pdf_active_scope = (); self.pdf_scope_input = ""
+        if source == "pptx" and event != "pptx":
+            self.pptx_path = self.pptx_metrics = None
         self.shell_controller.dispatch(event)
         self.render_shell_state()
 
@@ -1633,6 +1638,8 @@ class MarkerApp(ctk.CTk):
             self._unmount_video_workspace()
         elif self.shell_controller.active_content_type == "pdf":
             self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None; self.pdf_scope_mode = "all"; self.pdf_active_scope = (); self.pdf_scope_input = ""
+        elif self.shell_controller.active_content_type == "pptx":
+            self.pptx_path = self.pptx_metrics = None
         else:
             self._unmount_image_workspace()
         self.shell_controller.dispatch("reset")
@@ -1642,6 +1649,7 @@ class MarkerApp(ctk.CTk):
         if format_type == "image": return self._image_has_active_work()
         if format_type == "video": return self._video_has_active_work()
         if format_type == "pdf": return self.pdf_path is not None
+        if format_type == "pptx": return self.pptx_path is not None
         return False
 
     def render_shell_state(self) -> None:
@@ -1707,6 +1715,7 @@ class MarkerApp(ctk.CTk):
         self.pdf_path = None; self.pdf_info = None; self.pdf_processor = PdfProcessor(); self.pdf_preview_renderer = PdfPreviewRenderer(self.processor); self.pdf_current_page = 0; self.pdf_preview_photo = None
         self.pdf_scope_mode = "all"; self.pdf_active_scope: tuple[int, ...] = (); self.pdf_scope_input = ""
         self.pdf_badge_enabled_var = ctk.BooleanVar(value=True)
+        self.pptx_path = None; self.pptx_metrics = None; self.pptx_processor = PptxProcessor()
 
     def _clear_content_host(self) -> None:
         for child in self.content_host.winfo_children():
@@ -1759,7 +1768,26 @@ class MarkerApp(ctk.CTk):
         self.pptx_workspace.grid(row=0, column=0, padx=24, pady=24, sticky="nsew")
         self.pptx_workspace.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(self.pptx_workspace, text="PowerPoint", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0, column=0, pady=(8, 4), sticky="w")
-        ctk.CTkLabel(self.pptx_workspace, text="PowerPoint workspace ready. File loading will be added in the next phase.", text_color="gray60", anchor="w", wraplength=680).grid(row=1, column=0, pady=4, sticky="w")
+        self.pptx_choose_button = ctk.CTkButton(self.pptx_workspace, text="Choose PowerPoint", command=self.choose_pptx_phase2, width=180); self.pptx_choose_button.grid(row=1, column=0, pady=(4, 8), sticky="w")
+        self.pptx_file_label = ctk.CTkLabel(self.pptx_workspace, text="No PowerPoint selected", text_color="gray60", anchor="w", justify="left"); self.pptx_file_label.grid(row=2, column=0, pady=4, sticky="w")
+        self.pptx_status_label = ctk.CTkLabel(self.pptx_workspace, text="PowerPoint workspace ready.", text_color="gray60", anchor="w"); self.pptx_status_label.grid(row=3, column=0, pady=4, sticky="w")
+
+    def choose_pptx_phase2(self) -> None:
+        selected = filedialog.askopenfilename(title="Choose PowerPoint", filetypes=[("PowerPoint (*.pptx)", "*.pptx")])
+        if not selected: return
+        path = Path(selected)
+        try:
+            metrics = self.pptx_processor.document_metrics(path)
+            assessment = assess_document("pptx", metrics)
+            if assessment.blocked:
+                messagebox.showerror("PowerPoint", f"PowerPoint exceeds the hard limit of {assessment.profile.hard_bytes // (1024 * 1024)} MB or {assessment.profile.hard_items} slides."); return
+            if assessment.requires_warning and not messagebox.askokcancel("PowerPoint", "This PowerPoint exceeds the recommended size. Continue?"): return
+        except (OSError, ValueError, KeyError) as error:
+            messagebox.showerror("PowerPoint", f"Could not read PowerPoint: {error}"); return
+        self.pptx_path, self.pptx_metrics = path, metrics
+        self.pptx_file_label.configure(text=f"{path.name}\n{human_file_size(metrics.size_bytes)} · {metrics.item_count} slides")
+        self.pptx_status_label.configure(text="PowerPoint loaded and ready.")
+        self.status_var.set(f"PowerPoint loaded: {path.name}")
 
     def pdf_visual_changed(self, *_args) -> None:
         """Rerender only the current page; PDF scope and navigation stay intact."""
