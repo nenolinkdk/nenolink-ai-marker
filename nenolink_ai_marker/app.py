@@ -1629,7 +1629,7 @@ class MarkerApp(ctk.CTk):
         if source == "pdf" and event != "pdf":
             self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None; self.pdf_scope_mode = "all"; self.pdf_active_scope = (); self.pdf_scope_input = ""
         if source == "pptx" and event != "pptx":
-            self.pptx_path = self.pptx_metrics = None; self.pptx_current_slide = 0; self.pptx_preview_photo = None
+            self.pptx_path = self.pptx_metrics = None; self.pptx_current_slide = 0; self.pptx_preview_photo = None; self.pptx_scope_mode = "all"; self.pptx_active_scope = (); self.pptx_scope_input = ""
         self.shell_controller.dispatch(event)
         self.render_shell_state()
 
@@ -1639,7 +1639,7 @@ class MarkerApp(ctk.CTk):
         elif self.shell_controller.active_content_type == "pdf":
             self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None; self.pdf_scope_mode = "all"; self.pdf_active_scope = (); self.pdf_scope_input = ""
         elif self.shell_controller.active_content_type == "pptx":
-            self.pptx_path = self.pptx_metrics = None; self.pptx_current_slide = 0; self.pptx_preview_photo = None
+            self.pptx_path = self.pptx_metrics = None; self.pptx_current_slide = 0; self.pptx_preview_photo = None; self.pptx_scope_mode = "all"; self.pptx_active_scope = (); self.pptx_scope_input = ""
         else:
             self._unmount_image_workspace()
         self.shell_controller.dispatch("reset")
@@ -1716,6 +1716,7 @@ class MarkerApp(ctk.CTk):
         self.pdf_scope_mode = "all"; self.pdf_active_scope: tuple[int, ...] = (); self.pdf_scope_input = ""
         self.pdf_badge_enabled_var = ctk.BooleanVar(value=True)
         self.pptx_path = None; self.pptx_metrics = None; self.pptx_processor = PptxProcessor(); self.pptx_preview_renderer = PptxPreviewRenderer(self.processor); self.pptx_current_slide = 0; self.pptx_preview_photo = None
+        self.pptx_scope_mode = "all"; self.pptx_active_scope: tuple[int, ...] = (); self.pptx_scope_input = ""
 
     def _clear_content_host(self) -> None:
         for child in self.content_host.winfo_children():
@@ -1776,6 +1777,11 @@ class MarkerApp(ctk.CTk):
         self.pptx_previous_button = ctk.CTkButton(nav, text="◀", width=42, command=lambda: self.change_pptx_slide(-1)); self.pptx_previous_button.grid(row=0, column=0, padx=4)
         self.pptx_slide_status = ctk.CTkLabel(nav, text="—", width=120); self.pptx_slide_status.grid(row=0, column=1, padx=4)
         self.pptx_next_button = ctk.CTkButton(nav, text="▶", width=42, command=lambda: self.change_pptx_slide(1)); self.pptx_next_button.grid(row=0, column=2, padx=4)
+        self.pptx_scope_menu = ctk.CTkOptionMenu(self.pptx_workspace, values=["All", "First", "Selected", "Range"], command=self.change_pptx_scope_mode); self.pptx_scope_menu.grid(row=6, column=0, pady=(10, 2), sticky="w")
+        self.pptx_scope_entry = ctk.CTkEntry(self.pptx_workspace, placeholder_text="3,7 or 2-4,7-9"); self.pptx_scope_entry.grid(row=7, column=0, pady=2, sticky="w")
+        self.pptx_scope_update = ctk.CTkButton(self.pptx_workspace, text="Update", command=self.update_pptx_scope, width=100); self.pptx_scope_update.grid(row=8, column=0, pady=2, sticky="w")
+        self.pptx_scope_message = ctk.CTkLabel(self.pptx_workspace, text="", text_color="#b42318", anchor="w"); self.pptx_scope_message.grid(row=9, column=0, sticky="w")
+        self._update_pptx_scope_controls()
         self._update_pptx_preview()
 
     def choose_pptx_phase2(self) -> None:
@@ -1791,11 +1797,46 @@ class MarkerApp(ctk.CTk):
         except (OSError, ValueError, KeyError) as error:
             messagebox.showerror("PowerPoint", f"Could not read PowerPoint: {error}"); return
         self.pptx_path, self.pptx_metrics = path, metrics
-        self.pptx_current_slide = 1; self.pptx_preview_photo = None
+        self.pptx_current_slide = 1; self.pptx_preview_photo = None; self.pptx_scope_mode = "all"; self.pptx_active_scope = tuple(range(1, metrics.item_count + 1)); self.pptx_scope_input = ""
         self.pptx_file_label.configure(text=f"{path.name}\n{human_file_size(metrics.size_bytes)} · {metrics.item_count} slides")
         self.pptx_status_label.configure(text="PowerPoint loaded and ready.")
         self.status_var.set(f"PowerPoint loaded: {path.name}")
         self._update_pptx_preview()
+
+    def _update_pptx_scope_controls(self) -> None:
+        if not hasattr(self, "pptx_scope_entry"): return
+        editable = self.pptx_scope_mode in {"selected", "range"}
+        self.pptx_scope_entry.configure(state="normal" if editable else "disabled")
+        self.pptx_scope_update.configure(state="normal" if editable else "disabled")
+
+    def change_pptx_scope_mode(self, label: str) -> None:
+        self.pptx_scope_mode = {"All": "all", "First": "first", "Selected": "selected", "Range": "range"}.get(label, "all")
+        if self.pptx_scope_mode == "all" and self.pptx_metrics:
+            self.pptx_active_scope = tuple(range(1, self.pptx_metrics.item_count + 1)); self.pptx_current_slide = 1; self._update_pptx_preview()
+        elif self.pptx_scope_mode == "first" and self.pptx_metrics:
+            self.pptx_active_scope = (1,); self.pptx_current_slide = 1; self._update_pptx_preview()
+        self._update_pptx_scope_controls()
+
+    def update_pptx_scope(self) -> None:
+        if not self.pptx_metrics or self.pptx_scope_mode not in {"selected", "range"}: return
+        text = self.pptx_scope_entry.get().strip()
+        try:
+            values = []
+            for part in (piece.strip() for piece in text.split(",") if piece.strip()):
+                if self.pptx_scope_mode == "selected":
+                    if "-" in part: raise ValueError
+                    values.append(int(part))
+                else:
+                    bounds = part.split("-")
+                    if len(bounds) != 2: raise ValueError
+                    start, end = (int(value.strip()) for value in bounds)
+                    if start > end: raise ValueError
+                    values.extend(range(start, end + 1))
+            values = sorted(set(values))
+            if not values or any(value < 1 or value > self.pptx_metrics.item_count for value in values): raise ValueError
+            self.pptx_active_scope = tuple(values); self.pptx_scope_input = text; self.pptx_current_slide = values[0]; self.pptx_scope_message.configure(text=""); self._update_pptx_preview()
+        except (TypeError, ValueError):
+            self.pptx_scope_message.configure(text="Invalid slide selection. The previous scope was preserved.")
 
     def _update_pptx_preview(self) -> None:
         if not getattr(self, "pptx_preview_label", None): return
