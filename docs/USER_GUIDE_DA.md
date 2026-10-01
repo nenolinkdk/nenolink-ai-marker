@@ -68,7 +68,25 @@ Vælg **Enkelt fil** og derefter **Vælg billede eller video**. JPG-, JPEG-, PNG
 
 Eget logo er valgfri branding og gælder i øjeblikket kun enkeltbilleder og billedfiler i Batchbehandling. Logoet bruges aldrig som AI-mærke, den lokale sti skrives ikke i metadata, Undersøg fil registrerer det ikke, og det tilføjes ikke til video. Kildefiler forbliver uændrede. Hvis en gemt logofil forsvinder, deaktiveres logobehandling, mens stien bevares, så den kan rettes.
 
-## 8. Behandling af video
+## 8. Behandling af PDF
+
+Vælg **PDF**, åbn en PDF, og se filnavn, størrelse og sidetal. Krypterede eller
+adgangskodebeskyttede PDF-filer afvises; en registreret digital signatur giver
+en advarsel om, at ændringer kan ugyldiggøre den. Fysisk sidevisning er
+uafhængig af behandlingsomfanget. Vælg **Alle**, **Første**, **Valgte** eller
+**Interval**. Valgte sider skrives `7,11`, intervaller `10-12,20-22`, og begge
+kræver **Opdater**. Ugyldige værdier bevarer det senest gyldige omfang. Pilene
+bladrer altid gennem alle sider, mens AI-mærket kun vises på valgte sider. Eget
+logo kan bruges alene eller sammen med badge; placering, størrelse, margin og
+opacity understøttes. Ved flere valgte sider placeres logoet efter den
+accepterede adfærd på den første relevante side, mens AI-mærket følger de
+valgte sider. **Gem mærket PDF…** åbner Gem som og overskriver ikke kilden som
+standard. Eksisterende metadata bevares så vidt muligt, og Nenolink-metadata
+er en transparenserklæring, ikke bevis på ophav eller AI-proveniens. Advarsel
+vises over 100 MB eller 300 sider; hård grænse er over 300 MB eller 1.000
+sider. PDF-inspektion er endnu ikke understøttet.
+
+## 9. Behandling af video
 
 Videobehandling af enkeltfiler og mapper accepterer MP4, MOV, MKV, AVI og WebM. Vælg **Hele videoen** for at vise badget permanent eller **I begyndelsen**/**I slutningen** for at vise det i den valgte varighed (som standard 5 sekunder). Placering, størrelse, margen og opacitet gælder i alle tilstande. **Gem mærket video...** åbner Windows-dialogen Gem som med `originalnavn_ai.ext` foreslået. Windows-pakken indeholder den nødvendige FFmpeg-komponent; separat installation eller `PATH`-konfiguration er ikke nødvendig, og den kører uden konsolvindue. Lyd kopieres, når outputcontaineren tillader det, og video kodes som H.264. Kombinationer af container og codec varierer; kontrollér output før offentliggørelse. Hvis FFmpeg afviser en batchfil, registreres filen som en fejl, og behandlingen fortsætter.
 

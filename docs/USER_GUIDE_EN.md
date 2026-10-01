@@ -68,7 +68,26 @@ Choose **Single File**, then **Choose Image or Video**. JPG, JPEG, PNG, and WebP
 
 Own Logo is optional branding and currently applies only to single images and image files in Batch Processing. It is never used as the AI Label, its local path is not written to metadata, Inspect File does not detect it, and it is not applied to video. Source files remain unchanged. If a remembered logo disappears, logo processing is disabled while the stored path remains available for correction.
 
-## 8. Processing video
+## 8. Processing PDF
+
+Choose **PDF**, open a PDF, and review its filename, size and page count.
+Encrypted/password-protected PDFs are rejected; detected digital signatures
+produce a warning that modification may invalidate them. Physical page preview
+navigation is independent from processing scope. Choose **All**, **First**,
+**Selected**, or **Range**. Selected values use `7,11`; ranges use
+`10-12,20-22`, and both require **Update**. Invalid input preserves the last
+valid scope. The preview arrows always browse every physical page, while the
+AI badge appears only on pages in the active scope. Own Logo may be used alone
+or with a badge; position, size, margin and opacity are supported. For a
+multi-page scope, the accepted behaviour places the logo on the first
+applicable page while the AI badge follows the selected pages. **Save marked
+PDF…** opens Save As and never overwrites the source by default. Existing
+metadata is preserved where possible and Nenolink metadata is a disclosure
+statement, not proof of authorship or provenance. PDF warnings begin above
+100 MB or 300 pages; the hard stop is above 300 MB or 1,000 pages. PDF Inspect
+is not supported yet.
+
+## 9. Processing video
 
 Single File and batch video processing accept MP4, MOV, MKV, AVI, and WebM. Select **Permanent** to show the badge throughout, or **Beginning**/**End** to show it for the chosen duration (5 seconds by default). Position, size, margin, and opacity apply in every mode. **Save Marked Video...** opens the Windows Save As dialog with `originalname_ai.ext` proposed. The Windows package includes the required FFmpeg component; no separate installation or `PATH` configuration is needed, and it runs without a console window. Audio is copied where the output container permits it and video is encoded as H.264. Container/codec combinations vary; review an output before publication. If FFmpeg rejects one batch file, that file is recorded as an error and the batch continues.
 
