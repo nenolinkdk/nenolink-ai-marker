@@ -215,3 +215,21 @@ Nenolink AI Marker must not be presented as:
 ## Support and attribution
 
 Nenolink AI Marker - (c) Henrik Nielsen - https://nenolink.com
+
+## PowerPoint presentations
+
+Open **PowerPoint / Slides**, choose a `.pptx`, and review its filename, size
+and slide count. Use **Previous/Next** to browse physical slides. Choose
+**All**, **First**, **Selected**, or **Range** as the processing scope. Selected
+accepts individual numbers and mixed ranges such as `3,7`, `4-8`, or
+`2,4-6,9`; Selected and Range are applied with **Update**. Physical preview
+navigation is independent of the processing scope.
+
+Enable or disable the AI badge and optionally **Own Logo**, then choose badge,
+position, size, margin and opacity. The live preview marks only slides in the
+active scope. For PowerPoint, an enabled logo is applied to every slide in
+that scope (for example Selected `3,7` marks both slides). Use **Save As**;
+the suggested name ends in `_ai.pptx` and the source is never overwritten by
+default. AI Marker metadata is a disclosure statement, not proof of authorship
+or provenance. Files over 100 MB or 150 slides receive a warning; over 300 MB
+or 500 slides are not processed.

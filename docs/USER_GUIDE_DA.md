@@ -214,3 +214,21 @@ Nenolink AI Marker må ikke præsenteres som:
 ## Support og kreditering
 
 Nenolink AI Marker - (c) Henrik Nielsen - https://nenolink.com
+
+## PowerPoint-præsentationer
+
+Åbn **PowerPoint / Slides**, vælg en `.pptx`, og kontrollér filnavn, størrelse
+og antal slides. Brug **Forrige/Næste** til fysiske slides. Vælg **Alle**,
+**Første**, **Valgte** eller **Interval** som behandlingsomfang. Valgte
+accepterer enkelt-numre og blandede intervaller som `3,7`, `4-8` eller
+`2,4-6,9`; Valgte og Interval anvendes med **Opdater**. Preview-navigation er
+uafhængig af behandlingsomfanget.
+
+Aktivér eller deaktivér AI-badget og eventuelt **Eget logo**, og vælg badge,
+placering, størrelse, margen og opacitet. Live-preview viser kun slides i det
+aktive omfang. I PowerPoint indsættes logoet på hver slide i omfanget (f.eks.
+Valgte `3,7` på begge slides). Brug **Gem som**; standardnavnet ender på
+`_ai.pptx`, og kilden overskrives ikke som standard. AI Marker-metadata er en
+oplysning om markeringen, ikke bevis på ophav eller proveniens. Filer over 100
+MB eller 150 slides giver en advarsel; over 300 MB eller 500 slides kan ikke
+behandles.
