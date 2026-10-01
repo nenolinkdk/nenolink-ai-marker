@@ -1839,8 +1839,18 @@ class MarkerApp(ctk.CTk):
             values = []
             for part in (piece.strip() for piece in text.split(",") if piece.strip()):
                 if self.pptx_scope_mode == "selected":
-                    if "-" in part: raise ValueError
-                    values.append(int(part))
+                    # Selected accepts both individual slide numbers and ranges
+                    # (for example ``2,4-6,9``).  Keep parsing local to the
+                    # explicit Update action so typing never changes scope.
+                    bounds = part.split("-")
+                    if len(bounds) == 1:
+                        values.append(int(bounds[0].strip()))
+                    elif len(bounds) == 2:
+                        start, end = (int(value.strip()) for value in bounds)
+                        if start > end: raise ValueError
+                        values.extend(range(start, end + 1))
+                    else:
+                        raise ValueError
                 else:
                     bounds = part.split("-")
                     if len(bounds) != 2: raise ValueError

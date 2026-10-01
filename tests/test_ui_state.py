@@ -411,6 +411,18 @@ def test_editable_scope_requires_update_and_invalid_update_preserves_applied_sco
     app.pptx_scope_validation_label.configure.assert_called_with(text="document.scope_invalid")
 
 
+def test_pptx_selected_scope_accepts_numbers_and_ranges():
+    assert pptx_item_selection("selected", selected="3,7").resolve(10) == (3, 7)
+    assert pptx_item_selection("selected", selected="4-8").resolve(10) == tuple(range(4, 9))
+    assert pptx_item_selection("selected", selected="2,4-6,9").resolve(10) == (2, 4, 5, 6, 9)
+
+
+def test_pptx_selected_scope_rejects_invalid_and_reversed_ranges():
+    for value in ("0", "-1", "11", "8-4", "2--4", "2,wat"):
+        with pytest.raises(ValueError):
+            pptx_item_selection("selected", selected=value).resolve(10)
+
+
 def test_pdf_preview_navigation_browses_all_pages_without_changing_scope():
     app=SimpleNamespace(
         active_content_type="pdf", active_tool=None, pdf_preview_state=DocumentPreviewState(),

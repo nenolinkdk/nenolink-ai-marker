@@ -82,7 +82,18 @@ def pptx_item_selection(
         if mode == "first":
             return ItemSelection("selected", (1,))
         if mode == "selected":
-            values = tuple(int(value.strip()) for value in selected.split(",") if value.strip())
+            values: list[int] = []
+            for part in (value.strip() for value in selected.split(",") if value.strip()):
+                bounds = part.split("-")
+                if len(bounds) == 1:
+                    values.append(int(bounds[0].strip()))
+                elif len(bounds) == 2:
+                    start, end = (int(value.strip()) for value in bounds)
+                    if start > end:
+                        raise ValueError("Range start must not exceed range end.")
+                    values.extend(range(start, end + 1))
+                else:
+                    raise ValueError("Invalid slide selection.")
             return ItemSelection("selected", values)
         if mode == "range":
             values: list[int] = []
