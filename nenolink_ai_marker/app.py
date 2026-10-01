@@ -1781,8 +1781,23 @@ class MarkerApp(ctk.CTk):
         self.pptx_scope_entry = ctk.CTkEntry(self.pptx_workspace, placeholder_text="3,7 or 2-4,7-9"); self.pptx_scope_entry.grid(row=7, column=0, pady=2, sticky="w")
         self.pptx_scope_update = ctk.CTkButton(self.pptx_workspace, text="Update", command=self.update_pptx_scope, width=100); self.pptx_scope_update.grid(row=8, column=0, pady=2, sticky="w")
         self.pptx_scope_message = ctk.CTkLabel(self.pptx_workspace, text="", text_color="#b42318", anchor="w"); self.pptx_scope_message.grid(row=9, column=0, sticky="w")
+        self.pptx_badge_enabled_var = ctk.BooleanVar(value=True)
+        self.pptx_badge_enable = ctk.CTkCheckBox(self.pptx_workspace, text=self.translator.text("pdf.add_badge"), variable=self.pptx_badge_enabled_var, command=self.pptx_visual_changed); self.pptx_badge_enable.grid(row=10, column=0, pady=(6, 2), sticky="w")
+        self.pptx_badge_menu = ctk.CTkOptionMenu(self.pptx_workspace, variable=self.badge_display_var, values=["—"], command=self.select_badge_display); self.pptx_badge_menu.grid(row=11, column=0, pady=2, sticky="w")
+        self.pptx_logo_enable = ctk.CTkCheckBox(self.pptx_workspace, text=self.translator.text("logo.enable"), variable=self.logo_enabled_var, command=self.pptx_visual_changed); self.pptx_logo_enable.grid(row=12, column=0, pady=(4, 2), sticky="w")
+        self.pptx_logo_choose = ctk.CTkButton(self.pptx_workspace, text=self.translator.text("logo.choose"), command=self.choose_logo, width=150); self.pptx_logo_choose.grid(row=13, column=0, pady=2, sticky="w")
+        self.pptx_position_menu = ctk.CTkOptionMenu(self.pptx_workspace, variable=self.position_display_var, values=list(self.position_display_to_value), command=self.change_position_display); self.pptx_position_menu.grid(row=14, column=0, pady=2, sticky="w")
+        self.pptx_size_slider = ctk.CTkSlider(self.pptx_workspace, from_=1, to=100, number_of_steps=99, variable=self.size_var, command=self.pptx_visual_changed); self.pptx_size_slider.grid(row=15, column=0, pady=2, sticky="ew")
+        self.pptx_margin_slider = ctk.CTkSlider(self.pptx_workspace, from_=0, to=250, number_of_steps=250, variable=self.margin_var, command=self.pptx_visual_changed); self.pptx_margin_slider.grid(row=16, column=0, pady=2, sticky="ew")
+        self.pptx_opacity_slider = ctk.CTkSlider(self.pptx_workspace, from_=0, to=100, number_of_steps=100, variable=self.opacity_var, command=self.pptx_visual_changed); self.pptx_opacity_slider.grid(row=17, column=0, pady=2, sticky="ew")
+        self.pptx_logo_position_menu = ctk.CTkOptionMenu(self.pptx_workspace, variable=self.logo_position_display_var, values=list(self.position_display_to_value), command=self.change_logo_position); self.pptx_logo_position_menu.grid(row=18, column=0, pady=2, sticky="w")
+        self.refresh_image_badges()
         self._update_pptx_scope_controls()
         self._update_pptx_preview()
+
+    def pptx_visual_changed(self, *_args) -> None:
+        if getattr(self, "pptx_badge_menu", None): self.pptx_badge_menu.configure(state="normal" if self.pptx_badge_enabled_var.get() else "disabled")
+        self._update_logo_controls(); self._update_pptx_preview(); self._save()
 
     def choose_pptx_phase2(self) -> None:
         selected = filedialog.askopenfilename(title="Choose PowerPoint", filetypes=[("PowerPoint (*.pptx)", "*.pptx")])
@@ -1843,7 +1858,10 @@ class MarkerApp(ctk.CTk):
         if not self.pptx_path or not self.pptx_metrics:
             self.pptx_preview_photo = None; self.pptx_preview_label.configure(image=None, text="Choose a PowerPoint file to preview a slide."); self.pptx_slide_status.configure(text="—"); self.pptx_previous_button.configure(state="disabled"); self.pptx_next_button.configure(state="disabled"); return
         try:
-            result = self.pptx_preview_renderer.render(self.pptx_path, self.pptx_current_slide, None, self.settings())
+            marked = self.pptx_current_slide in set(self.pptx_active_scope)
+            badge = self.badges.find(self.badge_var.get()) if marked and self.pptx_badge_enabled_var.get() else None
+            logo = self._logo_path() if marked and self.logo_enabled_var.get() else None
+            result = self.pptx_preview_renderer.render(self.pptx_path, self.pptx_current_slide, badge, self.settings(), logo)
             self.pptx_current_slide = result.slide_number
             self.pptx_preview_photo = ctk.CTkImage(light_image=result.image, dark_image=result.image, size=result.image.size)
             self.pptx_preview_label.configure(image=self.pptx_preview_photo, text=""); self.pptx_preview_label.image = self.pptx_preview_photo
@@ -2243,6 +2261,7 @@ class MarkerApp(ctk.CTk):
     def changed(self, *_args) -> None:
         self._update_image_slider_labels(); self._update_logo_labels()
         if self.active_content_type == "pdf": self.render_pdf_preview()
+        elif self.active_content_type == "pptx": self._update_pptx_preview()
         else: self.update_preview()
         self._save()
 
@@ -2318,6 +2337,7 @@ class MarkerApp(ctk.CTk):
         if getattr(self, "single_badge_preview_label", None): self.update_image_badge_preview()
         if self.active_content_type == "image": self.update_preview()
         elif self.active_content_type == "pdf": self.render_pdf_preview()
+        elif self.active_content_type == "pptx": self._update_pptx_preview()
         self._save()
 
     def open_images(self) -> None:
