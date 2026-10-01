@@ -32,6 +32,7 @@ from .processor import ImageProcessor, SUPPORTED_EXTENSIONS
 from .preview import ImagePreviewRenderer
 from .pptx_processor import PptxProcessor
 from .pptx_preview import PptxPreviewRenderer
+from .pptx_state import PptxWorkspaceState
 from .pdf_processor import PasswordProtectedPdfError, PdfInfo, PdfProcessor
 from .pdf_preview import PdfPreviewRenderer
 from .docx_processor import DocxInfo, DocxProcessor
@@ -951,6 +952,7 @@ class LegacyMarkerApp(ctk.CTk):
             self.pptx_preview_photo=None; self.pptx_preview_label.configure(image=None,text=t("pptx.preview_unavailable")); self.pptx_slide_status.configure(text="")
 
     def process_pptx(self):
+        self._sync_pptx_visual_state()
         if not self.pptx_path or not self.pptx_path.is_file():messagebox.showwarning(self.translator.text("warning.title"),self.translator.text("pptx.choose_first")); return
         try:self.pptx_metrics=self.pptx_processor.document_metrics(self.pptx_path); self._set_pptx_file_summary()
         except (OSError,ValueError,KeyError) as error:messagebox.showerror(self.translator.text("error.title"),self.translator.text("pptx.error",error=error)); return
@@ -1634,6 +1636,7 @@ class MarkerApp(ctk.CTk):
             self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None; self.pdf_scope_mode = "all"; self.pdf_active_scope = (); self.pdf_scope_input = ""
         if source == "pptx" and event != "pptx":
             self.pptx_path = self.pptx_metrics = None; self.pptx_current_slide = 0; self.pptx_preview_photo = None; self.pptx_scope_mode = "all"; self.pptx_active_scope = (); self.pptx_scope_input = ""
+            self.pptx_state.clear()
         self.shell_controller.dispatch(event)
         self.render_shell_state()
 
@@ -1644,6 +1647,7 @@ class MarkerApp(ctk.CTk):
             self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None; self.pdf_scope_mode = "all"; self.pdf_active_scope = (); self.pdf_scope_input = ""
         elif self.shell_controller.active_content_type == "pptx":
             self.pptx_path = self.pptx_metrics = None; self.pptx_current_slide = 0; self.pptx_preview_photo = None; self.pptx_scope_mode = "all"; self.pptx_active_scope = (); self.pptx_scope_input = ""
+            self.pptx_state.clear()
         else:
             self._unmount_image_workspace()
         self.shell_controller.dispatch("reset")
@@ -1721,6 +1725,7 @@ class MarkerApp(ctk.CTk):
         self.pdf_badge_enabled_var = ctk.BooleanVar(value=True)
         self.pptx_path = None; self.pptx_metrics = None; self.pptx_processor = PptxProcessor(); self.pptx_preview_renderer = PptxPreviewRenderer(self.processor); self.pptx_current_slide = 0; self.pptx_preview_photo = None
         self.pptx_scope_mode = "all"; self.pptx_active_scope: tuple[int, ...] = (); self.pptx_scope_input = ""
+        self.pptx_state = PptxWorkspaceState()
         # PPTX visual settings are independent from the media/PDF controls.
         self.pptx_badge_position_var=ctk.StringVar(value=saved.position); self.pptx_badge_size_var=ctk.IntVar(value=saved.size_percent); self.pptx_badge_margin_var=ctk.IntVar(value=saved.margin); self.pptx_badge_opacity_var=ctk.IntVar(value=saved.opacity)
         self.pptx_logo_position_var=ctk.StringVar(value=saved.logo_position); self.pptx_logo_size_var=ctk.IntVar(value=saved.logo_size_percent); self.pptx_logo_margin_var=ctk.IntVar(value=saved.logo_margin); self.pptx_logo_opacity_var=ctk.IntVar(value=saved.logo_opacity)
@@ -1815,8 +1820,14 @@ class MarkerApp(ctk.CTk):
         self._update_pptx_preview()
 
     def pptx_visual_changed(self, *_args) -> None:
+        self._sync_pptx_visual_state()
         if getattr(self, "pptx_badge_menu", None): self.pptx_badge_menu.configure(state="normal" if self.pptx_badge_enabled_var.get() else "disabled")
         self._update_logo_controls(); self._update_pptx_preview(); self._save()
+
+    def _sync_pptx_visual_state(self) -> None:
+        if not hasattr(self, "pptx_state"): return
+        self.pptx_state.badge.enabled=bool(self.pptx_badge_enabled_var.get()); self.pptx_state.badge.badge_id=self.badge_var.get(); self.pptx_state.badge.position=self.pptx_badge_position_var.get(); self.pptx_state.badge.size=int(self.pptx_badge_size_var.get()); self.pptx_state.badge.margin=int(self.pptx_badge_margin_var.get()); self.pptx_state.badge.opacity=int(self.pptx_badge_opacity_var.get())
+        self.pptx_state.logo.enabled=bool(self.logo_enabled_var.get()); self.pptx_state.logo.path=self._logo_path(); self.pptx_state.logo.position=self.pptx_logo_position_var.get(); self.pptx_state.logo.size=int(self.pptx_logo_size_var.get()); self.pptx_state.logo.margin=int(self.pptx_logo_margin_var.get()); self.pptx_state.logo.opacity=int(self.pptx_logo_opacity_var.get())
 
     def choose_pptx_phase2(self) -> None:
         selected = filedialog.askopenfilename(title="Choose PowerPoint", filetypes=[("PowerPoint (*.pptx)", "*.pptx")])
@@ -1832,6 +1843,7 @@ class MarkerApp(ctk.CTk):
             messagebox.showerror("PowerPoint", f"Could not read PowerPoint: {error}"); return
         self.pptx_path, self.pptx_metrics = path, metrics
         self.pptx_current_slide = 1; self.pptx_preview_photo = None; self.pptx_scope_mode = "all"; self.pptx_active_scope = tuple(range(1, metrics.item_count + 1)); self.pptx_scope_input = ""
+        self.pptx_state.path=path; self.pptx_state.slide_count=metrics.item_count; self.pptx_state.current_slide=1; self.pptx_state.scope_mode="all"; self.pptx_state.active_scope=self.pptx_active_scope; self.pptx_state.scope_input=""; self._sync_pptx_visual_state()
         self.pptx_file_label.configure(text=f"{path.name}\n{human_file_size(metrics.size_bytes)} · {metrics.item_count} slides")
         self.pptx_status_label.configure(text="PowerPoint loaded and ready.")
         self.status_var.set(f"PowerPoint loaded: {path.name}")
@@ -1878,12 +1890,13 @@ class MarkerApp(ctk.CTk):
                     values.extend(range(start, end + 1))
             values = sorted(set(values))
             if not values or any(value < 1 or value > self.pptx_metrics.item_count for value in values): raise ValueError
-            self.pptx_active_scope = tuple(values); self.pptx_scope_input = text; self.pptx_current_slide = values[0]; self.pptx_scope_message.configure(text=""); self._update_pptx_preview()
+            self.pptx_active_scope = tuple(values); self.pptx_scope_input = text; self.pptx_current_slide = values[0]; self.pptx_scope_message.configure(text=""); self.pptx_state.scope_mode=self.pptx_scope_mode; self.pptx_state.active_scope=self.pptx_active_scope; self.pptx_state.scope_input=text; self.pptx_state.current_slide=self.pptx_current_slide; self._update_pptx_preview()
         except (TypeError, ValueError):
             self.pptx_scope_message.configure(text="Invalid slide selection. The previous scope was preserved.")
 
     def _update_pptx_preview(self) -> None:
         if not getattr(self, "pptx_preview_label", None): return
+        self._sync_pptx_visual_state()
         if not self.pptx_path or not self.pptx_metrics:
             self.pptx_preview_photo = None; self.pptx_preview_label.configure(image=None, text="Choose a PowerPoint file to preview a slide."); self.pptx_slide_status.configure(text="—"); self.pptx_previous_button.configure(state="disabled"); self.pptx_next_button.configure(state="disabled"); return
         try:
