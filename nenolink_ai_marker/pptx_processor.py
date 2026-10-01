@@ -77,8 +77,10 @@ class PptxProcessor(DocumentProcessor):
             raise ValueError("Only .pptx presentations are supported.")
         if not request.source.is_file():
             raise FileNotFoundError(request.source)
-        badge_path = request.badge_path or Path(request.disclosure.badge_name)
-        if not badge_path.is_file():
+        # Badge and logo are independent.  A document may deliberately be
+        # marked with only a logo (or neither), so an absent badge is valid.
+        badge_path = request.badge_path
+        if badge_path and not badge_path.is_file():
             raise FileNotFoundError(badge_path)
         logo_path = request.logo.path if request.logo.enabled else None
         if logo_path and not logo_path.is_file():
@@ -93,9 +95,9 @@ class PptxProcessor(DocumentProcessor):
                 enforce_hard_limit("pptx", DocumentMetrics(request.source.stat().st_size, len(slides)))
                 selected = (selection or ItemSelection()).resolve(len(slides))
                 slide_size = self._slide_size(presentation)
-                badge_bytes, badge_pixels = self._png_bytes(badge_path)
+                badge_data = self._png_bytes(badge_path) if badge_path else None
                 logo_data = self._png_bytes(logo_path) if logo_path else None
-                badge_media = self._available_media_name(names, "nenolink-ai-marker-badge")
+                badge_media = self._available_media_name(names, "nenolink-ai-marker-badge") if badge_data else None
                 logo_media = self._available_media_name(names | {badge_media}, "nenolink-company-logo") if logo_data else None
 
                 metadata = request.metadata or marker_metadata(
@@ -111,7 +113,7 @@ class PptxProcessor(DocumentProcessor):
                 )
 
                 replacements: dict[str, bytes] = {
-                    badge_media: badge_bytes,
+                    **({badge_media: badge_data[0]} if badge_data and badge_media else {}),
                     "[Content_Types].xml": self._ensure_png_content_type(content_types),
                     "_rels/.rels": package_rels,
                     "docProps/custom.xml": custom_properties,
@@ -124,13 +126,14 @@ class PptxProcessor(DocumentProcessor):
                     slide_xml = source_zip.read(slide_path)
                     rels_path = self._rels_path(slide_path)
                     rels_xml = source_zip.read(rels_path) if rels_path in names else None
-                    slide_xml, rels_xml = self._add_overlay(
-                        slide_xml, rels_xml, slide_size, badge_pixels,
-                        request.disclosure.position, request.disclosure.size_percent,
-                        request.disclosure.margin, request.disclosure.opacity,
-                        slide_path, badge_media, "Nenolink AI Marker badge",
-                    )
-                    badge_shapes += 1
+                    if badge_data and badge_media:
+                        slide_xml, rels_xml = self._add_overlay(
+                            slide_xml, rels_xml, slide_size, badge_data[1],
+                            request.disclosure.position, request.disclosure.size_percent,
+                            request.disclosure.margin, request.disclosure.opacity,
+                            slide_path, badge_media, "Nenolink AI Marker badge",
+                        )
+                        badge_shapes += 1
                     if logo_data and logo_media:
                         slide_xml, rels_xml = self._add_overlay(
                             slide_xml, rels_xml, slide_size, logo_data[1],
@@ -140,7 +143,8 @@ class PptxProcessor(DocumentProcessor):
                         )
                         logo_shapes += 1
                     replacements[slide_path] = slide_xml
-                    replacements[rels_path] = rels_xml
+                    if rels_xml is not None:
+                        replacements[rels_path] = rels_xml
 
                 request.destination.parent.mkdir(parents=True, exist_ok=True)
                 with tempfile.NamedTemporaryFile(

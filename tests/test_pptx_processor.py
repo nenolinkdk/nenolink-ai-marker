@@ -142,6 +142,25 @@ def test_pptx_badge_and_logo_have_independent_geometry_and_opacity(tmp_path):
         assert "ppt/media/nenolink-company-logo.png" in archive.namelist()
 
 
+def test_pptx_logo_only_does_not_insert_badge(tmp_path):
+    request, _ = _request(tmp_path, logo=True)
+    request = ProcessingRequest(request.source, request.destination, request.disclosure, logo=request.logo)
+    result = PptxProcessor().process(request, ItemSelection("single", (1,)))
+    assert result.badge_shapes == 0 and result.logo_shapes == 1
+    with ZipFile(result.destination) as archive:
+        assert _picture_count(archive, 1) == 1
+        assert "ppt/media/nenolink-ai-marker-badge.png" not in archive.namelist()
+
+
+def test_pptx_without_badge_or_logo_is_valid_metadata_only_output(tmp_path):
+    request, _ = _request(tmp_path)
+    request = ProcessingRequest(request.source, request.destination, request.disclosure)
+    result = PptxProcessor().process(request, ItemSelection("single", (1,)))
+    assert result.badge_shapes == 0 and result.logo_shapes == 0
+    with ZipFile(result.destination) as archive:
+        assert _picture_count(archive, 1) == 0
+
+
 def test_pptx_preserves_unselected_package_parts_and_unicode_paths(tmp_path):
     request, source = _request(tmp_path, unicode_names=True)
     with ZipFile(source) as archive:

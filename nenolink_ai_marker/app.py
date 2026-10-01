@@ -954,8 +954,10 @@ class LegacyMarkerApp(ctk.CTk):
         try:self.pptx_metrics=self.pptx_processor.document_metrics(self.pptx_path); self._set_pptx_file_summary()
         except (OSError,ValueError,KeyError) as error:messagebox.showerror(self.translator.text("error.title"),self.translator.text("pptx.error",error=error)); return
         if not self._confirm_pptx_limits():return
-        badge=self.badges.find(self.badge_var.get())
-        if not badge:messagebox.showwarning(self.translator.text("warning.title"),self.translator.text("badge.none")); return
+        badge=self.badges.find(self.badge_var.get()) if self.pptx_badge_enabled_var.get() else None
+        logo_path = self._logo_path() if self.logo_enabled_var.get() else None
+        if not badge and not logo_path:
+            messagebox.showwarning(self.translator.text("warning.title"),self.translator.text("pdf.overlay_required")); return
         suggested=self.pptx_path.with_name(f"{self.pptx_path.stem}_ai.pptx")
         selected=filedialog.asksaveasfilename(title=self.translator.text("pptx.save_as"),initialdir=str(self.pptx_path.parent),initialfile=suggested.name,defaultextension=".pptx",filetypes=[("PowerPoint (*.pptx)","*.pptx"),(self.translator.text("files.all"),"*.*")],confirmoverwrite=True)
         if not selected:return
@@ -963,7 +965,7 @@ class LegacyMarkerApp(ctk.CTk):
             destination=Path(selected)
             if destination.suffix.lower() != ".pptx":raise ValueError(self.translator.text("pptx.extension_error"))
             selection=ItemSelection("selected",self.document_scope_states["pptx"].active_scope)
-            display_name=self.badge_name_var.get() or self.badges.display_name(badge.name); language=LANGUAGES.get(self.pptx_language_var.get(),"en")
+            display_name=self.badge_name_var.get() or (self.badges.display_name(badge.name) if badge else "No AI badge"); language=LANGUAGES.get(self.pptx_language_var.get(),"en")
             disclosure,logo=settings_for_documents(self.settings(),label=display_name,disclosure_language=language)
             result=self.pptx_processor.process(ProcessingRequest(self.pptx_path,destination,disclosure,badge_path=badge,logo=logo),selection)
         except (OSError,ValueError) as error:messagebox.showerror(self.translator.text("error.title"),self.translator.text("pptx.error",error=error)); return
