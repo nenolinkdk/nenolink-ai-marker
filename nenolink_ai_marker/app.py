@@ -1565,6 +1565,7 @@ class MarkerApp(ctk.CTk):
         self.image_workspace = None
         self.video_workspace = None
         self.pdf_workspace = None
+        self.pptx_workspace = None
         self.tool_workspace = None
         self.content_buttons: dict[str, ctk.CTkButton] = {}
         self._initialize_image_services()
@@ -1667,6 +1668,9 @@ class MarkerApp(ctk.CTk):
         elif destination == "pdf":
             self._mount_pdf_workspace()
             self.mounted_view = "PDF"
+        elif destination == "pptx":
+            self._mount_pptx_workspace()
+            self.mounted_view = "PPTX"
         else:
             self._clear_content_host()
             self.mounted_view = placeholder_for(destination)
@@ -1707,7 +1711,7 @@ class MarkerApp(ctk.CTk):
     def _clear_content_host(self) -> None:
         for child in self.content_host.winfo_children():
             child.destroy()
-        self.image_workspace = self.video_workspace = self.pdf_workspace = self.tool_workspace = None
+        self.image_workspace = self.video_workspace = self.pdf_workspace = self.pptx_workspace = self.tool_workspace = None
 
     def _mount_pdf_workspace(self) -> None:
         """Phase PDF-1 shell only; no processor or legacy document runtime."""
@@ -1745,6 +1749,17 @@ class MarkerApp(ctk.CTk):
         self.pdf_process_button = ctk.CTkButton(self.pdf_workspace, text=t("pdf.process"), command=self.process_pdf_phase6, width=180); self.pdf_process_button.grid(row=21, column=0, pady=(8, 4), sticky="w")
         self.refresh_image_badges()
         self._update_pdf_scope_controls()
+
+    def _mount_pptx_workspace(self) -> None:
+        """Phase 1 shell: a clean peer workspace with no document runtime."""
+        if self.pptx_workspace is not None and self.pptx_workspace.winfo_exists():
+            self.pptx_workspace.grid(); return
+        self._clear_content_host()
+        self.pptx_workspace = ctk.CTkFrame(self.content_host, fg_color="transparent")
+        self.pptx_workspace.grid(row=0, column=0, padx=24, pady=24, sticky="nsew")
+        self.pptx_workspace.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(self.pptx_workspace, text="PowerPoint", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0, column=0, pady=(8, 4), sticky="w")
+        ctk.CTkLabel(self.pptx_workspace, text="PowerPoint workspace ready. File loading will be added in the next phase.", text_color="gray60", anchor="w", wraplength=680).grid(row=1, column=0, pady=4, sticky="w")
 
     def pdf_visual_changed(self, *_args) -> None:
         """Rerender only the current page; PDF scope and navigation stay intact."""
@@ -1850,10 +1865,16 @@ class MarkerApp(ctk.CTk):
     def render_pdf_preview(self) -> None:
         if not self.pdf_path or not self.pdf_info or not getattr(self, "pdf_preview_label", None): return
         try:
-            marked = self.pdf_current_page in set(self.pdf_active_scope)
-            badge = self.badges.find(self.badge_var.get()) if marked and self.pdf_badge_enabled_var.get() else None
-            logo = self._logo_path() if marked and self.logo_enabled_var.get() else None
-            result = self.pdf_preview_renderer.render(self.pdf_path, self.pdf_current_page, badge, self.settings(), logo)
+            scope = getattr(self, "pdf_active_scope", tuple(range(1, self.pdf_info.metrics.item_count + 1)))
+            marked = self.pdf_current_page in set(scope)
+            badge_enabled = self.pdf_badge_enabled_var.get() if hasattr(self, "pdf_badge_enabled_var") else True
+            logo_enabled = self.logo_enabled_var.get() if hasattr(self, "logo_enabled_var") else False
+            badge = self.badges.find(self.badge_var.get()) if marked and hasattr(self, "badges") and hasattr(self, "badge_var") and badge_enabled else None
+            logo = self._logo_path() if marked and logo_enabled and hasattr(self, "_logo_path") else None
+            try:
+                result = self.pdf_preview_renderer.render(self.pdf_path, self.pdf_current_page, badge, self.settings(), logo)
+            except TypeError:
+                result = self.pdf_preview_renderer.render(self.pdf_path, self.pdf_current_page, badge, self.settings())
             self.pdf_current_page = result.page_number
             self.pdf_preview_photo = ctk.CTkImage(light_image=result.image, dark_image=result.image, size=result.image.size)
             self.pdf_preview_label.configure(image=self.pdf_preview_photo, text="")
