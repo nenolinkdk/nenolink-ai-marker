@@ -1629,7 +1629,7 @@ class MarkerApp(ctk.CTk):
         if source == "pdf" and event != "pdf":
             self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None; self.pdf_scope_mode = "all"; self.pdf_active_scope = (); self.pdf_scope_input = ""
         if source == "pptx" and event != "pptx":
-            self.pptx_path = self.pptx_metrics = None
+            self.pptx_path = self.pptx_metrics = None; self.pptx_current_slide = 0; self.pptx_preview_photo = None
         self.shell_controller.dispatch(event)
         self.render_shell_state()
 
@@ -1639,7 +1639,7 @@ class MarkerApp(ctk.CTk):
         elif self.shell_controller.active_content_type == "pdf":
             self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None; self.pdf_scope_mode = "all"; self.pdf_active_scope = (); self.pdf_scope_input = ""
         elif self.shell_controller.active_content_type == "pptx":
-            self.pptx_path = self.pptx_metrics = None
+            self.pptx_path = self.pptx_metrics = None; self.pptx_current_slide = 0; self.pptx_preview_photo = None
         else:
             self._unmount_image_workspace()
         self.shell_controller.dispatch("reset")
@@ -1715,7 +1715,7 @@ class MarkerApp(ctk.CTk):
         self.pdf_path = None; self.pdf_info = None; self.pdf_processor = PdfProcessor(); self.pdf_preview_renderer = PdfPreviewRenderer(self.processor); self.pdf_current_page = 0; self.pdf_preview_photo = None
         self.pdf_scope_mode = "all"; self.pdf_active_scope: tuple[int, ...] = (); self.pdf_scope_input = ""
         self.pdf_badge_enabled_var = ctk.BooleanVar(value=True)
-        self.pptx_path = None; self.pptx_metrics = None; self.pptx_processor = PptxProcessor()
+        self.pptx_path = None; self.pptx_metrics = None; self.pptx_processor = PptxProcessor(); self.pptx_preview_renderer = PptxPreviewRenderer(self.processor); self.pptx_current_slide = 0; self.pptx_preview_photo = None
 
     def _clear_content_host(self) -> None:
         for child in self.content_host.winfo_children():
@@ -1771,6 +1771,12 @@ class MarkerApp(ctk.CTk):
         self.pptx_choose_button = ctk.CTkButton(self.pptx_workspace, text="Choose PowerPoint", command=self.choose_pptx_phase2, width=180); self.pptx_choose_button.grid(row=1, column=0, pady=(4, 8), sticky="w")
         self.pptx_file_label = ctk.CTkLabel(self.pptx_workspace, text="No PowerPoint selected", text_color="gray60", anchor="w", justify="left"); self.pptx_file_label.grid(row=2, column=0, pady=4, sticky="w")
         self.pptx_status_label = ctk.CTkLabel(self.pptx_workspace, text="PowerPoint workspace ready.", text_color="gray60", anchor="w"); self.pptx_status_label.grid(row=3, column=0, pady=4, sticky="w")
+        self.pptx_preview_label = ctk.CTkLabel(self.pptx_workspace, text="", fg_color=("gray92", "gray13"), width=680, height=240); self.pptx_preview_label.grid(row=4, column=0, pady=(12, 4), sticky="ew")
+        nav = ctk.CTkFrame(self.pptx_workspace, fg_color="transparent"); nav.grid(row=5, column=0, pady=4)
+        self.pptx_previous_button = ctk.CTkButton(nav, text="◀", width=42, command=lambda: self.change_pptx_slide(-1)); self.pptx_previous_button.grid(row=0, column=0, padx=4)
+        self.pptx_slide_status = ctk.CTkLabel(nav, text="—", width=120); self.pptx_slide_status.grid(row=0, column=1, padx=4)
+        self.pptx_next_button = ctk.CTkButton(nav, text="▶", width=42, command=lambda: self.change_pptx_slide(1)); self.pptx_next_button.grid(row=0, column=2, padx=4)
+        self._update_pptx_preview()
 
     def choose_pptx_phase2(self) -> None:
         selected = filedialog.askopenfilename(title="Choose PowerPoint", filetypes=[("PowerPoint (*.pptx)", "*.pptx")])
@@ -1785,9 +1791,30 @@ class MarkerApp(ctk.CTk):
         except (OSError, ValueError, KeyError) as error:
             messagebox.showerror("PowerPoint", f"Could not read PowerPoint: {error}"); return
         self.pptx_path, self.pptx_metrics = path, metrics
+        self.pptx_current_slide = 1; self.pptx_preview_photo = None
         self.pptx_file_label.configure(text=f"{path.name}\n{human_file_size(metrics.size_bytes)} · {metrics.item_count} slides")
         self.pptx_status_label.configure(text="PowerPoint loaded and ready.")
         self.status_var.set(f"PowerPoint loaded: {path.name}")
+        self._update_pptx_preview()
+
+    def _update_pptx_preview(self) -> None:
+        if not getattr(self, "pptx_preview_label", None): return
+        if not self.pptx_path or not self.pptx_metrics:
+            self.pptx_preview_photo = None; self.pptx_preview_label.configure(image=None, text="Choose a PowerPoint file to preview a slide."); self.pptx_slide_status.configure(text="—"); self.pptx_previous_button.configure(state="disabled"); self.pptx_next_button.configure(state="disabled"); return
+        try:
+            result = self.pptx_preview_renderer.render(self.pptx_path, self.pptx_current_slide, None, self.settings())
+            self.pptx_current_slide = result.slide_number
+            self.pptx_preview_photo = ctk.CTkImage(light_image=result.image, dark_image=result.image, size=result.image.size)
+            self.pptx_preview_label.configure(image=self.pptx_preview_photo, text=""); self.pptx_preview_label.image = self.pptx_preview_photo
+            self.pptx_slide_status.configure(text=f"{self.pptx_current_slide} / {self.pptx_metrics.item_count}")
+            self.pptx_previous_button.configure(state="normal" if self.pptx_current_slide > 1 else "disabled")
+            self.pptx_next_button.configure(state="normal" if self.pptx_current_slide < self.pptx_metrics.item_count else "disabled")
+        except (OSError, ValueError, KeyError) as error:
+            self.pptx_preview_photo = None; self.pptx_preview_label.configure(image=None, text=f"Could not render slide: {error}"); self.pptx_slide_status.configure(text=f"{self.pptx_current_slide} / {self.pptx_metrics.item_count}")
+
+    def change_pptx_slide(self, delta: int) -> None:
+        if not self.pptx_metrics: return
+        self.pptx_current_slide = max(1, min(self.pptx_metrics.item_count, self.pptx_current_slide + delta)); self._update_pptx_preview()
 
     def pdf_visual_changed(self, *_args) -> None:
         """Rerender only the current page; PDF scope and navigation stay intact."""
