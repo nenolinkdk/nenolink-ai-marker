@@ -90,4 +90,12 @@ The active Video destination is mounted directly by `ShellController` and is int
 `LegacyMarkerApp._single_ui()` remains only as disconnected historical code; `MarkerApp.render_shell_state()` calls exactly one active `_mount_video_workspace()` path. That path now exposes explicit `video_controls_host` and `video_preview_host` regions and clears the common host before mounting, preventing a stale placeholder or destination from surviving a Video transition.
 ## Media workspace contract
 
+Video now follows the same hard mount boundary as Image: `_mount_video_workspace`
+clears `content_host` and creates exactly `video_controls_host` and
+`video_preview_host`. The active Step-1 UI is built directly in those hosts with
+explicit FILE, AI BADGE, VIDEO OPTIONS and OUTPUT groups. Selecting a file only
+updates `VideoWorkspaceState` and the existing information widgets; it never
+remounts or delegates to the legacy media builder. FFmpeg preview remains a
+later step; the preview host deliberately displays a human-readable placeholder.
+
 Image is the structural reference for media workspaces. Video is mounted once by `MarkerApp._mount_video_workspace()` after the ShellController selects `VIDEO`; it creates exactly `video_controls_host` and `video_preview_host`. File selection mutates `VideoWorkspaceState` and labels only, never reconstructs either host.

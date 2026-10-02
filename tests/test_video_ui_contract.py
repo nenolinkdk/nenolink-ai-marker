@@ -9,10 +9,10 @@ def test_active_video_workspace_has_state_order_and_no_widget_class_labels():
     start = source.index("    def _mount_video_workspace(self)")
     end = source.index("    def _video_slider", start)
     active = source[start:end]
-    assert active.index("self.video_open_button") < active.index("self.video_badge_enable")
-    assert "self.video_badge_enable.grid(row=2" in active
-    assert "self.video_mode_label.grid_configure(row=14" in active
-    assert "self.video_process_button.grid_configure(row=17" in active
+    assert active.index('heading("FILE"') < active.index('heading("AI BADGE"') < active.index('heading("VIDEO OPTIONS"') < active.index('heading("OUTPUT"')
+    assert 'text="Add AI badge"' in active
+    assert 'text="Video preview"' in active
+    assert 'text="Save Marked Video..."' in active
     for forbidden in ("CTkButton", "CTkCheckBox", "CTkLabel", "CTkSlider"):
         assert f'text="{forbidden}"' not in active
 
@@ -34,8 +34,10 @@ def test_video_mount_owns_two_fresh_hosts_and_clears_common_host():
     end = source.index("    def _video_slider", start)
     active = source[start:end]
     assert "self._clear_content_host()" in active
-    assert "self.video_controls_host=left" in active
-    assert "self.video_preview_host=right" in active
+    assert "self.video_controls_host = left" in active
+    assert "self.video_preview_host = right" in active
+    assert "grid_columnconfigure(0, weight=0, minsize=320)" in active
+    assert "grid_columnconfigure(1, weight=1)" in active
 
 
 def test_video_file_selection_does_not_rebuild_workspace():
