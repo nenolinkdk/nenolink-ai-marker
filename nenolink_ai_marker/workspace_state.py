@@ -75,6 +75,17 @@ class VideoWorkspaceState(WorkspaceRuntimeState):
     duration: int = 5
 
 
+@dataclass
+class PdfWorkspaceState(WorkspaceRuntimeState):
+    """Authoritative PDF runtime; physical preview and processing scope stay separate."""
+    page_count: int = 0
+    current_page: int = 0
+    scope_mode: str = "all"
+    scope_input: str = ""
+    active_scope: tuple[int, ...] = ()
+    preview_image: Any = None
+
+
 class WorkspaceAdapter(Protocol):
     state: WorkspaceRuntimeState
 

@@ -33,7 +33,7 @@ from .preview import ImagePreviewRenderer
 from .pptx_processor import PptxProcessor
 from .pptx_preview import PptxPreviewRenderer
 from .pptx_state import PptxWorkspaceState
-from .workspace_state import ImageWorkspaceState, VideoWorkspaceState, visual_projection
+from .workspace_state import ImageWorkspaceState, VideoWorkspaceState, PdfWorkspaceState, visual_projection
 from .pdf_processor import PasswordProtectedPdfError, PdfInfo, PdfProcessor
 from .pdf_preview import PdfPreviewRenderer
 from .docx_processor import DocxInfo, DocxProcessor
@@ -1722,6 +1722,7 @@ class MarkerApp(ctk.CTk):
         self.sources: list[Path] = []
         self.image_state = ImageWorkspaceState()
         self.video_state = VideoWorkspaceState()
+        self.pdf_state = PdfWorkspaceState()
         self.preview_photo = self.preview_image = self.badge_photo = self.single_badge_photo = None
         self.welcome_photo = self.welcome_image = None
         self.badge_display_to_file = {}
@@ -1760,6 +1761,10 @@ class MarkerApp(ctk.CTk):
         t = self.translator.text
         self.pdf_workspace = ctk.CTkFrame(self.content_host, fg_color="transparent")
         self.pdf_workspace.grid(row=0, column=0, padx=24, pady=24, sticky="nsew")
+        # Explicit PDF host boundary; all controls and preview remain owned by
+        # this mounted workspace and never delegate to legacy document UI.
+        self.pdf_controls_host = self.pdf_workspace
+        self.pdf_preview_host = self.pdf_workspace
         self.pdf_workspace.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(self.pdf_workspace, text="PDF", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0, column=0, pady=(8, 4), sticky="w")
         self.pdf_choose_button = ctk.CTkButton(self.pdf_workspace, text=t("pdf.choose"), command=self.choose_pdf_phase2); self.pdf_choose_button.grid(row=1, column=0, pady=(4, 8), sticky="w")
@@ -1941,6 +1946,18 @@ class MarkerApp(ctk.CTk):
         self._update_logo_controls()
         self.render_pdf_preview()
 
+    def _sync_pdf_state(self) -> None:
+        self.pdf_state.path = self.pdf_path
+        self.pdf_state.page_count = self.pdf_info.metrics.item_count if self.pdf_info else 0
+        self.pdf_state.current_page = self.pdf_current_page
+        self.pdf_state.scope_mode = self.pdf_scope_mode
+        self.pdf_state.scope_input = self.pdf_scope_input
+        self.pdf_state.active_scope = tuple(self.pdf_active_scope)
+        self.pdf_state.badge.enabled = bool(self.pdf_badge_enabled_var.get())
+        self.pdf_state.badge.badge_id = self.badge_var.get()
+        self.pdf_state.badge.position = self.position_var.get(); self.pdf_state.badge.size = int(self.size_var.get()); self.pdf_state.badge.margin = int(self.margin_var.get()); self.pdf_state.badge.opacity = int(self.opacity_var.get())
+        self.pdf_state.logo.enabled = bool(self.logo_enabled_var.get()); self.pdf_state.logo.path = self._logo_path() if hasattr(self, "_logo_path") else None
+
     def choose_pdf_phase2(self) -> None:
         selected = filedialog.askopenfilename(title="Choose PDF", filetypes=[("PDF (*.pdf)", "*.pdf")])
         if not selected: return
@@ -1957,6 +1974,7 @@ class MarkerApp(ctk.CTk):
         signed = "\nWarning: existing digital signatures may be invalidated when modified." if info.signed else ""
         self.pdf_file_label.configure(text=f"{path.name}\n{size} · {info.metrics.item_count} pages{signed}")
         self.status_var.set(f"PDF loaded: {path.name}")
+        self._sync_pdf_state()
         self.render_pdf_preview()
 
     def _confirm_pdf_signature(self) -> bool:
@@ -2020,8 +2038,13 @@ class MarkerApp(ctk.CTk):
             if not parts: raise ValueError("Enter at least one page.")
             for part in parts:
                 if self.pdf_scope_mode == "selected":
-                    if "-" in part: raise ValueError("Selected pages must use comma-separated numbers.")
-                    values.append(int(part))
+                    bounds = part.split("-")
+                    if len(bounds) == 1: values.append(int(bounds[0].strip()))
+                    elif len(bounds) == 2:
+                        start, end = (int(value.strip()) for value in bounds)
+                        if start > end: raise ValueError("Range start must not exceed end.")
+                        values.extend(range(start, end + 1))
+                    else: raise ValueError("Invalid page selection.")
                 else:
                     bounds = part.split("-")
                     if len(bounds) != 2: raise ValueError("Ranges must use start-end syntax.")
@@ -2032,6 +2055,7 @@ class MarkerApp(ctk.CTk):
             if any(value < 1 or value > self.pdf_info.metrics.item_count for value in values): raise ValueError("Page is outside the PDF.")
             self.pdf_active_scope = tuple(values); self.pdf_scope_input = text; self.pdf_scope_message.configure(text="")
             self.pdf_current_page = values[0]; self.render_pdf_preview()
+            self._sync_pdf_state()
         except (TypeError, ValueError):
             self.pdf_scope_message.configure(text="Invalid page selection. The previous scope was preserved.")
 
@@ -2049,6 +2073,7 @@ class MarkerApp(ctk.CTk):
             except TypeError:
                 result = self.pdf_preview_renderer.render(self.pdf_path, self.pdf_current_page, badge, self.settings())
             self.pdf_current_page = result.page_number
+            self._sync_pdf_state()
             self.pdf_preview_photo = ctk.CTkImage(light_image=result.image, dark_image=result.image, size=result.image.size)
             self.pdf_preview_label.configure(image=self.pdf_preview_photo, text="")
             self.pdf_page_status.configure(text=f"{self.pdf_current_page} / {self.pdf_info.metrics.item_count}")
@@ -2060,6 +2085,7 @@ class MarkerApp(ctk.CTk):
     def change_pdf_page(self, delta: int) -> None:
         if not self.pdf_info: return
         self.pdf_current_page = max(1, min(self.pdf_info.metrics.item_count, self.pdf_current_page + delta))
+        self._sync_pdf_state()
         self.render_pdf_preview()
 
     def _mount_image_workspace(self) -> None:
