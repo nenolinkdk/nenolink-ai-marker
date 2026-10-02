@@ -37,9 +37,9 @@ def test_pdf_state_contract_and_mixed_scope_remain_explicit():
 
 def test_pdf_control_order_and_human_labels_are_explicit():
     active = _mount_source()
-    for label in ("FILE", "AI BADGE", "OWN LOGO", "PDF PAGES", "Badge Position", "Badge Size", "Margin:", "Opacity:", "Logo Size:", "Logo Margin:", "Logo Opacity:"):
+    for label in ("PDF", "AI BADGE", "OWN LOGO", "PDF PAGES", "Badge Position", "Badge Size", "Margin:", "Opacity:", "Logo Size:", "Logo Margin:", "Logo Opacity:"):
         assert label in active
-    assert active.index('text="FILE"') < active.index('text="PDF PAGES"') < active.index('text="AI BADGE"') < active.index('text="OWN LOGO"')
+    assert active.index('text="PDF"') < active.index('text="PDF PAGES"') < active.index('text="AI BADGE"') < active.index('text="OWN LOGO"')
     assert "self.pdf_process_button.grid_configure(row=1, column=1)" in active
 
 
@@ -155,7 +155,14 @@ def test_pdf_initial_badge_is_projected_from_authoritative_selection():
     assert "self.pdf_state.badge.badge_id or self.badge_var.get()" in handler
     assert "self.badge_display_var.set(display_name)" in handler
     assert "self.pdf_badge_menu.set(display_name)" in handler
+    assert "configure(values=list(self.badge_display_to_file)" in handler
     assert "self._project_pdf_badge_selection()" in source[source.index("    def _mount_pdf_workspace"):source.index("    def _mount_pptx_workspace")]
     start = source.index("    def choose_pdf_phase2")
     end = source.index("    def _confirm_pdf_signature", start)
     assert "self._project_pdf_badge_selection()" in source[start:end]
+
+
+def test_pdf_heading_and_pages_to_badge_spacing_are_compact():
+    active = _mount_source()
+    assert 'text="PDF", font=ctk.CTkFont(size=24' in active
+    assert 'text="AI BADGE", font=bold).grid(row=8, column=0, pady=(2, 1)' in active

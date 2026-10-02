@@ -1775,7 +1775,7 @@ class MarkerApp(ctk.CTk):
         # Existing control construction below is scoped to the controls host.
         self.pdf_workspace = self.pdf_controls_host
         self.pdf_workspace.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(self.pdf_workspace, text="FILE", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, pady=(2, 1), sticky="w")
+        ctk.CTkLabel(self.pdf_workspace, text="PDF", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0, column=0, pady=(2, 1), sticky="w")
         self.pdf_choose_button = ctk.CTkButton(self.pdf_workspace, text=t("pdf.choose"), command=self.choose_pdf_phase2); self.pdf_choose_button.grid(row=1, column=0, pady=(4, 8), sticky="w")
         self.pdf_file_label = ctk.CTkLabel(self.pdf_workspace, text=t("pdf.no_file"), text_color="gray60", anchor="w"); self.pdf_file_label.grid(row=2, column=0, pady=4, sticky="w")
         self.pdf_badge_enable = ctk.CTkCheckBox(self.pdf_workspace, text=t("pdf.add_badge"), variable=self.pdf_badge_enabled_var, command=self.pdf_visual_changed); self.pdf_badge_enable.grid(row=3, column=0, pady=(8, 2), sticky="w")
@@ -1807,7 +1807,7 @@ class MarkerApp(ctk.CTk):
         self.pdf_file_label.grid_configure(row=2, column=0, columnspan=2)
         ctk.CTkLabel(self.pdf_workspace, text="PDF PAGES", font=bold).grid(row=3, column=0, pady=(6, 1), sticky="w")
         self.pdf_scope_menu.grid_configure(row=4); self.pdf_scope_entry.grid_configure(row=5); self.pdf_scope_update.grid_configure(row=6); self.pdf_scope_message.grid_configure(row=7)
-        ctk.CTkLabel(self.pdf_workspace, text="AI BADGE", font=bold).grid(row=8, column=0, pady=(6, 1), sticky="w")
+        ctk.CTkLabel(self.pdf_workspace, text="AI BADGE", font=bold).grid(row=8, column=0, pady=(2, 1), sticky="w")
         self.pdf_badge_enable.grid_configure(row=9); self.pdf_badge_menu.grid_configure(row=10)
         self.pdf_badge_name_label = ctk.CTkLabel(self.pdf_workspace, textvariable=self.badge_name_var, anchor="w"); self.pdf_badge_name_label.grid(row=11, column=0, padx=4, sticky="w")
         ctk.CTkLabel(self.pdf_workspace, text="Badge Position").grid(row=12, column=0, sticky="w"); self.pdf_position_menu.grid_configure(row=13)
@@ -1996,7 +1996,9 @@ class MarkerApp(ctk.CTk):
         if display_name:
             self.pdf_state.badge.badge_id = filename
             self.badge_var.set(filename); self.badge_display_var.set(display_name)
-            if getattr(self, "pdf_badge_menu", None): self.pdf_badge_menu.set(display_name)
+            if getattr(self, "pdf_badge_menu", None):
+                self.pdf_badge_menu.configure(values=list(self.badge_display_to_file) or [self.translator.text("badge.none")])
+                self.pdf_badge_menu.set(display_name)
             if getattr(self, "pdf_badge_name_label", None): self.pdf_badge_name_label.configure(text=display_name)
 
     def change_pdf_badge_position(self, display_name: str) -> None:
