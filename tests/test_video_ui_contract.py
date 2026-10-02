@@ -36,3 +36,14 @@ def test_video_mount_owns_two_fresh_hosts_and_clears_common_host():
     assert "self._clear_content_host()" in active
     assert "self.video_controls_host=left" in active
     assert "self.video_preview_host=right" in active
+
+
+def test_video_file_selection_does_not_rebuild_workspace():
+    source = APP.read_text(encoding="utf-8")
+    start = source.index("    def open_video(self)")
+    end = source.index("    def save_video", start)
+    handler = source[start:end]
+    assert "self.video_sources = [Path(selected)]" in handler
+    assert "_mount_video_workspace" not in handler
+    assert "video_controls_host" not in handler
+    assert "video_preview_host" not in handler
