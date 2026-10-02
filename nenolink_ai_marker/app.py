@@ -1760,11 +1760,19 @@ class MarkerApp(ctk.CTk):
         self._clear_content_host()
         t = self.translator.text
         self.pdf_workspace = ctk.CTkFrame(self.content_host, fg_color="transparent")
-        self.pdf_workspace.grid(row=0, column=0, padx=24, pady=24, sticky="nsew")
-        # Explicit PDF host boundary; all controls and preview remain owned by
-        # this mounted workspace and never delegate to legacy document UI.
-        self.pdf_controls_host = self.pdf_workspace
-        self.pdf_preview_host = self.pdf_workspace
+        self.pdf_workspace.grid(row=0, column=0, padx=8, pady=8, sticky="nsew")
+        self.pdf_workspace.grid_columnconfigure(0, weight=0, minsize=320)
+        self.pdf_workspace.grid_columnconfigure(1, weight=1)
+        self.pdf_workspace.grid_rowconfigure(0, weight=1)
+        self.pdf_controls_host = AutoHideScrollableFrame(self.pdf_workspace, width=320, fg_color=("gray86", "gray17"))
+        self.pdf_controls_host.grid(row=0, column=0, padx=(4, 8), pady=4, sticky="nsew")
+        self.pdf_controls_host.grid_columnconfigure(0, weight=1)
+        self.pdf_preview_host = ctk.CTkFrame(self.pdf_workspace)
+        self.pdf_preview_host.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew")
+        self.pdf_preview_host.grid_columnconfigure(0, weight=1)
+        self.pdf_preview_host.grid_rowconfigure(0, weight=1)
+        # Existing control construction below is scoped to the controls host.
+        self.pdf_workspace = self.pdf_controls_host
         self.pdf_workspace.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(self.pdf_workspace, text="PDF", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0, column=0, pady=(8, 4), sticky="w")
         self.pdf_choose_button = ctk.CTkButton(self.pdf_workspace, text=t("pdf.choose"), command=self.choose_pdf_phase2); self.pdf_choose_button.grid(row=1, column=0, pady=(4, 8), sticky="w")
@@ -1781,8 +1789,8 @@ class MarkerApp(ctk.CTk):
         self.pdf_logo_size_slider = ctk.CTkSlider(self.pdf_workspace, from_=1, to=100, number_of_steps=99, variable=self.logo_size_var, command=self.pdf_visual_changed); self.pdf_logo_size_slider.grid(row=18, column=0, pady=2, sticky="ew")
         self.pdf_logo_margin_slider = ctk.CTkSlider(self.pdf_workspace, from_=0, to=250, number_of_steps=250, variable=self.logo_margin_var, command=self.pdf_visual_changed); self.pdf_logo_margin_slider.grid(row=19, column=0, pady=2, sticky="ew")
         self.pdf_logo_opacity_slider = ctk.CTkSlider(self.pdf_workspace, from_=0, to=100, number_of_steps=100, variable=self.logo_opacity_var, command=self.pdf_visual_changed); self.pdf_logo_opacity_slider.grid(row=20, column=0, pady=2, sticky="ew")
-        self.pdf_preview_label = ctk.CTkLabel(self.pdf_workspace, text="", fg_color=("gray92", "gray13"), width=680, height=240); self.pdf_preview_label.grid(row=7, column=0, pady=(12, 4), sticky="ew")
-        nav = ctk.CTkFrame(self.pdf_workspace, fg_color="transparent"); nav.grid(row=8, column=0, pady=4)
+        self.pdf_preview_label = ctk.CTkLabel(self.pdf_preview_host, text="PDF page preview", fg_color=("gray92", "gray13"), width=680, height=240); self.pdf_preview_label.grid(row=0, column=0, pady=(12, 4), sticky="nsew")
+        nav = ctk.CTkFrame(self.pdf_preview_host, fg_color="transparent"); nav.grid(row=1, column=0, pady=4)
         self.pdf_previous_button = ctk.CTkButton(nav, text="◀", width=42, command=lambda: self.change_pdf_page(-1)); self.pdf_previous_button.grid(row=0, column=0, padx=4)
         self.pdf_page_status = ctk.CTkLabel(nav, text="—", width=120); self.pdf_page_status.grid(row=0, column=1, padx=4)
         self.pdf_next_button = ctk.CTkButton(nav, text="▶", width=42, command=lambda: self.change_pdf_page(1)); self.pdf_next_button.grid(row=0, column=2, padx=4)
