@@ -59,3 +59,10 @@ Tk variables remain UI input/projection adapters. Persistent `MarkerSettings`
 may seed runtime state, but are not renderer state. Preview and output adapters
 receive the same `visual_projection(state)` values. Badge and logo transitions
 are isolated and cannot change file, physical navigation or format scope.
+
+## Phase 2 Image reference
+
+Image now owns `ImageWorkspaceState` for its selected file, badge/logo values
+and preview runtime. Tk variables project events into this state; preview and
+Save As use the same visual projection. Video, PDF and PPTX remain separate
+migration phases.
