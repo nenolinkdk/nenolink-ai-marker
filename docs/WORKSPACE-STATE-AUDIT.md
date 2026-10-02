@@ -82,3 +82,6 @@ The packaged Video workspace had retained the pre-migration filename-only placeh
 ## Video structural UI contract
 
 The active Video workspace is a projection of `VideoWorkspaceState`: FILE, AI BADGE, VIDEO OPTIONS, then OUTPUT. It has one representative-frame path (`find_ffmpeg` → `extract_video_frame` → Pillow composition → retained `CTkImage`). Widget class names are implementation details and are never valid translated labels; missing localization must use the translator's human-readable fallback.
+## Video clean UI boundary
+
+The active Video destination is mounted directly by `ShellController` and is intentionally separate from the legacy `_single_ui()` media builder. Its left column is a projection of `VideoWorkspaceState` (file, badge, mode/duration and output), with a responsive controls/preview split. The current step leaves the right preview as a human-readable placeholder; FFmpeg preview remains a subsequent step.

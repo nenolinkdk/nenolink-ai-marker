@@ -2113,7 +2113,7 @@ class MarkerApp(ctk.CTk):
         self.video_duration_label.grid_configure(row=16); self.video_duration_entry.grid_configure(row=16); self.video_seconds_label.grid_configure(row=16)
         self.video_process_button.grid_configure(row=17, pady=(5, 10))
         right = ctk.CTkFrame(self.video_workspace); right.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right.grid_columnconfigure(0, weight=1); right.grid_rowconfigure(0, weight=1)
-        self.video_preview_label = ctk.CTkLabel(right, text=self.translator.text("preview.video_selected", name="")); self.video_preview_label.grid(row=0, column=0, padx=20, pady=20)
+        self.video_preview_label = ctk.CTkLabel(right, text="Video preview"); self.video_preview_label.grid(row=0, column=0, padx=20, pady=20)
         self.video_preview_photo = None
         self._refresh_video_labels(); self._refresh_video_badges()
 
@@ -2155,7 +2155,7 @@ class MarkerApp(ctk.CTk):
     def _refresh_video_labels(self) -> None:
         if not getattr(self, "video_open_button", None): return
         t = self.translator.text
-        self.video_open_button.configure(text=t("button.open_media")); self.video_badge_enable.configure(text=t("pdf.add_badge")); self.video_badge_label.configure(text=t("badge")); self.video_position_label.configure(text=t("position")); self.video_process_button.configure(text=t("button.process_video")); self.video_mode_label.configure(text=t("video.badge")); self.video_duration_label.configure(text=t("video.duration"))
+        self.video_open_button.configure(text=t("button.open_media")); self.video_badge_enable.configure(text=t("pdf.add_badge")); self.video_badge_label.configure(text=t("badge")); self.video_position_label.configure(text=t("position")); self.video_process_button.configure(text=t("button.process_video")); self.video_mode_label.configure(text=t("video.badge")); self.video_duration_label.configure(text=t("video.duration")); self.video_size_label.configure(text=t("size.value",value=int(self.video_size_var.get()))); self.video_margin_label.configure(text=t("margin.value",value=int(self.video_margin_var.get()))); self.video_opacity_label.configure(text=t("opacity.value",value=int(self.video_opacity_var.get())))
         self.video_mode_display_to_value = {t("video.mode.permanent"): "permanent", t("video.mode.beginning"): "beginning", t("video.mode.end"): "end"}; self.video_mode_menu.configure(values=list(self.video_mode_display_to_value)); self.video_mode_display_var.set(next((label for label, value in self.video_mode_display_to_value.items() if value == self.video_mode_var.get()), list(self.video_mode_display_to_value)[0]))
         self.video_position_display_to_value = {t("position.top_left"): "top-left", t("position.top_right"): "top-right", t("position.bottom_left"): "bottom-left", t("position.bottom_right"): "bottom-right", t("position.center"): "center"}; self.video_position_menu.configure(values=list(self.video_position_display_to_value)); self.video_position_display_var.set(next((label for label, value in self.video_position_display_to_value.items() if value == self.video_position_var.get()), t("position.bottom_right")))
         self._update_video_duration_visibility()
@@ -2181,16 +2181,16 @@ class MarkerApp(ctk.CTk):
         (self.video_duration_label.grid if visible else self.video_duration_label.grid_remove)(); (self.video_duration_entry.grid if visible else self.video_duration_entry.grid_remove)()
 
     def change_video_mode(self, label: str) -> None:
-        self.video_mode_var.set(self.video_mode_display_to_value[label]); self._sync_video_state(); self._update_video_duration_visibility(); self._render_video_preview(); self._save_image_settings()
+        self.video_mode_var.set(self.video_mode_display_to_value[label]); self._sync_video_state(); self._update_video_duration_visibility(); self._save_image_settings()
 
     def change_video_position(self, label: str) -> None:
-        self.video_position_var.set(self.video_position_display_to_value[label]); self._sync_video_state(); self._render_video_preview(); self._save_image_settings()
+        self.video_position_var.set(self.video_position_display_to_value[label]); self._sync_video_state(); self._save_image_settings()
 
     def change_video_badge(self, label: str) -> None:
-        self.video_badge_var.set(label); self._sync_video_state(); self._update_video_badge_preview(); self._render_video_preview(); self._save_image_settings()
+        self.video_badge_var.set(label); self._sync_video_state(); self._update_video_badge_preview(); self._save_image_settings()
 
     def _video_changed(self, *_args) -> None:
-        self._sync_video_state(); self._render_video_preview(); self._save_image_settings()
+        self._sync_video_state(); self.video_size_label.configure(text=self.translator.text("size.value",value=int(self.video_size_var.get()))); self.video_margin_label.configure(text=self.translator.text("margin.value",value=int(self.video_margin_var.get()))); self.video_opacity_label.configure(text=self.translator.text("opacity.value",value=int(self.video_opacity_var.get()))); self._save_image_settings()
 
     def _sync_video_state(self) -> None:
         self.video_state.path = self.video_sources[0] if getattr(self, "video_sources", []) else None
@@ -2217,7 +2217,7 @@ class MarkerApp(ctk.CTk):
     def open_video(self) -> None:
         selected = filedialog.askopenfilename(title=self.translator.text("dialog.open_media"), filetypes=[(self.translator.text("files.supported_videos"), "*.mp4 *.mov *.mkv *.avi *.webm"), (self.translator.text("files.all"), "*.*")])
         if selected:
-            self.video_sources = [Path(selected)]; self.video_file_label.configure(text=self.video_sources[0].name); self._sync_video_state(); self._render_video_preview(); self._save_image_settings()
+            self.video_sources = [Path(selected)]; self.video_file_label.configure(text=self.video_sources[0].name); self._sync_video_state(); self._save_image_settings()
 
     def save_video(self) -> None:
         self._sync_video_state()
