@@ -37,9 +37,10 @@ def test_pdf_state_contract_and_mixed_scope_remain_explicit():
 
 def test_pdf_control_order_and_human_labels_are_explicit():
     active = _mount_source()
-    for label in ("FILE", "AI BADGE", "OWN LOGO", "PDF PAGES", "OUTPUT", "Badge Position", "Badge Size", "Margin:", "Opacity:", "Logo Size:", "Logo Margin:", "Logo Opacity:"):
+    for label in ("FILE", "AI BADGE", "OWN LOGO", "PDF PAGES", "Badge Position", "Badge Size", "Margin:", "Opacity:", "Logo Size:", "Logo Margin:", "Logo Opacity:"):
         assert label in active
-    assert active.index('text="FILE"') < active.index('text="PDF PAGES"') < active.index('text="AI BADGE"') < active.index('text="OWN LOGO"') < active.index('text="OUTPUT"')
+    assert active.index('text="FILE"') < active.index('text="PDF PAGES"') < active.index('text="AI BADGE"') < active.index('text="OWN LOGO"')
+    assert "self.pdf_process_button.grid_configure(row=1, column=1)" in active
 
 
 def test_pdf_badge_selection_uses_shared_repository_and_rerenders_without_remount():

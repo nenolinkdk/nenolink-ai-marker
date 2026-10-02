@@ -1775,7 +1775,7 @@ class MarkerApp(ctk.CTk):
         # Existing control construction below is scoped to the controls host.
         self.pdf_workspace = self.pdf_controls_host
         self.pdf_workspace.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(self.pdf_workspace, text="PDF", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0, column=0, pady=(8, 4), sticky="w")
+        ctk.CTkLabel(self.pdf_workspace, text="FILE", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, pady=(2, 1), sticky="w")
         self.pdf_choose_button = ctk.CTkButton(self.pdf_workspace, text=t("pdf.choose"), command=self.choose_pdf_phase2); self.pdf_choose_button.grid(row=1, column=0, pady=(4, 8), sticky="w")
         self.pdf_file_label = ctk.CTkLabel(self.pdf_workspace, text=t("pdf.no_file"), text_color="gray60", anchor="w"); self.pdf_file_label.grid(row=2, column=0, pady=4, sticky="w")
         self.pdf_badge_enable = ctk.CTkCheckBox(self.pdf_workspace, text=t("pdf.add_badge"), variable=self.pdf_badge_enabled_var, command=self.pdf_visual_changed); self.pdf_badge_enable.grid(row=3, column=0, pady=(8, 2), sticky="w")
@@ -1799,11 +1799,12 @@ class MarkerApp(ctk.CTk):
         self.pdf_scope_entry = ctk.CTkEntry(self.pdf_workspace, placeholder_text="2,4,7 or 5-7,10-12"); self.pdf_scope_entry.grid(row=10, column=0, pady=2, sticky="w")
         self.pdf_scope_update = ctk.CTkButton(self.pdf_workspace, text=t("document.scope_update"), command=self.update_pdf_scope, width=100); self.pdf_scope_update.grid(row=11, column=0, pady=(2, 4), sticky="w")
         self.pdf_scope_message = ctk.CTkLabel(self.pdf_workspace, text="", text_color="#b42318", anchor="w"); self.pdf_scope_message.grid(row=12, column=0, sticky="w")
-        self.pdf_process_button = ctk.CTkButton(self.pdf_workspace, text=t("pdf.process"), command=self.process_pdf_phase6, width=180); self.pdf_process_button.grid(row=21, column=0, pady=(8, 4), sticky="w")
+        self.pdf_process_button = ctk.CTkButton(self.pdf_workspace, text=t("pdf.process"), command=self.process_pdf_phase6, width=150); self.pdf_process_button.grid(row=21, column=1, pady=(2, 4), sticky="w")
         # Normative order: FILE → PDF PAGES → AI BADGE → OWN LOGO → OUTPUT.
         bold = ctk.CTkFont(weight="bold")
-        ctk.CTkLabel(self.pdf_workspace, text="FILE", font=bold).grid(row=0, column=0, pady=(2, 1), sticky="w")
-        self.pdf_choose_button.grid_configure(row=1); self.pdf_file_label.grid_configure(row=2)
+        self.pdf_workspace.grid_columnconfigure(1, weight=1)
+        self.pdf_choose_button.grid_configure(row=1, column=0); self.pdf_process_button.grid_configure(row=1, column=1)
+        self.pdf_file_label.grid_configure(row=2, column=0, columnspan=2)
         ctk.CTkLabel(self.pdf_workspace, text="PDF PAGES", font=bold).grid(row=3, column=0, pady=(6, 1), sticky="w")
         self.pdf_scope_menu.grid_configure(row=4); self.pdf_scope_entry.grid_configure(row=5); self.pdf_scope_update.grid_configure(row=6); self.pdf_scope_message.grid_configure(row=7)
         ctk.CTkLabel(self.pdf_workspace, text="AI BADGE", font=bold).grid(row=8, column=0, pady=(6, 1), sticky="w")
@@ -1819,8 +1820,6 @@ class MarkerApp(ctk.CTk):
         self.pdf_logo_size_label = ctk.CTkLabel(self.pdf_workspace, text=f"Logo Size: {int(self.logo_size_var.get())}%", anchor="w"); self.pdf_logo_size_label.grid(row=25, column=0, sticky="w"); self.pdf_logo_size_slider.grid_configure(row=26)
         self.pdf_logo_margin_label = ctk.CTkLabel(self.pdf_workspace, text=f"Logo Margin: {int(self.logo_margin_var.get())} px", anchor="w"); self.pdf_logo_margin_label.grid(row=27, column=0, sticky="w"); self.pdf_logo_margin_slider.grid_configure(row=28)
         self.pdf_logo_opacity_label = ctk.CTkLabel(self.pdf_workspace, text=f"Logo Opacity: {int(self.logo_opacity_var.get())}%", anchor="w"); self.pdf_logo_opacity_label.grid(row=29, column=0, sticky="w"); self.pdf_logo_opacity_slider.grid_configure(row=30)
-        ctk.CTkLabel(self.pdf_workspace, text="OUTPUT", font=bold).grid(row=31, column=0, pady=(6, 1), sticky="w")
-        self.pdf_process_button.grid_configure(row=32)
         self.refresh_image_badges()
         self._update_pdf_scope_controls()
 
