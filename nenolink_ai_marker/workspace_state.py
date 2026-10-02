@@ -69,6 +69,12 @@ class ImageWorkspaceState(WorkspaceRuntimeState):
     preview_image: Any = None
 
 
+@dataclass
+class VideoWorkspaceState(WorkspaceRuntimeState):
+    mode: str = "permanent"
+    duration: int = 5
+
+
 class WorkspaceAdapter(Protocol):
     state: WorkspaceRuntimeState
 

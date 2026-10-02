@@ -66,3 +66,10 @@ Image now owns `ImageWorkspaceState` for its selected file, badge/logo values
 and preview runtime. Tk variables project events into this state; preview and
 Save As use the same visual projection. Video, PDF and PPTX remain separate
 migration phases.
+
+## Phase 3 Video reference
+
+Video now owns `VideoWorkspaceState` for its file, independent badge values,
+and video-specific mode/duration. Existing controls remain adapters and Save
+As consumes the state values. Video has no document scope or physical page
+state.

@@ -2,7 +2,7 @@ from pathlib import Path
 
 from nenolink_ai_marker.workspace_state import (
     BadgeVisualState, LogoVisualState, WorkspaceEvent, WorkspaceRuntimeState,
-    visual_projection,
+    VideoWorkspaceState, visual_projection,
 )
 
 
@@ -37,3 +37,10 @@ def test_visual_projection_is_shared_preview_output_input():
 def test_common_contract_has_no_document_scope():
     assert not hasattr(WorkspaceRuntimeState, "active_scope")
     assert WorkspaceEvent.BADGE_SIZE_CHANGED.value == "badge_size_changed"
+
+
+def test_video_state_owns_mode_and_duration():
+    state = VideoWorkspaceState(Path("clip.mp4"), mode="end", duration=5)
+    state.badge.size = 42
+    assert state.mode == "end" and state.duration == 5 and state.badge.size == 42
+    assert state.logo.size == 15
