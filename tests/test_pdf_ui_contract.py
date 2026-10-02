@@ -65,3 +65,15 @@ def test_pdf_badge_position_projects_state_and_preview_without_remount():
     assert "_mount_pdf_workspace" not in handler
     mount = _mount_source()
     assert "command=self.change_pdf_badge_position" in mount
+
+
+def test_pdf_badge_size_projects_normalized_state_and_preview():
+    source = APP.read_text(encoding="utf-8")
+    start = source.index("    def change_pdf_badge_size")
+    end = source.index("    def _sync_pdf_state", start)
+    handler = source[start:end]
+    assert "max(1, min(100" in handler
+    assert "self.pdf_state.badge.size = normalized" in handler
+    assert "Badge Size: {normalized}%" in handler
+    assert "self.render_pdf_preview()" in handler
+    assert "command=self.change_pdf_badge_size" in _mount_source()
