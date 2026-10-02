@@ -121,8 +121,9 @@ PDF control remounts the workspace.
 
 The PDF badge selector and current-badge presentation use the common badge
 repository: the authoritative selected id projects to the dropdown, graphic,
-human-readable name and preview. PPTX currently has a separate visual
-presentation path and remains a pending parity follow-up; it is not changed by
+human-readable name and preview. PPTX now projects its common badge repository
+and visual state through the active workspace route; remaining layout details
+are tracked separately and it is not changed by
 the PDF work.
 
 ## Common presentation contract
@@ -140,5 +141,6 @@ contains layout tokens only; Tk variables remain adapters. The old shared
 Document Workspace/`document_surface`/`document_tab` runtime is not reachable;
 any remaining historical references are non-authoritative legacy code.
 
-PPTX currently remains the parity follow-up: its active controls do not yet
+PPTX now uses the same authoritative visual projection for preview and output;
+its active controls do not yet
 fully match the common badge graphic/name and section-order presentation.
