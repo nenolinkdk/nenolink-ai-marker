@@ -161,3 +161,9 @@ Builds follow an impact-based chain:
 navigation/callback smoke → Windows build → manual packaged verification`.
 For PPTX-only changes, run `tests/test_prebuild_ui_gate.py` together with the
 PPTX contract tests before packaging.
+
+PPTX transition semantics are machine-readable in `pptx_state.py` via
+`PPTX_TRANSITION_TABLE` and `PptxEvent`. Visual events are applied through
+`apply_pptx_visual_event`; the table declares mutation, preservation, preview,
+output and remount effects. Parameterized tests iterate this table and enforce
+badge/logo isolation, scope/physical-slide independence and no-remount rules.

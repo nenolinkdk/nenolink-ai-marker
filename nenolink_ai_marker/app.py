@@ -32,7 +32,7 @@ from .processor import ImageProcessor, SUPPORTED_EXTENSIONS
 from .preview import ImagePreviewRenderer
 from .pptx_processor import PptxProcessor
 from .pptx_preview import PptxPreviewRenderer
-from .pptx_state import PptxWorkspaceState
+from .pptx_state import PptxWorkspaceState, PptxEvent, apply_pptx_visual_event
 from .workspace_state import ImageWorkspaceState, VideoWorkspaceState, PdfWorkspaceState, visual_projection
 from .workspace_ui import WORKSPACE_LAYOUT, build_badge_section, build_logo_section, build_workspace_control_template
 from .pdf_processor import PasswordProtectedPdfError, PdfInfo, PdfProcessor
@@ -1954,8 +1954,9 @@ class MarkerApp(ctk.CTk):
 
     def _sync_pptx_visual_state(self) -> None:
         if not hasattr(self, "pptx_state"): return
-        self.pptx_state.badge.enabled=bool(self.pptx_badge_enabled_var.get()); self.pptx_state.badge.badge_id=self.badge_var.get(); self.pptx_state.badge.position=self.pptx_badge_position_var.get(); self.pptx_state.badge.size=int(self.pptx_badge_size_var.get()); self.pptx_state.badge.margin=int(self.pptx_badge_margin_var.get()); self.pptx_state.badge.opacity=int(self.pptx_badge_opacity_var.get())
-        self.pptx_state.logo.enabled=bool(self.logo_enabled_var.get()); self.pptx_state.logo.path=self._logo_path(); self.pptx_state.logo.position=self.pptx_logo_position_var.get(); self.pptx_state.logo.size=int(self.pptx_logo_size_var.get()); self.pptx_state.logo.margin=int(self.pptx_logo_margin_var.get()); self.pptx_state.logo.opacity=int(self.pptx_logo_opacity_var.get())
+        events = ((PptxEvent.BADGE_ENABLE, self.pptx_badge_enabled_var.get()), (PptxEvent.BADGE_SELECT, self.badge_var.get()), (PptxEvent.BADGE_POSITION, self.pptx_badge_position_var.get()), (PptxEvent.BADGE_SIZE, self.pptx_badge_size_var.get()), (PptxEvent.BADGE_MARGIN, self.pptx_badge_margin_var.get()), (PptxEvent.BADGE_OPACITY, self.pptx_badge_opacity_var.get()), (PptxEvent.LOGO_ENABLE, self.logo_enabled_var.get()), (PptxEvent.LOGO_CHOOSE, self._logo_path()), (PptxEvent.LOGO_POSITION, self.pptx_logo_position_var.get()), (PptxEvent.LOGO_SIZE, self.pptx_logo_size_var.get()), (PptxEvent.LOGO_MARGIN, self.pptx_logo_margin_var.get()), (PptxEvent.LOGO_OPACITY, self.pptx_logo_opacity_var.get()))
+        for event, value in events:
+            apply_pptx_visual_event(self.pptx_state, event, value)
 
     def _pptx_visual_projection_settings(self):
         """Build renderer/output settings from authoritative PPTX state."""
