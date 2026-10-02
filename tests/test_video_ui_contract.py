@@ -49,3 +49,31 @@ def test_video_file_selection_does_not_rebuild_workspace():
     assert "_mount_video_workspace" not in handler
     assert "video_controls_host" not in handler
     assert "video_preview_host" not in handler
+
+
+def test_video_selection_renders_existing_preview_without_remounting():
+    source = APP.read_text(encoding="utf-8")
+    start = source.index("    def open_video(self)")
+    end = source.index("    def save_video", start)
+    handler = source[start:end]
+    assert "self._sync_video_state(); self._render_video_preview()" in handler
+    assert "_mount_video_workspace" not in handler
+
+
+def test_video_visual_events_rerender_projection():
+    source = APP.read_text(encoding="utf-8")
+    start = source.index("    def change_video_position")
+    end = source.index("    def _sync_video_state", start)
+    handlers = source[start:end]
+    assert handlers.count("self._render_video_preview()") >= 3
+    assert "self.video_state.badge.enabled = bool(self.badge_enabled_var.get())" in source
+
+
+def test_video_preview_uses_authoritative_badge_state():
+    source = APP.read_text(encoding="utf-8")
+    start = source.index("    def _render_video_preview")
+    end = source.index("    def open_video", start)
+    renderer = source[start:end]
+    assert "state=self.video_state" in renderer
+    assert "state.badge.enabled" in renderer
+    assert "self.video_preview_photo=ctk.CTkImage" in renderer

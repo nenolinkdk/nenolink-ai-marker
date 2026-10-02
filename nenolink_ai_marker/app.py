@@ -2201,17 +2201,17 @@ class MarkerApp(ctk.CTk):
         self.video_mode_var.set(self.video_mode_display_to_value[label]); self._sync_video_state(); self._update_video_duration_visibility(); self._save_image_settings()
 
     def change_video_position(self, label: str) -> None:
-        self.video_position_var.set(self.video_position_display_to_value[label]); self._sync_video_state(); self._save_image_settings()
+        self.video_position_var.set(self.video_position_display_to_value[label]); self._sync_video_state(); self._render_video_preview(); self._save_image_settings()
 
     def change_video_badge(self, label: str) -> None:
-        self.video_badge_var.set(label); self._sync_video_state(); self._update_video_badge_preview(); self._save_image_settings()
+        self.video_badge_var.set(label); self._sync_video_state(); self._update_video_badge_preview(); self._render_video_preview(); self._save_image_settings()
 
     def _video_changed(self, *_args) -> None:
-        self._sync_video_state(); self.video_size_label.configure(text=self.translator.text("size.value",value=int(self.video_size_var.get()))); self.video_margin_label.configure(text=self.translator.text("margin.value",value=int(self.video_margin_var.get()))); self.video_opacity_label.configure(text=self.translator.text("opacity.value",value=int(self.video_opacity_var.get()))); self._save_image_settings()
+        self._sync_video_state(); self.video_size_label.configure(text=self.translator.text("size.value",value=int(self.video_size_var.get()))); self.video_margin_label.configure(text=self.translator.text("margin.value",value=int(self.video_margin_var.get()))); self.video_opacity_label.configure(text=self.translator.text("opacity.value",value=int(self.video_opacity_var.get()))); self._render_video_preview(); self._save_image_settings()
 
     def _sync_video_state(self) -> None:
         self.video_state.path = self.video_sources[0] if getattr(self, "video_sources", []) else None
-        self.video_state.badge.enabled = True; self.video_state.badge.badge_id = self.video_badge_var.get()
+        self.video_state.badge.enabled = bool(self.badge_enabled_var.get()); self.video_state.badge.badge_id = self.video_badge_var.get()
         self.video_state.badge.position = self.video_position_var.get(); self.video_state.badge.size = int(self.video_size_var.get()); self.video_state.badge.margin = int(self.video_margin_var.get()); self.video_state.badge.opacity = int(self.video_opacity_var.get())
         self.video_state.mode = self.video_mode_var.get(); self.video_state.duration = max(1, int(self.video_duration_var.get()))
 
@@ -2224,7 +2224,7 @@ class MarkerApp(ctk.CTk):
             ffmpeg=find_ffmpeg()
             if not ffmpeg: raise ValueError(self.translator.text("error.video_component_missing"))
             frame=extract_video_frame(ffmpeg,self.video_sources[0]); frame.thumbnail((720,600),Image.Resampling.LANCZOS)
-            state=self.video_state; badge=self._video_badge_path() if self.badge_enabled_var.get() else None
+            state=self.video_state; badge=self._video_badge_path() if state.badge.enabled else None
             if badge:
                 with Image.open(badge) as opened: frame=self.processor.compose(frame,opened.convert("RGBA"),MarkerSettings(badge_name=badge.name,position=state.badge.position,size_percent=state.badge.size,margin=state.badge.margin,opacity=state.badge.opacity))
             self.video_preview_photo=ctk.CTkImage(light_image=frame,dark_image=frame,size=frame.size); self.video_preview_label.configure(image=self.video_preview_photo,text=""); self.video_preview_label.image=self.video_preview_photo
@@ -2234,7 +2234,7 @@ class MarkerApp(ctk.CTk):
     def open_video(self) -> None:
         selected = filedialog.askopenfilename(title=self.translator.text("dialog.open_media"), filetypes=[(self.translator.text("files.supported_videos"), "*.mp4 *.mov *.mkv *.avi *.webm"), (self.translator.text("files.all"), "*.*")])
         if selected:
-            self.video_sources = [Path(selected)]; self.video_file_label.configure(text=self.video_sources[0].name); self._sync_video_state(); self._save_image_settings()
+            self.video_sources = [Path(selected)]; self.video_file_label.configure(text=self.video_sources[0].name); self._sync_video_state(); self._render_video_preview(); self._save_image_settings()
 
     def save_video(self) -> None:
         self._sync_video_state()

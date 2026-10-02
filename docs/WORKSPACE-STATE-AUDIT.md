@@ -99,3 +99,8 @@ remounts or delegates to the legacy media builder. FFmpeg preview remains a
 later step; the preview host deliberately displays a human-readable placeholder.
 
 Image is the structural reference for media workspaces. Video is mounted once by `MarkerApp._mount_video_workspace()` after the ShellController selects `VIDEO`; it creates exactly `video_controls_host` and `video_preview_host`. File selection mutates `VideoWorkspaceState` and labels only, never reconstructs either host.
+
+The current projection replaces the placeholder after a valid selection by
+reusing `find_ffmpeg()` and `extract_video_frame()`. It composites from the
+authoritative `VideoWorkspaceState.badge` and updates the existing preview
+widget in place; visual events rerender without rebuilding the workspace.
