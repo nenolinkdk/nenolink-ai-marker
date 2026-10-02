@@ -79,3 +79,6 @@ Image keeps a responsive readable control column (approximately 35–40% of the 
 ## Video preview correction
 
 The packaged Video workspace had retained the pre-migration filename-only placeholder because the active ShellController-owned `MarkerApp` mounted a separate video workspace; the earlier extraction was only wired to the legacy media renderer. The active workspace now resolves the bundled FFmpeg, extracts a representative PNG frame, composites the authoritative `VideoWorkspaceState` badge, and retains the CTkImage reference on the preview widget.
+## Video structural UI contract
+
+The active Video workspace is a projection of `VideoWorkspaceState`: FILE, AI BADGE, VIDEO OPTIONS, then OUTPUT. It has one representative-frame path (`find_ffmpeg` → `extract_video_frame` → Pillow composition → retained `CTkImage`). Widget class names are implementation details and are never valid translated labels; missing localization must use the translator's human-readable fallback.
