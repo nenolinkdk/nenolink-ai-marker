@@ -145,3 +145,17 @@ def test_pdf_save_projects_authoritative_state_and_uses_ai_filename():
     assert "self.pdf_state.logo.position" in handler
     assert "ItemSelection(\"selected\", tuple(self.pdf_active_scope))" in handler
     assert "_mount_pdf_workspace" not in handler
+
+
+def test_pdf_initial_badge_is_projected_from_authoritative_selection():
+    source = APP.read_text(encoding="utf-8")
+    start = source.index("    def _project_pdf_badge_selection")
+    end = source.index("    def change_pdf_badge_position", start)
+    handler = source[start:end]
+    assert "self.pdf_state.badge.badge_id or self.badge_var.get()" in handler
+    assert "self.badge_display_var.set(display_name)" in handler
+    assert "self.pdf_badge_menu.set(display_name)" in handler
+    assert "self._project_pdf_badge_selection()" in source[source.index("    def _mount_pdf_workspace"):source.index("    def _mount_pptx_workspace")]
+    start = source.index("    def choose_pdf_phase2")
+    end = source.index("    def _confirm_pdf_signature", start)
+    assert "self._project_pdf_badge_selection()" in source[start:end]

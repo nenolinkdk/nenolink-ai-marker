@@ -1821,6 +1821,7 @@ class MarkerApp(ctk.CTk):
         self.pdf_logo_margin_label = ctk.CTkLabel(self.pdf_workspace, text=f"Logo Margin: {int(self.logo_margin_var.get())} px", anchor="w"); self.pdf_logo_margin_label.grid(row=27, column=0, sticky="w"); self.pdf_logo_margin_slider.grid_configure(row=28)
         self.pdf_logo_opacity_label = ctk.CTkLabel(self.pdf_workspace, text=f"Logo Opacity: {int(self.logo_opacity_var.get())}%", anchor="w"); self.pdf_logo_opacity_label.grid(row=29, column=0, sticky="w"); self.pdf_logo_opacity_slider.grid_configure(row=30)
         self.refresh_image_badges()
+        self._project_pdf_badge_selection()
         self._update_pdf_scope_controls()
 
     def _mount_pptx_workspace(self) -> None:
@@ -1988,6 +1989,16 @@ class MarkerApp(ctk.CTk):
             self.pdf_badge_name_label.configure(text=display_name)
         self.render_pdf_preview()
 
+    def _project_pdf_badge_selection(self) -> None:
+        """Project the authoritative/default badge into the PDF selector."""
+        filename = self.pdf_state.badge.badge_id or self.badge_var.get()
+        display_name = self.badges.display_name(filename) if filename and self.badges.find(filename) else ""
+        if display_name:
+            self.pdf_state.badge.badge_id = filename
+            self.badge_var.set(filename); self.badge_display_var.set(display_name)
+            if getattr(self, "pdf_badge_menu", None): self.pdf_badge_menu.set(display_name)
+            if getattr(self, "pdf_badge_name_label", None): self.pdf_badge_name_label.configure(text=display_name)
+
     def change_pdf_badge_position(self, display_name: str) -> None:
         """Validate and project a PDF badge-position event without remounting."""
         value = self.position_display_to_value.get(display_name)
@@ -2090,6 +2101,7 @@ class MarkerApp(ctk.CTk):
         self.pdf_file_label.configure(text=f"{path.name}\n{size} · {info.metrics.item_count} pages{signed}")
         self.status_var.set(f"PDF loaded: {path.name}")
         self._sync_pdf_state()
+        self._project_pdf_badge_selection()
         self.render_pdf_preview()
 
     def _confirm_pdf_signature(self) -> bool:
