@@ -1809,7 +1809,7 @@ class MarkerApp(ctk.CTk):
         self.pdf_scope_menu.grid_configure(row=4); self.pdf_scope_entry.grid_configure(row=5); self.pdf_scope_update.grid_configure(row=6); self.pdf_scope_message.grid_configure(row=7)
         ctk.CTkLabel(self.pdf_workspace, text="AI BADGE", font=bold).grid(row=8, column=0, pady=(2, 1), sticky="w")
         self.pdf_badge_enable.grid_configure(row=9); self.pdf_badge_menu.grid_configure(row=10)
-        self.pdf_badge_name_label = ctk.CTkLabel(self.pdf_workspace, textvariable=self.badge_name_var, anchor="w"); self.pdf_badge_name_label.grid(row=11, column=0, padx=4, sticky="w")
+        self.pdf_badge_name_label = ctk.CTkLabel(self.pdf_workspace, textvariable=self.badge_name_var, anchor="w", compound="left"); self.pdf_badge_name_label.grid(row=11, column=0, padx=4, sticky="w")
         ctk.CTkLabel(self.pdf_workspace, text="Badge Position").grid(row=12, column=0, sticky="w"); self.pdf_position_menu.grid_configure(row=13)
         self.pdf_size_label = ctk.CTkLabel(self.pdf_workspace, text=f"Badge Size: {int(self.size_var.get())}%", anchor="w"); self.pdf_size_label.grid(row=14, column=0, sticky="w"); self.pdf_size_slider.grid_configure(row=15)
         self.pdf_margin_label = ctk.CTkLabel(self.pdf_workspace, text=f"Margin: {int(self.margin_var.get())} px", anchor="w"); self.pdf_margin_label.grid(row=16, column=0, sticky="w"); self.pdf_margin_slider.grid_configure(row=17)
@@ -1987,7 +1987,24 @@ class MarkerApp(ctk.CTk):
         self.pdf_state.badge.enabled = bool(self.pdf_badge_enabled_var.get())
         if getattr(self, "pdf_badge_name_label", None):
             self.pdf_badge_name_label.configure(text=display_name)
+        self._project_pdf_badge_visual()
         self.render_pdf_preview()
+
+    def _project_pdf_badge_visual(self) -> None:
+        """Project the selected common badge graphic and human name into PDF UI."""
+        badge_id = self.pdf_state.badge.badge_id or self.badge_var.get()
+        badge = self.badges.find(badge_id) if badge_id else None
+        if not badge:
+            if getattr(self, "pdf_badge_name_label", None): self.pdf_badge_name_label.configure(image=None, text="")
+            self.pdf_badge_photo = None
+            return
+        with Image.open(badge) as opened:
+            image = opened.convert("RGBA")
+        image.thumbnail((110, 54), Image.Resampling.LANCZOS)
+        self.pdf_badge_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
+        display_name = self.badges.display_name(badge.name)
+        self.badge_name_var.set(display_name)
+        if getattr(self, "pdf_badge_name_label", None): self.pdf_badge_name_label.configure(image=self.pdf_badge_photo, text=display_name)
 
     def _project_pdf_badge_selection(self) -> None:
         """Project the authoritative/default badge into the PDF selector."""
@@ -2000,6 +2017,7 @@ class MarkerApp(ctk.CTk):
                 self.pdf_badge_menu.configure(values=list(self.badge_display_to_file) or [self.translator.text("badge.none")])
                 self.pdf_badge_menu.set(display_name)
             if getattr(self, "pdf_badge_name_label", None): self.pdf_badge_name_label.configure(text=display_name)
+            self._project_pdf_badge_visual()
 
     def change_pdf_badge_position(self, display_name: str) -> None:
         """Validate and project a PDF badge-position event without remounting."""

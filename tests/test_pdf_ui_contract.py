@@ -156,6 +156,7 @@ def test_pdf_initial_badge_is_projected_from_authoritative_selection():
     assert "self.badge_display_var.set(display_name)" in handler
     assert "self.pdf_badge_menu.set(display_name)" in handler
     assert "configure(values=list(self.badge_display_to_file)" in handler
+    assert "self._project_pdf_badge_visual()" in handler
     assert "self._project_pdf_badge_selection()" in source[source.index("    def _mount_pdf_workspace"):source.index("    def _mount_pptx_workspace")]
     start = source.index("    def choose_pdf_phase2")
     end = source.index("    def _confirm_pdf_signature", start)
@@ -166,3 +167,14 @@ def test_pdf_heading_and_pages_to_badge_spacing_are_compact():
     active = _mount_source()
     assert 'text="PDF", font=ctk.CTkFont(size=24' in active
     assert 'text="AI BADGE", font=bold).grid(row=8, column=0, pady=(2, 1)' in active
+
+
+def test_pdf_badge_visual_projection_uses_common_repository_and_retains_photo():
+    source = APP.read_text(encoding="utf-8")
+    start = source.index("    def _project_pdf_badge_visual")
+    end = source.index("    def _sync_pdf_state", start)
+    handler = source[start:end]
+    assert "self.badges.find(badge_id)" in handler
+    assert "self.badges.display_name(badge.name)" in handler
+    assert "self.pdf_badge_photo = ctk.CTkImage" in handler
+    assert "configure(image=self.pdf_badge_photo, text=display_name)" in handler

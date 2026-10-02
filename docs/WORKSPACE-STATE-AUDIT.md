@@ -118,3 +118,9 @@ Range processing scope. Selected input accepts mixed expressions such as
 the same authoritative badge/logo projection as preview. Disabling a logo
 preserves its selected path so enabling it again can rerender immediately. No
 PDF control remounts the workspace.
+
+The PDF badge selector and current-badge presentation use the common badge
+repository: the authoritative selected id projects to the dropdown, graphic,
+human-readable name and preview. PPTX currently has a separate visual
+presentation path and remains a pending parity follow-up; it is not changed by
+the PDF work.
