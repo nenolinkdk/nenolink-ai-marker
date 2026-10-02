@@ -1782,7 +1782,7 @@ class MarkerApp(ctk.CTk):
         self.pdf_badge_menu = ctk.CTkOptionMenu(self.pdf_workspace, variable=self.badge_display_var, values=["—"], command=self.select_pdf_badge_display); self.pdf_badge_menu.grid(row=4, column=0, pady=2, sticky="w")
         self.pdf_logo_enable = ctk.CTkCheckBox(self.pdf_workspace, text=t("logo.enable"), variable=self.logo_enabled_var, command=self.pdf_visual_changed); self.pdf_logo_enable.grid(row=5, column=0, pady=(4, 2), sticky="w")
         self.pdf_logo_choose = ctk.CTkButton(self.pdf_workspace, text=t("logo.choose"), command=self.choose_logo, width=150); self.pdf_logo_choose.grid(row=6, column=0, pady=2, sticky="w")
-        self.pdf_position_menu = ctk.CTkOptionMenu(self.pdf_workspace, variable=self.position_display_var, values=list(getattr(self, "position_display_to_value", {}).keys()) or ["Bottom right"], command=self.change_position_display); self.pdf_position_menu.grid(row=13, column=0, pady=2, sticky="w")
+        self.pdf_position_menu = ctk.CTkOptionMenu(self.pdf_workspace, variable=self.position_display_var, values=list(getattr(self, "position_display_to_value", {}).keys()) or ["Bottom right"], command=self.change_pdf_badge_position); self.pdf_position_menu.grid(row=13, column=0, pady=2, sticky="w")
         self.pdf_size_slider = ctk.CTkSlider(self.pdf_workspace, from_=1, to=100, number_of_steps=99, variable=self.size_var, command=self.pdf_visual_changed); self.pdf_size_slider.grid(row=14, column=0, pady=2, sticky="ew")
         self.pdf_margin_slider = ctk.CTkSlider(self.pdf_workspace, from_=0, to=250, number_of_steps=250, variable=self.margin_var, command=self.pdf_visual_changed); self.pdf_margin_slider.grid(row=15, column=0, pady=2, sticky="ew")
         self.pdf_opacity_slider = ctk.CTkSlider(self.pdf_workspace, from_=0, to=100, number_of_steps=100, variable=self.opacity_var, command=self.pdf_visual_changed); self.pdf_opacity_slider.grid(row=16, column=0, pady=2, sticky="ew")
@@ -1985,6 +1985,16 @@ class MarkerApp(ctk.CTk):
         self.pdf_state.badge.enabled = bool(self.pdf_badge_enabled_var.get())
         if getattr(self, "pdf_badge_name_label", None):
             self.pdf_badge_name_label.configure(text=display_name)
+        self.render_pdf_preview()
+
+    def change_pdf_badge_position(self, display_name: str) -> None:
+        """Validate and project a PDF badge-position event without remounting."""
+        value = self.position_display_to_value.get(display_name)
+        if not value:
+            return
+        self.position_display_var.set(display_name)
+        self.position_var.set(value)
+        self.pdf_state.badge.position = value
         self.render_pdf_preview()
 
     def _sync_pdf_state(self) -> None:

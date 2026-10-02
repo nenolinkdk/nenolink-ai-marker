@@ -52,3 +52,16 @@ def test_pdf_badge_selection_uses_shared_repository_and_rerenders_without_remoun
     assert "self.pdf_state.badge.badge_id = filename" in handler
     assert "self.render_pdf_preview()" in handler
     assert "_mount_pdf_workspace" not in handler
+
+
+def test_pdf_badge_position_projects_state_and_preview_without_remount():
+    source = APP.read_text(encoding="utf-8")
+    start = source.index("    def change_pdf_badge_position")
+    end = source.index("    def _sync_pdf_state", start)
+    handler = source[start:end]
+    assert "self.position_display_to_value.get(display_name)" in handler
+    assert "self.pdf_state.badge.position = value" in handler
+    assert "self.render_pdf_preview()" in handler
+    assert "_mount_pdf_workspace" not in handler
+    mount = _mount_source()
+    assert "command=self.change_pdf_badge_position" in mount
