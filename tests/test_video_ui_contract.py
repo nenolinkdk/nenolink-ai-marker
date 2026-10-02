@@ -77,3 +77,24 @@ def test_video_preview_uses_authoritative_badge_state():
     assert "state=self.video_state" in renderer
     assert "state.badge.enabled" in renderer
     assert "self.video_preview_photo=ctk.CTkImage" in renderer
+
+
+def test_video_save_is_bound_to_save_as_and_protects_source():
+    source = APP.read_text(encoding="utf-8")
+    start = source.index("    def save_video(self)")
+    end = source.index("    def _build_badges_tool", start)
+    handler = source[start:end]
+    assert "filedialog.asksaveasfilename" in handler
+    assert 'initialfile=suggested.name' in handler
+    assert 'target_path.resolve() == source.resolve()' in handler
+    assert "process_video(source, badge, Path(target)" in handler
+    assert "_mount_video_workspace" not in handler
+
+
+def test_video_save_uses_authoritative_state_values():
+    source = APP.read_text(encoding="utf-8")
+    start = source.index("    def save_video(self)")
+    end = source.index("    def _build_badges_tool", start)
+    handler = source[start:end]
+    for value in ("self.video_state.badge.position", "self.video_state.badge.size", "self.video_state.badge.margin", "self.video_state.badge.opacity", "self.video_state.mode", "self.video_state.duration"):
+        assert value in handler

@@ -2239,10 +2239,21 @@ class MarkerApp(ctk.CTk):
     def save_video(self) -> None:
         self._sync_video_state()
         if not self._video_has_active_work(): messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("warning.nothing_to_save")); return
-        badge_name = next((name for name in self.badge_display_to_file if name == self.video_badge_var.get()), self.badge_var.get()); badge = self.badges.find(badge_name)
-        if not badge: messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("warning.nothing_to_save")); return
-        source = self.video_sources[0]; suggested = source.with_name(f"{source.stem}_ai{source.suffix}"); target = filedialog.asksaveasfilename(title=self.translator.text("dialog.save_video_as"), initialdir=str(source.parent), initialfile=suggested.name, defaultextension=source.suffix, filetypes=[(self.translator.text("files.supported_videos"), "*.mp4 *.mov *.mkv *.avi *.webm"), (self.translator.text("files.all"), "*.*")], confirmoverwrite=True)
+        source = self.video_sources[0]; suggested = source.with_name(f"{source.stem}_ai{source.suffix}")
+        target = filedialog.asksaveasfilename(title=self.translator.text("dialog.save_video_as"), initialdir=str(source.parent), initialfile=suggested.name, defaultextension=source.suffix, filetypes=[(self.translator.text("files.supported_videos"), "*.mp4 *.mov *.mkv *.avi *.webm"), (self.translator.text("files.all"), "*.*")], confirmoverwrite=True)
         if not target: return
+        target_path = Path(target)
+        try:
+            if target_path.resolve() == source.resolve():
+                messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("warning.nothing_to_save")); return
+        except OSError:
+            pass
+        badge_name = self.badge_display_to_file.get(self.video_badge_var.get(), self.badge_var.get())
+        badge = self.badges.find(badge_name) if self.video_state.badge.enabled else None
+        if self.video_state.badge.enabled and not badge:
+            messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("warning.nothing_to_save")); return
+        if badge is None:
+            messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("warning.nothing_to_save")); return
         settings = MarkerSettings(badge_name=badge.name, position=self.video_state.badge.position, size_percent=self.video_state.badge.size, margin=self.video_state.badge.margin, opacity=self.video_state.badge.opacity, video_mode=self.video_state.mode, video_duration=self.video_state.duration)
         try:
             if not find_ffmpeg(): raise ValueError(self.translator.text("error.video_component_missing"))
