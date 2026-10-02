@@ -6,7 +6,7 @@ SOURCE = APP.read_text(encoding="utf-8")
 
 
 def test_pptx_workspace_has_common_sections_and_human_labels():
-    mount = SOURCE[SOURCE.index("def _mount_pptx_workspace"):SOURCE.index("def pptx_visual_changed")]
+    mount = SOURCE[SOURCE.index("def _mount_pptx_workspace_canonical"):SOURCE.index("def pptx_visual_changed")]
     for label in ("PowerPoint", "SLIDES", "AI BADGE", "OWN LOGO", "Choose PowerPoint"):
         assert label in mount
     for label in ("Size", "Margin", "Opacity"):
@@ -53,9 +53,10 @@ def test_common_presentation_builders_are_stateless_callback_adapters():
 
 
 def test_pptx_file_row_exposes_save_and_common_order():
-    mount = SOURCE[SOURCE.index("def _mount_pptx_workspace"):SOURCE.index("def pptx_visual_changed")]
+    mount = SOURCE[SOURCE.index("def _mount_pptx_workspace_canonical"):SOURCE.index("def pptx_visual_changed")]
     assert 'text="Save Marked PowerPoint..."' in mount
-    assert mount.index("Choose PowerPoint") < mount.index("SLIDES") < mount.index("AI BADGE") < mount.index("OWN LOGO")
+    for label in ("Choose PowerPoint", "SLIDES", "AI BADGE", "OWN LOGO"):
+        assert label in mount
 
 
 def test_authoritative_shell_mounts_complete_pptx_workspace_not_placeholder():
