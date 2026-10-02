@@ -1780,12 +1780,12 @@ class MarkerApp(ctk.CTk):
         self.pdf_file_label = ctk.CTkLabel(self.pdf_workspace, text=t("pdf.no_file"), text_color="gray60", anchor="w"); self.pdf_file_label.grid(row=2, column=0, pady=4, sticky="w")
         self.pdf_badge_enable = ctk.CTkCheckBox(self.pdf_workspace, text=t("pdf.add_badge"), variable=self.pdf_badge_enabled_var, command=self.pdf_visual_changed); self.pdf_badge_enable.grid(row=3, column=0, pady=(8, 2), sticky="w")
         self.pdf_badge_menu = ctk.CTkOptionMenu(self.pdf_workspace, variable=self.badge_display_var, values=["—"], command=self.select_pdf_badge_display); self.pdf_badge_menu.grid(row=4, column=0, pady=2, sticky="w")
-        self.pdf_logo_enable = ctk.CTkCheckBox(self.pdf_workspace, text=t("logo.enable"), variable=self.logo_enabled_var, command=self.pdf_visual_changed); self.pdf_logo_enable.grid(row=5, column=0, pady=(4, 2), sticky="w")
+        self.pdf_logo_enable = ctk.CTkCheckBox(self.pdf_workspace, text=t("logo.enable"), variable=self.logo_enabled_var, command=self.change_pdf_logo_enabled); self.pdf_logo_enable.grid(row=5, column=0, pady=(4, 2), sticky="w")
         self.pdf_logo_choose = ctk.CTkButton(self.pdf_workspace, text=t("logo.choose"), command=self.choose_logo, width=150); self.pdf_logo_choose.grid(row=6, column=0, pady=2, sticky="w")
         self.pdf_position_menu = ctk.CTkOptionMenu(self.pdf_workspace, variable=self.position_display_var, values=list(getattr(self, "position_display_to_value", {}).keys()) or ["Bottom right"], command=self.change_pdf_badge_position); self.pdf_position_menu.grid(row=13, column=0, pady=2, sticky="w")
         self.pdf_size_slider = ctk.CTkSlider(self.pdf_workspace, from_=1, to=100, number_of_steps=99, variable=self.size_var, command=self.change_pdf_badge_size); self.pdf_size_slider.grid(row=14, column=0, pady=2, sticky="ew")
-        self.pdf_margin_slider = ctk.CTkSlider(self.pdf_workspace, from_=0, to=250, number_of_steps=250, variable=self.margin_var, command=self.pdf_visual_changed); self.pdf_margin_slider.grid(row=15, column=0, pady=2, sticky="ew")
-        self.pdf_opacity_slider = ctk.CTkSlider(self.pdf_workspace, from_=0, to=100, number_of_steps=100, variable=self.opacity_var, command=self.pdf_visual_changed); self.pdf_opacity_slider.grid(row=16, column=0, pady=2, sticky="ew")
+        self.pdf_margin_slider = ctk.CTkSlider(self.pdf_workspace, from_=0, to=250, number_of_steps=250, variable=self.margin_var, command=self.change_pdf_badge_margin); self.pdf_margin_slider.grid(row=15, column=0, pady=2, sticky="ew")
+        self.pdf_opacity_slider = ctk.CTkSlider(self.pdf_workspace, from_=0, to=100, number_of_steps=100, variable=self.opacity_var, command=self.change_pdf_badge_opacity); self.pdf_opacity_slider.grid(row=16, column=0, pady=2, sticky="ew")
         self.pdf_logo_position_menu = ctk.CTkOptionMenu(self.pdf_workspace, variable=self.logo_position_display_var, values=list(self.position_display_to_value), command=self.change_logo_position); self.pdf_logo_position_menu.grid(row=17, column=0, pady=2, sticky="w")
         self.pdf_logo_size_slider = ctk.CTkSlider(self.pdf_workspace, from_=1, to=100, number_of_steps=99, variable=self.logo_size_var, command=self.pdf_visual_changed); self.pdf_logo_size_slider.grid(row=18, column=0, pady=2, sticky="ew")
         self.pdf_logo_margin_slider = ctk.CTkSlider(self.pdf_workspace, from_=0, to=250, number_of_steps=250, variable=self.logo_margin_var, command=self.pdf_visual_changed); self.pdf_logo_margin_slider.grid(row=19, column=0, pady=2, sticky="ew")
@@ -1815,8 +1815,8 @@ class MarkerApp(ctk.CTk):
         ctk.CTkLabel(self.pdf_workspace, text="Badge Opacity").grid(row=9, column=0, sticky="w")
         self.pdf_position_menu.grid_configure(row=6); self.pdf_size_slider.grid_configure(row=8); self.pdf_margin_slider.grid_configure(row=10); self.pdf_opacity_slider.grid_configure(row=12)
         self.pdf_size_label = ctk.CTkLabel(self.pdf_workspace, text=f"Badge Size: {int(self.size_var.get())}%", anchor="w"); self.pdf_size_label.grid(row=7, column=0, sticky="w")
-        ctk.CTkLabel(self.pdf_workspace, text="Margin").grid(row=9, column=0, sticky="w")
-        ctk.CTkLabel(self.pdf_workspace, text="Opacity").grid(row=11, column=0, sticky="w")
+        self.pdf_margin_label = ctk.CTkLabel(self.pdf_workspace, text=f"Margin: {int(self.margin_var.get())} px"); self.pdf_margin_label.grid(row=9, column=0, sticky="w")
+        self.pdf_opacity_label = ctk.CTkLabel(self.pdf_workspace, text=f"Opacity: {int(self.opacity_var.get())}%"); self.pdf_opacity_label.grid(row=11, column=0, sticky="w")
         self.pdf_badge_name_label = ctk.CTkLabel(self.pdf_workspace, textvariable=self.badge_name_var, anchor="w"); self.pdf_badge_name_label.grid(row=10, column=0, padx=4, sticky="w")
         ctk.CTkLabel(self.pdf_workspace, text="Logo Position").grid(row=15, column=0, sticky="w")
         ctk.CTkLabel(self.pdf_workspace, text="Logo Size / Margin / Opacity").grid(row=16, column=0, sticky="w")
@@ -2010,6 +2010,28 @@ class MarkerApp(ctk.CTk):
         self.pdf_state.badge.size = normalized
         if getattr(self, "pdf_size_label", None):
             self.pdf_size_label.configure(text=f"Badge Size: {normalized}%")
+        self.render_pdf_preview()
+
+    def change_pdf_badge_margin(self, value) -> None:
+        try:
+            normalized = max(0, min(250, int(round(float(value)))))
+        except (TypeError, ValueError):
+            return
+        self.margin_var.set(normalized); self.pdf_state.badge.margin = normalized
+        if getattr(self, "pdf_margin_label", None): self.pdf_margin_label.configure(text=f"Margin: {normalized} px")
+        self.render_pdf_preview()
+
+    def change_pdf_badge_opacity(self, value) -> None:
+        try:
+            normalized = max(0, min(100, int(round(float(value)))))
+        except (TypeError, ValueError):
+            return
+        self.opacity_var.set(normalized); self.pdf_state.badge.opacity = normalized
+        if getattr(self, "pdf_opacity_label", None): self.pdf_opacity_label.configure(text=f"Opacity: {normalized}%")
+        self.render_pdf_preview()
+
+    def change_pdf_logo_enabled(self) -> None:
+        self.pdf_state.logo.enabled = bool(self.logo_enabled_var.get())
         self.render_pdf_preview()
 
     def _sync_pdf_state(self) -> None:

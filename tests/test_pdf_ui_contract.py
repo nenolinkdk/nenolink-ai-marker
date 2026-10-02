@@ -77,3 +77,46 @@ def test_pdf_badge_size_projects_normalized_state_and_preview():
     assert "Badge Size: {normalized}%" in handler
     assert "self.render_pdf_preview()" in handler
     assert "command=self.change_pdf_badge_size" in _mount_source()
+
+
+def test_pdf_badge_margin_and_opacity_project_state_and_preview():
+    source = APP.read_text(encoding="utf-8")
+    for name, state_field, label, bounds in (
+        ("change_pdf_badge_margin", "self.pdf_state.badge.margin = normalized", "Margin: {normalized} px", "max(0, min(250"),
+        ("change_pdf_badge_opacity", "self.pdf_state.badge.opacity = normalized", "Opacity: {normalized}%", "max(0, min(100"),
+    ):
+        start = source.index(f"    def {name}")
+        end = source.index("    def ", start + 5)
+        handler = source[start:end]
+        assert bounds in handler
+        assert state_field in handler
+        assert label in handler
+        assert "self.render_pdf_preview()" in handler
+    mount = _mount_source()
+    assert "command=self.change_pdf_badge_margin" in mount
+    assert "command=self.change_pdf_badge_opacity" in mount
+
+
+def test_pdf_logo_enable_projection_preserves_selected_path():
+    source = APP.read_text(encoding="utf-8")
+    start = source.index("    def change_pdf_logo_enabled")
+    end = source.index("    def ", start + 5)
+    handler = source[start:end]
+    assert "self.pdf_state.logo.enabled = bool(self.logo_enabled_var.get())" in handler
+    assert "self.render_pdf_preview()" in handler
+    assert "logo.path =" not in handler
+    assert "command=self.change_pdf_logo_enabled" in _mount_source()
+
+
+def test_pdf_preview_projection_event_contract_is_explicit():
+    source = APP.read_text(encoding="utf-8")
+    for event in (
+        "choose_pdf_phase2", "change_pdf_preview_page", "change_pdf_page",
+        "select_pdf_badge_display", "change_pdf_badge_position",
+        "change_pdf_badge_size", "change_pdf_badge_margin",
+        "change_pdf_badge_opacity", "change_pdf_logo_enabled",
+    ):
+        start = source.index(f"    def {event}")
+        end = source.find("    def ", start + 5)
+        handler = source[start:] if end == -1 else source[start:end]
+        assert ("render_pdf_preview" in handler or "update_pdf_preview" in handler), event
