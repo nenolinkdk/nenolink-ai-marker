@@ -147,3 +147,9 @@ PPTX now uses the common callback contract and the same authoritative visual
 projection for preview and output. Its active file row, SLIDES scope, AI BADGE
 and OWN LOGO sections are mounted in that order, with Save Marked PowerPoint in
 the file action row.
+
+The active shell route now calls `_mount_pptx_workspace()` directly. A stale
+branch in `_render_authoritative_state()` had replaced the complete PPTX route
+with the historical `PPTX TEST` placeholder, which made the packaged screen
+appear truncated even though the builder created the controls. That competing
+path is disconnected.

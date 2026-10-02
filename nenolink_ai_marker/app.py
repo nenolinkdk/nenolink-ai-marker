@@ -567,7 +567,9 @@ class LegacyMarkerApp(ctk.CTk):
         elif self.active_content_type == "pdf":
             self._mount_pdf_workspace()
         else:
-            self._clear_content_host(); self.placeholder_label = ctk.CTkLabel(self.content_host, text="PPTX TEST", font=ctk.CTkFont(size=28, weight="bold")); self.placeholder_label.grid(row=0, column=0)
+            # PPTX is a peer production workspace, not a placeholder or a
+            # legacy Document Workspace tab. Mount its complete clean route.
+            self._mount_pptx_workspace()
         self.visible_workspace_type=self.active_content_type
 
     def _format_has_active_work(self,format_type):
@@ -1842,7 +1844,7 @@ class MarkerApp(ctk.CTk):
         self.pptx_workspace.grid_columnconfigure(1, weight=1)
         self.pptx_workspace.grid_rowconfigure(4, weight=1)
         ctk.CTkLabel(self.pptx_workspace, text="PowerPoint", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0, column=0, columnspan=2, pady=(4, 2), sticky="w")
-        self.pptx_choose_button = ctk.CTkButton(self.pptx_workspace, text="Choose PowerPoint", command=self.choose_pptx_phase2, width=180); self.pptx_choose_button.grid(row=1, column=0, columnspan=2, pady=(2, 4), sticky="w")
+        self.pptx_choose_button = ctk.CTkButton(self.pptx_workspace, text="Choose PowerPoint", command=self.choose_pptx_phase2, width=180); self.pptx_choose_button.grid(row=1, column=0, pady=(2, 4), sticky="w")
         self.pptx_process_button = ctk.CTkButton(self.pptx_workspace, text="Save Marked PowerPoint...", command=self.process_pptx, width=190); self.pptx_process_button.grid(row=1, column=1, pady=(2, 4), sticky="w")
         self.pptx_file_label = ctk.CTkLabel(self.pptx_workspace, text="No PowerPoint selected", text_color="gray60", anchor="w", justify="left"); self.pptx_file_label.grid(row=2, column=0, columnspan=2, pady=2, sticky="w")
         self.pptx_status_label = ctk.CTkLabel(self.pptx_workspace, text="PowerPoint workspace ready.", text_color="gray60", anchor="w"); self.pptx_status_label.grid(row=3, column=0, columnspan=2, pady=2, sticky="w")
@@ -1853,7 +1855,6 @@ class MarkerApp(ctk.CTk):
         self.pptx_previous_button = ctk.CTkButton(nav, text="◀", width=42, command=lambda: self.change_pptx_slide(-1)); self.pptx_previous_button.grid(row=0, column=0, padx=4)
         self.pptx_slide_status = ctk.CTkLabel(nav, text="—", width=120); self.pptx_slide_status.grid(row=0, column=1, padx=4)
         self.pptx_next_button = ctk.CTkButton(nav, text="▶", width=42, command=lambda: self.change_pptx_slide(1)); self.pptx_next_button.grid(row=0, column=2, padx=4)
-        ctk.CTkLabel(self.pptx_workspace, text="SLIDES", font=ctk.CTkFont(weight="bold"), anchor="w").grid(row=5, column=0, pady=(4, 1), sticky="w")
         self.pptx_scope_menu = ctk.CTkOptionMenu(self.pptx_workspace, values=["All", "First", "Selected", "Range"], command=self.change_pptx_scope_mode); self.pptx_scope_menu.grid(row=6, column=0, pady=(4, 2), sticky="w")
         self.pptx_scope_entry = ctk.CTkEntry(self.pptx_workspace, placeholder_text="3,7 or 2-4,7-9"); self.pptx_scope_entry.grid(row=7, column=0, pady=2, sticky="w")
         self.pptx_scope_update = ctk.CTkButton(self.pptx_workspace, text="Update", command=self.update_pptx_scope, width=100); self.pptx_scope_update.grid(row=8, column=0, pady=2, sticky="w")

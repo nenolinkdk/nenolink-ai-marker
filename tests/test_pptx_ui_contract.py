@@ -56,3 +56,9 @@ def test_pptx_file_row_exposes_save_and_common_order():
     mount = SOURCE[SOURCE.index("def _mount_pptx_workspace"):SOURCE.index("def pptx_visual_changed")]
     assert 'text="Save Marked PowerPoint..."' in mount
     assert mount.index("Choose PowerPoint") < mount.index("SLIDES") < mount.index("AI BADGE") < mount.index("OWN LOGO")
+
+
+def test_authoritative_shell_mounts_complete_pptx_workspace_not_placeholder():
+    render = SOURCE[SOURCE.index("def _render_authoritative_state"):SOURCE.index("def _format_has_active_work")]
+    assert "self._mount_pptx_workspace()" in render
+    assert "PPTX TEST" not in render
