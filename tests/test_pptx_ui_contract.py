@@ -41,3 +41,18 @@ def test_pptx_badge_selection_routes_through_projection_without_remount():
     assert "_project_pptx_badge_visual()" in selection
     assert "_update_pptx_preview()" in selection
     assert "_mount_pptx_workspace" not in selection
+
+
+def test_common_presentation_builders_are_stateless_callback_adapters():
+    ui = (Path(__file__).parents[1] / "nenolink_ai_marker" / "workspace_ui.py").read_text(encoding="utf-8")
+    assert "def build_badge_section" in ui
+    assert "def build_logo_section" in ui
+    assert "on_enabled" in ui and "on_selected" in ui
+    assert "on_choose" in ui and "on_position" in ui
+    assert "WORKSPACE_LAYOUT" in ui
+
+
+def test_pptx_file_row_exposes_save_and_common_order():
+    mount = SOURCE[SOURCE.index("def _mount_pptx_workspace"):SOURCE.index("def pptx_visual_changed")]
+    assert 'text="Save Marked PowerPoint..."' in mount
+    assert mount.index("Choose PowerPoint") < mount.index("SLIDES") < mount.index("AI BADGE") < mount.index("OWN LOGO")

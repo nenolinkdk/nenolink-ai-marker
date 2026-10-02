@@ -137,10 +137,13 @@ state:
 The common badge/logo presentation includes enablement, repository selection or
 path, current graphic/name, position, size, margin and opacity. Scope and page/
 slide navigation remain format-specific. `nenolink_ai_marker.workspace_ui`
-contains layout tokens only; Tk variables remain adapters. The old shared
+contains stateless badge/logo section builders and layout tokens; Tk variables
+remain adapters. Initial badge projection is mandatory from each workspace
+state. The old shared
 Document Workspace/`document_surface`/`document_tab` runtime is not reachable;
 any remaining historical references are non-authoritative legacy code.
 
-PPTX now uses the same authoritative visual projection for preview and output;
-its active controls do not yet
-fully match the common badge graphic/name and section-order presentation.
+PPTX now uses the common callback contract and the same authoritative visual
+projection for preview and output. Its active file row, SLIDES scope, AI BADGE
+and OWN LOGO sections are mounted in that order, with Save Marked PowerPoint in
+the file action row.
