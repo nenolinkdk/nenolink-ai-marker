@@ -47,3 +47,15 @@ does not clear it, and Reset unconditionally returns to clean Image.
 4. Migrate PDF file, preview, scope and visual state.
 5. Align PPTX fully onto `PptxWorkspaceState` and widen its controls.
 6. Run cross-workspace parity and navigation regressions.
+
+## Phase 1 common contract
+
+`nenolink_ai_marker.workspace_state` defines the deliberately small common
+contract: `WorkspaceRuntimeState`, independent `BadgeVisualState` and
+`LogoVisualState`, `WorkspaceEvent`, `has_active_work()` and
+`clear_runtime_state()`. Format-specific scope is not part of this contract.
+
+Tk variables remain UI input/projection adapters. Persistent `MarkerSettings`
+may seed runtime state, but are not renderer state. Preview and output adapters
+receive the same `visual_projection(state)` values. Badge and logo transitions
+are isolated and cannot change file, physical navigation or format scope.
