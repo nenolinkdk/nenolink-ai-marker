@@ -33,3 +33,10 @@ def test_pdf_state_contract_and_mixed_scope_remain_explicit():
     source = APP.read_text(encoding="utf-8")
     assert "bounds = part.split(\"-\")" in source
     assert "self.pdf_active_scope" in source
+
+
+def test_pdf_control_order_and_human_labels_are_explicit():
+    active = _mount_source()
+    for label in ("FILE", "AI BADGE", "OWN LOGO", "PDF PAGES", "OUTPUT", "Badge Position", "Badge Size", "Badge Margin", "Badge Opacity"):
+        assert label in active
+    assert active.index('text="FILE"') < active.index('text="AI BADGE"') < active.index('text="OWN LOGO"') < active.index('text="PDF PAGES"') < active.index('text="OUTPUT"')
