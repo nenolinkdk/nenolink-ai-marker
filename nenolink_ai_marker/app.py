@@ -1786,10 +1786,10 @@ class MarkerApp(ctk.CTk):
         self.pdf_size_slider = ctk.CTkSlider(self.pdf_workspace, from_=1, to=100, number_of_steps=99, variable=self.size_var, command=self.change_pdf_badge_size); self.pdf_size_slider.grid(row=14, column=0, pady=2, sticky="ew")
         self.pdf_margin_slider = ctk.CTkSlider(self.pdf_workspace, from_=0, to=250, number_of_steps=250, variable=self.margin_var, command=self.change_pdf_badge_margin); self.pdf_margin_slider.grid(row=15, column=0, pady=2, sticky="ew")
         self.pdf_opacity_slider = ctk.CTkSlider(self.pdf_workspace, from_=0, to=100, number_of_steps=100, variable=self.opacity_var, command=self.change_pdf_badge_opacity); self.pdf_opacity_slider.grid(row=16, column=0, pady=2, sticky="ew")
-        self.pdf_logo_position_menu = ctk.CTkOptionMenu(self.pdf_workspace, variable=self.logo_position_display_var, values=list(self.position_display_to_value), command=self.change_logo_position); self.pdf_logo_position_menu.grid(row=17, column=0, pady=2, sticky="w")
-        self.pdf_logo_size_slider = ctk.CTkSlider(self.pdf_workspace, from_=1, to=100, number_of_steps=99, variable=self.logo_size_var, command=self.pdf_visual_changed); self.pdf_logo_size_slider.grid(row=18, column=0, pady=2, sticky="ew")
-        self.pdf_logo_margin_slider = ctk.CTkSlider(self.pdf_workspace, from_=0, to=250, number_of_steps=250, variable=self.logo_margin_var, command=self.pdf_visual_changed); self.pdf_logo_margin_slider.grid(row=19, column=0, pady=2, sticky="ew")
-        self.pdf_logo_opacity_slider = ctk.CTkSlider(self.pdf_workspace, from_=0, to=100, number_of_steps=100, variable=self.logo_opacity_var, command=self.pdf_visual_changed); self.pdf_logo_opacity_slider.grid(row=20, column=0, pady=2, sticky="ew")
+        self.pdf_logo_position_menu = ctk.CTkOptionMenu(self.pdf_workspace, variable=self.logo_position_display_var, values=list(self.position_display_to_value), command=self.change_pdf_logo_position); self.pdf_logo_position_menu.grid(row=17, column=0, pady=2, sticky="w")
+        self.pdf_logo_size_slider = ctk.CTkSlider(self.pdf_workspace, from_=1, to=100, number_of_steps=99, variable=self.logo_size_var, command=self.change_pdf_logo_size); self.pdf_logo_size_slider.grid(row=18, column=0, pady=2, sticky="ew")
+        self.pdf_logo_margin_slider = ctk.CTkSlider(self.pdf_workspace, from_=0, to=250, number_of_steps=250, variable=self.logo_margin_var, command=self.change_pdf_logo_margin); self.pdf_logo_margin_slider.grid(row=19, column=0, pady=2, sticky="ew")
+        self.pdf_logo_opacity_slider = ctk.CTkSlider(self.pdf_workspace, from_=0, to=100, number_of_steps=100, variable=self.logo_opacity_var, command=self.change_pdf_logo_opacity); self.pdf_logo_opacity_slider.grid(row=20, column=0, pady=2, sticky="ew")
         self.pdf_preview_label = ctk.CTkLabel(self.pdf_preview_host, text="PDF page preview", fg_color=("gray92", "gray13"), width=680, height=240); self.pdf_preview_label.grid(row=0, column=0, pady=(12, 4), sticky="nsew")
         nav = ctk.CTkFrame(self.pdf_preview_host, fg_color="transparent"); nav.grid(row=1, column=0, pady=4)
         self.pdf_previous_button = ctk.CTkButton(nav, text="◀", width=42, command=lambda: self.change_pdf_page(-1)); self.pdf_previous_button.grid(row=0, column=0, padx=4)
@@ -1800,28 +1800,27 @@ class MarkerApp(ctk.CTk):
         self.pdf_scope_update = ctk.CTkButton(self.pdf_workspace, text=t("document.scope_update"), command=self.update_pdf_scope, width=100); self.pdf_scope_update.grid(row=11, column=0, pady=(2, 4), sticky="w")
         self.pdf_scope_message = ctk.CTkLabel(self.pdf_workspace, text="", text_color="#b42318", anchor="w"); self.pdf_scope_message.grid(row=12, column=0, sticky="w")
         self.pdf_process_button = ctk.CTkButton(self.pdf_workspace, text=t("pdf.process"), command=self.process_pdf_phase6, width=180); self.pdf_process_button.grid(row=21, column=0, pady=(8, 4), sticky="w")
-        # Final common-workspace order: FILE → AI BADGE → OWN LOGO → PDF PAGES → OUTPUT.
-        ctk.CTkLabel(self.pdf_workspace, text="FILE", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, pady=(2, 1), sticky="w")
-        ctk.CTkLabel(self.pdf_workspace, text="AI BADGE", font=ctk.CTkFont(weight="bold")).grid(row=3, column=0, pady=(6, 1), sticky="w")
-        self.pdf_badge_enable.grid_configure(row=4); self.pdf_badge_menu.grid_configure(row=5)
-        ctk.CTkLabel(self.pdf_workspace, text="OWN LOGO", font=ctk.CTkFont(weight="bold")).grid(row=12, column=0, pady=(6, 1), sticky="w")
-        self.pdf_logo_enable.grid_configure(row=13); self.pdf_logo_choose.grid_configure(row=14)
-        self.pdf_logo_position_menu.grid_configure(row=15); self.pdf_logo_size_slider.grid_configure(row=16); self.pdf_logo_margin_slider.grid_configure(row=17); self.pdf_logo_opacity_slider.grid_configure(row=18)
-        ctk.CTkLabel(self.pdf_workspace, text="PDF PAGES", font=ctk.CTkFont(weight="bold")).grid(row=19, column=0, pady=(6, 1), sticky="w")
-        self.pdf_scope_menu.grid_configure(row=20); self.pdf_scope_entry.grid_configure(row=21); self.pdf_scope_update.grid_configure(row=22); self.pdf_scope_message.grid_configure(row=23)
-        ctk.CTkLabel(self.pdf_workspace, text="Badge Position").grid(row=6, column=0, sticky="w")
-        ctk.CTkLabel(self.pdf_workspace, text="Badge Size").grid(row=7, column=0, sticky="w")
-        ctk.CTkLabel(self.pdf_workspace, text="Badge Margin").grid(row=8, column=0, sticky="w")
-        ctk.CTkLabel(self.pdf_workspace, text="Badge Opacity").grid(row=9, column=0, sticky="w")
-        self.pdf_position_menu.grid_configure(row=6); self.pdf_size_slider.grid_configure(row=8); self.pdf_margin_slider.grid_configure(row=10); self.pdf_opacity_slider.grid_configure(row=12)
-        self.pdf_size_label = ctk.CTkLabel(self.pdf_workspace, text=f"Badge Size: {int(self.size_var.get())}%", anchor="w"); self.pdf_size_label.grid(row=7, column=0, sticky="w")
-        self.pdf_margin_label = ctk.CTkLabel(self.pdf_workspace, text=f"Margin: {int(self.margin_var.get())} px"); self.pdf_margin_label.grid(row=9, column=0, sticky="w")
-        self.pdf_opacity_label = ctk.CTkLabel(self.pdf_workspace, text=f"Opacity: {int(self.opacity_var.get())}%"); self.pdf_opacity_label.grid(row=11, column=0, sticky="w")
-        self.pdf_badge_name_label = ctk.CTkLabel(self.pdf_workspace, textvariable=self.badge_name_var, anchor="w"); self.pdf_badge_name_label.grid(row=10, column=0, padx=4, sticky="w")
-        ctk.CTkLabel(self.pdf_workspace, text="Logo Position").grid(row=15, column=0, sticky="w")
-        ctk.CTkLabel(self.pdf_workspace, text="Logo Size / Margin / Opacity").grid(row=16, column=0, sticky="w")
-        ctk.CTkLabel(self.pdf_workspace, text="OUTPUT", font=ctk.CTkFont(weight="bold")).grid(row=24, column=0, pady=(6, 1), sticky="w")
-        self.pdf_process_button.grid_configure(row=25)
+        # Normative order: FILE → PDF PAGES → AI BADGE → OWN LOGO → OUTPUT.
+        bold = ctk.CTkFont(weight="bold")
+        ctk.CTkLabel(self.pdf_workspace, text="FILE", font=bold).grid(row=0, column=0, pady=(2, 1), sticky="w")
+        self.pdf_choose_button.grid_configure(row=1); self.pdf_file_label.grid_configure(row=2)
+        ctk.CTkLabel(self.pdf_workspace, text="PDF PAGES", font=bold).grid(row=3, column=0, pady=(6, 1), sticky="w")
+        self.pdf_scope_menu.grid_configure(row=4); self.pdf_scope_entry.grid_configure(row=5); self.pdf_scope_update.grid_configure(row=6); self.pdf_scope_message.grid_configure(row=7)
+        ctk.CTkLabel(self.pdf_workspace, text="AI BADGE", font=bold).grid(row=8, column=0, pady=(6, 1), sticky="w")
+        self.pdf_badge_enable.grid_configure(row=9); self.pdf_badge_menu.grid_configure(row=10)
+        self.pdf_badge_name_label = ctk.CTkLabel(self.pdf_workspace, textvariable=self.badge_name_var, anchor="w"); self.pdf_badge_name_label.grid(row=11, column=0, padx=4, sticky="w")
+        ctk.CTkLabel(self.pdf_workspace, text="Badge Position").grid(row=12, column=0, sticky="w"); self.pdf_position_menu.grid_configure(row=13)
+        self.pdf_size_label = ctk.CTkLabel(self.pdf_workspace, text=f"Badge Size: {int(self.size_var.get())}%", anchor="w"); self.pdf_size_label.grid(row=14, column=0, sticky="w"); self.pdf_size_slider.grid_configure(row=15)
+        self.pdf_margin_label = ctk.CTkLabel(self.pdf_workspace, text=f"Margin: {int(self.margin_var.get())} px", anchor="w"); self.pdf_margin_label.grid(row=16, column=0, sticky="w"); self.pdf_margin_slider.grid_configure(row=17)
+        self.pdf_opacity_label = ctk.CTkLabel(self.pdf_workspace, text=f"Opacity: {int(self.opacity_var.get())}%", anchor="w"); self.pdf_opacity_label.grid(row=18, column=0, sticky="w"); self.pdf_opacity_slider.grid_configure(row=19)
+        ctk.CTkLabel(self.pdf_workspace, text="OWN LOGO", font=bold).grid(row=20, column=0, pady=(6, 1), sticky="w")
+        self.pdf_logo_enable.grid_configure(row=21); self.pdf_logo_choose.grid_configure(row=22)
+        ctk.CTkLabel(self.pdf_workspace, text="Logo Position").grid(row=23, column=0, sticky="w"); self.pdf_logo_position_menu.grid_configure(row=24)
+        self.pdf_logo_size_label = ctk.CTkLabel(self.pdf_workspace, text=f"Logo Size: {int(self.logo_size_var.get())}%", anchor="w"); self.pdf_logo_size_label.grid(row=25, column=0, sticky="w"); self.pdf_logo_size_slider.grid_configure(row=26)
+        self.pdf_logo_margin_label = ctk.CTkLabel(self.pdf_workspace, text=f"Logo Margin: {int(self.logo_margin_var.get())} px", anchor="w"); self.pdf_logo_margin_label.grid(row=27, column=0, sticky="w"); self.pdf_logo_margin_slider.grid_configure(row=28)
+        self.pdf_logo_opacity_label = ctk.CTkLabel(self.pdf_workspace, text=f"Logo Opacity: {int(self.logo_opacity_var.get())}%", anchor="w"); self.pdf_logo_opacity_label.grid(row=29, column=0, sticky="w"); self.pdf_logo_opacity_slider.grid_configure(row=30)
+        ctk.CTkLabel(self.pdf_workspace, text="OUTPUT", font=bold).grid(row=31, column=0, pady=(6, 1), sticky="w")
+        self.pdf_process_button.grid_configure(row=32)
         self.refresh_image_badges()
         self._update_pdf_scope_controls()
 
@@ -2034,6 +2033,34 @@ class MarkerApp(ctk.CTk):
         self.pdf_state.logo.enabled = bool(self.logo_enabled_var.get())
         self.render_pdf_preview()
 
+    def change_pdf_logo_position(self, display_name: str) -> None:
+        value = self.position_display_to_value.get(display_name)
+        if not value:
+            return
+        self.logo_position_display_var.set(display_name); self.logo_position_var.set(value)
+        self.pdf_state.logo.position = value; self.render_pdf_preview()
+
+    def change_pdf_logo_size(self, value) -> None:
+        try: normalized = max(1, min(100, int(round(float(value)))) )
+        except (TypeError, ValueError): return
+        self.logo_size_var.set(normalized); self.pdf_state.logo.size = normalized
+        if getattr(self, "pdf_logo_size_label", None): self.pdf_logo_size_label.configure(text=f"Logo Size: {normalized}%")
+        self.render_pdf_preview()
+
+    def change_pdf_logo_margin(self, value) -> None:
+        try: normalized = max(0, min(250, int(round(float(value)))) )
+        except (TypeError, ValueError): return
+        self.logo_margin_var.set(normalized); self.pdf_state.logo.margin = normalized
+        if getattr(self, "pdf_logo_margin_label", None): self.pdf_logo_margin_label.configure(text=f"Logo Margin: {normalized} px")
+        self.render_pdf_preview()
+
+    def change_pdf_logo_opacity(self, value) -> None:
+        try: normalized = max(0, min(100, int(round(float(value)))) )
+        except (TypeError, ValueError): return
+        self.logo_opacity_var.set(normalized); self.pdf_state.logo.opacity = normalized
+        if getattr(self, "pdf_logo_opacity_label", None): self.pdf_logo_opacity_label.configure(text=f"Logo Opacity: {normalized}%")
+        self.render_pdf_preview()
+
     def _sync_pdf_state(self) -> None:
         self.pdf_state.path = self.pdf_path
         self.pdf_state.page_count = self.pdf_info.metrics.item_count if self.pdf_info else 0
@@ -2045,6 +2072,7 @@ class MarkerApp(ctk.CTk):
         self.pdf_state.badge.badge_id = self.badge_var.get()
         self.pdf_state.badge.position = self.position_var.get(); self.pdf_state.badge.size = int(self.size_var.get()); self.pdf_state.badge.margin = int(self.margin_var.get()); self.pdf_state.badge.opacity = int(self.opacity_var.get())
         self.pdf_state.logo.enabled = bool(self.logo_enabled_var.get()); self.pdf_state.logo.path = self._logo_path() if hasattr(self, "_logo_path") else None
+        self.pdf_state.logo.position = self.logo_position_var.get(); self.pdf_state.logo.size = int(self.logo_size_var.get()); self.pdf_state.logo.margin = int(self.logo_margin_var.get()); self.pdf_state.logo.opacity = int(self.logo_opacity_var.get())
 
     def choose_pdf_phase2(self) -> None:
         selected = filedialog.askopenfilename(title="Choose PDF", filetypes=[("PDF (*.pdf)", "*.pdf")])
@@ -2091,7 +2119,9 @@ class MarkerApp(ctk.CTk):
         if not self._confirm_pdf_limits_phase6() or not self._confirm_pdf_signature(): return
         badge = self.badges.find(self.badge_var.get()) if self.pdf_badge_enabled_var.get() else None
         label = self.badges.display_name(self.badge_var.get()) if badge else ""
-        disclosure, logo = settings_for_documents(self.settings(), label=label, disclosure_language=self.translator.language)
+        self._sync_pdf_state()
+        pdf_settings = replace(self.settings(), position=self.pdf_state.badge.position, size_percent=self.pdf_state.badge.size, margin=self.pdf_state.badge.margin, opacity=self.pdf_state.badge.opacity, logo_enabled=self.pdf_state.logo.enabled, logo_path=str(self.pdf_state.logo.path or ""), logo_position=self.pdf_state.logo.position, logo_size_percent=self.pdf_state.logo.size, logo_margin=self.pdf_state.logo.margin, logo_opacity=self.pdf_state.logo.opacity)
+        disclosure, logo = settings_for_documents(pdf_settings, label=label, disclosure_language=self.translator.language)
         if not badge and not logo.enabled:
             messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("pdf.overlay_required")); return
         selected = filedialog.asksaveasfilename(title=self.translator.text("pdf.save_as"), initialdir=str(self.pdf_path.parent), initialfile=f"{self.pdf_path.stem}_ai.pdf", defaultextension=".pdf", filetypes=[("PDF (*.pdf)", "*.pdf")], confirmoverwrite=True)

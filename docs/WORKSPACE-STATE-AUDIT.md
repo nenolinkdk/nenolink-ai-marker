@@ -104,3 +104,17 @@ The current projection replaces the placeholder after a valid selection by
 reusing `find_ffmpeg()` and `extract_video_frame()`. It composites from the
 authoritative `VideoWorkspaceState.badge` and updates the existing preview
 widget in place; visual events rerender without rebuilding the workspace.
+
+## PDF final control contract
+
+PDF follows the common workspace contract with `PdfWorkspaceState` as its sole
+runtime owner. Its controls are ordered `FILE → PDF PAGES → AI BADGE → OWN
+LOGO → OUTPUT` in a controls-at-most-40% / preview-at-least-60% layout. Every
+accepted UI event validates into state and projects to the existing preview or
+output; physical page navigation remains independent of All/First/Selected/
+Range processing scope. Selected input accepts mixed expressions such as
+`2,4-6,9`, while invalid updates preserve the last valid scope. Save As uses
+`<stem>_ai.pdf` by default, never overwrites the source by default, and uses
+the same authoritative badge/logo projection as preview. Disabling a logo
+preserves its selected path so enabling it again can rerender immediately. No
+PDF control remounts the workspace.

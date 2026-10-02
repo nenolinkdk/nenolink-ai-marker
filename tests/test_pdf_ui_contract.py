@@ -37,9 +37,9 @@ def test_pdf_state_contract_and_mixed_scope_remain_explicit():
 
 def test_pdf_control_order_and_human_labels_are_explicit():
     active = _mount_source()
-    for label in ("FILE", "AI BADGE", "OWN LOGO", "PDF PAGES", "OUTPUT", "Badge Position", "Badge Size", "Badge Margin", "Badge Opacity"):
+    for label in ("FILE", "AI BADGE", "OWN LOGO", "PDF PAGES", "OUTPUT", "Badge Position", "Badge Size", "Margin:", "Opacity:", "Logo Size:", "Logo Margin:", "Logo Opacity:"):
         assert label in active
-    assert active.index('text="FILE"') < active.index('text="AI BADGE"') < active.index('text="OWN LOGO"') < active.index('text="PDF PAGES"') < active.index('text="OUTPUT"')
+    assert active.index('text="FILE"') < active.index('text="PDF PAGES"') < active.index('text="AI BADGE"') < active.index('text="OWN LOGO"') < active.index('text="OUTPUT"')
 
 
 def test_pdf_badge_selection_uses_shared_repository_and_rerenders_without_remount():
@@ -120,3 +120,27 @@ def test_pdf_preview_projection_event_contract_is_explicit():
         end = source.find("    def ", start + 5)
         handler = source[start:] if end == -1 else source[start:end]
         assert ("render_pdf_preview" in handler or "update_pdf_preview" in handler), event
+
+
+def test_pdf_logo_properties_have_independent_state_handlers_and_labels():
+    source = APP.read_text(encoding="utf-8")
+    for name, field, label in (("change_pdf_logo_position", "logo.position", "Logo Position"), ("change_pdf_logo_size", "logo.size", "Logo Size"), ("change_pdf_logo_margin", "logo.margin", "Logo Margin"), ("change_pdf_logo_opacity", "logo.opacity", "Logo Opacity")):
+        start = source.index(f"    def {name}")
+        end = source.find("    def ", start + 5)
+        handler = source[start:] if end == -1 else source[start:end]
+        assert field in handler and "render_pdf_preview" in handler
+        assert label in source
+    assert "self.pdf_state.logo.path =" in source
+
+
+def test_pdf_save_projects_authoritative_state_and_uses_ai_filename():
+    source = APP.read_text(encoding="utf-8")
+    start = source.index("    def process_pdf_phase6")
+    end = source.index("    def _update_pdf_scope_controls", start)
+    handler = source[start:end]
+    assert "asksaveasfilename" in handler
+    assert "initialfile=f\"{self.pdf_path.stem}_ai.pdf\"" in handler
+    assert "self.pdf_state.badge.position" in handler
+    assert "self.pdf_state.logo.position" in handler
+    assert "ItemSelection(\"selected\", tuple(self.pdf_active_scope))" in handler
+    assert "_mount_pdf_workspace" not in handler
