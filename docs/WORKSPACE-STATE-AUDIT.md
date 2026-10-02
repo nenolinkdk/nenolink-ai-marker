@@ -76,3 +76,6 @@ state.
 ## Phase 3 UI correction
 
 Image keeps a responsive readable control column (approximately 35–40% of the workspace) while the preview receives the remaining width. Video follows the Image grouping and owns badge selection and visual state through `VideoWorkspaceState`. A representative frame is extracted with the bundled FFmpeg and composited through the same authoritative badge projection used by video output; preview extraction is runtime cache only and never modifies the source.
+## Video preview correction
+
+The packaged Video workspace had retained the pre-migration filename-only placeholder because the active ShellController-owned `MarkerApp` mounted a separate video workspace; the earlier extraction was only wired to the legacy media renderer. The active workspace now resolves the bundled FFmpeg, extracts a representative PNG frame, composites the authoritative `VideoWorkspaceState` badge, and retains the CTkImage reference on the preview widget.
