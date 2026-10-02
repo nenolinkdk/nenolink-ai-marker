@@ -153,3 +153,11 @@ branch in `_render_authoritative_state()` had replaced the complete PPTX route
 with the historical `PPTX TEST` placeholder, which made the packaged screen
 appear truncated even though the builder created the controls. That competing
 path is disconnected.
+
+## Mandatory pre-build gate
+
+Builds follow an impact-based chain:
+`state/transition tests → projection tests → mounted UI tests → pre-build
+navigation/callback smoke → Windows build → manual packaged verification`.
+For PPTX-only changes, run `tests/test_prebuild_ui_gate.py` together with the
+PPTX contract tests before packaging.
