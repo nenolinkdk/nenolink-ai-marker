@@ -26,3 +26,13 @@ def test_active_video_preview_uses_ffmpeg_and_retains_ctk_image():
     assert "extract_video_frame" in active
     assert "self.video_preview_photo=ctk.CTkImage" in active
     assert "self.video_preview_label.image=self.video_preview_photo" in active
+
+
+def test_video_mount_owns_two_fresh_hosts_and_clears_common_host():
+    source = APP.read_text(encoding="utf-8")
+    start = source.index("    def _mount_video_workspace(self)")
+    end = source.index("    def _video_slider", start)
+    active = source[start:end]
+    assert "self._clear_content_host()" in active
+    assert "self.video_controls_host=left" in active
+    assert "self.video_preview_host=right" in active

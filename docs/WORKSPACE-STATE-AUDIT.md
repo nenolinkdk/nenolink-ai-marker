@@ -85,3 +85,6 @@ The active Video workspace is a projection of `VideoWorkspaceState`: FILE, AI BA
 ## Video clean UI boundary
 
 The active Video destination is mounted directly by `ShellController` and is intentionally separate from the legacy `_single_ui()` media builder. Its left column is a projection of `VideoWorkspaceState` (file, badge, mode/duration and output), with a responsive controls/preview split. The current step leaves the right preview as a human-readable placeholder; FFmpeg preview remains a subsequent step.
+## Video hard-reset mount audit
+
+`LegacyMarkerApp._single_ui()` remains only as disconnected historical code; `MarkerApp.render_shell_state()` calls exactly one active `_mount_video_workspace()` path. That path now exposes explicit `video_controls_host` and `video_preview_host` regions and clears the common host before mounting, preventing a stale placeholder or destination from surviving a Video transition.

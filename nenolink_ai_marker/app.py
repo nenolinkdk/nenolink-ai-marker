@@ -2082,7 +2082,7 @@ class MarkerApp(ctk.CTk):
         self._clear_content_host()
         self.video_workspace = ctk.CTkFrame(self.content_host, fg_color="transparent")
         self.video_workspace.grid(row=0, column=0, sticky="nsew"); self.video_workspace.grid_columnconfigure(1, weight=1); self.video_workspace.grid_rowconfigure(0, weight=1)
-        left = AutoHideScrollableFrame(self.video_workspace, width=320, fg_color=("gray86", "gray17")); left.grid(row=0, column=0, padx=(4, 8), pady=4, sticky="nsew"); left.grid_columnconfigure(0, weight=1)
+        left = AutoHideScrollableFrame(self.video_workspace, width=320, fg_color=("gray86", "gray17")); self.video_controls_host=left; left.grid(row=0, column=0, padx=(4, 8), pady=4, sticky="nsew"); left.grid_columnconfigure(0, weight=1)
         self.video_open_button = ctk.CTkButton(left, command=self.open_video); self.video_open_button.grid(row=0, column=0, padx=14, pady=(10, 4), sticky="ew")
         self.video_file_label = ctk.CTkLabel(left, anchor="w", justify="left", wraplength=280); self.video_file_label.grid(row=1, column=0, padx=14, pady=3, sticky="ew")
         self.video_mode_label = ctk.CTkLabel(left); self.video_mode_label.grid(row=2, column=0, padx=14, pady=(8, 1), sticky="w")
@@ -2112,7 +2112,7 @@ class MarkerApp(ctk.CTk):
         self.video_mode_label.grid_configure(row=14, pady=(5, 1)); self.video_mode_menu.grid_configure(row=15)
         self.video_duration_label.grid_configure(row=16); self.video_duration_entry.grid_configure(row=16); self.video_seconds_label.grid_configure(row=16)
         self.video_process_button.grid_configure(row=17, pady=(5, 10))
-        right = ctk.CTkFrame(self.video_workspace); right.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right.grid_columnconfigure(0, weight=1); right.grid_rowconfigure(0, weight=1)
+        right = ctk.CTkFrame(self.video_workspace); self.video_preview_host=right; right.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right.grid_columnconfigure(0, weight=1); right.grid_rowconfigure(0, weight=1)
         self.video_preview_label = ctk.CTkLabel(right, text="Video preview"); self.video_preview_label.grid(row=0, column=0, padx=20, pady=20)
         self.video_preview_photo = None
         self._refresh_video_labels(); self._refresh_video_badges()
