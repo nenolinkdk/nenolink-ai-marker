@@ -8,6 +8,8 @@ import os
 import sys
 import re
 from typing import Callable
+from PIL import Image
+from io import BytesIO
 
 from .models import MarkerSettings
 from .metadata import MarkerMetadata, marker_metadata
@@ -111,6 +113,26 @@ def video_duration_seconds(ffmpeg: str, source: Path) -> float:
         raise ValueError("FFmpeg could not determine the video duration")
     hours, minutes, seconds = match.groups()
     return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+
+
+def extract_video_frame(ffmpeg: str, source: Path, timestamp: float = 1.0) -> Image.Image:
+    """Extract one representative frame without creating a video-side state owner."""
+    result = subprocess.run(
+        [ffmpeg, "-hide_banner", "-loglevel", "error", "-ss", str(max(0.0, timestamp)),
+         "-i", str(source), "-frames:v", "1", "-f", "image2pipe", "-vcodec", "png", "-"],
+        capture_output=True, **hidden_subprocess_kwargs(),
+    )
+    if result.returncode != 0 or not result.stdout:
+        # Very short videos may not have a frame at t=1; retry at the beginning.
+        result = subprocess.run(
+            [ffmpeg, "-hide_banner", "-loglevel", "error", "-i", str(source),
+             "-frames:v", "1", "-f", "image2pipe", "-vcodec", "png", "-"],
+            capture_output=True, **hidden_subprocess_kwargs(),
+        )
+    if result.returncode != 0 or not result.stdout:
+        raise ValueError("FFmpeg could not extract a preview frame")
+    with Image.open(BytesIO(result.stdout)) as opened:
+        return opened.convert("RGBA")
 
 
 def video_enable_expression(mode: str, requested: int, actual: float) -> str:

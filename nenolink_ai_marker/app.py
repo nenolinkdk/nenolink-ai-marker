@@ -18,7 +18,7 @@ from PIL import Image
 
 from . import __version__
 from .badges import BadgeSourceManager, choose_badge_selection
-from .batch import BatchProcessor, BatchResult, FolderScan, VIDEO_EXTENSIONS, destination_root, find_ffmpeg, hidden_subprocess_kwargs, is_above_recommended_size, scan_folder
+from .batch import BatchProcessor, BatchResult, FolderScan, VIDEO_EXTENSIONS, destination_root, extract_video_frame, find_ffmpeg, hidden_subprocess_kwargs, is_above_recommended_size, scan_folder
 from .config import ConfigStore
 from .document_processing import ItemSelection, ProcessingRequest, settings_for_documents
 from .document_limits import DocumentMetrics, assess_document
@@ -1272,7 +1272,21 @@ class LegacyMarkerApp(ctk.CTk):
         self._show_preview()
         if not badge:self.preview_label.configure(image=None,text=self.translator.text("badge.none")); return
         if self.sources[0].suffix.lower() in VIDEO_EXTENSIONS:
-            self.preview_photo=None; self.preview_image=None; self.preview_label.configure(image=None,text=self.translator.text("preview.video_selected",name=self.sources[0].name)); self.status_var.set(self.translator.text("preview.video_selected",name=self.sources[0].name)); return
+            try:
+                self._sync_video_state()
+                ffmpeg=find_ffmpeg()
+                if not ffmpeg: raise ValueError(self.translator.text("error.video_component_missing"))
+                frame=extract_video_frame(ffmpeg,self.sources[0])
+                frame.thumbnail((720,600),Image.Resampling.LANCZOS)
+                state=self.video_state
+                settings=replace(self.settings(), position=state.badge.position, size_percent=state.badge.size, margin=state.badge.margin, opacity=state.badge.opacity, video_mode=state.mode, video_duration=state.duration)
+                with Image.open(badge) as opened_badge:
+                    composed=self.processor.compose(frame,opened_badge.convert("RGBA"),settings)
+                self.preview_image=composed.copy(); self.preview_photo=ctk.CTkImage(light_image=self.preview_image,dark_image=self.preview_image,size=self.preview_image.size); self.preview_label.configure(image=self.preview_photo,text=""); self.preview_label.image=self.preview_photo
+                self.status_var.set(self.translator.text("preview.showing",name=self.sources[0].name))
+            except (OSError,ValueError) as error:
+                self.preview_photo=None; self.preview_image=None; self.preview_label.configure(image=None,text=self.translator.text("error.preview",error=error)); self.status_var.set(self.translator.text("error.preview",error=error))
+            return
         try:
             settings=self.settings(); logo=self._logo_path() if settings.logo_enabled else None
             image=self.preview_renderer.render(self.sources[0],badge,settings,logo); self.preview_image=image.copy(); self.preview_photo=ctk.CTkImage(light_image=self.preview_image,dark_image=self.preview_image,size=self.preview_image.size); self.preview_label.configure(image=self.preview_photo,text=""); self.preview_label.image=self.preview_photo; self.status_var.set(self.translator.text("preview.showing",name=self.sources[0].name))

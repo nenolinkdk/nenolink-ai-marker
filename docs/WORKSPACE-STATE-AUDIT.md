@@ -73,3 +73,6 @@ Video now owns `VideoWorkspaceState` for its file, independent badge values,
 and video-specific mode/duration. Existing controls remain adapters and Save
 As consumes the state values. Video has no document scope or physical page
 state.
+## Phase 3 UI correction
+
+Image keeps a responsive readable control column (approximately 35–40% of the workspace) while the preview receives the remaining width. Video follows the Image grouping and owns badge selection and visual state through `VideoWorkspaceState`. A representative frame is extracted with the bundled FFmpeg and composited through the same authoritative badge projection used by video output; preview extraction is runtime cache only and never modifies the source.
