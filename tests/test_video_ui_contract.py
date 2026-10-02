@@ -11,8 +11,8 @@ def test_active_video_workspace_has_state_order_and_no_widget_class_labels():
     active = source[start:end]
     assert active.index("self.video_open_button") < active.index("self.video_badge_enable")
     assert "self.video_badge_enable.grid(row=2" in active
-    assert "self.video_mode_label.grid_configure(row=13" in active
-    assert "self.video_process_button.grid_configure(row=16" in active
+    assert "self.video_mode_label.grid_configure(row=14" in active
+    assert "self.video_process_button.grid_configure(row=17" in active
     for forbidden in ("CTkButton", "CTkCheckBox", "CTkLabel", "CTkSlider"):
         assert f'text="{forbidden}"' not in active
 

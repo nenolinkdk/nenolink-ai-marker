@@ -2104,11 +2104,14 @@ class MarkerApp(ctk.CTk):
         self.video_badge_enable = ctk.CTkCheckBox(left, variable=self.badge_enabled_var, command=self._video_changed)
         self.video_badge_enable.grid(row=2, column=0, padx=14, pady=(5, 1), sticky="w")
         self.video_badge_label.grid_configure(row=3, pady=(2, 1)); self.video_badge_menu.grid_configure(row=4)
-        self.video_position_label.grid_configure(row=5, pady=(4, 1)); self.video_position_menu.grid_configure(row=6)
-        self.video_size_label.grid_configure(row=7); self.video_margin_label.grid_configure(row=9); self.video_opacity_label.grid_configure(row=11)
-        self.video_mode_label.grid_configure(row=13, pady=(5, 1)); self.video_mode_menu.grid_configure(row=14)
-        self.video_duration_label.grid_configure(row=15); self.video_duration_entry.grid_configure(row=15); self.video_seconds_label.grid_configure(row=15)
-        self.video_process_button.grid_configure(row=16, pady=(5, 10))
+        video_badge_preview=ctk.CTkFrame(left); video_badge_preview.grid(row=5, column=0, padx=14, pady=(3, 4), sticky="ew"); video_badge_preview.grid_columnconfigure(1, weight=1)
+        self.video_badge_preview_label=ctk.CTkLabel(video_badge_preview, text="", width=90, height=44); self.video_badge_preview_label.grid(row=0, column=0, padx=5, pady=5)
+        self.video_badge_name_label=ctk.CTkLabel(video_badge_preview, textvariable=self.badge_name_var, font=ctk.CTkFont(weight="bold"), anchor="w", wraplength=155); self.video_badge_name_label.grid(row=0, column=1, padx=(3, 5), pady=5, sticky="ew")
+        self.video_position_label.grid_configure(row=6, pady=(4, 1)); self.video_position_menu.grid_configure(row=7)
+        self.video_size_label.grid_configure(row=8); self.video_margin_label.grid_configure(row=10); self.video_opacity_label.grid_configure(row=12)
+        self.video_mode_label.grid_configure(row=14, pady=(5, 1)); self.video_mode_menu.grid_configure(row=15)
+        self.video_duration_label.grid_configure(row=16); self.video_duration_entry.grid_configure(row=16); self.video_seconds_label.grid_configure(row=16)
+        self.video_process_button.grid_configure(row=17, pady=(5, 10))
         right = ctk.CTkFrame(self.video_workspace); right.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right.grid_columnconfigure(0, weight=1); right.grid_rowconfigure(0, weight=1)
         self.video_preview_label = ctk.CTkLabel(right, text=self.translator.text("preview.video_selected", name="")); self.video_preview_label.grid(row=0, column=0, padx=20, pady=20)
         self.video_preview_photo = None
@@ -2159,7 +2162,18 @@ class MarkerApp(ctk.CTk):
 
     def _refresh_video_badges(self) -> None:
         if not getattr(self, "video_badge_menu", None): return
-        displays = [self.badges.display_name(path.name) for path in self.badges.display_badges()]; self.video_badge_menu.configure(values=displays or [self.translator.text("badge.none")]); self.video_badge_var.set(self.badges.display_name(self.badge_var.get()) if self.badges.find(self.badge_var.get()) else (displays[0] if displays else "—"))
+        displays = [self.badges.display_name(path.name) for path in self.badges.display_badges()]; self.video_badge_menu.configure(values=displays or [self.translator.text("badge.none")]); self.video_badge_var.set(self.badges.display_name(self.badge_var.get()) if self.badges.find(self.badge_var.get()) else (displays[0] if displays else "—")); self._update_video_badge_preview()
+
+    def _update_video_badge_preview(self) -> None:
+        if not getattr(self, "video_badge_preview_label", None): return
+        path=self._video_badge_path()
+        if not path:
+            self.video_badge_preview_label.configure(image=None, text=self.translator.text("badge.none")); return
+        try:
+            with Image.open(path) as opened: image=opened.convert("RGBA")
+            image.thumbnail((110,54),Image.Resampling.LANCZOS); self.video_badge_photo=ctk.CTkImage(light_image=image,dark_image=image,size=image.size); self.video_badge_preview_label.configure(image=self.video_badge_photo,text="")
+        except OSError:
+            self.video_badge_preview_label.configure(image=None,text=self.translator.text("badge.none"))
 
     def _update_video_duration_visibility(self) -> None:
         if not getattr(self, "video_duration_entry", None): return
@@ -2173,7 +2187,7 @@ class MarkerApp(ctk.CTk):
         self.video_position_var.set(self.video_position_display_to_value[label]); self._sync_video_state(); self._render_video_preview(); self._save_image_settings()
 
     def change_video_badge(self, label: str) -> None:
-        self.video_badge_var.set(label); self._sync_video_state(); self._render_video_preview(); self._save_image_settings()
+        self.video_badge_var.set(label); self._sync_video_state(); self._update_video_badge_preview(); self._render_video_preview(); self._save_image_settings()
 
     def _video_changed(self, *_args) -> None:
         self._sync_video_state(); self._render_video_preview(); self._save_image_settings()
