@@ -33,6 +33,7 @@ from .preview import ImagePreviewRenderer
 from .pptx_processor import PptxProcessor
 from .pptx_preview import PptxPreviewRenderer
 from .pptx_state import PptxWorkspaceState
+from .workspace_state import ImageWorkspaceState, visual_projection
 from .pdf_processor import PasswordProtectedPdfError, PdfInfo, PdfProcessor
 from .pdf_preview import PdfPreviewRenderer
 from .docx_processor import DocxInfo, DocxProcessor
@@ -1705,6 +1706,7 @@ class MarkerApp(ctk.CTk):
         self.badge_sources = BadgeSourceManager(badge_directory())
         self.badges = self.badge_sources.repository(saved.badge_source, saved.custom_badge_folder)
         self.sources: list[Path] = []
+        self.image_state = ImageWorkspaceState()
         self.preview_photo = self.preview_image = self.badge_photo = self.single_badge_photo = None
         self.welcome_photo = self.welcome_image = None
         self.badge_display_to_file = {}
@@ -2106,6 +2108,8 @@ class MarkerApp(ctk.CTk):
 
     def _unmount_image_workspace(self) -> None:
         self.sources = []
+        self.image_state.clear_runtime_state()
+        self.image_state.preview_image = None
         self.preview_renderer.clear(); self.preview_photo = self.preview_image = None
         self._clear_content_host()
 
@@ -2382,12 +2386,19 @@ class MarkerApp(ctk.CTk):
         elif self.active_content_type == "pptx": self._update_pptx_preview()
         self._save()
 
+    def _sync_image_state(self) -> None:
+        """Project Image UI adapters into the authoritative runtime state."""
+        self.image_state.badge.enabled=bool(self.badge_enabled_var.get()); self.image_state.badge.badge_id=self.badge_var.get(); self.image_state.badge.position=self.position_var.get(); self.image_state.badge.size=int(self.size_var.get()); self.image_state.badge.margin=int(self.margin_var.get()); self.image_state.badge.opacity=int(self.opacity_var.get())
+        self.image_state.logo.enabled=bool(self.logo_enabled_var.get()); self.image_state.logo.path=self._logo_path(); self.image_state.logo.position=self.logo_position_var.get(); self.image_state.logo.size=int(self.logo_size_var.get()); self.image_state.logo.margin=int(self.logo_margin_var.get()); self.image_state.logo.opacity=int(self.logo_opacity_var.get())
+
     def open_images(self) -> None:
         selected = filedialog.askopenfilenames(title=self.translator.text("dialog.open_media"), filetypes=[(self.translator.text("files.supported_media"), " ".join(f"*{extension}" for extension in sorted(SUPPORTED_EXTENSIONS))), (self.translator.text("files.all"), "*.*")])
         if not selected: return
         candidates = [Path(path) for path in selected if Path(path).suffix.lower() in SUPPORTED_EXTENSIONS]
         if any(is_above_recommended_size(path) for path in candidates) and not messagebox.askokcancel(self.translator.text("warning.large_title"), self.translator.text("warning.large_file")): return
         self.sources = candidates
+        self.image_state.path = candidates[0] if candidates else None
+        self._sync_image_state()
         if candidates:
             self.file_label.configure(text=f"{candidates[0].name} · {human_file_size(candidates[0].stat().st_size)}")
         else:
@@ -2397,23 +2408,26 @@ class MarkerApp(ctk.CTk):
     def update_preview(self) -> None:
         if not self.sources:
             self.preview_photo = self.preview_image = None; self._show_welcome(); return
-        badge = self.badges.find(self.badge_var.get()) if self.badge_enabled_var.get() else None
-        logo = self._logo_path() if self.logo_enabled_var.get() else None
+        self._sync_image_state()
+        badge = self.badges.find(self.image_state.badge.badge_id) if self.image_state.badge.enabled else None
+        logo = self.image_state.logo.path if self.image_state.logo.enabled else None
+        image_settings = replace(self.settings(), position=self.image_state.badge.position, size_percent=self.image_state.badge.size, margin=self.image_state.badge.margin, opacity=self.image_state.badge.opacity, logo_enabled=self.image_state.logo.enabled, logo_position=self.image_state.logo.position, logo_size_percent=self.image_state.logo.size, logo_margin=self.image_state.logo.margin, logo_opacity=self.image_state.logo.opacity)
         self._show_preview()
         try:
-            image = self.preview_renderer.render(self.sources[0], badge, self.settings(), logo)
+            image = self.preview_renderer.render(self.sources[0], badge, image_settings, logo)
             self.preview_image = image.copy(); self.preview_photo = ctk.CTkImage(light_image=self.preview_image, dark_image=self.preview_image, size=self.preview_image.size)
             self.preview_label.configure(image=self.preview_photo, text=""); self.preview_label.image = self.preview_photo
         except (OSError, ValueError) as error:
             self.preview_label.configure(image=None, text=self.translator.text("error.preview", error=error))
 
     def save_images(self) -> None:
-        badge = self.badges.find(self.badge_var.get()) if self.badge_enabled_var.get() else None
-        logo = self._logo_path() if self.logo_enabled_var.get() else None
+        self._sync_image_state()
+        badge = self.badges.find(self.image_state.badge.badge_id) if self.image_state.badge.enabled else None
+        logo = self.image_state.logo.path if self.image_state.logo.enabled else None
         if not self.sources or (badge is None and logo is None):
             messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("warning.nothing_to_save")); return
         saved, failures, metadata_warnings = [], [], []
-        metadata = marker_metadata(self.badge_var.get(), self.badge_name_var.get()) if badge else None
+        metadata = marker_metadata(self.image_state.badge.badge_id, self.badge_name_var.get()) if badge else None
         for source in self.sources:
             suggested = source.with_name(f"{source.stem}_ai{source.suffix}")
             selected = filedialog.asksaveasfilename(title=self.translator.text("dialog.save_as"), initialdir=str(source.parent), initialfile=suggested.name, defaultextension=source.suffix, filetypes=[(self.translator.text("files.supported"), f"*{source.suffix}"), (self.translator.text("files.all"), "*.*")], confirmoverwrite=True)

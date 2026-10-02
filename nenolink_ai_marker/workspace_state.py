@@ -63,6 +63,12 @@ class WorkspaceRuntimeState:
         self.output_status = ""
 
 
+@dataclass
+class ImageWorkspaceState(WorkspaceRuntimeState):
+    """Image reference workspace state; image has no document scope."""
+    preview_image: Any = None
+
+
 class WorkspaceAdapter(Protocol):
     state: WorkspaceRuntimeState
 
