@@ -34,6 +34,7 @@ from .pptx_processor import PptxProcessor
 from .pptx_preview import PptxPreviewRenderer
 from .pptx_state import PptxWorkspaceState
 from .workspace_state import ImageWorkspaceState, VideoWorkspaceState, PdfWorkspaceState, visual_projection
+from .workspace_ui import WORKSPACE_LAYOUT
 from .pdf_processor import PasswordProtectedPdfError, PdfInfo, PdfProcessor
 from .pdf_preview import PdfPreviewRenderer
 from .docx_processor import DocxInfo, DocxProcessor
@@ -1809,8 +1810,8 @@ class MarkerApp(ctk.CTk):
         self.pdf_scope_menu.grid_configure(row=4); self.pdf_scope_entry.grid_configure(row=5); self.pdf_scope_update.grid_configure(row=6); self.pdf_scope_message.grid_configure(row=7)
         ctk.CTkLabel(self.pdf_workspace, text="AI BADGE", font=bold).grid(row=8, column=0, pady=(2, 1), sticky="w")
         self.pdf_badge_enable.grid_configure(row=9); self.pdf_badge_menu.grid_configure(row=10)
-        self.pdf_badge_name_label = ctk.CTkLabel(self.pdf_workspace, textvariable=self.badge_name_var, anchor="w", compound="left"); self.pdf_badge_name_label.grid(row=11, column=0, padx=4, sticky="w")
-        ctk.CTkLabel(self.pdf_workspace, text="Badge Position").grid(row=12, column=0, sticky="w"); self.pdf_position_menu.grid_configure(row=13)
+        self.pdf_badge_name_label = ctk.CTkLabel(self.pdf_workspace, textvariable=self.badge_name_var, anchor="w", compound="left", height=WORKSPACE_LAYOUT.badge_row_height); self.pdf_badge_name_label.grid(row=11, column=0, padx=4, pady=(2, 4), sticky="w")
+        ctk.CTkLabel(self.pdf_workspace, text="Badge Position").grid(row=12, column=0, pady=(4, 1), sticky="w"); self.pdf_position_menu.grid_configure(row=13)
         self.pdf_size_label = ctk.CTkLabel(self.pdf_workspace, text=f"Badge Size: {int(self.size_var.get())}%", anchor="w"); self.pdf_size_label.grid(row=14, column=0, sticky="w"); self.pdf_size_slider.grid_configure(row=15)
         self.pdf_margin_label = ctk.CTkLabel(self.pdf_workspace, text=f"Margin: {int(self.margin_var.get())} px", anchor="w"); self.pdf_margin_label.grid(row=16, column=0, sticky="w"); self.pdf_margin_slider.grid_configure(row=17)
         self.pdf_opacity_label = ctk.CTkLabel(self.pdf_workspace, text=f"Opacity: {int(self.opacity_var.get())}%", anchor="w"); self.pdf_opacity_label.grid(row=18, column=0, sticky="w"); self.pdf_opacity_slider.grid_configure(row=19)

@@ -124,3 +124,21 @@ repository: the authoritative selected id projects to the dropdown, graphic,
 human-readable name and preview. PPTX currently has a separate visual
 presentation path and remains a pending parity follow-up; it is not changed by
 the PDF work.
+
+## Common presentation contract
+
+IMAGE, VIDEO, PDF and PPTX are peer workspaces with independent runtime state.
+Reusable left-column presentation helpers/tokens may be shared, but never live
+state:
+
+`Common UI → workspace event → workspace state → projection → Common UI + preview`
+
+The common badge/logo presentation includes enablement, repository selection or
+path, current graphic/name, position, size, margin and opacity. Scope and page/
+slide navigation remain format-specific. `nenolink_ai_marker.workspace_ui`
+contains layout tokens only; Tk variables remain adapters. The old shared
+Document Workspace/`document_surface`/`document_tab` runtime is not reachable;
+any remaining historical references are non-authoritative legacy code.
+
+PPTX currently remains the parity follow-up: its active controls do not yet
+fully match the common badge graphic/name and section-order presentation.
