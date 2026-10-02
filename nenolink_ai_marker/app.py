@@ -1222,6 +1222,7 @@ class LegacyMarkerApp(ctk.CTk):
         displays=[self.badges.display_name(name) for name in names]; self.badge_display_to_file=dict(zip(displays,names))
         if getattr(self,"badge_menu",None):self.badge_menu.configure(values=displays or [self.translator.text("badge.none")])
         if getattr(self,"pptx_badge_menu",None):self.pptx_badge_menu.configure(values=displays or [self.translator.text("badge.none")])
+        if getattr(self,"pdf_badge_menu",None):self.pdf_badge_menu.configure(values=displays or [self.translator.text("badge.none")])
         self.badge_var.set(choose_badge_selection(self.badge_source_var.get(),names,self.badge_var.get()))
         if missing:text=self.translator.text("badge.custom_missing")
         elif names and self.badge_source_var.get()=="standard":text=self.translator.text("badge.loaded_standard",count=len(names))
@@ -1778,7 +1779,7 @@ class MarkerApp(ctk.CTk):
         self.pdf_choose_button = ctk.CTkButton(self.pdf_workspace, text=t("pdf.choose"), command=self.choose_pdf_phase2); self.pdf_choose_button.grid(row=1, column=0, pady=(4, 8), sticky="w")
         self.pdf_file_label = ctk.CTkLabel(self.pdf_workspace, text=t("pdf.no_file"), text_color="gray60", anchor="w"); self.pdf_file_label.grid(row=2, column=0, pady=4, sticky="w")
         self.pdf_badge_enable = ctk.CTkCheckBox(self.pdf_workspace, text=t("pdf.add_badge"), variable=self.pdf_badge_enabled_var, command=self.pdf_visual_changed); self.pdf_badge_enable.grid(row=3, column=0, pady=(8, 2), sticky="w")
-        self.pdf_badge_menu = ctk.CTkOptionMenu(self.pdf_workspace, variable=self.badge_display_var, values=["—"], command=self.select_badge_display); self.pdf_badge_menu.grid(row=4, column=0, pady=2, sticky="w")
+        self.pdf_badge_menu = ctk.CTkOptionMenu(self.pdf_workspace, variable=self.badge_display_var, values=["—"], command=self.select_pdf_badge_display); self.pdf_badge_menu.grid(row=4, column=0, pady=2, sticky="w")
         self.pdf_logo_enable = ctk.CTkCheckBox(self.pdf_workspace, text=t("logo.enable"), variable=self.logo_enabled_var, command=self.pdf_visual_changed); self.pdf_logo_enable.grid(row=5, column=0, pady=(4, 2), sticky="w")
         self.pdf_logo_choose = ctk.CTkButton(self.pdf_workspace, text=t("logo.choose"), command=self.choose_logo, width=150); self.pdf_logo_choose.grid(row=6, column=0, pady=2, sticky="w")
         self.pdf_position_menu = ctk.CTkOptionMenu(self.pdf_workspace, variable=self.position_display_var, values=list(getattr(self, "position_display_to_value", {}).keys()) or ["Bottom right"], command=self.change_position_display); self.pdf_position_menu.grid(row=13, column=0, pady=2, sticky="w")
@@ -1971,6 +1972,19 @@ class MarkerApp(ctk.CTk):
         if getattr(self, "pdf_badge_menu", None):
             self.pdf_badge_menu.configure(state="normal" if self.pdf_badge_enabled_var.get() else "disabled")
         self._update_logo_controls()
+        self.render_pdf_preview()
+
+    def select_pdf_badge_display(self, display_name: str) -> None:
+        """Apply a validated shared badge selection to PDF state only."""
+        filename = self.badge_display_to_file.get(display_name)
+        if not filename or not self.badges.find(filename):
+            return
+        self.badge_var.set(filename)
+        self.badge_display_var.set(display_name)
+        self.pdf_state.badge.badge_id = filename
+        self.pdf_state.badge.enabled = bool(self.pdf_badge_enabled_var.get())
+        if getattr(self, "pdf_badge_name_label", None):
+            self.pdf_badge_name_label.configure(text=display_name)
         self.render_pdf_preview()
 
     def _sync_pdf_state(self) -> None:

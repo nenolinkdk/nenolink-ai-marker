@@ -40,3 +40,15 @@ def test_pdf_control_order_and_human_labels_are_explicit():
     for label in ("FILE", "AI BADGE", "OWN LOGO", "PDF PAGES", "OUTPUT", "Badge Position", "Badge Size", "Badge Margin", "Badge Opacity"):
         assert label in active
     assert active.index('text="FILE"') < active.index('text="AI BADGE"') < active.index('text="OWN LOGO"') < active.index('text="PDF PAGES"') < active.index('text="OUTPUT"')
+
+
+def test_pdf_badge_selection_uses_shared_repository_and_rerenders_without_remount():
+    source = APP.read_text(encoding="utf-8")
+    start = source.index("    def select_pdf_badge_display")
+    end = source.index("    def _sync_pdf_state", start)
+    handler = source[start:end]
+    assert "self.badge_display_to_file.get(display_name)" in handler
+    assert "self.badges.find(filename)" in handler
+    assert "self.pdf_state.badge.badge_id = filename" in handler
+    assert "self.render_pdf_preview()" in handler
+    assert "_mount_pdf_workspace" not in handler
