@@ -128,6 +128,22 @@ the PDF work.
 
 ## Common presentation contract
 
+## Current implementation stage
+
+The audit's executable baseline is now the frozen four-state shell and the
+one-way workspace contract:
+
+`UI event → typed workspace event → validation/transition → state owner/reducer → authoritative state → projection → consumer`
+
+Widgets/Tk variables are adapters, processors are data services, and receipts
+are observational. PPTX Phase 1 currently implements FILE + AI BADGE in the
+authoritative `PptxWorkspace`; the file state fields are
+`selected_file`, `display_filename`, `file_size_bytes` and `slide_count`, and
+the badge projection resolves the common repository and retains its image
+reference. `FILE_METRICS_FAILED` preserves the previous valid state and is
+logged safely. The latest focused gate is 67 passing tests; packaged
+reverification after the `Path` processor fix remains pending.
+
 IMAGE, VIDEO, PDF and PPTX are peer workspaces with independent runtime state.
 Reusable left-column presentation helpers/tokens may be shared, but never live
 state:

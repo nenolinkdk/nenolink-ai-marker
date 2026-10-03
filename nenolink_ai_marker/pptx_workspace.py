@@ -6,6 +6,7 @@ navigation; this class owns its runtime state and projects it into widgets.
 
 from __future__ import annotations
 
+from pathlib import Path
 import customtkinter as ctk
 from PIL import Image
 from .pptx_state import (PptxWorkspaceState, PptxEvent, PptxEventReceipt, apply_pptx_visual_event,
