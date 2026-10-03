@@ -481,7 +481,12 @@ class LegacyMarkerApp(ctk.CTk):
         self.inspect_title.configure(text=t("inspect.title")); self.inspect_intro.configure(text=t("inspect.intro")); self.inspect_choose_button.configure(text=t("inspect.choose")); self.inspect_selected_heading.configure(text=t("inspect.selected")); self.inspect_file_label.configure(text=t("inspect.file")); self.inspect_format_label.configure(text=t("inspect.format_size")); self.inspect_metadata_heading.configure(text=t("inspect.metadata")); self.inspect_status_label.configure(text=t("inspect.status")); self.inspect_software_label.configure(text=t("inspect.software")); self.inspect_ai_label.configure(text=t("inspect.ai_label")); self.inspect_marker_version_label.configure(text=t("inspect.marker_version")); self._render_inspection()
         self._synchronize_document_widgets()
 
-    def change_language(self,name): self.translator.set_language(LANGUAGES.get(name,"en")); self.apply_translations(); self._save()
+    def change_language(self,name):
+        self.translator.set_language(LANGUAGES.get(name,"en")); self.apply_translations()
+        workspace = getattr(self, "pptx_workspace_state", None)
+        if self.active_content_type == "pptx" and self.active_tool is None and workspace is not None:
+            workspace.apply_language(self.translator)
+        self._save()
     def _build_content_navigation(self):
         """Build passive buttons: only the controller is allowed to select one."""
         for frame, kinds in ((self.media_navigation, ("image", "video")), (self.document_navigation, ("pdf", "pptx"))):
@@ -596,9 +601,8 @@ class LegacyMarkerApp(ctk.CTk):
     def change_auxiliary_workspace(self,label):
         target="badges" if label in {"badges",self.translator.text("tab.badges")} else "inspect"
         if self.active_tool==target:return True
-        if self.active_tool is None and self._format_has_active_work(self.active_content_type) and not self._confirm_format_switch(self.active_content_type,target):
-            self._render_authoritative_state(); return False
-        if self.active_tool is None:self.destroy_runtime_context(self.active_content_type)
+        # Tools are overlays, never content transitions: preserve the active
+        # workspace and do not show a loss-of-work confirmation.
         self.active_tool=target
         if target=="inspect":self.inspection_path=None; self.inspection_result=None; self.inspection_error=""; self.inspection_unsupported=False
         self._render_authoritative_state(); return True
@@ -2724,7 +2728,19 @@ class MarkerApp(ctk.CTk):
         self.welcome_title.configure(text=t("welcome.title")); self.welcome_tagline.configure(text=t("welcome.tagline")); self.welcome_description1.configure(text=t("welcome.description1")); self.welcome_description2.configure(text=t("welcome.description2"))
 
     def change_image_language(self, name: str) -> None:
-        self.translator.set_language(LANGUAGES.get(name, "en")); self.apply_image_translations(); self.refresh_image_badges(); self._save()
+        # One application-wide locale owner; changing locale is not a content
+        # transition and must not rebuild the active workspace.
+        self.translator.set_language(LANGUAGES.get(name, "en")); self.apply_image_translations(); self.refresh_image_badges()
+        t = self.translator.text
+        for kind, key in (("image", "content.images"), ("video", "content.video"), ("pdf", "content.pdf"), ("pptx", "content.powerpoint")):
+            button = getattr(self, "content_buttons", {}).get(kind)
+            if button is not None: button.configure(text=t(key))
+        if getattr(self, "reset_button", None) is not None: self.reset_button.configure(text=t("button.reset"))
+        if getattr(self, "guide_button", None) is not None: self.guide_button.configure(text=t("button.user_guide"))
+        workspace = getattr(self, "pptx_workspace_state", None)
+        if self.active_content_type == "pptx" and workspace is not None:
+            workspace.apply_language(self.translator)
+        self._save()
 
     def open_image_guide(self) -> None:
         try: open_user_guide(localized_user_guide_path(self.translator.language))

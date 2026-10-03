@@ -165,6 +165,18 @@ class PptxWorkspace:
         self.receipts.record({"layer": "pptx", "event": "PREVIEW_NAVIGATION", "current_slide": self.state.current_slide, "active_scope": self.state.active_scope})
         self._render_preview()
 
+    def _preview_fit_rect(self) -> tuple[int, int]:
+        """Single owner of PPTX preview geometry and fit padding."""
+        viewport_width = max(1, self.preview_viewport.winfo_width())
+        viewport_height = max(1, self.preview_viewport.winfo_height())
+        return (max(160, viewport_width - 20), max(120, viewport_height - 20))
+
+    def apply_language(self, translator) -> None:
+        """Project locale changes without rebuilding or clearing the session."""
+        self.choose_button.configure(text=translator.text("pptx.choose"))
+        self.save_button.configure(text="Save")
+        self.preview_label.configure(text=translator.text("pptx.preview_hint") if not self.state.loaded else "")
+
     def _render_preview(self):
         if not self.state.loaded:
             return
@@ -176,8 +188,7 @@ class PptxWorkspace:
             badge = project_badge(self.state, repository).get("asset") if self.state.badge.enabled and self.state.current_slide in self.state.active_scope else None
             settings = MarkerSettings(badge_name=self.state.badge.badge_id, position=self.state.badge.position, size_percent=self.state.badge.size, margin=self.state.badge.margin, opacity=self.state.badge.opacity, logo_enabled=self.state.logo.enabled, logo_position=self.state.logo.position, logo_size_percent=self.state.logo.size, logo_margin=self.state.logo.margin, logo_opacity=self.state.logo.opacity)
             # Use the fixed viewport's interior, not the source slide's size.
-            available_width = max(420, self.preview_viewport.winfo_width() - 20)
-            available_height = max(260, self.preview_viewport.winfo_height() - 20)
+            available_width, available_height = self._preview_fit_rect()
             result = renderer.render(self.state.path, self.state.current_slide, badge, settings, self.state.logo.path if self.state.logo.enabled else None, max_size=(available_width, available_height))
             self.preview_photo = ctk.CTkImage(result.image, size=result.image.size)
             self.preview_label.configure(image=self.preview_photo, text="")
