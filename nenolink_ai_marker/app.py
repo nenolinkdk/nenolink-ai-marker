@@ -80,6 +80,8 @@ class LegacyMarkerApp(ctk.CTk):
         self.geometry("1280x720"); self.minsize(980, 680)
         self.processor = ImageProcessor(); self.preview_renderer = ImagePreviewRenderer(self.processor); self.batch_processor = BatchProcessor(self.processor)
         self.config_store = ConfigStore(); saved = self.config_store.load()
+        # Clean v1.0.3 sessions start in English; locale changes are explicit
+        # global events and are projected without rebuilding workspaces.
         self.translator = Translator(locale_directory(), saved.language)
         self.badge_sources = BadgeSourceManager(badge_directory())
         self.badges = self.badge_sources.repository(saved.badge_source, saved.custom_badge_folder)
@@ -1800,7 +1802,9 @@ class MarkerApp(ctk.CTk):
         self._saved_settings = saved
         self.processor = ImageProcessor()
         self.preview_renderer = ImagePreviewRenderer(self.processor)
-        self.translator = Translator(locale_directory(), saved.language)
+        # Clean v1.0.3 sessions start in English; locale changes are explicit
+        # global events and are projected without rebuilding workspaces.
+        self.translator = Translator(locale_directory(), "en")
         self.badge_sources = BadgeSourceManager(badge_directory())
         self.badges = self.badge_sources.repository(saved.badge_source, saved.custom_badge_folder)
         self.sources: list[Path] = []

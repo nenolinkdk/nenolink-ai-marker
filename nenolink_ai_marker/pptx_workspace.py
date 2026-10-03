@@ -61,28 +61,31 @@ class PptxWorkspace:
         controls.bind("<MouseWheel>", lambda event: controls._parent_canvas.yview_scroll(-int(event.delta / 120), "units"))
         preview = ctk.CTkFrame(self.root, fg_color="transparent"); preview.grid(row=0, column=1, padx=8, pady=8, sticky="nsew")
         self.preview_host = preview
-        ctk.CTkLabel(controls, text="PowerPoint", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0, column=0, padx=12, pady=(10, 8), sticky="w")
-        ctk.CTkLabel(controls, text="FILE", font=ctk.CTkFont(weight="bold")).grid(row=1, column=0, padx=12, pady=(4, 2), sticky="w")
-        self.choose_button = ctk.CTkButton(controls, text="Choose PowerPoint", command=self._choose_file, width=160); self.choose_button.grid(row=2, column=0, padx=(12, 4), pady=2, sticky="w")
-        self.save_button = ctk.CTkButton(controls, text="Save", command=self._save_as, width=175); self.save_button.grid(row=2, column=1, padx=(4, 12), pady=2, sticky="w")
+        t = getattr(getattr(self.app, "translator", None), "text", lambda key: key)
+        self.heading_label = ctk.CTkLabel(controls, text=t("content.powerpoint"), font=ctk.CTkFont(size=24, weight="bold")); self.heading_label.grid(row=0, column=0, padx=12, pady=(10, 8), sticky="w")
+        self.file_heading = ctk.CTkLabel(controls, text=t("pptx.file_heading"), font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=1, column=0, padx=12, pady=(4, 2), sticky="w")
+        self.choose_button = ctk.CTkButton(controls, text=t("pptx.choose"), command=self._choose_file, width=160); self.choose_button.grid(row=2, column=0, padx=(12, 4), pady=2, sticky="w")
+        self.save_button = ctk.CTkButton(controls, text="Save", command=self._save_as, width=58); self.save_button.grid(row=2, column=1, padx=(4, 12), pady=2, sticky="w")
         controls.grid_columnconfigure(0, weight=0, minsize=180); controls.grid_columnconfigure(1, weight=0, minsize=180)
-        self.file_label = ctk.CTkLabel(controls, text="No PowerPoint selected", anchor="w"); self.file_label.grid(row=3, column=0, columnspan=2, padx=12, pady=(2, 5), sticky="w")
+        self.file_label = ctk.CTkLabel(controls, text=t("pptx.no_file"), anchor="w"); self.file_label.grid(row=3, column=0, columnspan=2, padx=12, pady=(2, 5), sticky="w")
         self.construction_receipt.file_section_created = True
-        ctk.CTkLabel(controls, text="SLIDES", font=ctk.CTkFont(weight="bold")).grid(row=4, column=0, padx=12, pady=(4, 2), sticky="w")
-        self.scope_var = ctk.StringVar(value="All")
-        self.scope_menu = ctk.CTkOptionMenu(controls, variable=self.scope_var, values=["All", "First", "Selected", "Range"], command=self._scope_mode, width=190)
+        self.slides_heading = ctk.CTkLabel(controls, text=t("pptx.slides_heading"), font=ctk.CTkFont(weight="bold")); self.slides_heading.grid(row=4, column=0, padx=12, pady=(4, 2), sticky="w")
+        self.scope_var = ctk.StringVar(value=t("pptx.scope.all"))
+        self._scope_display = {"all": t("pptx.scope.all"), "first": t("pptx.scope.first"), "selected": t("pptx.scope.selected"), "range": t("pptx.scope.range")}
+        self._scope_value = {v: k for k, v in self._scope_display.items()}
+        self.scope_menu = ctk.CTkOptionMenu(controls, variable=self.scope_var, values=list(self._scope_display.values()), command=self._scope_mode, width=190)
         self.scope_menu.grid(row=5, column=0, padx=12, pady=2, sticky="w")
         self.scope_input_var = ctk.StringVar(value="")
-        self.scope_input = ctk.CTkEntry(controls, textvariable=self.scope_input_var, width=190, placeholder_text="e.g. 2,4-6,9")
+        self.scope_input = ctk.CTkEntry(controls, textvariable=self.scope_input_var, width=190, placeholder_text=t("pptx.selected_hint"))
         self.scope_input.grid(row=6, column=0, padx=12, pady=2, sticky="w")
         self.scope_input.bind("<KeyRelease>", lambda _event: self._scope_text_changed())
-        self.scope_update = ctk.CTkButton(controls, text="Update", command=self._scope_update, width=90)
+        self.scope_update = ctk.CTkButton(controls, text=t("pptx.update"), command=self._scope_update, width=90)
         self.scope_update.grid(row=7, column=0, padx=12, pady=2, sticky="w")
-        self.scope_status = ctk.CTkLabel(controls, text="All slides", anchor="w")
+        self.scope_status = ctk.CTkLabel(controls, text=t("pptx.selected_count", count=0), anchor="w")
         self.scope_status.grid(row=8, column=0, padx=12, pady=(2, 8), sticky="w")
-        ctk.CTkLabel(controls, text="AI BADGE", font=ctk.CTkFont(weight="bold")).grid(row=9, column=0, padx=12, pady=(4, 2), sticky="w")
+        ctk.CTkLabel(controls, text=t("badge"), font=ctk.CTkFont(weight="bold")).grid(row=9, column=0, padx=12, pady=(4, 2), sticky="w")
         self.enabled_var = ctk.BooleanVar(value=self.state.badge.enabled)
-        ctk.CTkCheckBox(controls, text="Add AI badge", variable=self.enabled_var, command=lambda: self._dispatch(PptxEvent.BADGE_ENABLE, self.enabled_var.get())).grid(row=10, column=0, padx=12, pady=2, sticky="w")
+        self.badge_enable = ctk.CTkCheckBox(controls, text=t("pptx.badge_enable"), variable=self.enabled_var, command=lambda: self._dispatch(PptxEvent.BADGE_ENABLE, self.enabled_var.get())); self.badge_enable.grid(row=10, column=0, padx=12, pady=2, sticky="w")
         names = list(getattr(getattr(self.app, "badge_display_to_file", None), "keys", lambda: [])()) or ["AI Assisted"]
         self.badge_var = ctk.StringVar(value="AI Assisted" if "AI Assisted" in names else names[0])
         self.badge_menu = ctk.CTkOptionMenu(controls, variable=self.badge_var, values=names, command=lambda v: self._dispatch(PptxEvent.BADGE_SELECT, v), width=190); self.badge_menu.grid(row=11, column=0, padx=12, pady=2, sticky="w")
@@ -96,7 +99,7 @@ class PptxWorkspace:
         self.preview_viewport = ctk.CTkFrame(preview, width=760, height=470, fg_color=("gray92", "gray13"))
         self.preview_viewport.grid(row=0, column=0, padx=8, pady=8, sticky="nsew")
         self.preview_viewport.grid_propagate(False)
-        self.preview_label = ctk.CTkLabel(self.preview_viewport, text="PowerPoint preview", fg_color="transparent", width=740, height=430, anchor="center")
+        self.preview_label = ctk.CTkLabel(self.preview_viewport, text=t("pptx.preview_hint"), fg_color="transparent", width=740, height=430, anchor="center")
         self.preview_label.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
         self.preview_viewport.grid_columnconfigure(0, weight=1); self.preview_viewport.grid_rowconfigure(0, weight=1)
         self.navigation = ctk.CTkFrame(preview, fg_color="transparent"); self.navigation.grid(row=1, column=0, pady=(0, 6))
@@ -119,30 +122,35 @@ class PptxWorkspace:
 
     def _build_visual_controls(self, controls):
         row = 13
-        ctk.CTkLabel(controls, text="Badge Position").grid(row=row, column=0, padx=12, pady=1, sticky="w")
+        t = getattr(getattr(self.app, "translator", None), "text", lambda key: key)
+        self.badge_position_label = ctk.CTkLabel(controls, text=t("position")); self.badge_position_label.grid(row=row, column=0, padx=12, pady=1, sticky="w")
         positions = ["top-left", "top-right", "bottom-left", "bottom-right", "center"]
-        self.badge_position_var = ctk.StringVar(value=self.state.badge.position)
-        ctk.CTkOptionMenu(controls, variable=self.badge_position_var, values=positions, command=lambda v: self._dispatch(PptxEvent.BADGE_POSITION, v), width=190).grid(row=row+1, column=0, padx=12, pady=1, sticky="w")
-        self._slider(controls, row+2, "Badge Size", "badge", "size", 1, 100, self.state.badge.size)
-        self._slider(controls, row+3, "Badge Margin", "badge", "margin", 0, 250, self.state.badge.margin)
-        self._slider(controls, row+4, "Badge Opacity", "badge", "opacity", 0, 100, self.state.badge.opacity)
-        ctk.CTkLabel(controls, text="OWN LOGO", font=ctk.CTkFont(weight="bold")).grid(row=row+5, column=0, padx=12, pady=(6,2), sticky="w")
+        self._position_display = {p: t("position." + p.replace("-", "_")) for p in positions}; self._position_value = {v: k for k, v in self._position_display.items()}
+        self.badge_position_var = ctk.StringVar(value=self._position_display.get(self.state.badge.position, self.state.badge.position))
+        self.badge_position_menu = ctk.CTkOptionMenu(controls, variable=self.badge_position_var, values=list(self._position_display.values()), command=lambda v: self._dispatch(PptxEvent.BADGE_POSITION, self._position_value.get(v, v)), width=190); self.badge_position_menu.grid(row=row+1, column=0, padx=12, pady=1, sticky="w")
+        self._slider(controls, row+2, "size.value", "badge", "size", 1, 100, self.state.badge.size)
+        self._slider(controls, row+3, "margin.value", "badge", "margin", 0, 250, self.state.badge.margin)
+        self._slider(controls, row+4, "opacity.value", "badge", "opacity", 0, 100, self.state.badge.opacity)
+        ctk.CTkLabel(controls, text=t("logo.title"), font=ctk.CTkFont(weight="bold")).grid(row=row+5, column=0, padx=12, pady=(6,2), sticky="w")
         self.logo_enabled_var = ctk.BooleanVar(value=self.state.logo.enabled)
-        ctk.CTkCheckBox(controls, text="Add own logo", variable=self.logo_enabled_var, command=lambda: self._dispatch(PptxEvent.LOGO_ENABLE, self.logo_enabled_var.get())).grid(row=row+6, column=0, padx=12, pady=1, sticky="w")
-        ctk.CTkButton(controls, text="Choose Logo", command=self._choose_logo, width=120).grid(row=row+7, column=0, padx=12, pady=1, sticky="w")
-        self.logo_label = ctk.CTkLabel(controls, text="No logo selected", anchor="w"); self.logo_label.grid(row=row+8, column=0, padx=12, pady=1, sticky="w")
-        self.logo_position_var = ctk.StringVar(value=self.state.logo.position)
-        ctk.CTkOptionMenu(controls, variable=self.logo_position_var, values=positions, command=lambda v: self._dispatch(PptxEvent.LOGO_POSITION, v), width=190).grid(row=row+9, column=0, padx=12, pady=1, sticky="w")
-        self._slider(controls, row+10, "Logo Size", "logo", "size", 1, 100, self.state.logo.size)
-        self._slider(controls, row+11, "Logo Margin", "logo", "margin", 0, 250, self.state.logo.margin)
-        self._slider(controls, row+12, "Logo Opacity", "logo", "opacity", 0, 100, self.state.logo.opacity)
+        ctk.CTkCheckBox(controls, text=t("logo.enable"), variable=self.logo_enabled_var, command=lambda: self._dispatch(PptxEvent.LOGO_ENABLE, self.logo_enabled_var.get())).grid(row=row+6, column=0, padx=12, pady=1, sticky="w")
+        self.logo_choose_button = ctk.CTkButton(controls, text=t("logo.choose"), command=self._choose_logo, width=120); self.logo_choose_button.grid(row=row+7, column=0, padx=12, pady=1, sticky="w")
+        self.logo_label = ctk.CTkLabel(controls, text=t("pptx.logo_none"), anchor="w"); self.logo_label.grid(row=row+8, column=0, padx=12, pady=1, sticky="w")
+        self.logo_position_var = ctk.StringVar(value=self._position_display.get(self.state.logo.position, self.state.logo.position))
+        self.logo_position_menu = ctk.CTkOptionMenu(controls, variable=self.logo_position_var, values=list(self._position_display.values()), command=lambda v: self._dispatch(PptxEvent.LOGO_POSITION, self._position_value.get(v, v)), width=190); self.logo_position_menu.grid(row=row+9, column=0, padx=12, pady=1, sticky="w")
+        self._slider(controls, row+10, "logo.size", "logo", "size", 1, 100, self.state.logo.size)
+        self._slider(controls, row+11, "logo.margin", "logo", "margin", 0, 250, self.state.logo.margin)
+        self._slider(controls, row+12, "logo.opacity", "logo", "opacity", 0, 100, self.state.logo.opacity)
 
     def _slider(self, host, row, label, group, field, low, high, value):
         row_host = ctk.CTkFrame(host, fg_color="transparent"); row_host.grid(row=row, column=0, columnspan=2, padx=12, pady=1, sticky="ew")
         row_host.grid_columnconfigure(1, weight=1)
         var = ctk.IntVar(value=value); setattr(self, f"{group}_{field}_var", var)
-        value_label = ctk.CTkLabel(row_host, text=f"{label}: {value}", anchor="w", width=110); value_label.grid(row=0, column=0, padx=(0, 6), sticky="w")
-        setattr(self, f"{group}_{field}_label", value_label)
+        translator = getattr(getattr(self.app, "translator", None), "text", lambda key, **v: key)
+        templates = {"size.value": "size.value", "margin.value": "margin.value", "opacity.value": "opacity.value", "logo.size": "logo.size", "logo.margin": "logo.margin", "logo.opacity": "logo.opacity"}
+        key = templates.get(label, label)
+        value_label = ctk.CTkLabel(row_host, text=translator(key, value=value), anchor="w", width=110); value_label.grid(row=0, column=0, padx=(0, 6), sticky="w")
+        setattr(self, f"{group}_{field}_label", value_label); setattr(self, f"{group}_{field}_label_key", key)
         slider = ctk.CTkSlider(row_host, from_=low, to=high, variable=var, command=lambda v: self._slider_event(group, field, v), width=180)
         slider.grid(row=0, column=1, padx=0, sticky="ew")
         setattr(self, f"{group}_{field}_row", row_host)
@@ -150,7 +158,9 @@ class PptxWorkspace:
     def _slider_event(self, group, field, value):
         event = getattr(PptxEvent, f"{group.upper()}_{field.upper()}")
         normalized = round(float(value))
-        getattr(self, f"{group}_{field}_label").configure(text=f"{field.title() if field != 'opacity' else 'Opacity'}: {normalized}{'%' if field in {'size','opacity'} else ' px'}")
+        translator = getattr(getattr(self.app, "translator", None), "text", lambda key, **v: key)
+        key = getattr(self, f"{group}_{field}_label_key")
+        getattr(self, f"{group}_{field}_label").configure(text=translator(key, value=normalized))
         self._dispatch(event, normalized)
 
     def _choose_logo(self):
@@ -173,7 +183,21 @@ class PptxWorkspace:
 
     def apply_language(self, translator) -> None:
         """Project locale changes without rebuilding or clearing the session."""
-        self.choose_button.configure(text=translator.text("pptx.choose"))
+        if hasattr(self, "heading_label"):
+            self.heading_label.configure(text=translator.text("content.powerpoint")); self.file_heading.configure(text=translator.text("pptx.file_heading")); self.slides_heading.configure(text=translator.text("pptx.slides_heading"))
+        self.choose_button.configure(text=translator.text("pptx.choose")); self.save_button.configure(text="Save")
+        if hasattr(self, "badge_enable"):
+            self.badge_enable.configure(text=translator.text("pptx.badge_enable")); self.scope_update.configure(text=translator.text("pptx.update")); self.logo_choose_button.configure(text=translator.text("logo.choose")); self.badge_position_label.configure(text=translator.text("position")); self.logo_label.configure(text=self.logo_label.cget("text") if self.state.logo.path else translator.text("pptx.logo_none"))
+            self._position_display = {p: translator.text("position." + p.replace("-", "_")) for p in ("top-left", "top-right", "bottom-left", "bottom-right", "center")}; self._position_value = {v: k for k, v in self._position_display.items()}; self.badge_position_menu.configure(values=list(self._position_display.values())); self.logo_position_menu.configure(values=list(self._position_display.values()))
+        for group, field in (("badge","size"),("badge","margin"),("badge","opacity"),("logo","size"),("logo","margin"),("logo","opacity")):
+            if hasattr(self, f"{group}_{field}_label"):
+                getattr(self, f"{group}_{field}_label").configure(text=translator.text(getattr(self, f"{group}_{field}_label_key"), value=getattr(self.state, group).__dict__[field]))
+        if hasattr(self, "scope_menu"):
+            self._scope_display = {"all": translator.text("pptx.scope.all"), "first": translator.text("pptx.scope.first"), "selected": translator.text("pptx.scope.selected"), "range": translator.text("pptx.scope.range")}; self._scope_value = {v: k for k, v in self._scope_display.items()}
+            self.scope_menu.configure(values=list(self._scope_display.values()))
+        if hasattr(self, "file_label"): self._project_file()
+        if hasattr(self, "scope_status"): self._project_scope()
+        if hasattr(self, "badge_visual"): self._project_badge()
         self.save_button.configure(text="Save")
         self.preview_label.configure(text=translator.text("pptx.preview_hint") if not self.state.loaded else "")
 
@@ -199,7 +223,8 @@ class PptxWorkspace:
             self.receipts.record({"layer": "pptx", "event": "PPTX_PREVIEW_FIT_RECT", "fit_rect": [available_width, available_height]})
             self.receipts.record({"layer": "pptx", "event": "PPTX_COMPACT_NAV_READY", "counter": True})
         except Exception as error:
-            self.preview_label.configure(image=None, text=f"Could not render slide: {error}")
+            t = getattr(getattr(self.app, "translator", None), "text", lambda key, **v: key)
+            self.preview_label.configure(image=None, text=t("pptx.preview_error", error=error))
 
     def _choose_file(self):
         from tkinter import filedialog
@@ -244,7 +269,7 @@ class PptxWorkspace:
             handler()
 
     def _scope_mode(self, value):
-        mode = str(value).lower()
+        mode = self._scope_value.get(str(value), str(value).lower())
         try:
             apply_pptx_scope_event(self.state, PptxEvent.SCOPE_MODE, mode)
             self._scope_receipt(PptxEvent.SCOPE_MODE, mode)
@@ -279,9 +304,10 @@ class PptxWorkspace:
 
     def _project_scope(self):
         if hasattr(self, "scope_var"):
-            self.scope_var.set(self.state.scope_mode.title())
+            t = getattr(getattr(self.app, "translator", None), "text", lambda key, **v: key)
+            self.scope_var.set(getattr(self, "_scope_display", {}).get(self.state.scope_mode, self.state.scope_mode.title()))
             self.scope_input_var.set(self.state.scope_input)
-            self.scope_status.configure(text=f"{len(self.state.active_scope)} slide(s) selected")
+            self.scope_status.configure(text=t("pptx.selected_count", count=len(self.state.active_scope)))
 
     def _project_badge(self):
         if hasattr(self, "badge_visual"):
@@ -297,7 +323,8 @@ class PptxWorkspace:
                     self.badge_image.configure(image=self.badge_photo, text="")
 
     def _project_file(self):
-        model = project_file(self.state)
+        t = getattr(getattr(self.app, "translator", None), "text", lambda key, **v: key)
+        model = project_file(self.state, t)
         if hasattr(self, "file_label"):
             self.file_label.configure(text=model["status"] if not model["filename"] else f"{model['filename']}\n{model['details']}")
 

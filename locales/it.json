@@ -157,4 +157,4 @@
 ,"docx.scope":"Ambito della marcatura","docx.scope.first":"Prima pagina","docx.scope.all":"Intero documento","docx.position.left":"Sinistra","docx.position.center":"Centrato","docx.position.right":"Destra"
 ,"content.tools_group":"STRUMENTI","navigation.switch_title":"Cambiare formato?","navigation.switch_message":"Il file, la selezione e l’anteprima correnti verranno cancellati.","navigation.cancel":"Annulla","navigation.continue":"Continua","inspect.document_unsupported":"L’ispezione dei metadati PDF e PowerPoint non è ancora supportata."
 ,"inspect.not_supported_yet":"Non ancora supportato","pptx.range_hint":"Intervalli di diapositive (ad esempio 5-7,10-12)","pdf.range_hint":"Intervalli di pagine (ad esempio 5-7,10-12)","document.scope_update":"Aggiorna","document.scope_invalid":"Inserire una selezione valida nel documento. L'ambito applicato in precedenza rimane invariato."
-}
+,"pptx.file_heading":"FILE","pptx.slides_heading":"SLIDE","pptx.badge_enable":"Aggiungi badge AI","pptx.update":"Aggiorna","pptx.logo_none":"Nessun logo selezionato","pptx.selected_count":"{count} diapositiva(e) selezionata(e)"}

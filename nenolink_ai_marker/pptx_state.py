@@ -141,14 +141,15 @@ def apply_pptx_scope_event(state: PptxWorkspaceState, event: "PptxEvent", value=
         return state
     raise ValueError(f"Unsupported PPTX scope event: {event}")
 
-def project_file(state: PptxWorkspaceState) -> dict[str, Any]:
-    if not state.loaded: return {"status": "No PowerPoint selected", "filename": None, "details": None}
+def project_file(state: PptxWorkspaceState, translate=None) -> dict[str, Any]:
+    t = translate or (lambda key, **values: {"pptx.no_file": "No PowerPoint selected", "pptx.selected": "PowerPoint loaded", "document.summary.slides": "{size} · {count} slides"}.get(key, key).format(**values))
+    if not state.loaded: return {"status": t("pptx.no_file"), "filename": None, "details": None}
     size = state.file_size_bytes or 0; value = float(size); unit = "B"
     for candidate in ("B", "KB", "MB", "GB"):
         unit = candidate
         if value < 1024 or candidate == "GB": break
         value /= 1024
-    return {"status": "PowerPoint loaded", "filename": state.display_filename, "details": f"{value:.1f} {unit} · {state.slide_count} slides"}
+    return {"status": t("pptx.selected", name=state.display_filename), "filename": state.display_filename, "details": t("document.summary.slides", size=f"{value:.1f} {unit}", count=state.slide_count)}
 
 def project_badge(state: PptxWorkspaceState, repository) -> dict[str, Any]:
     badge_id = state.badge.badge_id or "AI Assisted"; asset = None
