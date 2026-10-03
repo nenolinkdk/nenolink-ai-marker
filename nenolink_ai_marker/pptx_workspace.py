@@ -88,12 +88,18 @@ class PptxWorkspace:
         try:
             info = metrics.document_metrics(Path(path)) if metrics and hasattr(metrics, "document_metrics") else None
             count = getattr(info, "item_count", 0) or getattr(info, "slide_count", 0)
-        except Exception:
+        except Exception as error:
+            self.receipts.record({"layer": "pptx", "event": "FILE_METRICS_FAILED", "result": "error", "exception_type": type(error).__name__, "error": str(error)[:200]})
+            if hasattr(self, "file_label"): self.file_label.configure(text="Could not read PowerPoint file")
             count = 0
         if count:
+            self.receipts.record({"layer": "pptx", "event": "CHOOSE_FILE_SUCCESS", "owner": "file_reducer", "result": "accepted"})
             choose_file_success(self.state, Path(path), count)
+            self.receipts.record({"layer": "pptx", "event": "FILE_REDUCER_APPLIED", "owner": "file_reducer", "result": "ok"})
+            self.receipts.record({"layer": "pptx", "event": "FILE_STATE_UPDATED", "selected_file": self.state.display_filename, "file_size_bytes": self.state.file_size_bytes, "slide_count": self.state.slide_count})
             self._project_file()
-            self.receipts.record({"layer": "pptx", "event": "CHOOSE_FILE_SUCCESS", "owner": "file_reducer", "result": "ok", "selected_file_after": self.state.display_filename, "file_size_bytes": self.state.file_size_bytes, "slide_count": self.state.slide_count, "file_projection_completed": True, "file_widgets_updated": True})
+            self.receipts.record({"layer": "pptx", "event": "FILE_PROJECTED", "result": "ok"})
+            self.receipts.record({"layer": "pptx", "event": "FILE_WIDGETS_UPDATED", "result": "ok"})
 
     def _dispatch(self, event, value, record_only=False):
         before = {"path": self.state.path, "current_slide": self.state.current_slide,
