@@ -62,12 +62,17 @@ class PptxWorkspaceState:
 
     def visual_projection(self) -> dict[str, Any]:
         """Immutable-style snapshot consumed by preview and output adapters."""
+        positions = {"badge": self.badge.position, "logo": self.logo.position}
+        if self.logo.enabled and self.badge.enabled and positions["logo"] == positions["badge"]:
+            fallback = {"top-left": "top-right", "top-right": "bottom-right", "bottom-left": "top-left", "bottom-right": "bottom-left", "center": "bottom-right"}
+            positions["logo"] = fallback[positions["logo"]]
         return {
             "badge": self.badge.__dict__.copy(),
             "logo": self.logo.__dict__.copy(),
             "scope": tuple(self.active_scope),
             "current_slide": self.current_slide,
             "path": self.path,
+            "overlay_positions": positions,
         }
 
 

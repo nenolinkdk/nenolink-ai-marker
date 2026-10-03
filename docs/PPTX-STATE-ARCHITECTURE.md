@@ -9,6 +9,15 @@ existing PPTX Save As/metadata processor path. Preview arrows change only
 Overlays are projected only when the current slide is selected, and preview
 errors preserve file/scope state. Packaged-runtime verification is pending.
 
+### Phase 3B projection rules
+
+Badge and logo parameters remain independent authoritative fields. Their
+`visual_projection()` includes deterministic collision placement when both
+request the same nominal position; the requested state values are never
+silently changed. Preview navigation projects the physical `current_slide /
+slide_count` and preserves scope. Preview and output continue to consume the
+same state-derived visual values.
+
 ## Current Phase 1 contract
 
 `PptxWorkspace` is the single production PPTX mount and the sole runtime

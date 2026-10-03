@@ -122,13 +122,16 @@ class PptxWorkspace:
 
     def _slider(self, host, row, label, group, field, low, high, value):
         var = ctk.IntVar(value=value); setattr(self, f"{group}_{field}_var", var)
-        ctk.CTkLabel(host, text=f"{label}: {value}", anchor="w").grid(row=row, column=0, padx=12, pady=1, sticky="w")
+        value_label = ctk.CTkLabel(host, text=f"{label}: {value}", anchor="w"); value_label.grid(row=row, column=0, padx=12, pady=1, sticky="w")
+        setattr(self, f"{group}_{field}_label", value_label)
         slider = ctk.CTkSlider(host, from_=low, to=high, variable=var, command=lambda v: self._slider_event(group, field, v), width=190)
         slider.grid(row=row+1, column=0, padx=12, pady=1, sticky="w")
 
     def _slider_event(self, group, field, value):
         event = getattr(PptxEvent, f"{group.upper()}_{field.upper()}")
-        self._dispatch(event, round(float(value)))
+        normalized = round(float(value))
+        getattr(self, f"{group}_{field}_label").configure(text=f"{field.title() if field != 'opacity' else 'Opacity'}: {normalized}{'%' if field in {'size','opacity'} else ' px'}")
+        self._dispatch(event, normalized)
 
     def _choose_logo(self):
         path = filedialog.askopenfilename(filetypes=[("Images", "*.png;*.jpg;*.jpeg")])
