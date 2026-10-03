@@ -33,7 +33,7 @@ from .preview import ImagePreviewRenderer
 from .pptx_processor import PptxProcessor
 from .pptx_preview import PptxPreviewRenderer
 from .pptx_state import PptxWorkspaceState, PptxEvent, apply_pptx_visual_event
-from .pptx_workspace import PptxWorkspace
+from .pptx_workspace import PptxWorkspace, PPTX_STATE_TOKEN
 from .workspace_state import ImageWorkspaceState, VideoWorkspaceState, PdfWorkspaceState, visual_projection
 from .workspace_ui import WORKSPACE_LAYOUT, build_badge_section, build_logo_section, build_workspace_control_template
 from .pdf_processor import PasswordProtectedPdfError, PdfInfo, PdfProcessor
@@ -1598,7 +1598,7 @@ class MarkerApp(ctk.CTk):
         self.video_workspace = None
         self.pdf_workspace = None
         self.pptx_workspace = None
-        self.pptx_workspace_state = PptxWorkspace()
+        self.pptx_workspace_state = PptxWorkspace(self)
         self.tool_workspace = None
         self.content_buttons: dict[str, ctk.CTkButton] = {}
         self._initialize_image_services()
@@ -1996,6 +1996,7 @@ class MarkerApp(ctk.CTk):
 
     def _sync_pptx_visual_state(self) -> None:
         if not hasattr(self, "pptx_state"): return
+        self.pptx_workspace_state.state_token_reached = True
         events = ((PptxEvent.BADGE_ENABLE, self.pptx_badge_enabled_var.get()), (PptxEvent.BADGE_SELECT, self.badge_var.get()), (PptxEvent.BADGE_POSITION, self.pptx_badge_position_var.get()), (PptxEvent.BADGE_SIZE, self.pptx_badge_size_var.get()), (PptxEvent.BADGE_MARGIN, self.pptx_badge_margin_var.get()), (PptxEvent.BADGE_OPACITY, self.pptx_badge_opacity_var.get()), (PptxEvent.LOGO_ENABLE, self.logo_enabled_var.get()), (PptxEvent.LOGO_CHOOSE, self._logo_path()), (PptxEvent.LOGO_POSITION, self.pptx_logo_position_var.get()), (PptxEvent.LOGO_SIZE, self.pptx_logo_size_var.get()), (PptxEvent.LOGO_MARGIN, self.pptx_logo_margin_var.get()), (PptxEvent.LOGO_OPACITY, self.pptx_logo_opacity_var.get()))
         for event, value in events:
             apply_pptx_visual_event(self.pptx_state, event, value)
