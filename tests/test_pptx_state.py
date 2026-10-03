@@ -1,7 +1,8 @@
 from pathlib import Path
 
 import pytest
-from nenolink_ai_marker.pptx_state import PptxWorkspaceState, PptxEvent, PPTX_TRANSITION_TABLE, apply_pptx_visual_event
+from nenolink_ai_marker.pptx_state import (PptxWorkspaceState, PptxEvent, PPTX_TRANSITION_TABLE,
+    apply_pptx_visual_event, apply_pptx_scope_event, normalize_scope)
 
 
 def test_pptx_state_keeps_physical_preview_and_scope_independent():
@@ -44,3 +45,35 @@ def test_visual_reducer_mutates_only_its_target(event, value, field):
     assert (state.path, state.current_slide, state.active_scope) == (before_path, before_slide, before_scope)
     other = state.logo if event.name.startswith("BADGE") else state.badge
     assert other.__dict__ == before_other
+
+
+def test_scope_defaults_and_immediate_modes():
+    state = PptxWorkspaceState(Path("deck.pptx"), 10)
+    apply_pptx_scope_event(state, PptxEvent.SCOPE_MODE, "all")
+    assert state.active_scope == tuple(range(1, 11))
+    apply_pptx_scope_event(state, PptxEvent.SCOPE_MODE, "first")
+    assert state.active_scope == (1,) and state.current_slide == 1
+
+
+@pytest.mark.parametrize("mode,text,expected", [
+    ("selected", "2,4-6,9", (2, 4, 5, 6, 9)),
+    ("range", "5-7,10-12", (5, 6, 7, 10, 11, 12)),
+])
+def test_scope_update_normalizes_without_mutating_file_or_badge(mode, text, expected):
+    state = PptxWorkspaceState(Path("deck.pptx"), 12, 8, "all", tuple(range(1, 13)))
+    badge = state.badge.__dict__.copy()
+    apply_pptx_scope_event(state, PptxEvent.SCOPE_MODE, mode)
+    apply_pptx_scope_event(state, PptxEvent.SCOPE_TEXT_CHANGED, text)
+    assert state.active_scope == tuple(range(1, 13))
+    apply_pptx_scope_event(state, PptxEvent.SCOPE_UPDATE, text)
+    assert state.active_scope == expected and state.current_slide == expected[0]
+    assert state.path == Path("deck.pptx") and state.badge.__dict__ == badge
+
+
+@pytest.mark.parametrize("mode,text", [("selected", ""), ("selected", "0"), ("selected", "8-4"), ("selected", "13"), ("range", "4")])
+def test_invalid_scope_preserves_last_valid_scope(mode, text):
+    state = PptxWorkspaceState(Path("deck.pptx"), 12, 6, "selected", (2, 4), "2,4")
+    before = (state.active_scope, state.current_slide)
+    with pytest.raises(ValueError):
+        normalize_scope(mode, text, state.slide_count)
+    assert (state.active_scope, state.current_slide) == before

@@ -26,6 +26,22 @@ PREVIEW, OUTPUT/SAVE and metadata remain intentionally disconnected until the
 next phases. The common contract and the four-state shell remain authoritative;
 this file must not be read as permission to revive legacy PPTX/document UI.
 
+## Phase 2 — SLIDES
+
+The SLIDES subsystem is now implemented in the same workspace and owns only
+`scope_mode`, editable `scope_input` and validated `active_scope`. `All` and
+`First` apply immediately. `Selected` accepts singles and intervals such as
+`2,4-6,9`; `Range` accepts intervals such as `5-7,10-12`. Typing dispatches
+`SCOPE_TEXT_CHANGED` and changes draft text only. `SCOPE_UPDATE` validates,
+normalizes and replaces `active_scope`, moving the future physical preview to
+the first applicable slide. Invalid input leaves the last valid scope and
+physical slide unchanged.
+
+Scope transitions preserve FILE and AI BADGE state and do not remount the
+workspace. Observational receipts are emitted in the order
+`SCOPE_EVENT → SCOPE_REDUCER_APPLIED → SCOPE_STATE_UPDATED → SCOPE_PROJECTED →
+SCOPE_WIDGETS_UPDATED`. Real slide preview/navigation remains a later phase.
+
 The ShellController owns the external content FSM (`IMAGE`, `VIDEO`, `PDF`,
 `PPTX`) and tools. The PPTX workspace owns only its internal runtime,
 represented by `PptxWorkspaceState`.

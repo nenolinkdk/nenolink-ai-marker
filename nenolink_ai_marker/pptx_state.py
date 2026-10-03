@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
+import re
 
 
 @dataclass
@@ -67,6 +68,63 @@ def choose_file_success(state: PptxWorkspaceState, path: Path, slide_count: int)
 
 def choose_file_cancel(state: PptxWorkspaceState) -> PptxWorkspaceState:
     return state
+
+def normalize_scope(mode: str, text: str, slide_count: int) -> tuple[int, ...]:
+    """Validate and normalize a PPTX scope without touching workspace state."""
+    mode = str(mode).lower()
+    if slide_count < 1:
+        raise ValueError("No slides are available")
+    if mode == "all":
+        return tuple(range(1, slide_count + 1))
+    if mode == "first":
+        return (1,)
+    if mode not in {"selected", "range"}:
+        raise ValueError("Unknown slide scope")
+    raw = str(text or "").strip()
+    if not raw:
+        raise ValueError("Enter slide numbers")
+    values: set[int] = set()
+    for part in raw.split(","):
+        token = part.strip()
+        if not re.fullmatch(r"\d+(?:-\d+)?", token):
+            raise ValueError("Invalid slide selection")
+        ends = [int(value) for value in token.split("-")]
+        if len(ends) == 2 and ends[0] > ends[1]:
+            raise ValueError("Slide range must be ascending")
+        if any(value < 1 or value > slide_count for value in ends):
+            raise ValueError(f"Slides must be between 1 and {slide_count}")
+        values.update(range(ends[0], ends[-1] + 1))
+    if mode == "range" and any("-" not in part.strip() for part in raw.split(",")):
+        raise ValueError("Range requires slide intervals")
+    return tuple(sorted(values))
+
+def apply_pptx_scope_event(state: PptxWorkspaceState, event: "PptxEvent", value=None) -> PptxWorkspaceState:
+    """Apply scope transitions; draft text never changes active_scope."""
+    if event == PptxEvent.SCOPE_MODE:
+        mode = str(value).lower()
+        if mode not in {"all", "first", "selected", "range"}:
+            raise ValueError("Unknown slide scope")
+        state.scope_mode = mode
+        if mode in {"all", "first"}:
+            state.active_scope = normalize_scope(mode, state.scope_input, state.slide_count)
+            state.current_slide = state.active_scope[0]
+        return state
+    if event == PptxEvent.SCOPE_TEXT_CHANGED:
+        state.scope_input = str(value or "")
+        return state
+    if event == PptxEvent.SCOPE_UPDATE:
+        mode, text = state.scope_mode, str(value if value is not None else state.scope_input)
+        scope = normalize_scope(mode, text, state.slide_count)
+        state.scope_input = text
+        state.active_scope = scope
+        state.current_slide = scope[0]
+        return state
+    if event in {PptxEvent.PREVIEW_PREVIOUS, PptxEvent.PREVIEW_NEXT}:
+        if state.loaded:
+            delta = -1 if event == PptxEvent.PREVIEW_PREVIOUS else 1
+            state.current_slide = max(1, min(state.slide_count, state.current_slide + delta))
+        return state
+    raise ValueError(f"Unsupported PPTX scope event: {event}")
 
 def project_file(state: PptxWorkspaceState) -> dict[str, Any]:
     if not state.loaded: return {"status": "No PowerPoint selected", "filename": None, "details": None}

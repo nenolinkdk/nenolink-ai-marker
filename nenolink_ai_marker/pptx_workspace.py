@@ -10,7 +10,7 @@ from pathlib import Path
 import customtkinter as ctk
 from PIL import Image
 from .pptx_state import (PptxWorkspaceState, PptxEvent, PptxEventReceipt, apply_pptx_visual_event,
-                          choose_file_success, project_file, project_badge)
+                          apply_pptx_scope_event, choose_file_success, project_file, project_badge)
 from .diagnostic_receipts import ReceiptLog
 
 
@@ -42,7 +42,7 @@ class PptxWorkspace:
         self.receipts = ReceiptLog()
 
     def has_active_work(self) -> bool:
-        return False
+        return self.state.loaded
 
     def mount(self, content_host) -> None:
         for child in content_host.winfo_children():
@@ -62,19 +62,32 @@ class PptxWorkspace:
         ctk.CTkButton(controls, text="Choose PowerPoint", command=self._choose_file, width=190).grid(row=2, column=0, padx=12, pady=2, sticky="w")
         self.file_label = ctk.CTkLabel(controls, text="No PowerPoint selected", anchor="w"); self.file_label.grid(row=3, column=0, padx=12, pady=(2, 8), sticky="w")
         self.construction_receipt.file_section_created = True
-        ctk.CTkLabel(controls, text="AI BADGE", font=ctk.CTkFont(weight="bold")).grid(row=4, column=0, padx=12, pady=(4, 2), sticky="w")
+        ctk.CTkLabel(controls, text="SLIDES", font=ctk.CTkFont(weight="bold")).grid(row=4, column=0, padx=12, pady=(4, 2), sticky="w")
+        self.scope_var = ctk.StringVar(value="All")
+        self.scope_menu = ctk.CTkOptionMenu(controls, variable=self.scope_var, values=["All", "First", "Selected", "Range"], command=self._scope_mode, width=190)
+        self.scope_menu.grid(row=5, column=0, padx=12, pady=2, sticky="w")
+        self.scope_input_var = ctk.StringVar(value="")
+        self.scope_input = ctk.CTkEntry(controls, textvariable=self.scope_input_var, width=190, placeholder_text="e.g. 2,4-6,9")
+        self.scope_input.grid(row=6, column=0, padx=12, pady=2, sticky="w")
+        self.scope_input.bind("<KeyRelease>", lambda _event: self._scope_text_changed())
+        self.scope_update = ctk.CTkButton(controls, text="Update", command=self._scope_update, width=90)
+        self.scope_update.grid(row=7, column=0, padx=12, pady=2, sticky="w")
+        self.scope_status = ctk.CTkLabel(controls, text="All slides", anchor="w")
+        self.scope_status.grid(row=8, column=0, padx=12, pady=(2, 8), sticky="w")
+        ctk.CTkLabel(controls, text="AI BADGE", font=ctk.CTkFont(weight="bold")).grid(row=9, column=0, padx=12, pady=(4, 2), sticky="w")
         self.enabled_var = ctk.BooleanVar(value=self.state.badge.enabled)
-        ctk.CTkCheckBox(controls, text="Add AI badge", variable=self.enabled_var, command=lambda: self._dispatch(PptxEvent.BADGE_ENABLE, self.enabled_var.get())).grid(row=5, column=0, padx=12, pady=2, sticky="w")
+        ctk.CTkCheckBox(controls, text="Add AI badge", variable=self.enabled_var, command=lambda: self._dispatch(PptxEvent.BADGE_ENABLE, self.enabled_var.get())).grid(row=10, column=0, padx=12, pady=2, sticky="w")
         names = list(getattr(getattr(self.app, "badge_display_to_file", None), "keys", lambda: [])()) or ["AI Assisted"]
         self.badge_var = ctk.StringVar(value="AI Assisted" if "AI Assisted" in names else names[0])
-        self.badge_menu = ctk.CTkOptionMenu(controls, variable=self.badge_var, values=names, command=lambda v: self._dispatch(PptxEvent.BADGE_SELECT, v), width=190); self.badge_menu.grid(row=6, column=0, padx=12, pady=2, sticky="w")
-        self.badge_visual = ctk.CTkLabel(controls, text=self.badge_var.get(), anchor="w", height=62); self.badge_visual.grid(row=7, column=0, padx=12, pady=(2, 8), sticky="w")
+        self.badge_menu = ctk.CTkOptionMenu(controls, variable=self.badge_var, values=names, command=lambda v: self._dispatch(PptxEvent.BADGE_SELECT, v), width=190); self.badge_menu.grid(row=11, column=0, padx=12, pady=2, sticky="w")
+        self.badge_visual = ctk.CTkLabel(controls, text=self.badge_var.get(), anchor="w", height=62); self.badge_visual.grid(row=12, column=0, padx=12, pady=(2, 8), sticky="w")
         self.construction_receipt.badge_section_created = True
         self.preview_label = ctk.CTkLabel(preview, text="PowerPoint preview", fg_color=("gray92", "gray13"), height=260); self.preview_label.grid(row=0, column=0, padx=8, pady=8, sticky="nsew")
         self.construction_receipt.preview_host_created = True
         preview.grid_columnconfigure(0, weight=1); preview.grid_rowconfigure(0, weight=1)
         self._project_badge()
         self._project_file()
+        self._project_scope()
         self._dispatch(PptxEvent.BADGE_SELECT, self.badge_var.get(), record_only=True)
         self.state_token_reached = True
         self.receipts.record(self.construction_receipt)
@@ -98,6 +111,7 @@ class PptxWorkspace:
             choose_file_success(self.state, Path(path), count)
             self.receipts.record({"layer": "pptx", "event": "FILE_REDUCER_APPLIED", "owner": "file_reducer", "result": "ok"})
             self.receipts.record({"layer": "pptx", "event": "FILE_STATE_UPDATED", "selected_file": self.state.display_filename, "file_size_bytes": self.state.file_size_bytes, "slide_count": self.state.slide_count})
+            self._project_scope()
             self._project_file()
             self.receipts.record({"layer": "pptx", "event": "FILE_PROJECTED", "result": "ok"})
             self.receipts.record({"layer": "pptx", "event": "FILE_WIDGETS_UPDATED", "result": "ok"})
@@ -111,6 +125,46 @@ class PptxWorkspace:
         self.last_receipt = PptxEventReceipt(event, before, {"badge": self.state.badge.__dict__.copy()}, (event.value,), ("path", "current_slide", "active_scope", "logo"), True, value)
         self.receipts.record(self.last_receipt)
         self._project_badge()
+
+    def _scope_mode(self, value):
+        mode = str(value).lower()
+        try:
+            apply_pptx_scope_event(self.state, PptxEvent.SCOPE_MODE, mode)
+            self._scope_receipt(PptxEvent.SCOPE_MODE, mode)
+            self._project_scope()
+        except ValueError as error:
+            self.scope_status.configure(text=str(error))
+
+    def _scope_update(self):
+        value = self.scope_input_var.get()
+        before = self.state.active_scope
+        try:
+            apply_pptx_scope_event(self.state, PptxEvent.SCOPE_TEXT_CHANGED, value)
+            apply_pptx_scope_event(self.state, PptxEvent.SCOPE_UPDATE, value)
+            self._scope_receipt(PptxEvent.SCOPE_UPDATE, value)
+            self._project_scope()
+        except ValueError as error:
+            self.state.active_scope = before
+            self.scope_status.configure(text=str(error))
+
+    def _scope_text_changed(self):
+        value = self.scope_input_var.get()
+        apply_pptx_scope_event(self.state, PptxEvent.SCOPE_TEXT_CHANGED, value)
+        self._scope_receipt(PptxEvent.SCOPE_TEXT_CHANGED, value)
+
+    def _scope_receipt(self, event, value):
+        self.state_token_reached = True
+        self.receipts.record({"layer": "pptx", "event": "SCOPE_EVENT", "scope_event": event.value, "value": value})
+        self.receipts.record({"layer": "pptx", "event": "SCOPE_REDUCER_APPLIED", "scope_mode": self.state.scope_mode})
+        self.receipts.record({"layer": "pptx", "event": "SCOPE_STATE_UPDATED", "active_scope": self.state.active_scope})
+        self.receipts.record({"layer": "pptx", "event": "SCOPE_PROJECTED", "result": "ok"})
+        self.receipts.record({"layer": "pptx", "event": "SCOPE_WIDGETS_UPDATED", "result": "ok"})
+
+    def _project_scope(self):
+        if hasattr(self, "scope_var"):
+            self.scope_var.set(self.state.scope_mode.title())
+            self.scope_input_var.set(self.state.scope_input)
+            self.scope_status.configure(text=f"{len(self.state.active_scope)} slide(s) selected")
 
     def _project_badge(self):
         if hasattr(self, "badge_visual"):
@@ -137,4 +191,5 @@ class PptxWorkspace:
         self.mounted = False
 
     def clear_runtime_state(self) -> None:
+        self.state.clear()
         self.unmount()
