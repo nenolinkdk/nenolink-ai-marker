@@ -101,3 +101,8 @@ class BadgeSourceManager:
     def repository(self, source: str, custom_folder: str = "") -> BadgeRepository:
         directory = self.configure(source, custom_folder)
         return BadgeRepository(directory, standard=self.source == "standard")
+
+    def standard_repository(self) -> BadgeRepository:
+        """Resolve the bundled standard source independently of user folders."""
+        directory = self.standard_directory
+        return BadgeRepository(directory, standard=True)

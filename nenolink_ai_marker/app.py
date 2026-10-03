@@ -1687,7 +1687,9 @@ class MarkerApp(ctk.CTk):
             self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None; self.pdf_scope_mode = "all"; self.pdf_active_scope = (); self.pdf_scope_input = ""
         if source == "pptx" and event != "pptx":
             self.pptx_path = self.pptx_metrics = None; self.pptx_current_slide = 0; self.pptx_preview_photo = None; self.pptx_scope_mode = "all"; self.pptx_active_scope = (); self.pptx_scope_input = ""
-            self.pptx_state.clear()
+            legacy_state = self.__dict__.get("pptx_state")
+            if legacy_state is not None and legacy_state is not workspace and hasattr(legacy_state, "clear"):
+                legacy_state.clear()
         self.shell_controller.dispatch(event)
         self.render_shell_state()
 
@@ -1727,12 +1729,20 @@ class MarkerApp(ctk.CTk):
         elif format_type == "video":
             self._unmount_video_workspace()
         elif format_type == "pdf":
+            workspace = getattr(self, "pdf_workspace_state", None)
+            if workspace is not None and hasattr(workspace, "clear_runtime_state"):
+                workspace.clear_runtime_state()
             self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None
             self.pdf_scope_mode = "all"; self.pdf_active_scope = (); self.pdf_scope_input = ""
         elif format_type == "pptx":
+            workspace = getattr(self, "pptx_workspace_state", None)
+            if workspace is not None and hasattr(workspace, "clear_runtime_state"):
+                workspace.clear_runtime_state()
             self.pptx_path = self.pptx_metrics = None; self.pptx_current_slide = 0; self.pptx_preview_photo = None
             self.pptx_scope_mode = "all"; self.pptx_active_scope = (); self.pptx_scope_input = ""
-            self.pptx_state.clear()
+            legacy_state = self.__dict__.get("pptx_state")
+            if legacy_state is not None and legacy_state is not workspace and hasattr(legacy_state, "clear"):
+                legacy_state.clear()
 
     def reset_shell(self) -> None:
         source = self.shell_controller.active_content_type
@@ -2626,7 +2636,16 @@ class MarkerApp(ctk.CTk):
 
     def _tool_refresh_badges(self) -> None:
         if not getattr(self, "tool_badge_gallery", None): return
-        self.badge_source_var.set(self.tool_badge_source_var.get()); self.custom_badge_var.set(self.tool_badge_folder_var.get()); self.refresh_image_badges()
+        self.badge_source_var.set(self.tool_badge_source_var.get()); self.custom_badge_var.set(self.tool_badge_folder_var.get())
+        if self.tool_badge_source_var.get() == "standard":
+            self.badges = self.badge_sources.standard_repository()
+            names = [path.name for path in self.badges.display_badges()]
+            displays = [self.badges.display_name(name) for name in names]
+            self.badge_display_to_file = dict(zip(displays, names))
+            self.badge_var.set(choose_badge_selection("standard", names, self.badge_var.get()))
+            self.badge_display_var.set(self.badges.display_name(self.badge_var.get()))
+        else:
+            self.refresh_image_badges()
         for child in self.tool_badge_gallery.winfo_children(): child.destroy()
         for index, path in enumerate(self.badges.display_badges()):
             button = ctk.CTkButton(self.tool_badge_gallery, text=self.badges.display_name(path.name), command=lambda name=path.name: self._tool_select_badge(name)); button.grid(row=index // 4, column=index % 4, padx=5, pady=5)
