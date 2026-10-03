@@ -64,7 +64,7 @@ class PptxWorkspace:
         ctk.CTkLabel(controls, text="PowerPoint", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0, column=0, padx=12, pady=(10, 8), sticky="w")
         ctk.CTkLabel(controls, text="FILE", font=ctk.CTkFont(weight="bold")).grid(row=1, column=0, padx=12, pady=(4, 2), sticky="w")
         self.choose_button = ctk.CTkButton(controls, text="Choose PowerPoint", command=self._choose_file, width=160); self.choose_button.grid(row=2, column=0, padx=(12, 4), pady=2, sticky="w")
-        self.save_button = ctk.CTkButton(controls, text="Save marked PowerPoint", command=self._save_as, width=175); self.save_button.grid(row=2, column=1, padx=(4, 12), pady=2, sticky="w")
+        self.save_button = ctk.CTkButton(controls, text="Save", command=self._save_as, width=175); self.save_button.grid(row=2, column=1, padx=(4, 12), pady=2, sticky="w")
         controls.grid_columnconfigure(0, weight=0, minsize=180); controls.grid_columnconfigure(1, weight=0, minsize=180)
         self.file_label = ctk.CTkLabel(controls, text="No PowerPoint selected", anchor="w"); self.file_label.grid(row=3, column=0, columnspan=2, padx=12, pady=(2, 5), sticky="w")
         self.construction_receipt.file_section_created = True
@@ -91,7 +91,14 @@ class PptxWorkspace:
         self.badge_name = ctk.CTkLabel(self.badge_visual, text=self.badge_var.get(), anchor="w"); self.badge_name.grid(row=0, column=1, padx=0, sticky="w")
         self.construction_receipt.badge_section_created = True
         self._build_visual_controls(controls)
-        self.preview_label = ctk.CTkLabel(preview, text="PowerPoint preview", fg_color=("gray92", "gray13"), height=420); self.preview_label.grid(row=0, column=0, padx=8, pady=8, sticky="nsew")
+        # Keep a fixed viewport: rendered slide pixels must never determine
+        # workspace geometry or displace the compact navigation row.
+        self.preview_viewport = ctk.CTkFrame(preview, width=760, height=470, fg_color=("gray92", "gray13"))
+        self.preview_viewport.grid(row=0, column=0, padx=8, pady=8, sticky="nsew")
+        self.preview_viewport.grid_propagate(False)
+        self.preview_label = ctk.CTkLabel(self.preview_viewport, text="PowerPoint preview", fg_color="transparent", width=740, height=430, anchor="center")
+        self.preview_label.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+        self.preview_viewport.grid_columnconfigure(0, weight=1); self.preview_viewport.grid_rowconfigure(0, weight=1)
         self.navigation = ctk.CTkFrame(preview, fg_color="transparent"); self.navigation.grid(row=1, column=0, pady=(0, 6))
         self.navigation.grid_columnconfigure(0, weight=1); self.navigation.grid_columnconfigure(2, weight=1)
         self.previous_button = ctk.CTkButton(self.navigation, text="‹", width=34, command=lambda: self._change_slide(-1)); self.previous_button.grid(row=0, column=0, padx=4)
@@ -168,8 +175,9 @@ class PptxWorkspace:
         try:
             badge = project_badge(self.state, repository).get("asset") if self.state.badge.enabled and self.state.current_slide in self.state.active_scope else None
             settings = MarkerSettings(badge_name=self.state.badge.badge_id, position=self.state.badge.position, size_percent=self.state.badge.size, margin=self.state.badge.margin, opacity=self.state.badge.opacity, logo_enabled=self.state.logo.enabled, logo_position=self.state.logo.position, logo_size_percent=self.state.logo.size, logo_margin=self.state.logo.margin, logo_opacity=self.state.logo.opacity)
-            available_width = max(420, preview_width := self.preview_host.winfo_width() - 24)
-            available_height = max(260, self.preview_host.winfo_height() - 70)
+            # Use the fixed viewport's interior, not the source slide's size.
+            available_width = max(420, self.preview_viewport.winfo_width() - 20)
+            available_height = max(260, self.preview_viewport.winfo_height() - 20)
             result = renderer.render(self.state.path, self.state.current_slide, badge, settings, self.state.logo.path if self.state.logo.enabled else None, max_size=(available_width, available_height))
             self.preview_photo = ctk.CTkImage(result.image, size=result.image.size)
             self.preview_label.configure(image=self.preview_photo, text="")
@@ -177,6 +185,7 @@ class PptxWorkspace:
             self.previous_button.configure(state="normal" if self.state.current_slide > 1 else "disabled")
             self.next_button.configure(state="normal" if self.state.current_slide < self.state.slide_count else "disabled")
             self.receipts.record({"layer": "pptx", "event": "PPTX_PREVIEW_GEOMETRY_STABLE", "slide_bbox": result.image.size})
+            self.receipts.record({"layer": "pptx", "event": "PPTX_PREVIEW_FIT_RECT", "fit_rect": [available_width, available_height]})
             self.receipts.record({"layer": "pptx", "event": "PPTX_COMPACT_NAV_READY", "counter": True})
         except Exception as error:
             self.preview_label.configure(image=None, text=f"Could not render slide: {error}")

@@ -1722,13 +1722,27 @@ class MarkerApp(ctk.CTk):
             self.pptx_state.clear()
 
     def reset_shell(self) -> None:
+        source = self.shell_controller.active_content_type
+        if self._format_has_active_work(source):
+            workspace = getattr(self, "pptx_workspace_state", None) if source == "pptx" else None
+            if not messagebox.askokcancel(
+                self.translator.text("navigation.switch_title"),
+                self.translator.text("navigation.switch_message"),
+            ):
+                if workspace is not None:
+                    workspace.receipts.record({"layer": "pptx", "event": "GLOBAL_RESET_WARNING_SHOWN", "result": "cancel"})
+                return
+            if workspace is not None:
+                workspace.receipts.record({"layer": "pptx", "event": "GLOBAL_RESET_WARNING_SHOWN", "result": "continue"})
         if self.shell_controller.active_content_type == "video":
             self._unmount_video_workspace()
         elif self.shell_controller.active_content_type == "pdf":
             self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None; self.pdf_scope_mode = "all"; self.pdf_active_scope = (); self.pdf_scope_input = ""
         elif self.shell_controller.active_content_type == "pptx":
             self.pptx_path = self.pptx_metrics = None; self.pptx_current_slide = 0; self.pptx_preview_photo = None; self.pptx_scope_mode = "all"; self.pptx_active_scope = (); self.pptx_scope_input = ""
-            self.pptx_state.clear()
+            workspace = getattr(self, "pptx_workspace_state", None)
+            if workspace is not None:
+                workspace.clear_runtime_state()
         else:
             self._unmount_image_workspace()
         self.shell_controller.dispatch("reset")
@@ -1741,7 +1755,11 @@ class MarkerApp(ctk.CTk):
         if format_type == "image": return self._image_has_active_work()
         if format_type == "video": return self._video_has_active_work()
         if format_type == "pdf": return self.pdf_path is not None
-        if format_type == "pptx": return self.pptx_path is not None
+        if format_type == "pptx":
+            workspace = getattr(self, "pptx_workspace_state", None)
+            if workspace is not None:
+                return workspace.has_active_work()
+            return self.pptx_path is not None
         return False
 
     def render_shell_state(self) -> None:
