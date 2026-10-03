@@ -46,9 +46,43 @@ class PptxWorkspaceState:
     def loaded(self) -> bool:
         return self.path is not None and self.slide_count > 0
 
+    @property
+    def selected_file(self): return self.path
+    @property
+    def display_filename(self): return self.path.name if self.path else None
+    @property
+    def file_size_bytes(self):
+        try: return self.path.stat().st_size if self.path else None
+        except OSError: return None
+
     def clear(self) -> None:
         self.path = None; self.slide_count = 0; self.current_slide = 1
         self.scope_mode = "all"; self.active_scope = (); self.scope_input = ""; self.output_status = ""
+
+
+def choose_file_success(state: PptxWorkspaceState, path: Path, slide_count: int) -> PptxWorkspaceState:
+    state.path = Path(path); state.slide_count = int(slide_count); state.current_slide = 1
+    state.scope_mode, state.active_scope, state.scope_input = "all", tuple(range(1, state.slide_count + 1)), ""
+    return state
+
+def choose_file_cancel(state: PptxWorkspaceState) -> PptxWorkspaceState:
+    return state
+
+def project_file(state: PptxWorkspaceState) -> dict[str, Any]:
+    if not state.loaded: return {"status": "No PowerPoint selected", "filename": None, "details": None}
+    size = state.file_size_bytes or 0; value = float(size); unit = "B"
+    for candidate in ("B", "KB", "MB", "GB"):
+        unit = candidate
+        if value < 1024 or candidate == "GB": break
+        value /= 1024
+    return {"status": "PowerPoint loaded", "filename": state.display_filename, "details": f"{value:.1f} {unit} · {state.slide_count} slides"}
+
+def project_badge(state: PptxWorkspaceState, repository) -> dict[str, Any]:
+    badge_id = state.badge.badge_id or "AI Assisted"; asset = None
+    candidates = repository.display_badges() if hasattr(repository, "display_badges") else repository.all()
+    for candidate in candidates:
+        if candidate.name == badge_id or repository.display_name(candidate.name) == badge_id: asset = candidate; break
+    return {"badge_id": badge_id, "display_name": repository.display_name(asset.name) if asset else badge_id, "asset": asset, "enabled": state.badge.enabled, "position": state.badge.position, "size": state.badge.size, "margin": state.badge.margin, "opacity": state.badge.opacity}
 
 
 class PptxEvent(str, Enum):

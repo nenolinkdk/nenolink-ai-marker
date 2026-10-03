@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import customtkinter as ctk
 from PIL import Image
-from .pptx_state import PptxWorkspaceState, PptxEvent, PptxEventReceipt, apply_pptx_visual_event
+from .pptx_state import (PptxWorkspaceState, PptxEvent, PptxEventReceipt, apply_pptx_visual_event,
+                          choose_file_success, project_file, project_badge)
 from .diagnostic_receipts import ReceiptLog
 
 
@@ -51,6 +52,7 @@ class PptxWorkspace:
         self.root.grid_columnconfigure(1, weight=1)
         self.mount_token_reached = True
         self.construction_receipt = PptxConstructionReceipt()
+        self.construction_receipt.authoritative_state_created = True
         self.construction_receipt.workspace_created = True
         controls = ctk.CTkFrame(self.root, fg_color=("gray92", "gray17")); controls.grid(row=0, column=0, padx=8, pady=8, sticky="nsew")
         preview = ctk.CTkFrame(self.root, fg_color="transparent"); preview.grid(row=0, column=1, padx=8, pady=8, sticky="nsew")
@@ -71,15 +73,26 @@ class PptxWorkspace:
         self.construction_receipt.preview_host_created = True
         preview.grid_columnconfigure(0, weight=1); preview.grid_rowconfigure(0, weight=1)
         self._project_badge()
+        self._project_file()
         self._dispatch(PptxEvent.BADGE_SELECT, self.badge_var.get(), record_only=True)
         self.state_token_reached = True
         self.receipts.record(self.construction_receipt)
         self.mounted = True
 
     def _choose_file(self):
-        handler = getattr(self.app, "choose_pptx_phase2", None)
-        if handler:
-            handler()
+        from tkinter import filedialog
+        path = filedialog.askopenfilename(filetypes=[("PowerPoint", "*.pptx")])
+        if not path: return
+        metrics = getattr(self.app, "pptx_processor", None)
+        try:
+            info = metrics.inspect(Path(path)) if metrics and hasattr(metrics, "inspect") else None
+            count = getattr(info, "item_count", 0) or getattr(info, "slide_count", 0)
+        except Exception:
+            count = 0
+        if count:
+            choose_file_success(self.state, Path(path), count)
+            self._project_file()
+            self.receipts.record({"layer": "pptx", "event": "CHOOSE_FILE_SUCCESS", "result": "ok", "selected_file_after": self.state.display_filename, "file_projection_completed": True})
 
     def _dispatch(self, event, value, record_only=False):
         before = {"path": self.state.path, "current_slide": self.state.current_slide,
@@ -93,7 +106,21 @@ class PptxWorkspace:
 
     def _project_badge(self):
         if hasattr(self, "badge_visual"):
-            self.badge_visual.configure(text=self.state.badge.badge_id or self.badge_var.get())
+            repository = getattr(self.app, "badges", None)
+            if repository and (hasattr(repository, "display_badges") or hasattr(repository, "all")):
+                model = project_badge(self.state, repository)
+                self.badge_visual.configure(text=model["display_name"])
+                asset = model.get("asset")
+                if asset and asset.exists():
+                    with Image.open(asset) as opened: image = opened.convert("RGBA")
+                    image.thumbnail((110, 54), Image.Resampling.LANCZOS)
+                    self.badge_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
+                    self.badge_visual.configure(image=self.badge_photo, compound="left")
+
+    def _project_file(self):
+        model = project_file(self.state)
+        if hasattr(self, "file_label"):
+            self.file_label.configure(text=model["status"] if not model["filename"] else f"{model['filename']}\n{model['details']}")
 
     def unmount(self) -> None:
         if self.root is not None and self.root.winfo_exists():
