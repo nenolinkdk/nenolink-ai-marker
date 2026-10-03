@@ -1600,6 +1600,15 @@ class MarkerApp(ctk.CTk):
         self.tool_workspace = None
         self.content_buttons: dict[str, ctk.CTkButton] = {}
         self._initialize_image_services()
+        # One shell-level registry for all peer content workspaces.  Format
+        # specific state stays inside the mounted workspace; the shell only
+        # resolves and mounts the selected peer.
+        self._workspace_registry = {
+            "image": self._mount_image_workspace,
+            "video": self._mount_video_workspace,
+            "pdf": self._mount_pdf_workspace,
+            "pptx": self._mount_pptx_workspace,
+        }
         self._build_shell_ui()
         self.render_shell_state()
 
@@ -1636,6 +1645,9 @@ class MarkerApp(ctk.CTk):
             self.content_buttons[destination] = button
 
     def dispatch_shell_event(self, event: str) -> None:
+        if event in {"image", "video", "pdf", "pptx"}:
+            self.request_content_transition(event)
+            return
         source = self.shell_controller.active_content_type
         if event in {"badges", "inspect"} or event == "back":
             self.shell_controller.dispatch(event)
@@ -1664,6 +1676,42 @@ class MarkerApp(ctk.CTk):
             self.pptx_state.clear()
         self.shell_controller.dispatch(event)
         self.render_shell_state()
+
+    def request_content_transition(self, destination: str) -> bool:
+        """Apply the single external content transition algorithm."""
+        if destination not in self._workspace_registry:
+            raise ValueError(f"Unknown content destination: {destination}")
+        source = self.shell_controller.active_content_type
+        if destination == source and self.shell_controller.active_tool is None:
+            self.render_shell_state()
+            return True
+        if self._format_has_active_work(source) and not self._confirm_format_switch(source, destination):
+            return False
+        # Cleanup is deliberately performed before changing the authoritative
+        # shell state, so a destination can never inherit source widgets.
+        self._clear_workspace_runtime(source)
+        self.shell_controller.dispatch(destination)
+        self.render_shell_state()
+        return True
+
+    def _confirm_format_switch(self, source: str, destination: str) -> bool:
+        return messagebox.askokcancel(
+            self.translator.text("navigation.switch_title"),
+            self.translator.text("navigation.switch_message"),
+        )
+
+    def _clear_workspace_runtime(self, format_type: str) -> None:
+        if format_type == "image":
+            self._unmount_image_workspace()
+        elif format_type == "video":
+            self._unmount_video_workspace()
+        elif format_type == "pdf":
+            self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None
+            self.pdf_scope_mode = "all"; self.pdf_active_scope = (); self.pdf_scope_input = ""
+        elif format_type == "pptx":
+            self.pptx_path = self.pptx_metrics = None; self.pptx_current_slide = 0; self.pptx_preview_photo = None
+            self.pptx_scope_mode = "all"; self.pptx_active_scope = (); self.pptx_scope_input = ""
+            self.pptx_state.clear()
 
     def reset_shell(self) -> None:
         if self.shell_controller.active_content_type == "video":
@@ -1700,18 +1748,9 @@ class MarkerApp(ctk.CTk):
             self.mounted_view = placeholder_for(tool)
             return
         self._unmount_tool()
-        if destination == "image":
-            self._mount_image_workspace()
-            self.mounted_view = "IMAGE"
-        elif destination == "video":
-            self._mount_video_workspace()
-            self.mounted_view = "VIDEO"
-        elif destination == "pdf":
-            self._mount_pdf_workspace()
-            self.mounted_view = "PDF"
-        elif destination == "pptx":
-            self._mount_pptx_workspace()
-            self.mounted_view = "PPTX"
+        if destination in self._workspace_registry:
+            self._workspace_registry[destination]()
+            self.mounted_view = destination.upper()
         else:
             self._clear_content_host()
             self.mounted_view = placeholder_for(destination)
