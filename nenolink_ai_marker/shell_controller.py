@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-DESTINATIONS = ("image", "video", "pdf", "pptx", "badges", "inspect")
+DESTINATIONS = ("image", "video", "pdf", "pptx", "pp", "badges", "inspect")
 DEFAULT_DESTINATION = "image"
 
 
@@ -44,7 +44,7 @@ class ShellController:
         elif event == "back":
             self.active_tool = None
             next_destination = self.active_content_type
-        elif event in {"image", "video", "pdf", "pptx"}:
+        elif event in {"image", "video", "pdf", "pptx", "pp"}:
             self.active_content_type = event
             self.active_tool = None
             next_destination = event
