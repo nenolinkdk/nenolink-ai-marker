@@ -1696,6 +1696,13 @@ class MarkerApp(ctk.CTk):
         if destination not in self._workspace_registry:
             raise ValueError(f"Unknown content destination: {destination}")
         source = self.shell_controller.active_content_type
+        # A tool is an overlay, not a content state. Returning to the
+        # underlying destination must close only the overlay and restore the
+        # existing workspace without warning, clearing or remounting it.
+        if self.shell_controller.active_tool is not None and destination == source:
+            self.shell_controller.dispatch("back")
+            self.render_shell_state()
+            return True
         if destination == source and self.shell_controller.active_tool is None:
             self.render_shell_state()
             return True

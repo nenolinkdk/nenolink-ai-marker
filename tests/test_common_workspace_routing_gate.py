@@ -24,6 +24,7 @@ def _app():
     app.active_content_type = "image"
     app.active_tool = None
     app.mounted_view = ""
+    app.shell_trace = []
     app.content_host = Host()
     app.content_buttons = {key: Mock() for key in CONTENT}
     app.translator = SimpleNamespace(text=lambda key: key)
@@ -31,6 +32,8 @@ def _app():
     app._confirm_format_switch = Mock(return_value=True)
     app._unmount_tool = lambda: None
     app._mount_tool = lambda _tool: None
+    app.image_workspace = None
+    app.video_workspace = None
     app._clear_content_host = lambda: app.content_host.clear()
     app._unmount_image_workspace = lambda: app.content_host.clear()
     app._unmount_video_workspace = lambda: app.content_host.clear()
@@ -99,3 +102,38 @@ def test_active_work_cancel_continue_and_reset_follow_common_algorithm():
     MarkerApp.render_shell_state(app)
     assert app.shell_controller.active_content_type == "image"
     assert app.content_host.children == ["image"]
+
+
+def test_actual_navigation_callback_guards_content_but_not_tool_overlay():
+    app = _app()
+    MarkerApp.dispatch_shell_event(app, "pptx")
+    app._format_has_active_work = lambda kind: kind == "pptx"
+    app._confirm_format_switch.return_value = False
+    # Content-to-content uses the guard through the public callback.
+    MarkerApp.dispatch_shell_event(app, "pdf")
+    assert app.shell_controller.active_content_type == "pptx"
+    assert app._confirm_format_switch.called
+    app._confirm_format_switch.reset_mock()
+    # Content-to-tool never invokes the content guard.
+    MarkerApp.dispatch_shell_event(app, "badges")
+    assert app.shell_controller.active_tool == "badges"
+    assert not app._confirm_format_switch.called
+    # Tool-to-underlying-content closes the overlay without warning/remount.
+    before = list(app.content_host.children)
+    MarkerApp.dispatch_shell_event(app, "pptx")
+    assert app.shell_controller.active_tool is None
+    assert app.shell_controller.active_content_type == "pptx"
+    assert app.content_host.children == before
+    assert not app._confirm_format_switch.called
+
+
+def test_tool_to_different_content_uses_underlying_active_work_guard():
+    app = _app()
+    MarkerApp.dispatch_shell_event(app, "pptx")
+    app._format_has_active_work = lambda kind: kind == "pptx"
+    MarkerApp.dispatch_shell_event(app, "badges")
+    app._confirm_format_switch.return_value = False
+    MarkerApp.dispatch_shell_event(app, "pdf")
+    assert app.shell_controller.active_content_type == "pptx"
+    assert app.shell_controller.active_tool == "badges"
+    assert app._confirm_format_switch.called
