@@ -34,7 +34,6 @@ from .pptx_processor import PptxProcessor
 from .pptx_preview import PptxPreviewRenderer
 from .pptx_state import PptxWorkspaceState, PptxEvent, apply_pptx_visual_event
 from .pptx_workspace import PptxWorkspace, PPTX_STATE_TOKEN
-from .pp_workspace import PPWorkspace
 from .workspace_state import ImageWorkspaceState, VideoWorkspaceState, PdfWorkspaceState, visual_projection
 from .workspace_ui import WORKSPACE_LAYOUT, build_badge_section, build_logo_section, build_workspace_control_template
 from .pdf_processor import PasswordProtectedPdfError, PdfInfo, PdfProcessor
@@ -1584,7 +1583,7 @@ class MarkerApp(ctk.CTk):
 
     _labels = {
         "image": "Images", "video": "Video", "pdf": "PDF",
-        "pptx": "PowerPoint / Slides", "pp": "PP", "badges": "Badges", "inspect": "Inspect File",
+        "pptx": "PowerPoint / Slides", "badges": "Badges", "inspect": "Inspect File",
     }
 
     def __init__(self) -> None:
@@ -1601,7 +1600,6 @@ class MarkerApp(ctk.CTk):
         self.pptx_workspace = None
         self.pptx_workspace_state = PptxWorkspace(self)
         self.shell_trace = []
-        self.pp_workspace = PPWorkspace(self.shell_trace)
         self.tool_workspace = None
         self.content_buttons: dict[str, ctk.CTkButton] = {}
         self._initialize_image_services()
@@ -1613,7 +1611,6 @@ class MarkerApp(ctk.CTk):
             "video": self._mount_video_workspace,
             "pdf": self._mount_pdf_workspace,
             "pptx": self._mount_pptx_workspace,
-            "pp": self.pp_workspace.mount,
         }
         self._build_shell_ui()
         self.render_shell_state()
@@ -1630,7 +1627,7 @@ class MarkerApp(ctk.CTk):
 
         navigation = ctk.CTkFrame(self, corner_radius=0); navigation.grid(row=1, column=0, sticky="ew")
         self._shell_group(navigation, "MEDIA", ("image", "video"), 0)
-        self._shell_group(navigation, "DOCUMENTS", ("pdf", "pptx", "pp"), 1)
+        self._shell_group(navigation, "DOCUMENTS", ("pdf", "pptx"), 1)
         self._shell_group(navigation, "TOOLS", ("badges", "inspect"), 2)
 
         self.content_host = ctk.CTkFrame(self); self.content_host.grid(row=2, column=0, padx=16, pady=(8,8), sticky="nsew")
@@ -1651,10 +1648,9 @@ class MarkerApp(ctk.CTk):
             self.content_buttons[destination] = button
 
     def dispatch_shell_event(self, event: str) -> None:
-        if event in {"pptx", "pp"}:
-            self.shell_trace.append("PPTX_BUTTON" if event == "pptx" else "PP_BUTTON")
-        if event in {"image", "video", "pdf", "pptx", "pp"}:
-            if event in {"pptx", "pp"}: self.shell_trace.append("PPTX_TRANSITION" if event == "pptx" else "PP_TRANSITION")
+        if event == "pptx": self.shell_trace.append("PPTX_BUTTON")
+        if event in {"image", "video", "pdf", "pptx"}:
+            if event == "pptx": self.shell_trace.append("PPTX_TRANSITION")
             self.request_content_transition(event)
             return
         source = self.shell_controller.active_content_type
@@ -1759,7 +1755,6 @@ class MarkerApp(ctk.CTk):
         self._unmount_tool()
         if destination in self._workspace_registry:
             trace = self.__dict__.get("shell_trace")
-            if destination == "pp" and trace is not None: trace.append("PP_REGISTRY")
             if destination == "pptx" and trace is not None: trace.append("PPTX_REGISTRY")
             self._workspace_registry[destination]()
             self.mounted_view = destination.upper()
