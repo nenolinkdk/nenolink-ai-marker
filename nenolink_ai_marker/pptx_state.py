@@ -7,6 +7,7 @@ cannot accidentally become a second state owner.
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 
 @dataclass
@@ -70,6 +71,16 @@ class PptxEvent(str, Enum):
     SCOPE_UPDATE = "scope_update"
     PREVIEW_PREVIOUS = "preview_previous"
     PREVIEW_NEXT = "preview_next"
+
+
+@dataclass(frozen=True)
+class PptxEventReceipt:
+    event: PptxEvent
+    before: dict[str, Any]
+    after: dict[str, Any]
+    changed: tuple[str, ...]
+    preserved: tuple[str, ...]
+    projection_updated: bool = True
 
 
 @dataclass(frozen=True)
