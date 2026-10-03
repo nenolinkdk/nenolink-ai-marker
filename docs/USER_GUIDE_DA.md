@@ -50,6 +50,11 @@ Automatisk opdateringskontrol er som standard aktiveret og kan deaktiveres under
 
 Åbn **Badges**. **Nenolink Standard Badges** bruger de elleve filer i `assets\badges`. Hvis du vil bruge dit eget badge, skal du vælge **Brugerdefineret badge-mappe**, vælge en almindelig Windows-mappe med PNG-, JPG-, JPEG- eller WebP-badgebilleder og klikke på **Opdater badges**, når du har tilføjet filer. Transparent PNG anbefales. Programmet læser egne filer på stedet og kopierer eller ændrer dem ikke. Hvis en gemt mappe forsvinder, viser programmet den nøjagtige sti og bruger midlertidigt standardbadges, mens den gamle sti bevares, så den kan rettes.
 
+Den installerede applikation indeholder 11 standardbadgegrafikker i
+`assets\\badges`: 10 røde AI-/transparensbadges og det grønne `No AI`-badge.
+De vises direkte i Badges-galleriet. Du kan i stedet vælge en egen badgemappe;
+de installerede standardbadges er fortsat tilgængelige som reservekilde.
+
 ## 5. Valg af badge
 
 Vælg et badge i badgemenuen. Det samme valgte badge bruges i forhåndsvisningen af enkeltbilleder, i gemte billeder og på alle valgte elementer i en mappebehandling. En opdatering bevarer valget, når filen stadig findes.

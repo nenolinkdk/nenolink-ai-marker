@@ -1909,7 +1909,7 @@ class MarkerApp(ctk.CTk):
         self.pdf_workspace.grid_columnconfigure(1, weight=1)
         self.pdf_choose_button.grid_configure(row=1, column=0); self.pdf_process_button.grid_configure(row=1, column=1)
         self.pdf_file_label.grid_configure(row=2, column=0, columnspan=2)
-        ctk.CTkLabel(self.pdf_workspace, text="PDF PAGES", font=bold).grid(row=3, column=0, pady=(6, 1), sticky="w")
+        ctk.CTkLabel(self.pdf_workspace, text="PDF PAGES", font=bold).grid(row=3, column=0, pady=(2, 1), sticky="w")
         self.pdf_scope_menu.grid_configure(row=4); self.pdf_scope_entry.grid_configure(row=5); self.pdf_scope_update.grid_configure(row=6); self.pdf_scope_message.grid_configure(row=7)
         ctk.CTkLabel(self.pdf_workspace, text="AI BADGE", font=bold).grid(row=8, column=0, pady=(2, 1), sticky="w")
         self.pdf_badge_enable.grid_configure(row=9); self.pdf_badge_menu.grid_configure(row=10)
@@ -1918,7 +1918,7 @@ class MarkerApp(ctk.CTk):
         self.pdf_size_label = ctk.CTkLabel(self.pdf_workspace, text=f"Badge Size: {int(self.size_var.get())}%", anchor="w"); self.pdf_size_label.grid(row=14, column=0, sticky="w"); self.pdf_size_slider.grid_configure(row=15)
         self.pdf_margin_label = ctk.CTkLabel(self.pdf_workspace, text=f"Margin: {int(self.margin_var.get())} px", anchor="w"); self.pdf_margin_label.grid(row=16, column=0, sticky="w"); self.pdf_margin_slider.grid_configure(row=17)
         self.pdf_opacity_label = ctk.CTkLabel(self.pdf_workspace, text=f"Opacity: {int(self.opacity_var.get())}%", anchor="w"); self.pdf_opacity_label.grid(row=18, column=0, sticky="w"); self.pdf_opacity_slider.grid_configure(row=19)
-        ctk.CTkLabel(self.pdf_workspace, text="OWN LOGO", font=bold).grid(row=20, column=0, pady=(6, 1), sticky="w")
+        ctk.CTkLabel(self.pdf_workspace, text="OWN LOGO", font=bold).grid(row=20, column=0, pady=(4, 1), sticky="w")
         self.pdf_logo_enable.grid_configure(row=21); self.pdf_logo_choose.grid_configure(row=22)
         ctk.CTkLabel(self.pdf_workspace, text="Logo Position").grid(row=23, column=0, sticky="w"); self.pdf_logo_position_menu.grid_configure(row=24)
         self.pdf_logo_size_label = ctk.CTkLabel(self.pdf_workspace, text=f"Logo Size: {int(self.logo_size_var.get())}%", anchor="w"); self.pdf_logo_size_label.grid(row=25, column=0, sticky="w"); self.pdf_logo_size_slider.grid_configure(row=26)
@@ -2405,8 +2405,14 @@ class MarkerApp(ctk.CTk):
             logo_enabled = self.logo_enabled_var.get() if hasattr(self, "logo_enabled_var") else False
             badge = self.badges.find(self.badge_var.get()) if marked and hasattr(self, "badges") and hasattr(self, "badge_var") and badge_enabled else None
             logo = self._logo_path() if marked and logo_enabled and hasattr(self, "_logo_path") else None
+            # Fit the independently rendered PDF page to the actual preview
+            # host, reserving space for navigation and keeping aspect ratio in
+            # PdfPreviewRenderer.  This is a projection-only layout decision.
+            host_width = max(1, self.pdf_preview_host.winfo_width())
+            host_height = max(1, self.pdf_preview_host.winfo_height())
+            max_size = (max(240, host_width - 32), max(160, host_height - 72))
             try:
-                result = self.pdf_preview_renderer.render(self.pdf_path, self.pdf_current_page, badge, self.settings(), logo)
+                result = self.pdf_preview_renderer.render(self.pdf_path, self.pdf_current_page, badge, self.settings(), logo, max_size=max_size)
             except TypeError:
                 result = self.pdf_preview_renderer.render(self.pdf_path, self.pdf_current_page, badge, self.settings())
             self.pdf_current_page = result.page_number
@@ -2647,8 +2653,26 @@ class MarkerApp(ctk.CTk):
         else:
             self.refresh_image_badges()
         for child in self.tool_badge_gallery.winfo_children(): child.destroy()
+        self.tool_badge_photos = []
         for index, path in enumerate(self.badges.display_badges()):
-            button = ctk.CTkButton(self.tool_badge_gallery, text=self.badges.display_name(path.name), command=lambda name=path.name: self._tool_select_badge(name)); button.grid(row=index // 4, column=index % 4, padx=5, pady=5)
+            card = ctk.CTkFrame(self.tool_badge_gallery, fg_color="transparent", border_width=1)
+            card.grid(row=index // 4, column=index % 4, padx=5, pady=5, sticky="nsew")
+            try:
+                with Image.open(path) as opened:
+                    image = opened.convert("RGBA")
+                image.thumbnail((150, 72), Image.Resampling.LANCZOS)
+                photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
+                self.tool_badge_photos.append(photo)
+                graphic = ctk.CTkLabel(card, image=photo, text="")
+                graphic.pack(padx=6, pady=(6, 2))
+            except (OSError, ValueError):
+                graphic = ctk.CTkLabel(card, text=self.badges.display_name(path.name))
+                graphic.pack(padx=6, pady=(6, 2))
+            name_label = ctk.CTkLabel(card, text=self.badges.display_name(path.name), anchor="center")
+            name_label.pack(padx=6, pady=(0, 6))
+            select = lambda _event=None, name=path.name: self._tool_select_badge(name)
+            for widget in (card, graphic, name_label):
+                widget.bind("<Button-1>", select, add="+")
 
     def _tool_select_badge(self, name: str) -> None:
         self.badge_var.set(name); self.select_image_badge(); self._tool_refresh_badges()

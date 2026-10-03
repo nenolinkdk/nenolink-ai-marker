@@ -14,6 +14,7 @@ from .models import MarkerSettings
 from .pptx_state import (PptxWorkspaceState, PptxEvent, PptxEventReceipt, apply_pptx_visual_event,
                           apply_pptx_scope_event, choose_file_success, project_file, project_badge)
 from .diagnostic_receipts import ReceiptLog
+from .document_preview_layout import fit_preview_size
 
 
 class PptxConstructionReceipt:
@@ -179,7 +180,10 @@ class PptxWorkspace:
         """Single owner of PPTX preview geometry and fit padding."""
         viewport_width = max(1, self.preview_viewport.winfo_width())
         viewport_height = max(1, self.preview_viewport.winfo_height())
-        return (max(160, viewport_width - 20), max(120, viewport_height - 20))
+        # Return the available interior rectangle; the renderer then fits the
+        # actual slide aspect ratio inside it.  The helper keeps this calculation
+        # deterministic while avoiding source-slide-driven widget geometry.
+        return fit_preview_size(viewport_width, viewport_height, 740 / 450, padding=10)
 
     def apply_language(self, translator) -> None:
         """Project locale changes without rebuilding or clearing the session."""

@@ -50,6 +50,11 @@ Automatic update checking is enabled by default and can be disabled in the Badge
 
 Open **Badges**. **Nenolink Standard Badges** uses the eleven files bundled in `assets\badges`. To use your own badge, select **Custom Badge Folder**, choose an ordinary Windows folder containing PNG, JPG, JPEG, or WebP badge images, and click **Refresh Badges** after adding files. Transparent PNG is recommended. The app reads custom files in place and does not copy or alter them. If a saved custom folder disappears, the app reports the exact path and temporarily uses standard badges while retaining the old path for correction.
 
+The installed application includes 11 standard badge graphics in `assets\\badges`:
+10 red AI/transparency badges and the green `No AI` badge. They are available
+directly from the Badges gallery. You can instead choose a custom badge folder;
+the installed standard set remains available as the fallback source.
+
 ## 5. Selecting a badge
 
 Select a filename from the badge menu. The same selected badge is used for the single-image preview, saved images, and every selected item in a folder batch. Refreshing preserves the selection when the file still exists.
