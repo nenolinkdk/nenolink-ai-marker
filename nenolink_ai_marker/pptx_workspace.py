@@ -92,9 +92,11 @@ class PptxWorkspace:
         self.construction_receipt.badge_section_created = True
         self._build_visual_controls(controls)
         self.preview_label = ctk.CTkLabel(preview, text="PowerPoint preview", fg_color=("gray92", "gray13"), height=420); self.preview_label.grid(row=0, column=0, padx=8, pady=8, sticky="nsew")
-        self.previous_button = ctk.CTkButton(preview, text="‹ Previous", width=100, command=lambda: self._change_slide(-1)); self.previous_button.grid(row=1, column=0, sticky="w", padx=12)
-        self.slide_status = ctk.CTkLabel(preview, text="—"); self.slide_status.grid(row=1, column=0)
-        self.next_button = ctk.CTkButton(preview, text="Next ›", width=100, command=lambda: self._change_slide(1)); self.next_button.grid(row=1, column=0, sticky="e", padx=12)
+        self.navigation = ctk.CTkFrame(preview, fg_color="transparent"); self.navigation.grid(row=1, column=0, pady=(0, 6))
+        self.navigation.grid_columnconfigure(0, weight=1); self.navigation.grid_columnconfigure(2, weight=1)
+        self.previous_button = ctk.CTkButton(self.navigation, text="‹", width=34, command=lambda: self._change_slide(-1)); self.previous_button.grid(row=0, column=0, padx=4)
+        self.slide_status = ctk.CTkLabel(self.navigation, text="—", width=90); self.slide_status.grid(row=0, column=1, padx=4)
+        self.next_button = ctk.CTkButton(self.navigation, text="›", width=34, command=lambda: self._change_slide(1)); self.next_button.grid(row=0, column=2, padx=4)
         self.construction_receipt.preview_host_created = True
         preview.grid_columnconfigure(0, weight=1); preview.grid_rowconfigure(0, weight=1)
         self._project_badge()
@@ -174,6 +176,8 @@ class PptxWorkspace:
             self.slide_status.configure(text=f"{result.slide_number} / {result.slide_count}")
             self.previous_button.configure(state="normal" if self.state.current_slide > 1 else "disabled")
             self.next_button.configure(state="normal" if self.state.current_slide < self.state.slide_count else "disabled")
+            self.receipts.record({"layer": "pptx", "event": "PPTX_PREVIEW_GEOMETRY_STABLE", "slide_bbox": result.image.size})
+            self.receipts.record({"layer": "pptx", "event": "PPTX_COMPACT_NAV_READY", "counter": True})
         except Exception as error:
             self.preview_label.configure(image=None, text=f"Could not render slide: {error}")
 
@@ -200,6 +204,7 @@ class PptxWorkspace:
             self._render_preview()
             self.receipts.record({"layer": "pptx", "event": "FILE_PROJECTED", "result": "ok"})
             self.receipts.record({"layer": "pptx", "event": "FILE_WIDGETS_UPDATED", "result": "ok"})
+            self.receipts.record({"layer": "pptx", "event": "PPTX_SESSION_LOADED", "slide_count": self.state.slide_count})
 
     def _dispatch(self, event, value, record_only=False):
         before = {"path": self.state.path, "current_slide": self.state.current_slide,

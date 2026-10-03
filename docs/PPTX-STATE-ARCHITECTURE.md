@@ -1,5 +1,14 @@
 # PPTX workspace state
 
+### Phase 3E lifecycle/geometry invariants
+
+Global Reset is a hard PPTX session boundary: file, scope, physical slide,
+preview cache, logo runtime and output status are cleared before clean IMAGE
+is rendered. The left controls viewport and right preview viewport have stable
+geometry; overlays are composed inside a fixed fit rectangle and never take
+part in Tk geometry negotiation. Compact `‹ / current / ›` navigation changes
+only physical slide state.
+
 ### Phase 3C active UI contract
 
 The active workspace keeps controls at a stable minimum width within the

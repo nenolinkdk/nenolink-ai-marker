@@ -627,6 +627,9 @@ class LegacyMarkerApp(ctk.CTk):
             self._pptx_warning_approved=None
             renderer=getattr(self,"pptx_preview_renderer",None)
             if renderer is not None:renderer.clear()
+            workspace=getattr(self,"pptx_workspace_state",None)
+            if workspace is not None:
+                workspace.clear_runtime_state()
             if not keep_file:self.pptx_path=None; self.pptx_metrics=None; self.pptx_preview_state.clear()
             elif self.pptx_metrics:self.pptx_preview_state.initialize(self.pptx_metrics.item_count)
         else:
@@ -1730,6 +1733,9 @@ class MarkerApp(ctk.CTk):
             self._unmount_image_workspace()
         self.shell_controller.dispatch("reset")
         self.render_shell_state()
+        workspace=getattr(self,"pptx_workspace_state",None)
+        if workspace is not None:
+            workspace.receipts.record({"layer":"pptx","event":"GLOBAL_RESET_PPTX_CLEARED","result":"ok"})
 
     def _format_has_active_work(self, format_type: str) -> bool:
         if format_type == "image": return self._image_has_active_work()
