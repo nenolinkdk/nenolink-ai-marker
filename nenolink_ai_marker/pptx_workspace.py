@@ -51,7 +51,7 @@ class PptxWorkspace:
             child.destroy()
         self.root = ctk.CTkFrame(content_host, fg_color="transparent")
         self.root.grid(row=0, column=0, sticky="nsew")
-        self.root.grid_columnconfigure(0, weight=0, minsize=320)
+        self.root.grid_columnconfigure(0, weight=0, minsize=360)
         self.root.grid_columnconfigure(1, weight=1)
         self.mount_token_reached = True
         self.construction_receipt = PptxConstructionReceipt()
@@ -61,8 +61,10 @@ class PptxWorkspace:
         preview = ctk.CTkFrame(self.root, fg_color="transparent"); preview.grid(row=0, column=1, padx=8, pady=8, sticky="nsew")
         ctk.CTkLabel(controls, text="PowerPoint", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0, column=0, padx=12, pady=(10, 8), sticky="w")
         ctk.CTkLabel(controls, text="FILE", font=ctk.CTkFont(weight="bold")).grid(row=1, column=0, padx=12, pady=(4, 2), sticky="w")
-        ctk.CTkButton(controls, text="Choose PowerPoint", command=self._choose_file, width=190).grid(row=2, column=0, padx=12, pady=2, sticky="w")
-        self.file_label = ctk.CTkLabel(controls, text="No PowerPoint selected", anchor="w"); self.file_label.grid(row=3, column=0, padx=12, pady=(2, 8), sticky="w")
+        self.choose_button = ctk.CTkButton(controls, text="Choose PowerPoint", command=self._choose_file, width=160); self.choose_button.grid(row=2, column=0, padx=(12, 4), pady=2, sticky="w")
+        self.save_button = ctk.CTkButton(controls, text="Save marked PowerPoint", command=self._save_as, width=175); self.save_button.grid(row=2, column=1, padx=(4, 12), pady=2, sticky="w")
+        controls.grid_columnconfigure(0, weight=0, minsize=180); controls.grid_columnconfigure(1, weight=0, minsize=180)
+        self.file_label = ctk.CTkLabel(controls, text="No PowerPoint selected", anchor="w"); self.file_label.grid(row=3, column=0, columnspan=2, padx=12, pady=(2, 5), sticky="w")
         self.construction_receipt.file_section_created = True
         ctk.CTkLabel(controls, text="SLIDES", font=ctk.CTkFont(weight="bold")).grid(row=4, column=0, padx=12, pady=(4, 2), sticky="w")
         self.scope_var = ctk.StringVar(value="All")
@@ -85,11 +87,10 @@ class PptxWorkspace:
         self.badge_visual = ctk.CTkLabel(controls, text=self.badge_var.get(), anchor="w", height=62); self.badge_visual.grid(row=12, column=0, padx=12, pady=(2, 8), sticky="w")
         self.construction_receipt.badge_section_created = True
         self._build_visual_controls(controls)
-        self.preview_label = ctk.CTkLabel(preview, text="PowerPoint preview", fg_color=("gray92", "gray13"), height=260); self.preview_label.grid(row=0, column=0, padx=8, pady=8, sticky="nsew")
-        self.previous_button = ctk.CTkButton(preview, text="◀", width=40, command=lambda: self._change_slide(-1)); self.previous_button.grid(row=1, column=0, sticky="w", padx=12)
+        self.preview_label = ctk.CTkLabel(preview, text="PowerPoint preview", fg_color=("gray92", "gray13"), height=420); self.preview_label.grid(row=0, column=0, padx=8, pady=8, sticky="nsew")
+        self.previous_button = ctk.CTkButton(preview, text="‹ Previous", width=100, command=lambda: self._change_slide(-1)); self.previous_button.grid(row=1, column=0, sticky="w", padx=12)
         self.slide_status = ctk.CTkLabel(preview, text="—"); self.slide_status.grid(row=1, column=0)
-        self.next_button = ctk.CTkButton(preview, text="▶", width=40, command=lambda: self._change_slide(1)); self.next_button.grid(row=1, column=0, sticky="e", padx=12)
-        self.save_button = ctk.CTkButton(controls, text="Save Marked PowerPoint", command=self._save_as, width=190); self.save_button.grid(row=30, column=0, padx=12, pady=8, sticky="w")
+        self.next_button = ctk.CTkButton(preview, text="Next ›", width=100, command=lambda: self._change_slide(1)); self.next_button.grid(row=1, column=0, sticky="e", padx=12)
         self.construction_receipt.preview_host_created = True
         preview.grid_columnconfigure(0, weight=1); preview.grid_rowconfigure(0, weight=1)
         self._project_badge()
@@ -98,6 +99,9 @@ class PptxWorkspace:
         self._dispatch(PptxEvent.BADGE_SELECT, self.badge_var.get(), record_only=True)
         self.state_token_reached = True
         self.receipts.record(self.construction_receipt)
+        self.receipts.record({"layer": "pptx", "event": "PPTX_CONTROLS_LAYOUT_READY", "controls_column": True, "logo_controls": True})
+        self.receipts.record({"layer": "pptx", "event": "PPTX_PREVIEW_NAV_READY", "previous": True, "counter": True, "next": True})
+        self.receipts.record({"layer": "pptx", "event": "PPTX_FILE_ACTIONS_READY", "choose": True, "save": True, "same_row": True})
         self.mounted = True
 
     def _build_visual_controls(self, controls):
@@ -142,6 +146,7 @@ class PptxWorkspace:
     def _change_slide(self, delta):
         event = PptxEvent.PREVIEW_NEXT if delta > 0 else PptxEvent.PREVIEW_PREVIOUS
         apply_pptx_scope_event(self.state, event)
+        self.receipts.record({"layer": "pptx", "event": "PREVIEW_NAVIGATION", "current_slide": self.state.current_slide, "active_scope": self.state.active_scope})
         self._render_preview()
 
     def _render_preview(self):

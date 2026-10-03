@@ -1,5 +1,14 @@
 # PPTX workspace state
 
+### Phase 3C active UI contract
+
+The active workspace keeps controls at a stable minimum width within the
+40/60 workspace rule. FILE renders Choose and Save in one action row. Preview
+renders a larger aspect-preserving slide plus physical Previous/counter/Next;
+these controls preserve scope and visual state. Readiness receipts are
+observational only: `PPTX_CONTROLS_LAYOUT_READY`,
+`PPTX_PREVIEW_NAV_READY` and `PPTX_FILE_ACTIONS_READY`.
+
 ## Phase 3 status
 
 The complete state-owned workspace includes independent OWN LOGO state, AI
