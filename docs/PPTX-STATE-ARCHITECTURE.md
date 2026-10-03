@@ -9,6 +9,11 @@ these controls preserve scope and visual state. Readiness receipts are
 observational only: `PPTX_CONTROLS_LAYOUT_READY`,
 `PPTX_PREVIEW_NAV_READY` and `PPTX_FILE_ACTIONS_READY`.
 
+The controls viewport may scroll independently of the shell and preview; scroll
+position is UI-only state. Badge sample spacing is an explicit 8px adapter
+layout rule. Size, margin and opacity use separate compact rows, while preview
+dimensions are calculated from the available viewport and preserve aspect ratio.
+
 ## Phase 3 status
 
 The complete state-owned workspace includes independent OWN LOGO state, AI
