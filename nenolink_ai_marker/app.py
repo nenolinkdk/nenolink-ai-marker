@@ -33,6 +33,7 @@ from .preview import ImagePreviewRenderer
 from .pptx_processor import PptxProcessor
 from .pptx_preview import PptxPreviewRenderer
 from .pptx_state import PptxWorkspaceState, PptxEvent, apply_pptx_visual_event
+from .pptx_workspace import PptxWorkspace
 from .workspace_state import ImageWorkspaceState, VideoWorkspaceState, PdfWorkspaceState, visual_projection
 from .workspace_ui import WORKSPACE_LAYOUT, build_badge_section, build_logo_section, build_workspace_control_template
 from .pdf_processor import PasswordProtectedPdfError, PdfInfo, PdfProcessor
@@ -1597,6 +1598,7 @@ class MarkerApp(ctk.CTk):
         self.video_workspace = None
         self.pdf_workspace = None
         self.pptx_workspace = None
+        self.pptx_workspace_state = PptxWorkspace()
         self.tool_workspace = None
         self.content_buttons: dict[str, ctk.CTkButton] = {}
         self._initialize_image_services()
@@ -1873,10 +1875,11 @@ class MarkerApp(ctk.CTk):
         self._update_pdf_scope_controls()
 
     def _mount_pptx_workspace(self) -> None:
-        """Phase 1 shell: a clean peer workspace with no document runtime."""
-        if self.pptx_workspace is not None and self.pptx_workspace.winfo_exists():
-            self.pptx_workspace.grid(); return
-        return self._mount_pptx_workspace_canonical()
+        """Mount the single minimal authoritative PPTX workspace."""
+        self.pptx_workspace_state.mount(self.content_host)
+        self.pptx_workspace = self.pptx_workspace_state.root
+        if not self.pptx_workspace_state.mounted or self.pptx_workspace is None:
+            raise RuntimeError("PPTX workspace failed to mount")
 
     def _mount_pptx_workspace_canonical(self) -> None:
         """Mount the single state-driven PPTX control composition."""
