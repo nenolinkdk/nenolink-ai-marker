@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import sys
 from dataclasses import asdict, is_dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -15,7 +16,8 @@ from typing import Any
 
 class ReceiptLog:
     def __init__(self, enabled: bool | None = None) -> None:
-        self.enabled = bool(os.getenv("NENOLINK_TEST_BUILD")) if enabled is None else enabled
+        packaged_test = "TEST" in os.path.basename(sys.executable).upper()
+        self.enabled = (bool(os.getenv("NENOLINK_TEST_BUILD")) or packaged_test) if enabled is None else enabled
         self.records: list[dict[str, Any]] = []
         self.path = (os.getenv("NENOLINK_RECEIPT_LOG") or os.path.join(tempfile.gettempdir(), "Nenolink-AI-Marker-test-receipts.jsonl")) if self.enabled else None
 

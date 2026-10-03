@@ -82,17 +82,18 @@ class PptxWorkspace:
     def _choose_file(self):
         from tkinter import filedialog
         path = filedialog.askopenfilename(filetypes=[("PowerPoint", "*.pptx")])
+        self.receipts.record({"layer": "pptx", "event": "FILE_DIALOG_RESULT", "result": "cancel" if not path else "path_selected"})
         if not path: return
         metrics = getattr(self.app, "pptx_processor", None)
         try:
-            info = metrics.inspect(Path(path)) if metrics and hasattr(metrics, "inspect") else None
+            info = metrics.document_metrics(Path(path)) if metrics and hasattr(metrics, "document_metrics") else None
             count = getattr(info, "item_count", 0) or getattr(info, "slide_count", 0)
         except Exception:
             count = 0
         if count:
             choose_file_success(self.state, Path(path), count)
             self._project_file()
-            self.receipts.record({"layer": "pptx", "event": "CHOOSE_FILE_SUCCESS", "result": "ok", "selected_file_after": self.state.display_filename, "file_projection_completed": True})
+            self.receipts.record({"layer": "pptx", "event": "CHOOSE_FILE_SUCCESS", "owner": "file_reducer", "result": "ok", "selected_file_after": self.state.display_filename, "file_size_bytes": self.state.file_size_bytes, "slide_count": self.state.slide_count, "file_projection_completed": True, "file_widgets_updated": True})
 
     def _dispatch(self, event, value, record_only=False):
         before = {"path": self.state.path, "current_slide": self.state.current_slide,
