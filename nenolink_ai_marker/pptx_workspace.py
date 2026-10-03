@@ -9,6 +9,8 @@ from __future__ import annotations
 from pathlib import Path
 import customtkinter as ctk
 from PIL import Image
+from tkinter import filedialog
+from .models import MarkerSettings
 from .pptx_state import (PptxWorkspaceState, PptxEvent, PptxEventReceipt, apply_pptx_visual_event,
                           apply_pptx_scope_event, choose_file_success, project_file, project_badge)
 from .diagnostic_receipts import ReceiptLog
@@ -82,7 +84,12 @@ class PptxWorkspace:
         self.badge_menu = ctk.CTkOptionMenu(controls, variable=self.badge_var, values=names, command=lambda v: self._dispatch(PptxEvent.BADGE_SELECT, v), width=190); self.badge_menu.grid(row=11, column=0, padx=12, pady=2, sticky="w")
         self.badge_visual = ctk.CTkLabel(controls, text=self.badge_var.get(), anchor="w", height=62); self.badge_visual.grid(row=12, column=0, padx=12, pady=(2, 8), sticky="w")
         self.construction_receipt.badge_section_created = True
+        self._build_visual_controls(controls)
         self.preview_label = ctk.CTkLabel(preview, text="PowerPoint preview", fg_color=("gray92", "gray13"), height=260); self.preview_label.grid(row=0, column=0, padx=8, pady=8, sticky="nsew")
+        self.previous_button = ctk.CTkButton(preview, text="◀", width=40, command=lambda: self._change_slide(-1)); self.previous_button.grid(row=1, column=0, sticky="w", padx=12)
+        self.slide_status = ctk.CTkLabel(preview, text="—"); self.slide_status.grid(row=1, column=0)
+        self.next_button = ctk.CTkButton(preview, text="▶", width=40, command=lambda: self._change_slide(1)); self.next_button.grid(row=1, column=0, sticky="e", padx=12)
+        self.save_button = ctk.CTkButton(controls, text="Save Marked PowerPoint", command=self._save_as, width=190); self.save_button.grid(row=30, column=0, padx=12, pady=8, sticky="w")
         self.construction_receipt.preview_host_created = True
         preview.grid_columnconfigure(0, weight=1); preview.grid_rowconfigure(0, weight=1)
         self._project_badge()
@@ -92,6 +99,66 @@ class PptxWorkspace:
         self.state_token_reached = True
         self.receipts.record(self.construction_receipt)
         self.mounted = True
+
+    def _build_visual_controls(self, controls):
+        row = 13
+        ctk.CTkLabel(controls, text="Badge Position").grid(row=row, column=0, padx=12, pady=1, sticky="w")
+        positions = ["top-left", "top-right", "bottom-left", "bottom-right", "center"]
+        self.badge_position_var = ctk.StringVar(value=self.state.badge.position)
+        ctk.CTkOptionMenu(controls, variable=self.badge_position_var, values=positions, command=lambda v: self._dispatch(PptxEvent.BADGE_POSITION, v), width=190).grid(row=row+1, column=0, padx=12, pady=1, sticky="w")
+        self._slider(controls, row+2, "Badge Size", "badge", "size", 1, 100, self.state.badge.size)
+        self._slider(controls, row+3, "Badge Margin", "badge", "margin", 0, 250, self.state.badge.margin)
+        self._slider(controls, row+4, "Badge Opacity", "badge", "opacity", 0, 100, self.state.badge.opacity)
+        ctk.CTkLabel(controls, text="OWN LOGO", font=ctk.CTkFont(weight="bold")).grid(row=row+5, column=0, padx=12, pady=(6,2), sticky="w")
+        self.logo_enabled_var = ctk.BooleanVar(value=self.state.logo.enabled)
+        ctk.CTkCheckBox(controls, text="Add own logo", variable=self.logo_enabled_var, command=lambda: self._dispatch(PptxEvent.LOGO_ENABLE, self.logo_enabled_var.get())).grid(row=row+6, column=0, padx=12, pady=1, sticky="w")
+        ctk.CTkButton(controls, text="Choose Logo", command=self._choose_logo, width=120).grid(row=row+7, column=0, padx=12, pady=1, sticky="w")
+        self.logo_label = ctk.CTkLabel(controls, text="No logo selected", anchor="w"); self.logo_label.grid(row=row+8, column=0, padx=12, pady=1, sticky="w")
+        self.logo_position_var = ctk.StringVar(value=self.state.logo.position)
+        ctk.CTkOptionMenu(controls, variable=self.logo_position_var, values=positions, command=lambda v: self._dispatch(PptxEvent.LOGO_POSITION, v), width=190).grid(row=row+9, column=0, padx=12, pady=1, sticky="w")
+        self._slider(controls, row+10, "Logo Size", "logo", "size", 1, 100, self.state.logo.size)
+        self._slider(controls, row+11, "Logo Margin", "logo", "margin", 0, 250, self.state.logo.margin)
+        self._slider(controls, row+12, "Logo Opacity", "logo", "opacity", 0, 100, self.state.logo.opacity)
+
+    def _slider(self, host, row, label, group, field, low, high, value):
+        var = ctk.IntVar(value=value); setattr(self, f"{group}_{field}_var", var)
+        ctk.CTkLabel(host, text=f"{label}: {value}", anchor="w").grid(row=row, column=0, padx=12, pady=1, sticky="w")
+        slider = ctk.CTkSlider(host, from_=low, to=high, variable=var, command=lambda v: self._slider_event(group, field, v), width=190)
+        slider.grid(row=row+1, column=0, padx=12, pady=1, sticky="w")
+
+    def _slider_event(self, group, field, value):
+        event = getattr(PptxEvent, f"{group.upper()}_{field.upper()}")
+        self._dispatch(event, round(float(value)))
+
+    def _choose_logo(self):
+        path = filedialog.askopenfilename(filetypes=[("Images", "*.png;*.jpg;*.jpeg")])
+        if path:
+            self._dispatch(PptxEvent.LOGO_CHOOSE, path)
+            self.logo_label.configure(text=Path(path).name)
+
+    def _change_slide(self, delta):
+        event = PptxEvent.PREVIEW_NEXT if delta > 0 else PptxEvent.PREVIEW_PREVIOUS
+        apply_pptx_scope_event(self.state, event)
+        self._render_preview()
+
+    def _render_preview(self):
+        if not self.state.loaded:
+            return
+        renderer = getattr(self.app, "pptx_preview_renderer", None)
+        repository = getattr(self.app, "badges", None)
+        if not renderer or not repository:
+            return
+        try:
+            badge = project_badge(self.state, repository).get("asset") if self.state.badge.enabled and self.state.current_slide in self.state.active_scope else None
+            settings = MarkerSettings(badge_name=self.state.badge.badge_id, position=self.state.badge.position, size_percent=self.state.badge.size, margin=self.state.badge.margin, opacity=self.state.badge.opacity, logo_enabled=self.state.logo.enabled, logo_position=self.state.logo.position, logo_size_percent=self.state.logo.size, logo_margin=self.state.logo.margin, logo_opacity=self.state.logo.opacity)
+            result = renderer.render(self.state.path, self.state.current_slide, badge, settings, self.state.logo.path if self.state.logo.enabled else None)
+            self.preview_photo = ctk.CTkImage(result.image, size=result.image.size)
+            self.preview_label.configure(image=self.preview_photo, text="")
+            self.slide_status.configure(text=f"{result.slide_number} / {result.slide_count}")
+            self.previous_button.configure(state="normal" if self.state.current_slide > 1 else "disabled")
+            self.next_button.configure(state="normal" if self.state.current_slide < self.state.slide_count else "disabled")
+        except Exception as error:
+            self.preview_label.configure(image=None, text=f"Could not render slide: {error}")
 
     def _choose_file(self):
         from tkinter import filedialog
@@ -113,6 +180,7 @@ class PptxWorkspace:
             self.receipts.record({"layer": "pptx", "event": "FILE_STATE_UPDATED", "selected_file": self.state.display_filename, "file_size_bytes": self.state.file_size_bytes, "slide_count": self.state.slide_count})
             self._project_scope()
             self._project_file()
+            self._render_preview()
             self.receipts.record({"layer": "pptx", "event": "FILE_PROJECTED", "result": "ok"})
             self.receipts.record({"layer": "pptx", "event": "FILE_WIDGETS_UPDATED", "result": "ok"})
 
@@ -125,6 +193,13 @@ class PptxWorkspace:
         self.last_receipt = PptxEventReceipt(event, before, {"badge": self.state.badge.__dict__.copy()}, (event.value,), ("path", "current_slide", "active_scope", "logo"), True, value)
         self.receipts.record(self.last_receipt)
         self._project_badge()
+        self._render_preview()
+
+    def _save_as(self):
+        """Delegate only the output side effect; state remains workspace-owned."""
+        handler = getattr(self.app, "process_pptx", None)
+        if callable(handler):
+            handler()
 
     def _scope_mode(self, value):
         mode = str(value).lower()

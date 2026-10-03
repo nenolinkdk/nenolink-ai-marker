@@ -1,5 +1,14 @@
 # PPTX workspace state
 
+## Phase 3 status
+
+The complete state-owned workspace includes independent OWN LOGO state, AI
+BADGE visual parameters, lazy physical-slide preview/navigation and the
+existing PPTX Save As/metadata processor path. Preview arrows change only
+`current_slide` within `1..slide_count`; they never change `active_scope`.
+Overlays are projected only when the current slide is selected, and preview
+errors preserve file/scope state. Packaged-runtime verification is pending.
+
 ## Current Phase 1 contract
 
 `PptxWorkspace` is the single production PPTX mount and the sole runtime

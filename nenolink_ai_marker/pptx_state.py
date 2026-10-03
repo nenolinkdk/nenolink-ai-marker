@@ -60,6 +60,16 @@ class PptxWorkspaceState:
         self.path = None; self.slide_count = 0; self.current_slide = 1
         self.scope_mode = "all"; self.active_scope = (); self.scope_input = ""; self.output_status = ""
 
+    def visual_projection(self) -> dict[str, Any]:
+        """Immutable-style snapshot consumed by preview and output adapters."""
+        return {
+            "badge": self.badge.__dict__.copy(),
+            "logo": self.logo.__dict__.copy(),
+            "scope": tuple(self.active_scope),
+            "current_slide": self.current_slide,
+            "path": self.path,
+        }
+
 
 def choose_file_success(state: PptxWorkspaceState, path: Path, slide_count: int) -> PptxWorkspaceState:
     state.path = Path(path); state.slide_count = int(slide_count); state.current_slide = 1
