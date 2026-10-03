@@ -13,7 +13,7 @@ from typing import Any
 @dataclass
 class PptxBadgeState:
     enabled: bool = True
-    badge_id: str = ""
+    badge_id: str = "AI Assisted"
     position: str = "bottom-right"
     size: int = 20
     margin: int = 20
@@ -81,6 +81,7 @@ class PptxEventReceipt:
     changed: tuple[str, ...]
     preserved: tuple[str, ...]
     projection_updated: bool = True
+    input_value: Any = None
 
 
 @dataclass(frozen=True)
