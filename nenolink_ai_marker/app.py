@@ -36,6 +36,7 @@ from .pptx_preview import PptxPreviewRenderer
 from .pptx_state import PptxWorkspaceState, PptxEvent, apply_pptx_visual_event
 from .pptx_workspace import PptxWorkspace, PPTX_STATE_TOKEN
 from .workspace_state import ImageWorkspaceState, VideoWorkspaceState, PdfWorkspaceState, visual_projection
+from .image_workspace import ImageWorkspace
 from .workspace_ui import WORKSPACE_LAYOUT, build_badge_section, build_logo_section, build_workspace_control_template, build_badge_visual
 from .pdf_processor import PasswordProtectedPdfError, PdfInfo, PdfProcessor
 from .pdf_preview import PdfPreviewRenderer
@@ -2766,54 +2767,12 @@ class MarkerApp(ctk.CTk):
     # --- Image module -----------------------------------------------------------
 
     def _build_image_workspace(self) -> None:
-        workspace = self.image_workspace
-        workspace.grid_columnconfigure(1, weight=1); workspace.grid_rowconfigure(0, weight=1)
-        left = AutoHideScrollableFrame(workspace, width=320, fg_color=("gray86", "gray17")); self.image_controls = left
-        left.grid(row=0, column=0, padx=(4, 8), pady=4, sticky="nsew"); left.grid_columnconfigure(0, weight=1)
-        self.open_button = ctk.CTkButton(left, command=self.open_images); self.open_button.grid(row=0, column=0, padx=14, pady=(10, 4), sticky="ew")
-        self.file_label = ctk.CTkLabel(left, anchor="w", justify="left", wraplength=280); self.file_label.grid(row=1, column=0, padx=14, pady=3, sticky="ew")
-        self.file_size_guidance = ctk.CTkLabel(left, anchor="w", justify="left", wraplength=280, text_color="gray60"); self.file_size_guidance.grid(row=2, column=0, padx=14, pady=(0, 4), sticky="ew")
-
-        badge_section = ctk.CTkFrame(left); badge_section.grid(row=3, column=0, padx=14, pady=(4, 4), sticky="ew"); badge_section.grid_columnconfigure(0, weight=1)
-        self.badge_enable = ctk.CTkCheckBox(badge_section, variable=self.badge_enabled_var, command=self.badge_enabled_changed); self.badge_enable.grid(row=0, column=0, padx=8, pady=(7, 3), sticky="w")
-        self.single_badge_label = ctk.CTkLabel(badge_section, font=ctk.CTkFont(weight="bold")); self.single_badge_label.grid(row=1, column=0, padx=8, pady=(2, 1), sticky="w")
-        self.badge_menu = ctk.CTkOptionMenu(badge_section, variable=self.badge_display_var, values=["—"], command=self.select_badge_display); self.badge_menu.grid(row=2, column=0, padx=8, pady=2, sticky="ew")
-        badge_preview = ctk.CTkFrame(badge_section); badge_preview.grid(row=3, column=0, padx=8, pady=(3, 7), sticky="ew"); badge_preview.grid_columnconfigure(1, weight=1)
-        self.single_badge_preview_label = ctk.CTkLabel(badge_preview, width=90, height=44); self.single_badge_preview_label.grid(row=0, column=0, padx=5, pady=5)
-        self.single_badge_name_label = ctk.CTkLabel(badge_preview, textvariable=self.badge_name_var, font=ctk.CTkFont(weight="bold"), anchor="w", wraplength=155); self.single_badge_name_label.grid(row=0, column=1, padx=(3, 5), pady=5, sticky="ew")
-
-        self.position_label = ctk.CTkLabel(left); self.position_label.grid(row=4, column=0, padx=14, pady=(5, 1), sticky="w")
-        self.position_menu = ctk.CTkOptionMenu(left, variable=self.position_display_var, values=["—"], command=self.change_position_display); self.position_menu.grid(row=5, column=0, padx=14, pady=2, sticky="ew")
-        self.size_label = self._image_slider(left, self.size_var, 1, 100, 6)
-        self.margin_label = self._image_slider(left, self.margin_var, 0, 250, 8)
-        self.opacity_label = self._image_slider(left, self.opacity_var, 0, 100, 10)
-
-        self.logo_controls = ctk.CTkFrame(left); self.logo_controls.grid(row=12, column=0, padx=14, pady=(5, 8), sticky="ew"); self.logo_controls.grid_columnconfigure(1, weight=1)
-        self.logo_heading = ctk.CTkLabel(self.logo_controls, font=ctk.CTkFont(weight="bold")); self.logo_heading.grid(row=0, column=0, columnspan=2, padx=8, pady=(6, 2), sticky="w")
-        self.logo_enable = ctk.CTkCheckBox(self.logo_controls, variable=self.logo_enabled_var, command=self.logo_changed); self.logo_enable.grid(row=1, column=0, columnspan=2, padx=8, pady=3, sticky="w")
-        self.logo_choose = ctk.CTkButton(self.logo_controls, command=self.choose_logo, height=28); self.logo_choose.grid(row=2, column=0, padx=8, pady=3, sticky="w")
-        self.logo_filename = ctk.CTkLabel(self.logo_controls, textvariable=self.logo_filename_var, anchor="w", wraplength=155); self.logo_filename.grid(row=2, column=1, padx=(2, 8), pady=3, sticky="ew")
-        self.logo_position_label = ctk.CTkLabel(self.logo_controls); self.logo_position_label.grid(row=3, column=0, padx=8, pady=2, sticky="w")
-        self.logo_position_menu = ctk.CTkOptionMenu(self.logo_controls, variable=self.logo_position_display_var, values=["—"], command=self.change_logo_position, height=28); self.logo_position_menu.grid(row=3, column=1, padx=8, pady=2, sticky="ew")
-        self.logo_size_label = ctk.CTkLabel(self.logo_controls); self.logo_size_label.grid(row=4, column=0, columnspan=2, padx=8, sticky="w")
-        self.logo_size_slider = ctk.CTkSlider(self.logo_controls, from_=1, to=100, number_of_steps=99, variable=self.logo_size_var, command=self.logo_changed); self.logo_size_slider.grid(row=5, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="ew")
-        self.logo_margin_label = ctk.CTkLabel(self.logo_controls); self.logo_margin_label.grid(row=6, column=0, columnspan=2, padx=8, sticky="w")
-        self.logo_margin_slider = ctk.CTkSlider(self.logo_controls, from_=0, to=250, number_of_steps=250, variable=self.logo_margin_var, command=self.logo_changed); self.logo_margin_slider.grid(row=7, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="ew")
-        self.logo_opacity_label = ctk.CTkLabel(self.logo_controls); self.logo_opacity_label.grid(row=8, column=0, columnspan=2, padx=8, sticky="w")
-        self.logo_opacity_slider = ctk.CTkSlider(self.logo_controls, from_=0, to=100, number_of_steps=100, variable=self.logo_opacity_var, command=self.logo_changed); self.logo_opacity_slider.grid(row=9, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="ew")
-        self.logo_images_only = ctk.CTkLabel(self.logo_controls, text_color="gray60"); self.logo_images_only.grid(row=10, column=0, columnspan=2, padx=8, pady=(0, 6), sticky="w")
-        self.process_button = ctk.CTkButton(left, command=self.save_images); self.process_button.grid(row=13, column=0, padx=14, pady=(2, 10), sticky="ew")
-
-        right = ctk.CTkFrame(workspace); right.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right.grid_columnconfigure(0, weight=1); right.grid_rowconfigure(0, weight=1)
-        self.preview_label = ctk.CTkLabel(right)
-        self.welcome_frame = ctk.CTkFrame(right, fg_color="transparent"); self.welcome_frame.grid(row=0, column=0, padx=18, pady=14, sticky="nsew"); self.welcome_frame.grid_columnconfigure(0, weight=1); self.welcome_frame.grid_rowconfigure(4, weight=1)
-        self.welcome_title = ctk.CTkLabel(self.welcome_frame, font=ctk.CTkFont(size=28, weight="bold")); self.welcome_title.grid(row=0, column=0, padx=12, pady=(12, 4))
-        self.welcome_tagline = ctk.CTkLabel(self.welcome_frame, font=ctk.CTkFont(size=18, weight="bold"), text_color=("#2469a0", "#65b6ef")); self.welcome_tagline.grid(row=1, column=0, padx=12, pady=(0, 10))
-        self.welcome_description1 = ctk.CTkLabel(self.welcome_frame, wraplength=720, justify="center"); self.welcome_description1.grid(row=2, column=0, padx=18, pady=2)
-        self.welcome_description2 = ctk.CTkLabel(self.welcome_frame, wraplength=720, justify="center"); self.welcome_description2.grid(row=3, column=0, padx=18, pady=(2, 10))
-        self.welcome_illustration = ctk.CTkLabel(self.welcome_frame, anchor="center"); self.welcome_illustration.grid(row=4, column=0, padx=12, pady=(4, 12), sticky="nsew")
-        self._load_image_welcome(); self.welcome_frame.bind("<Configure>", self._resize_image_welcome)
-
+        """Temporary entry adapter; ImageWorkspace owns widget construction."""
+        if getattr(self, "image_workspace_owner", None) is None:
+            self.image_workspace_owner = ImageWorkspace(
+                self, self.image_state, scrollable_frame_cls=AutoHideScrollableFrame
+            )
+        self.image_workspace_owner._build_ui(self.image_workspace)
     def _image_slider(self, parent, variable, start, end, row):
         label = ctk.CTkLabel(parent); label.grid(row=row, column=0, padx=14, pady=(4, 0), sticky="w")
         ctk.CTkSlider(parent, from_=start, to=end, number_of_steps=end-start, variable=variable, command=self.changed).grid(row=row+1, column=0, padx=14, pady=(1, 3), sticky="ew")
