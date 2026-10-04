@@ -2597,7 +2597,7 @@ class MarkerApp(ctk.CTk):
         self._clear_content_host()
 
     def _image_has_active_work(self) -> bool:
-        return bool(self.sources)
+        return bool(self.image_state.selected_files)
 
     def _video_has_active_work(self) -> bool:
         return bool(getattr(self, "video_sources", []))
@@ -2964,8 +2964,9 @@ class MarkerApp(ctk.CTk):
         if not selected: return
         candidates = [Path(path) for path in selected if Path(path).suffix.lower() in SUPPORTED_EXTENSIONS]
         if any(is_above_recommended_size(path) for path in candidates) and not messagebox.askokcancel(self.translator.text("warning.large_title"), self.translator.text("warning.large_file")): return
-        self.sources = candidates
-        self.image_state.path = candidates[0] if candidates else None
+        self.image_state.set_session(candidates)
+        self.sources = list(self.image_state.selected_files)  # compatibility mirror
+        self.media_sources["image"] = list(self.image_state.selected_files)  # compatibility mirror
         self._sync_image_state()
         if candidates:
             self.file_label.configure(text=f"{candidates[0].name} · {human_file_size(candidates[0].stat().st_size)}")

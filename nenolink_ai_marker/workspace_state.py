@@ -67,6 +67,16 @@ class WorkspaceRuntimeState:
 class ImageWorkspaceState(WorkspaceRuntimeState):
     """Image reference workspace state; image has no document scope."""
     preview_image: Any = None
+    selected_files: tuple[Path, ...] = ()
+
+    def set_session(self, files: tuple[Path, ...] | list[Path]) -> None:
+        self.selected_files = tuple(Path(value) for value in files)
+        self.path = self.selected_files[0] if self.selected_files else None
+
+    def clear_runtime_state(self) -> None:
+        super().clear_runtime_state()
+        self.selected_files = ()
+        self.preview_image = None
 
 
 @dataclass
