@@ -16,6 +16,7 @@ from .inspection import human_file_size
 from .processor import SUPPORTED_EXTENSIONS
 from .image_output import ImageProcessingRequest
 from .metadata import marker_metadata
+from .workspace_state import ImageEvent, apply_image_event
 
 
 class ImageWorkspace:
@@ -51,7 +52,7 @@ class ImageWorkspace:
         return bool(self.state.selected_files)
 
     def clear_runtime_state(self):
-        self.state.clear_runtime_state()
+        apply_image_event(self.state, ImageEvent.CLEAR_RUNTIME)
 
     def project(self):
         """Project authoritative state through the existing app adapters."""
@@ -67,7 +68,7 @@ class ImageWorkspace:
         candidates = [Path(path) for path in selected if Path(path).suffix.lower() in SUPPORTED_EXTENSIONS]
         if any(is_above_recommended_size(path) for path in candidates) and not messagebox.askokcancel(app.translator.text("warning.large_title"), app.translator.text("warning.large_file")):
             return
-        self.state.set_session(candidates)
+        apply_image_event(self.state, ImageEvent.FILE_SELECTED, {"files": tuple(candidates)})
         app.sources = list(self.state.selected_files)
         app.media_sources["image"] = list(self.state.selected_files)
         if candidates:
@@ -127,26 +128,29 @@ class ImageWorkspace:
         (messagebox.showerror if failures else messagebox.showinfo)(app.translator.text("error.completed") if failures else app.translator.text("complete.title"), summary + ("\n\n" + "\n".join(failures[:8]) if failures else "") + warning)
 
     def badge_changed(self):
-        self.state.badge.badge_id = self.app.badge_var.get()
+        apply_image_event(self.state, ImageEvent.BADGE_CHANGED, {"badge_id": self.app.badge_var.get()})
         self.app._project_image_visual_state()
         self.refresh_preview()
 
     def logo_changed(self, *_args):
-        self.state.logo.enabled = bool(self.app.logo_enabled_var.get())
-        self.state.logo.path = self.app._logo_path()
-        self.state.logo.position = self.app.logo_position_var.get()
-        self.state.logo.size = int(self.app.logo_size_var.get())
-        self.state.logo.margin = int(self.app.logo_margin_var.get())
-        self.state.logo.opacity = int(self.app.logo_opacity_var.get())
+        apply_image_event(self.state, ImageEvent.LOGO_CHANGED, {
+            "enabled": bool(self.app.logo_enabled_var.get()), "path": self.app._logo_path(),
+            "position": self.app.logo_position_var.get(), "size": int(self.app.logo_size_var.get()),
+            "margin": int(self.app.logo_margin_var.get()), "opacity": int(self.app.logo_opacity_var.get()),
+        })
         self.app._project_image_visual_state()
         self.refresh_preview()
 
     def visual_changed(self, *_args):
-        self.state.badge.position = self.app.position_var.get()
-        self.state.badge.size = int(self.app.size_var.get())
-        self.state.badge.margin = int(self.app.margin_var.get())
-        self.state.badge.opacity = int(self.app.opacity_var.get())
-        self.logo_changed()
+        apply_image_event(self.state, ImageEvent.VISUAL_CHANGED, {
+            "position": self.app.position_var.get(), "size": int(self.app.size_var.get()),
+            "margin": int(self.app.margin_var.get()), "opacity": int(self.app.opacity_var.get()),
+            "logo_enabled": bool(self.app.logo_enabled_var.get()), "logo_path": self.app._logo_path(),
+            "logo_position": self.app.logo_position_var.get(), "logo_size": int(self.app.logo_size_var.get()),
+            "logo_margin": int(self.app.logo_margin_var.get()), "logo_opacity": int(self.app.logo_opacity_var.get()),
+        })
+        self.app._project_image_visual_state()
+        self.refresh_preview()
 
     def _slider(self, parent, variable, start, end, row):
         app = self.app

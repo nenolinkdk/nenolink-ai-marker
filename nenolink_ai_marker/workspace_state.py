@@ -79,6 +79,63 @@ class ImageWorkspaceState(WorkspaceRuntimeState):
         self.preview_image = None
 
 
+class ImageEvent(str, Enum):
+    FILE_SELECTED = "file_selected"
+    BADGE_CHANGED = "badge_changed"
+    LOGO_CHANGED = "logo_changed"
+    VISUAL_CHANGED = "visual_changed"
+    CLEAR_RUNTIME = "clear_runtime"
+
+
+@dataclass(frozen=True)
+class ImageTransition:
+    event: ImageEvent
+    mutates: tuple[str, ...]
+    preserves: tuple[str, ...]
+
+
+IMAGE_TRANSITION_TABLE: tuple[ImageTransition, ...] = (
+    ImageTransition(ImageEvent.FILE_SELECTED, ("selected_files", "path"), ("badge", "logo")),
+    ImageTransition(ImageEvent.BADGE_CHANGED, ("badge",), ("selected_files", "path", "logo")),
+    ImageTransition(ImageEvent.LOGO_CHANGED, ("logo",), ("selected_files", "path", "badge")),
+    ImageTransition(ImageEvent.VISUAL_CHANGED, ("badge", "logo"), ("selected_files", "path")),
+    ImageTransition(ImageEvent.CLEAR_RUNTIME, ("selected_files", "path", "preview_image", "output_status"), ("badge", "logo")),
+)
+
+
+def image_transition(event: ImageEvent | str) -> ImageTransition:
+    value = ImageEvent(event)
+    return next(spec for spec in IMAGE_TRANSITION_TABLE if spec.event is value)
+
+
+def apply_image_event(state: ImageWorkspaceState, event: ImageEvent | str, payload=None) -> ImageWorkspaceState:
+    """The single Image runtime transition boundary."""
+    event = ImageEvent(event)
+    image_transition(event)  # validate that the event is normative
+    payload = payload or {}
+    if event is ImageEvent.FILE_SELECTED:
+        state.set_session(tuple(Path(value) for value in payload.get("files", ())))
+    elif event is ImageEvent.BADGE_CHANGED:
+        for key in ("enabled", "badge_id", "position", "size", "margin", "opacity"):
+            if key in payload:
+                setattr(state.badge, key, payload[key])
+    elif event is ImageEvent.LOGO_CHANGED:
+        for key in ("enabled", "path", "position", "size", "margin", "opacity"):
+            if key in payload:
+                setattr(state.logo, key, Path(payload[key]) if key == "path" and payload[key] else payload[key])
+    elif event is ImageEvent.VISUAL_CHANGED:
+        for key in ("position", "size", "margin", "opacity"):
+            if key in payload:
+                setattr(state.badge, key, payload[key])
+        for key in ("enabled", "path", "position", "size", "margin", "opacity"):
+            if f"logo_{key}" in payload:
+                value = payload[f"logo_{key}"]
+                setattr(state.logo, key, Path(value) if key == "path" and value else value)
+    elif event is ImageEvent.CLEAR_RUNTIME:
+        state.clear_runtime_state()
+    return state
+
+
 @dataclass
 class VideoWorkspaceState(WorkspaceRuntimeState):
     mode: str = "permanent"
