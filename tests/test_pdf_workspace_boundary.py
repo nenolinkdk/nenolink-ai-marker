@@ -108,3 +108,9 @@ def test_pdf_processing_request_is_immutable_and_uses_workspace_state(tmp_path):
         assert False
     except Exception:
         pass
+
+
+def test_pdf_registry_entry_is_workspace_instance():
+    workspace = object()
+    app = SimpleNamespace(_workspace_registry={"pdf": workspace})
+    assert app._workspace_registry["pdf"] is workspace

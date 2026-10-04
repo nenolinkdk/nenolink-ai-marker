@@ -1671,7 +1671,7 @@ class MarkerApp(ctk.CTk):
         self._workspace_registry = {
             "image": self.image_workspace_owner,
             "video": self.video_workspace_owner,
-            "pdf": self._mount_pdf_workspace,
+            "pdf": self.pdf_workspace_owner,
             "pptx": self._mount_pptx_workspace,
         }
         self._build_shell_ui()
@@ -1859,6 +1859,8 @@ class MarkerApp(ctk.CTk):
             self.mounted_view = placeholder_for(tool)
             return
         self._unmount_tool()
+        if destination != "pdf" and self.active_content_type == "pdf":
+            self.pdf_workspace_owner.unmount()
         if destination in self._workspace_registry:
             trace = self.__dict__.get("shell_trace")
             if destination == "pptx" and trace is not None: trace.append("PPTX_REGISTRY")
