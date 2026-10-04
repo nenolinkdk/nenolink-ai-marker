@@ -1009,10 +1009,12 @@ class LegacyMarkerApp(ctk.CTk):
             receipts.record({"layer": "pptx", "event": "PPTX_SAVE_DIALOG_REQUEST"})
         try:
             metrics = self.pptx_processor.document_metrics(source)
-            self.pptx_metrics = metrics
         except (OSError, ValueError, KeyError) as error:
             messagebox.showerror(self.translator.text("error.title"), self.translator.text("pptx.error", error=error)); return
-        if not self._confirm_pptx_limits():
+        assessment = assess_document("pptx", metrics)
+        if assessment.blocked:
+            messagebox.showerror(self.translator.text("document.limit_title"), self.translator.text("document.pptx_hard")); return
+        if assessment.requires_warning and not messagebox.askokcancel(self.translator.text("document.warning_title"), self.translator.text("document.pptx_warning")):
             return
         badge = self.badges.find(state.badge.badge_id) if state.badge.enabled else None
         logo_path = Path(state.logo.path) if state.logo.enabled and state.logo.path else None
@@ -2188,11 +2190,7 @@ class MarkerApp(ctk.CTk):
 
     def change_pptx_scope_mode(self, label: str) -> None:
         self.pptx_scope_mode = {"All": "all", "First": "first", "Selected": "selected", "Range": "range"}.get(label, "all")
-        if self.pptx_scope_mode == "all" and self.pptx_metrics:
-            self.pptx_active_scope = tuple(range(1, self.pptx_metrics.item_count + 1)); self.pptx_current_slide = 1; self._update_pptx_preview()
-        elif self.pptx_scope_mode == "first" and self.pptx_metrics:
-            self.pptx_active_scope = (1,); self.pptx_current_slide = 1; self._update_pptx_preview()
-        self._update_pptx_scope_controls()
+        # Scope and visuals come only from the supplied workspace state.
 
     def update_pptx_scope(self) -> None:
         if not self.pptx_metrics or self.pptx_scope_mode not in {"selected", "range"}: return
@@ -2226,6 +2224,11 @@ class MarkerApp(ctk.CTk):
             self.pptx_scope_message.configure(text="Invalid slide selection. The previous scope was preserved.")
 
     def _update_pptx_preview(self) -> None:
+        # Compatibility entry point; the active PPTX route is workspace-owned.
+        workspace = getattr(self, "pptx_workspace_state", None)
+        if workspace is not None and hasattr(workspace, "_render_preview"):
+            workspace._render_preview()
+            return
         if not getattr(self, "pptx_preview_label", None): return
         self._sync_pptx_visual_state()
         if not self.pptx_path or not self.pptx_metrics:
