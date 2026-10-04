@@ -289,6 +289,10 @@ class PptxWorkspace:
             apply_pptx_scope_event(self.state, PptxEvent.SCOPE_UPDATE, value)
             self._scope_receipt(PptxEvent.SCOPE_UPDATE, value)
             self._project_scope()
+            # UPDATE_SCOPE owns the physical-preview jump to the first
+            # applicable slide; projection then renders that authoritative
+            # state without remounting the workspace.
+            self._render_preview()
         except ValueError as error:
             self.state.active_scope = before
             self.scope_status.configure(text=str(error))
