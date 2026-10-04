@@ -9,6 +9,7 @@ import customtkinter as ctk
 from .batch import extract_video_frame, find_ffmpeg
 from .models import MarkerSettings
 from .metadata import marker_metadata
+from .workspace_state import VideoEvent, apply_video_event
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,9 +52,30 @@ class VideoWorkspace:
         from tkinter import filedialog
         selected = filedialog.askopenfilename(title=self.app.translator.text("dialog.open_media"), filetypes=[(self.app.translator.text("files.supported_videos"), "*.mp4 *.mov *.mkv *.avi *.webm"), (self.app.translator.text("files.all"), "*.*")])
         if selected:
-            path = Path(selected); self.state.path = path
+            path = Path(selected); apply_video_event(self.state, VideoEvent.FILE_SELECTED, {"path": path})
             self.app.video_sources = [path]; self.app.media_sources["video"] = [path]
             self.app.video_file_label.configure(text=path.name); self.project(); self.refresh_preview()
+
+    def change_mode(self, label):
+        apply_video_event(self.state, VideoEvent.MODE_CHANGED, {"mode": self.app.video_mode_display_to_value[label]})
+        self.project(); self.app._update_video_duration_visibility(); self.app._save_image_settings()
+
+    def change_duration(self, value=None):
+        try: value = int(self.app.video_duration_var.get() if value is None else value)
+        except (TypeError, ValueError): value = self.state.duration
+        apply_video_event(self.state, VideoEvent.DURATION_CHANGED, {"duration": value})
+        self.project(); self.app._update_video_duration_visibility(); self.app._save_image_settings()
+
+    def change_badge(self, label):
+        apply_video_event(self.state, VideoEvent.BADGE_CHANGED, {"badge_id": label})
+        self.project(); self.app._update_video_badge_preview(); self.refresh_preview(); self.app._save_image_settings()
+
+    def change_visual(self, *_args):
+        apply_video_event(self.state, VideoEvent.VISUAL_CHANGED, {
+            "position": self.app.video_position_var.get(), "size": int(self.app.video_size_var.get()),
+            "margin": int(self.app.video_margin_var.get()), "opacity": int(self.app.video_opacity_var.get()),
+        })
+        self.project(); self.refresh_preview(); self.app._save_image_settings()
 
     def _build_ui(self, workspace):
         app = self.app
@@ -63,19 +85,19 @@ class VideoWorkspace:
         def heading(text, row): ctk.CTkLabel(left, text=text, font=ctk.CTkFont(weight="bold")).grid(row=row, column=0, padx=14, pady=(8, 2), sticky="w")
         heading("FILE", 0); app.video_open_button = ctk.CTkButton(left, text="Choose Video", command=self.choose_video); app.video_open_button.grid(row=1, column=0, padx=14, pady=2, sticky="ew")
         app.video_file_label = ctk.CTkLabel(left, text="No video selected", anchor="w", justify="left", wraplength=280); app.video_file_label.grid(row=2, column=0, padx=14, pady=(2, 6), sticky="ew")
-        heading("AI BADGE", 3); app.video_badge_enable = ctk.CTkCheckBox(left, text="Add AI badge", variable=app.badge_enabled_var, command=app._video_changed); app.video_badge_enable.grid(row=4, column=0, padx=14, pady=2, sticky="w")
+        heading("AI BADGE", 3); app.video_badge_enable = ctk.CTkCheckBox(left, text="Add AI badge", variable=app.badge_enabled_var, command=self.change_visual); app.video_badge_enable.grid(row=4, column=0, padx=14, pady=2, sticky="w")
         app.video_badge_label = ctk.CTkLabel(left, text="Selected Badge", anchor="w"); app.video_badge_label.grid(row=5, column=0, padx=14, pady=1, sticky="w")
-        app.video_badge_var = ctk.StringVar(value=app.badge_display_var.get()); app.video_badge_menu = ctk.CTkOptionMenu(left, variable=app.video_badge_var, values=["—"], command=app.change_video_badge); app.video_badge_menu.grid(row=6, column=0, padx=14, pady=2, sticky="ew")
+        app.video_badge_var = ctk.StringVar(value=app.badge_display_var.get()); app.video_badge_menu = ctk.CTkOptionMenu(left, variable=app.video_badge_var, values=["—"], command=self.change_badge); app.video_badge_menu.grid(row=6, column=0, padx=14, pady=2, sticky="ew")
         badge_preview = ctk.CTkFrame(left); badge_preview.grid(row=7, column=0, padx=14, pady=3, sticky="ew"); badge_preview.grid_columnconfigure(1, weight=1)
         app.video_badge_preview_label = ctk.CTkLabel(badge_preview, width=90, height=44); app.video_badge_preview_label.grid(row=0, column=0, padx=5, pady=5)
         app.video_badge_name_label = ctk.CTkLabel(badge_preview, textvariable=app.badge_name_var, font=ctk.CTkFont(weight="bold"), anchor="w", wraplength=155); app.video_badge_name_label.grid(row=0, column=1, padx=(3, 5), pady=5, sticky="ew")
         app.video_position_var = ctk.StringVar(value="bottom-right"); app.video_position_display_var = ctk.StringVar(value="Bottom right"); app.video_position_display_to_value = {"Top left":"top-left", "Top right":"top-right", "Bottom left":"bottom-left", "Bottom right":"bottom-right", "Center":"center"}
-        app.video_position_label = ctk.CTkLabel(left, text="Badge Position"); app.video_position_label.grid(row=8, column=0, padx=14, pady=1, sticky="w"); app.video_position_menu = ctk.CTkOptionMenu(left, variable=app.video_position_display_var, values=list(app.video_position_display_to_value), command=app.change_video_position); app.video_position_menu.grid(row=9, column=0, padx=14, pady=2, sticky="ew")
+        app.video_position_label = ctk.CTkLabel(left, text="Badge Position"); app.video_position_label.grid(row=8, column=0, padx=14, pady=1, sticky="w"); app.video_position_menu = ctk.CTkOptionMenu(left, variable=app.video_position_display_var, values=list(app.video_position_display_to_value), command=lambda _label: self.change_visual()); app.video_position_menu.grid(row=9, column=0, padx=14, pady=2, sticky="ew")
         app.video_size_var = ctk.IntVar(value=20); app.video_margin_var = ctk.IntVar(value=20); app.video_opacity_var = ctk.IntVar(value=100)
-        app.video_size_label = app._video_slider(left, app.video_size_var, 1, 100, 10, "Badge Size"); app.video_margin_label = app._video_slider(left, app.video_margin_var, 0, 250, 12, "Badge Margin"); app.video_opacity_label = app._video_slider(left, app.video_opacity_var, 0, 100, 14, "Badge Opacity")
+        app.video_size_label = app._video_slider(left, app.video_size_var, 1, 100, 10, "Badge Size", self.change_visual); app.video_margin_label = app._video_slider(left, app.video_margin_var, 0, 250, 12, "Badge Margin", self.change_visual); app.video_opacity_label = app._video_slider(left, app.video_opacity_var, 0, 100, 14, "Badge Opacity", self.change_visual)
         heading("VIDEO OPTIONS", 16); app.video_mode_var = ctk.StringVar(value="permanent"); app.video_mode_display_var = ctk.StringVar(); app.video_mode_display_to_value = {"Permanent":"permanent", "Beginning":"beginning", "End":"end"}
-        app.video_mode_label = ctk.CTkLabel(left, text="Video badge mode"); app.video_mode_label.grid(row=17, column=0, padx=14, pady=1, sticky="w"); app.video_mode_menu = ctk.CTkOptionMenu(left, variable=app.video_mode_display_var, values=list(app.video_mode_display_to_value), command=app.change_video_mode); app.video_mode_menu.grid(row=18, column=0, padx=14, pady=2, sticky="ew")
-        app.video_duration_var = ctk.IntVar(value=5); app.video_duration_label = ctk.CTkLabel(left, text="Duration"); app.video_duration_entry = ctk.CTkEntry(left, textvariable=app.video_duration_var); app.video_seconds_label = ctk.CTkLabel(left, text="seconds"); app.video_duration_label.grid(row=19, column=0, padx=14, pady=1, sticky="w"); app.video_duration_entry.grid(row=20, column=0, padx=14, pady=2, sticky="ew"); app.video_duration_entry.bind("<FocusOut>", app.change_video_duration)
+        app.video_mode_label = ctk.CTkLabel(left, text="Video badge mode"); app.video_mode_label.grid(row=17, column=0, padx=14, pady=1, sticky="w"); app.video_mode_menu = ctk.CTkOptionMenu(left, variable=app.video_mode_display_var, values=list(app.video_mode_display_to_value), command=self.change_mode); app.video_mode_menu.grid(row=18, column=0, padx=14, pady=2, sticky="ew")
+        app.video_duration_var = ctk.IntVar(value=5); app.video_duration_label = ctk.CTkLabel(left, text="Duration"); app.video_duration_entry = ctk.CTkEntry(left, textvariable=app.video_duration_var); app.video_seconds_label = ctk.CTkLabel(left, text="seconds"); app.video_duration_label.grid(row=19, column=0, padx=14, pady=1, sticky="w"); app.video_duration_entry.grid(row=20, column=0, padx=14, pady=2, sticky="ew"); app.video_duration_entry.bind("<FocusOut>", lambda _event: self.change_duration())
         heading("OUTPUT", 21); app.video_process_button = ctk.CTkButton(left, text="Save Marked Video...", command=self.save); app.video_process_button.grid(row=22, column=0, padx=14, pady=(2, 10), sticky="ew")
         app.video_preview_label = ctk.CTkLabel(right, text="Video preview"); app.video_preview_label.grid(row=0, column=0, padx=20, pady=20)
 

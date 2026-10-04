@@ -2578,9 +2578,9 @@ class MarkerApp(ctk.CTk):
     def _mount_video_workspace(self) -> None:
         """Temporary registry entry adapter; VideoWorkspace owns the view."""
         self.video_workspace_owner.mount(self.content_host)
-    def _video_slider(self, parent, variable, start, end, row, label):
+    def _video_slider(self, parent, variable, start, end, row, label, command=None):
         output = ctk.CTkLabel(parent, text=label); output.grid(row=row, column=0, padx=14, pady=(4, 0), sticky="w")
-        ctk.CTkSlider(parent, from_=start, to=end, number_of_steps=end-start, variable=variable, command=self._video_changed).grid(row=row+1, column=0, padx=14, pady=(1, 3), sticky="ew")
+        ctk.CTkSlider(parent, from_=start, to=end, number_of_steps=end-start, variable=variable, command=command or self._video_changed).grid(row=row+1, column=0, padx=14, pady=(1, 3), sticky="ew")
         return output
 
     def _mount_tool(self, tool: str) -> None:

@@ -142,6 +142,60 @@ class VideoWorkspaceState(WorkspaceRuntimeState):
     duration: int = 5
 
 
+class VideoEvent(str, Enum):
+    FILE_SELECTED = "file_selected"
+    MODE_CHANGED = "mode_changed"
+    DURATION_CHANGED = "duration_changed"
+    BADGE_CHANGED = "badge_changed"
+    VISUAL_CHANGED = "visual_changed"
+    CLEAR_RUNTIME = "clear_runtime"
+
+
+@dataclass(frozen=True)
+class VideoTransition:
+    event: VideoEvent
+    mutates: tuple[str, ...]
+    preserves: tuple[str, ...]
+
+
+VIDEO_TRANSITION_TABLE: tuple[VideoTransition, ...] = (
+    VideoTransition(VideoEvent.FILE_SELECTED, ("path",), ("mode", "duration", "badge", "logo")),
+    VideoTransition(VideoEvent.MODE_CHANGED, ("mode",), ("path", "duration", "badge", "logo")),
+    VideoTransition(VideoEvent.DURATION_CHANGED, ("duration",), ("path", "mode", "badge", "logo")),
+    VideoTransition(VideoEvent.BADGE_CHANGED, ("badge",), ("path", "mode", "duration", "logo")),
+    VideoTransition(VideoEvent.VISUAL_CHANGED, ("badge",), ("path", "mode", "duration", "logo")),
+    VideoTransition(VideoEvent.CLEAR_RUNTIME, ("path", "output_status"), ("mode", "duration", "badge", "logo")),
+)
+
+
+def video_transition(event: VideoEvent | str) -> VideoTransition:
+    value = VideoEvent(event)
+    return next(spec for spec in VIDEO_TRANSITION_TABLE if spec.event is value)
+
+
+def apply_video_event(state: VideoWorkspaceState, event: VideoEvent | str, payload=None) -> VideoWorkspaceState:
+    event = VideoEvent(event)
+    video_transition(event)
+    payload = payload or {}
+    if event is VideoEvent.FILE_SELECTED:
+        state.path = Path(payload["path"]) if payload.get("path") else None
+    elif event is VideoEvent.MODE_CHANGED:
+        state.mode = str(payload["mode"])
+    elif event is VideoEvent.DURATION_CHANGED:
+        state.duration = max(1, int(payload["duration"]))
+    elif event is VideoEvent.BADGE_CHANGED:
+        for key in ("enabled", "badge_id", "position", "size", "margin", "opacity"):
+            if key in payload:
+                setattr(state.badge, key, payload[key])
+    elif event is VideoEvent.VISUAL_CHANGED:
+        for key in ("position", "size", "margin", "opacity"):
+            if key in payload:
+                setattr(state.badge, key, payload[key])
+    elif event is VideoEvent.CLEAR_RUNTIME:
+        state.clear_runtime_state()
+    return state
+
+
 @dataclass
 class PdfWorkspaceState(WorkspaceRuntimeState):
     """Authoritative PDF runtime; physical preview and processing scope stay separate."""
