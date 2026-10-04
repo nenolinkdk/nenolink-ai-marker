@@ -35,6 +35,13 @@ def test_video_mount_owns_two_fresh_hosts_and_clears_common_host():
     assert "grid_columnconfigure(1, weight=1)" in active
 
 
+def test_video_registry_uses_workspace_lifecycle_object():
+    source = APP.read_text(encoding="utf-8")
+    assert '"video": self.video_workspace_owner' in source
+    assert "workspace.mount(self.content_host)" in source
+    assert '"video": self._mount_video_workspace' not in source
+
+
 def test_video_file_selection_does_not_rebuild_workspace():
     source = APP.read_text(encoding="utf-8")
     start = source.index("    def open_video(self)")

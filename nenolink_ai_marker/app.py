@@ -1668,7 +1668,7 @@ class MarkerApp(ctk.CTk):
         # resolves and mounts the selected peer.
         self._workspace_registry = {
             "image": self.image_workspace_owner,
-            "video": self._mount_video_workspace,
+            "video": self.video_workspace_owner,
             "pdf": self._mount_pdf_workspace,
             "pptx": self._mount_pptx_workspace,
         }
