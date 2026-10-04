@@ -245,3 +245,18 @@ def apply_pptx_visual_event(state: PptxWorkspaceState, event: PptxEvent, value):
     target, field, normalizer = mapping[PptxEvent(event)]
     setattr(target, field, normalizer(value))
     return state
+
+
+def apply_pptx_event(state: PptxWorkspaceState, event: PptxEvent | str, value=None) -> PptxWorkspaceState:
+    """Single authoritative PPTX event dispatcher."""
+    event = PptxEvent(event)
+    pptx_transition(event)  # every event must be represented by the table
+    if event is PptxEvent.CHOOSE_FILE:
+        path, count = value
+        return choose_file_success(state, Path(path), int(count))
+    if event is PptxEvent.SAVE_AS:
+        return state
+    if event in {PptxEvent.SCOPE_MODE, PptxEvent.SCOPE_TEXT_CHANGED, PptxEvent.SCOPE_UPDATE,
+                 PptxEvent.PREVIEW_PREVIOUS, PptxEvent.PREVIEW_NEXT}:
+        return apply_pptx_scope_event(state, event, value)
+    return apply_pptx_visual_event(state, event, value)

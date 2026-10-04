@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 from nenolink_ai_marker.pptx_state import (PptxWorkspaceState, PptxEvent, PPTX_TRANSITION_TABLE,
-    apply_pptx_visual_event, apply_pptx_scope_event, normalize_scope)
+    apply_pptx_visual_event, apply_pptx_scope_event, apply_pptx_event, normalize_scope)
 
 
 def test_pptx_state_keeps_physical_preview_and_scope_independent():
@@ -77,3 +77,13 @@ def test_invalid_scope_preserves_last_valid_scope(mode, text):
     with pytest.raises(ValueError):
         normalize_scope(mode, text, state.slide_count)
     assert (state.active_scope, state.current_slide) == before
+
+
+@pytest.mark.parametrize("event,value", [
+    (PptxEvent.BADGE_SIZE, 44), (PptxEvent.LOGO_MARGIN, 18),
+    (PptxEvent.SCOPE_TEXT_CHANGED, "2,4"), (PptxEvent.PREVIEW_NEXT, None),
+])
+def test_all_pptx_events_use_single_dispatcher(event, value):
+    state = PptxWorkspaceState(Path("deck.pptx"), 10, 2, "all", tuple(range(1, 11)))
+    apply_pptx_event(state, event, value)
+    assert state.path == Path("deck.pptx")

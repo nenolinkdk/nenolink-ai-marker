@@ -11,7 +11,7 @@ import customtkinter as ctk
 from PIL import Image
 from tkinter import filedialog
 from .models import MarkerSettings
-from .pptx_state import (PptxWorkspaceState, PptxEvent, PptxEventReceipt, apply_pptx_visual_event,
+from .pptx_state import (PptxWorkspaceState, PptxEvent, PptxEventReceipt, apply_pptx_event,
                           apply_pptx_scope_event, choose_file_success, project_file, project_badge)
 from .diagnostic_receipts import ReceiptLog
 from .document_preview_layout import fit_preview_size
@@ -173,7 +173,7 @@ class PptxWorkspace:
 
     def _change_slide(self, delta):
         event = PptxEvent.PREVIEW_NEXT if delta > 0 else PptxEvent.PREVIEW_PREVIOUS
-        apply_pptx_scope_event(self.state, event)
+        apply_pptx_event(self.state, event)
         self.receipts.record({"layer": "pptx", "event": "PREVIEW_NAVIGATION", "current_slide": self.state.current_slide, "active_scope": self.state.active_scope})
         self._render_preview()
 
@@ -256,7 +256,7 @@ class PptxWorkspace:
             count = 0
         if count:
             self.receipts.record({"layer": "pptx", "event": "CHOOSE_FILE_SUCCESS", "owner": "file_reducer", "result": "accepted"})
-            choose_file_success(self.state, Path(path), count)
+            apply_pptx_event(self.state, PptxEvent.CHOOSE_FILE, (Path(path), count))
             self.receipts.record({"layer": "pptx", "event": "FILE_REDUCER_APPLIED", "owner": "file_reducer", "result": "ok"})
             self.receipts.record({"layer": "pptx", "event": "FILE_STATE_UPDATED", "selected_file": self.state.display_filename, "file_size_bytes": self.state.file_size_bytes, "slide_count": self.state.slide_count})
             self._project_scope()
@@ -270,7 +270,7 @@ class PptxWorkspace:
         before = {"path": self.state.path, "current_slide": self.state.current_slide,
                   "active_scope": self.state.active_scope, "badge": self.state.badge.__dict__.copy(),
                   "logo": self.state.logo.__dict__.copy()}
-        apply_pptx_visual_event(self.state, event, value)
+        apply_pptx_event(self.state, event, value)
         self.state_token_reached = True
         self.last_receipt = PptxEventReceipt(event, before, {"badge": self.state.badge.__dict__.copy()}, (event.value,), ("path", "current_slide", "active_scope", "logo"), True, value)
         self.receipts.record(self.last_receipt)
@@ -296,7 +296,7 @@ class PptxWorkspace:
     def _scope_mode(self, value):
         mode = self._scope_value.get(str(value), str(value).lower())
         try:
-            apply_pptx_scope_event(self.state, PptxEvent.SCOPE_MODE, mode)
+            apply_pptx_event(self.state, PptxEvent.SCOPE_MODE, mode)
             self._scope_receipt(PptxEvent.SCOPE_MODE, mode)
             self._project_scope()
         except ValueError as error:
@@ -306,8 +306,8 @@ class PptxWorkspace:
         value = self.scope_input_var.get()
         before = self.state.active_scope
         try:
-            apply_pptx_scope_event(self.state, PptxEvent.SCOPE_TEXT_CHANGED, value)
-            apply_pptx_scope_event(self.state, PptxEvent.SCOPE_UPDATE, value)
+            apply_pptx_event(self.state, PptxEvent.SCOPE_TEXT_CHANGED, value)
+            apply_pptx_event(self.state, PptxEvent.SCOPE_UPDATE, value)
             self._scope_receipt(PptxEvent.SCOPE_UPDATE, value)
             self._project_scope()
             # UPDATE_SCOPE owns the physical-preview jump to the first
@@ -320,7 +320,7 @@ class PptxWorkspace:
 
     def _scope_text_changed(self):
         value = self.scope_input_var.get()
-        apply_pptx_scope_event(self.state, PptxEvent.SCOPE_TEXT_CHANGED, value)
+        apply_pptx_event(self.state, PptxEvent.SCOPE_TEXT_CHANGED, value)
         self._scope_receipt(PptxEvent.SCOPE_TEXT_CHANGED, value)
 
     def _scope_receipt(self, event, value):
