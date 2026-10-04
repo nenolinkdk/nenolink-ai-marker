@@ -37,6 +37,7 @@ from .pptx_state import PptxWorkspaceState, PptxEvent, apply_pptx_visual_event
 from .pptx_workspace import PptxWorkspace, PPTX_STATE_TOKEN
 from .workspace_state import ImageWorkspaceState, VideoWorkspaceState, PdfWorkspaceState, visual_projection
 from .image_workspace import ImageWorkspace
+from .video_workspace import VideoWorkspace
 from .workspace_ui import WORKSPACE_LAYOUT, build_badge_section, build_logo_section, build_workspace_control_template, build_badge_visual
 from .pdf_processor import PasswordProtectedPdfError, PdfInfo, PdfProcessor
 from .pdf_preview import PdfPreviewRenderer
@@ -1661,6 +1662,7 @@ class MarkerApp(ctk.CTk):
         self.image_workspace_owner = ImageWorkspace(
             self, self.image_state, scrollable_frame_cls=AutoHideScrollableFrame
         )
+        self.video_workspace_owner = VideoWorkspace(self, self.video_state)
         # One shell-level registry for all peer content workspaces.  Format
         # specific state stays inside the mounted workspace; the shell only
         # resolves and mounts the selected peer.
@@ -2660,15 +2662,15 @@ class MarkerApp(ctk.CTk):
 
     def change_video_position(self, label: str) -> None:
         self.video_state.badge.position = self.video_position_display_to_value[label]
-        self._project_video_state(); self._render_video_preview(); self._save_image_settings()
+        self._project_video_state(); self.video_workspace_owner.refresh_preview(); self._save_image_settings()
 
     def change_video_badge(self, label: str) -> None:
         self.video_state.badge.badge_id = label
-        self._project_video_state(); self._update_video_badge_preview(); self._render_video_preview(); self._save_image_settings()
+        self._project_video_state(); self._update_video_badge_preview(); self.video_workspace_owner.refresh_preview(); self._save_image_settings()
 
     def _video_changed(self, *_args) -> None:
         self.video_state.badge.size = int(self.video_size_var.get()); self.video_state.badge.margin = int(self.video_margin_var.get()); self.video_state.badge.opacity = int(self.video_opacity_var.get())
-        self._project_video_state(); self.video_size_label.configure(text=self.translator.text("size.value",value=self.video_state.badge.size)); self.video_margin_label.configure(text=self.translator.text("margin.value",value=self.video_state.badge.margin)); self.video_opacity_label.configure(text=self.translator.text("opacity.value",value=self.video_state.badge.opacity)); self._render_video_preview(); self._save_image_settings()
+        self._project_video_state(); self.video_size_label.configure(text=self.translator.text("size.value",value=self.video_state.badge.size)); self.video_margin_label.configure(text=self.translator.text("margin.value",value=self.video_state.badge.margin)); self.video_opacity_label.configure(text=self.translator.text("opacity.value",value=self.video_state.badge.opacity)); self.video_workspace_owner.refresh_preview(); self._save_image_settings()
 
     def _sync_video_state(self) -> None:
         self._project_video_state()
@@ -2703,7 +2705,7 @@ class MarkerApp(ctk.CTk):
             self.video_state.path = path
             self.video_sources = [path]  # compatibility mirror: state → legacy consumers
             self.media_sources["video"] = [path]
-            self.video_file_label.configure(text=path.name); self._sync_video_state(); self._render_video_preview(); self._save_image_settings()
+            self.video_file_label.configure(text=path.name); self._sync_video_state(); self.video_workspace_owner.refresh_preview(); self._save_image_settings()
 
     def save_video(self) -> None:
         self._sync_video_state()

@@ -57,7 +57,7 @@ def test_video_selection_renders_existing_preview_without_remounting():
     start = source.index("    def open_video(self)")
     end = source.index("    def save_video", start)
     handler = source[start:end]
-    assert "self._sync_video_state(); self._render_video_preview()" in handler
+    assert "self.video_workspace_owner.refresh_preview()" in handler
     assert "_mount_video_workspace" not in handler
 
 
@@ -66,7 +66,7 @@ def test_video_visual_events_rerender_projection():
     start = source.index("    def change_video_position")
     end = source.index("    def _sync_video_state", start)
     handlers = source[start:end]
-    assert handlers.count("self._render_video_preview()") >= 3
+    assert handlers.count("self.video_workspace_owner.refresh_preview()") >= 3
     assert "def _project_video_state" in source
     assert "self.video_state.badge.size = int(self.video_size_var.get())" in source
 
