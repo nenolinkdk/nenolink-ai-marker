@@ -2842,13 +2842,13 @@ class MarkerApp(ctk.CTk):
         self._update_image_slider_labels(); self._update_logo_labels()
         if self.active_content_type == "pdf": self.render_pdf_preview()
         elif self.active_content_type == "pptx": self._update_pptx_preview()
-        else: self.update_preview()
+        else: self.image_workspace_owner.refresh_preview()
         self._save()
 
     def badge_enabled_changed(self) -> None:
         self.image_state.badge.enabled = bool(self.badge_enabled_var.get())
         self._project_image_visual_state()
-        self._update_badge_controls(); self.update_preview(); self._save()
+        self._update_badge_controls(); self.image_workspace_owner.refresh_preview(); self._save()
 
     def _update_badge_controls(self) -> None:
         enabled = self.badge_enabled_var.get()
@@ -2919,7 +2919,7 @@ class MarkerApp(ctk.CTk):
         self._project_image_visual_state()
         self.badge_display_var.set(self.badges.display_name(self.badge_var.get()));
         if getattr(self, "single_badge_preview_label", None): self.update_image_badge_preview()
-        if self.active_content_type == "image": self.update_preview()
+        if self.active_content_type == "image": self.image_workspace_owner.refresh_preview()
         elif self.active_content_type == "pdf": self.render_pdf_preview()
         elif self.active_content_type == "pptx": self._update_pptx_preview()
         self._save()
@@ -2950,7 +2950,7 @@ class MarkerApp(ctk.CTk):
             self.file_label.configure(text=f"{candidates[0].name} · {human_file_size(candidates[0].stat().st_size)}")
         else:
             self.file_label.configure(text=self.translator.text("files.none_supported"))
-        self.update_preview()
+        self.image_workspace_owner.refresh_preview()
 
     def update_preview(self) -> None:
         """Temporary UI adapter for the authoritative Image preview route."""
