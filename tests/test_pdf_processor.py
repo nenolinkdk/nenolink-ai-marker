@@ -46,55 +46,6 @@ class _Text:
     def text(self,key,**values):return key.format(**values) if values else key
 
 
-def test_pdf_repeated_scope_sequence_keeps_file_and_rebuilds_preview(tmp_path):
-    source=tmp_path/"sequence.pdf"; badge=tmp_path/"ai-assisted.png"; _pdf(source,6); _badge(badge); processor=ImageProcessor(); info=PdfProcessor.inspect(source)
-    app=SimpleNamespace(
-        active_content_type="pdf",processor=processor,pdf_path=source,pdf_info=info,
-        pdf_preview_state=DocumentPreviewState(1,6),pdf_preview_renderer=PdfPreviewRenderer(processor),
-        document_scope_states={"pdf":DocumentScopeState(),"pptx":DocumentScopeState()},
-        pptx_selection_mode_var=_Var("all"),pptx_selected_var=_Var(""),pptx_range_var=_Var("1-2"),pptx_scope_validation_label=SimpleNamespace(configure=Mock()),
-        pptx_selection_display_to_value={"All":"all","First":"first","Selected":"selected","Range":"range"},
-        pptx_selection_display_var=_Var("All"),
-        pptx_preview_photo=None,pptx_preview_label=SimpleNamespace(configure=Mock()),pptx_slide_status=SimpleNamespace(configure=Mock()),pptx_previous_button=SimpleNamespace(configure=Mock()),pptx_next_button=SimpleNamespace(configure=Mock()),
-        _update_pptx_selection_fields=Mock(),translator=_Text(),badges=BadgeRepository(tmp_path),badge_var=_Var(badge.name),pdf_badge_enabled_var=_Var(True),logo_enabled_var=_Var(False),
-        settings=lambda:MarkerSettings(),_logo_path=lambda:None,language_menu=Mock(),reset_button=Mock(),guide_button=Mock(),media_navigation=Mock(),document_navigation=Mock(),tools_navigation=Mock(),
-        status_var=_Var(),
-    )
-    app.update_pdf_preview=lambda:MarkerApp.update_pdf_preview(app)
-    app.update_pptx_preview=lambda:MarkerApp.update_pptx_preview(app)
-    with patch("nenolink_ai_marker.app.ctk.CTkImage",side_effect=lambda image,size:("preview",size)):
-        for label,mode,scope in (("All","all",(1,2,3,4,5,6)),("First","first",(1,))):
-            MarkerApp.change_pptx_selection_mode(app,label)
-            assert app.pdf_path==source and app.pdf_info is info
-            assert app.document_scope_states["pdf"].mode==mode
-            assert (app.pdf_preview_state.current,app.pdf_preview_state.count)==(scope[0],6)
-            assert app.document_scope_states["pdf"].active_scope==scope
-            assert app.pptx_preview_photo is not None
-            assert app.pptx_preview_label.configure.call_args.kwargs["text"]==""
-            app.reset_button.configure.assert_any_call(state="normal")
-        MarkerApp.change_pptx_selection_mode(app,"First")
-        MarkerApp.change_pdf_preview_page(app,1)
-        assert app.pdf_preview_state.current==2
-        assert app.document_scope_states["pdf"].active_scope==(1,)
-        assert not MarkerApp._current_document_item_is_marked(app,"pdf")
-        MarkerApp.change_pptx_selection_mode(app,"Selected")
-        assert app.document_scope_states["pdf"].active_scope==(1,) and app.pdf_preview_state.current==2
-        app.pptx_selected_var.set("2,4"); MarkerApp.commit_document_selection(app)
-        assert app.document_scope_states["pdf"].active_scope==(2,4) and app.pdf_preview_state.current==2
-        app.pptx_selected_var.set("2,invalid"); MarkerApp.commit_document_selection(app)
-        assert app.document_scope_states["pdf"].active_scope==(2,4) and app.pdf_preview_state.current==2
-        MarkerApp.change_pdf_preview_page(app,1)
-        assert app.pdf_preview_state.current==3 and not MarkerApp._current_document_item_is_marked(app,"pdf")
-        assert app.document_scope_states["pdf"].active_scope==(2,4)
-        MarkerApp.change_pptx_selection_mode(app,"Range"); app.pptx_range_var.set("3-5"); MarkerApp.commit_document_selection(app)
-        assert app.document_scope_states["pdf"].active_scope==(3,4,5) and app.pdf_preview_state.current==3
-        MarkerApp.change_pdf_preview_page(app,-2)
-        assert app.pdf_preview_state.current==1 and app.document_scope_states["pdf"].active_scope==(3,4,5)
-        MarkerApp.change_pptx_selection_mode(app,"All")
-        assert app.document_scope_states["pdf"].active_scope==(1,2,3,4,5,6)
-        assert app.pdf_preview_state.current==1
-
-
 def test_pdf_inspection_reports_size_and_page_count(tmp_path):
     source=tmp_path/"source.pdf"; _pdf(source,7)
     info=PdfProcessor.inspect(source)

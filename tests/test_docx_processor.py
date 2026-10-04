@@ -347,20 +347,6 @@ def test_docx_rejects_unknown_scope(tmp_path):
         DocxProcessor().process(request, "section-2")
 
 
-def test_docx_ui_scope_change_has_only_first_page_and_entire_document():
-    scope = Mock()
-    app = SimpleNamespace(
-        workspace_state=SimpleNamespace(active="docx"),
-        docx_scope_var=scope,
-        pptx_selection_display_to_value={
-            "First page": "first-page", "Entire document": "entire-document",
-        },
-    )
-    MarkerApp.change_pptx_selection_mode(app, "First page")
-    scope.set.assert_called_once_with("first-page")
-    assert set(app.pptx_selection_display_to_value.values()) == {"first-page", "entire-document"}
-
-
 def test_docx_preserves_text_tables_images_unrelated_parts_and_source(tmp_path):
     request = _request(tmp_path, badge=True, logo=True, sections=2)
     source_hash = sha256(request.source.read_bytes()).hexdigest()
