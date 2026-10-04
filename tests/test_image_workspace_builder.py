@@ -25,3 +25,17 @@ def test_builder_receives_existing_image_state():
     assert "self.image_workspace_owner = ImageWorkspace(" in APP
     assert "self, self.image_state" in APP
     assert "self.state = state" in WORKSPACE
+
+
+def test_image_workspace_owns_mount_and_lifecycle_contract():
+    assert "def mount(self, host)" in WORKSPACE
+    assert "self._build_ui(self.root)" in WORKSPACE
+    assert "def unmount(self)" in WORKSPACE
+    assert "def project(self)" in WORKSPACE
+    assert "def has_active_work(self)" in WORKSPACE
+    assert "def clear_runtime_state(self)" in WORKSPACE
+    mount_start = APP.index("    def _mount_image_workspace")
+    mount_end = APP.index("    def _mount_video_workspace", mount_start)
+    mount = APP[mount_start:mount_end]
+    assert "image_workspace_owner.mount(self.content_host)" in mount
+    assert "CTkFrame" not in mount

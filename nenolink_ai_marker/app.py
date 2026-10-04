@@ -2503,18 +2503,12 @@ class MarkerApp(ctk.CTk):
         self.render_pdf_preview()
 
     def _mount_image_workspace(self) -> None:
-        if self.image_workspace is not None and self.image_workspace.winfo_exists():
-            self.image_workspace.grid()
-            return
-        self._clear_content_host()
-        self.image_workspace = ctk.CTkFrame(self.content_host, fg_color="transparent")
-        self.image_workspace.grid(row=0, column=0, sticky="nsew")
-        self.image_workspace.grid_columnconfigure(0, weight=1); self.image_workspace.grid_rowconfigure(0, weight=1)
-        self._build_image_workspace()
-        self.refresh_image_badges()
-        self.apply_image_translations()
-        self._validate_saved_logo()
-        self._show_welcome()
+        """Temporary shell entry adapter; ImageWorkspace owns lifecycle."""
+        if getattr(self, "image_workspace_owner", None) is None:
+            self.image_workspace_owner = ImageWorkspace(
+                self, self.image_state, scrollable_frame_cls=AutoHideScrollableFrame
+            )
+        self.image_workspace_owner.mount(self.content_host)
 
     def _mount_video_workspace(self) -> None:
         self._clear_content_host()

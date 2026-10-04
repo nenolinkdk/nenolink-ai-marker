@@ -17,7 +17,12 @@ class ImageWorkspace:
         self.root = None
 
     def mount(self, host):
-        """Mount through the workspace API; the registry switch is deferred."""
+        """Own Image view creation and projection; registry switch is deferred."""
+        if self.root is not None and self.root.winfo_exists():
+            self.root.grid()
+            self.project()
+            return
+        self.app._clear_content_host()
         self.root = ctk.CTkFrame(host, fg_color="transparent")
         self.root.grid(row=0, column=0, sticky="nsew")
         self.root.grid_columnconfigure(0, weight=1)
@@ -25,6 +30,9 @@ class ImageWorkspace:
         self.app.image_workspace = self.root
         self._build_ui(self.root)
         self.project()
+        self.app.apply_image_translations()
+        self.app._validate_saved_logo()
+        self.app._show_welcome()
 
     def unmount(self):
         if self.root is not None and self.root.winfo_exists():
@@ -39,7 +47,6 @@ class ImageWorkspace:
     def project(self):
         """Project authoritative state through the existing app adapters."""
         if self.root is not None and self.root.winfo_exists():
-            self.app._sync_image_state()
             self.app.refresh_image_badges()
 
     def _slider(self, parent, variable, start, end, row):
