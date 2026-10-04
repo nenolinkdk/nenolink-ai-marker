@@ -357,6 +357,14 @@ class PptxWorkspace:
         if hasattr(self, "file_label"):
             self.file_label.configure(text=model["status"] if not model["filename"] else f"{model['filename']}\n{model['details']}")
 
+    def project(self) -> None:
+        """Project the authoritative PPTX state into the mounted view."""
+        if self.root is None or not self.root.winfo_exists():
+            return
+        self._project_file()
+        self._project_scope()
+        self._project_badge()
+
     def unmount(self) -> None:
         if self.root is not None and self.root.winfo_exists():
             self.root.destroy()

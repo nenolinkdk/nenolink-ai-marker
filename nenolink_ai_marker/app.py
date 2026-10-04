@@ -1672,7 +1672,7 @@ class MarkerApp(ctk.CTk):
             "image": self.image_workspace_owner,
             "video": self.video_workspace_owner,
             "pdf": self.pdf_workspace_owner,
-            "pptx": self._mount_pptx_workspace,
+            "pptx": self.pptx_workspace_state,
         }
         self._build_shell_ui()
         self.render_shell_state()
@@ -1841,7 +1841,7 @@ class MarkerApp(ctk.CTk):
             workspace = getattr(self, "pptx_workspace_state", None)
             if workspace is not None:
                 return workspace.has_active_work()
-            return self.pptx_path is not None
+            return False
         return False
 
     def render_shell_state(self) -> None:
@@ -1861,6 +1861,8 @@ class MarkerApp(ctk.CTk):
         self._unmount_tool()
         if destination != "pdf" and self.active_content_type == "pdf":
             self.pdf_workspace_owner.unmount()
+        if destination != "pptx" and self.active_content_type == "pptx":
+            self.pptx_workspace_state.unmount()
         if destination in self._workspace_registry:
             trace = self.__dict__.get("shell_trace")
             if destination == "pptx" and trace is not None: trace.append("PPTX_REGISTRY")
