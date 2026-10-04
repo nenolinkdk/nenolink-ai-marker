@@ -369,3 +369,26 @@ PPTX transition semantics are machine-readable in `pptx_state.py` via
 `apply_pptx_visual_event`; the table declares mutation, preservation, preview,
 output and remount effects. Parameterized tests iterate this table and enforce
 badge/logo isolation, scope/physical-slide independence and no-remount rules.
+
+## Permanent state-table architecture (3J)
+
+The current production hierarchy is:
+
+```text
+GLOBAL SHELL FSM
+├── IMAGE WORKSPACE FSM
+├── VIDEO WORKSPACE FSM
+├── PDF WORKSPACE FSM
+└── PPTX WORKSPACE FSM
+```
+
+Shell owns global navigation, tool overlays and Reset. Each peer workspace
+owns its typed events, machine-readable transition table, reducer, state,
+projection, preview and output boundary. The permanent rules and change/test/
+build pipeline are defined in [STATE-TABLE-DEVELOPMENT.md](STATE-TABLE-DEVELOPMENT.md).
+
+Verified deterministic counts are Image 5/5/5/0/0, Video 6/6/6/0/0, PDF
+11/11/11/0/0 and PPTX 20/20/20/0/0 (specified/executed/passed/failed/
+untested). Shell uses its executable transition and receipt proof suite. All
+five state-table gates are source-verified; packaged Windows runtime and
+physical geometry remain a separate acceptance gate.
