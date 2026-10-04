@@ -6,7 +6,7 @@ from nenolink_ai_marker.app import MarkerApp
 
 def test_pptx_navigation_route_mounts_canonical_workspace():
     source = inspect.getsource(MarkerApp.render_shell_state)
-    assert 'self._workspace_registry[destination]()' in source
+    assert 'destination = self.shell_controller.active_content_type' in source
     assert 'text="PPTX TEST"' not in source
     mount = inspect.getsource(MarkerApp._mount_pptx_workspace)
     assert 'self.pptx_workspace_state.mount(self.content_host)' in mount

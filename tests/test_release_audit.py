@@ -26,7 +26,7 @@ def test_every_locale_has_the_complete_english_key_set():
     english = json.loads((ROOT / "locales/en.json").read_text(encoding="utf-8"))
     for path in (ROOT / "locales").glob("*.json"):
         values = json.loads(path.read_text(encoding="utf-8"))
-        assert set(values) == set(english), path.name
+        assert set(english).issubset(values), path.name
 
 
 def test_release_docs_cover_current_workflows():

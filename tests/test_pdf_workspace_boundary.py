@@ -17,7 +17,7 @@ class _State:
 
 
 def test_pdf_workspace_exposes_common_lifecycle_and_uses_existing_state():
-    state = _State()
+    state = _State("legacy.pdf")
     app = SimpleNamespace(pdf_path="legacy.pdf")
     workspace = PdfWorkspace(app, state)
 
