@@ -2256,10 +2256,9 @@ class MarkerApp(ctk.CTk):
         filename = self.badge_display_to_file.get(display_name)
         if not filename or not self.badges.find(filename):
             return
-        self.badge_var.set(filename)
-        self.badge_display_var.set(display_name)
         self.pdf_state.badge.badge_id = filename
         self.pdf_state.badge.enabled = bool(self.pdf_badge_enabled_var.get())
+        self.pdf_workspace_owner.project()
         if getattr(self, "pdf_badge_name_label", None):
             self.pdf_badge_name_label.configure(text=display_name)
         self._project_pdf_badge_visual()
@@ -2300,9 +2299,8 @@ class MarkerApp(ctk.CTk):
         value = self.position_display_to_value.get(display_name)
         if not value:
             return
-        self.position_display_var.set(display_name)
-        self.position_var.set(value)
         self.pdf_state.badge.position = value
+        self.pdf_workspace_owner.project()
         self.render_pdf_preview()
 
     def change_pdf_badge_size(self, value) -> None:
@@ -2311,8 +2309,8 @@ class MarkerApp(ctk.CTk):
             normalized = max(1, min(100, int(round(float(value)))))
         except (TypeError, ValueError):
             return
-        self.size_var.set(normalized)
         self.pdf_state.badge.size = normalized
+        self.pdf_workspace_owner.project()
         if getattr(self, "pdf_size_label", None):
             self.pdf_size_label.configure(text=f"Badge Size: {normalized}%")
         self.render_pdf_preview()
@@ -2322,7 +2320,7 @@ class MarkerApp(ctk.CTk):
             normalized = max(0, min(250, int(round(float(value)))))
         except (TypeError, ValueError):
             return
-        self.margin_var.set(normalized); self.pdf_state.badge.margin = normalized
+        self.pdf_state.badge.margin = normalized; self.pdf_workspace_owner.project()
         if getattr(self, "pdf_margin_label", None): self.pdf_margin_label.configure(text=f"Margin: {normalized} px")
         self.render_pdf_preview()
 
@@ -2331,54 +2329,45 @@ class MarkerApp(ctk.CTk):
             normalized = max(0, min(100, int(round(float(value)))))
         except (TypeError, ValueError):
             return
-        self.opacity_var.set(normalized); self.pdf_state.badge.opacity = normalized
+        self.pdf_state.badge.opacity = normalized; self.pdf_workspace_owner.project()
         if getattr(self, "pdf_opacity_label", None): self.pdf_opacity_label.configure(text=f"Opacity: {normalized}%")
         self.render_pdf_preview()
 
     def change_pdf_logo_enabled(self) -> None:
         self.pdf_state.logo.enabled = bool(self.logo_enabled_var.get())
+        self.pdf_workspace_owner.project()
         self.render_pdf_preview()
 
     def change_pdf_logo_position(self, display_name: str) -> None:
         value = self.position_display_to_value.get(display_name)
         if not value:
             return
-        self.logo_position_display_var.set(display_name); self.logo_position_var.set(value)
-        self.pdf_state.logo.position = value; self.render_pdf_preview()
+        self.pdf_state.logo.position = value; self.pdf_workspace_owner.project(); self.render_pdf_preview()
 
     def change_pdf_logo_size(self, value) -> None:
         try: normalized = max(1, min(100, int(round(float(value)))) )
         except (TypeError, ValueError): return
-        self.logo_size_var.set(normalized); self.pdf_state.logo.size = normalized
+        self.pdf_state.logo.size = normalized; self.pdf_workspace_owner.project()
         if getattr(self, "pdf_logo_size_label", None): self.pdf_logo_size_label.configure(text=f"Logo Size: {normalized}%")
         self.render_pdf_preview()
 
     def change_pdf_logo_margin(self, value) -> None:
         try: normalized = max(0, min(250, int(round(float(value)))) )
         except (TypeError, ValueError): return
-        self.logo_margin_var.set(normalized); self.pdf_state.logo.margin = normalized
+        self.pdf_state.logo.margin = normalized; self.pdf_workspace_owner.project()
         if getattr(self, "pdf_logo_margin_label", None): self.pdf_logo_margin_label.configure(text=f"Logo Margin: {normalized} px")
         self.render_pdf_preview()
 
     def change_pdf_logo_opacity(self, value) -> None:
         try: normalized = max(0, min(100, int(round(float(value)))) )
         except (TypeError, ValueError): return
-        self.logo_opacity_var.set(normalized); self.pdf_state.logo.opacity = normalized
+        self.pdf_state.logo.opacity = normalized; self.pdf_workspace_owner.project()
         if getattr(self, "pdf_logo_opacity_label", None): self.pdf_logo_opacity_label.configure(text=f"Logo Opacity: {normalized}%")
         self.render_pdf_preview()
 
     def _sync_pdf_state(self) -> None:
-        self.pdf_state.path = self.pdf_path
-        self.pdf_state.page_count = self.pdf_info.metrics.item_count if self.pdf_info else 0
-        self.pdf_state.current_page = self.pdf_current_page
-        self.pdf_state.scope_mode = self.pdf_scope_mode
-        self.pdf_state.scope_input = self.pdf_scope_input
-        self.pdf_state.active_scope = tuple(self.pdf_active_scope)
-        self.pdf_state.badge.enabled = bool(self.pdf_badge_enabled_var.get())
-        self.pdf_state.badge.badge_id = self.badge_var.get()
-        self.pdf_state.badge.position = self.position_var.get(); self.pdf_state.badge.size = int(self.size_var.get()); self.pdf_state.badge.margin = int(self.margin_var.get()); self.pdf_state.badge.opacity = int(self.opacity_var.get())
-        self.pdf_state.logo.enabled = bool(self.logo_enabled_var.get()); self.pdf_state.logo.path = self._logo_path() if hasattr(self, "_logo_path") else None
-        self.pdf_state.logo.position = self.logo_position_var.get(); self.pdf_state.logo.size = int(self.logo_size_var.get()); self.pdf_state.logo.margin = int(self.logo_margin_var.get()); self.pdf_state.logo.opacity = int(self.logo_opacity_var.get())
+        # Compatibility entry point retained for preview/output until B3/B4.
+        self.pdf_workspace_owner.project()
 
     def choose_pdf_phase2(self) -> None:
         selected = filedialog.askopenfilename(title="Choose PDF", filetypes=[("PDF (*.pdf)", "*.pdf")])
@@ -2390,8 +2379,8 @@ class MarkerApp(ctk.CTk):
             messagebox.showerror("PDF", "Encrypted or password-protected PDFs are not supported."); return
         except (OSError, ValueError, AttributeError) as error:
             messagebox.showerror("PDF", f"Could not read PDF: {error}"); return
-        self.pdf_path, self.pdf_info = path, info
-        self.pdf_current_page = 1; self.pdf_preview_photo = None; self.pdf_scope_mode = "all"; self.pdf_active_scope = tuple(range(1, info.metrics.item_count + 1)); self.pdf_scope_input = ""
+        self.pdf_preview_photo = None
+        self.pdf_workspace_owner.accept_file(path, info)
         size = human_file_size(info.metrics.size_bytes)
         signed = "\nWarning: existing digital signatures may be invalidated when modified." if info.signed else ""
         self.pdf_file_label.configure(text=f"{path.name}\n{size} · {info.metrics.item_count} pages{signed}")
@@ -2449,9 +2438,10 @@ class MarkerApp(ctk.CTk):
         self.pdf_scope_update.configure(state="normal" if editable else "disabled")
 
     def change_pdf_scope_mode(self, label: str) -> None:
-        self.pdf_scope_mode = {"All": "all", "First": "first", "Selected": "selected", "Range": "range"}.get(label, "all")
-        if self.pdf_scope_mode == "all" and self.pdf_info: self.pdf_active_scope = tuple(range(1, self.pdf_info.metrics.item_count + 1)); self.pdf_current_page = 1; self.render_pdf_preview()
-        elif self.pdf_scope_mode == "first" and self.pdf_info: self.pdf_active_scope = (1,); self.pdf_current_page = 1; self.render_pdf_preview()
+        mode = {"All": "all", "First": "first", "Selected": "selected", "Range": "range"}.get(label, "all")
+        if mode == "all" and self.pdf_info: self.pdf_workspace_owner.set_scope(mode, tuple(range(1, self.pdf_info.metrics.item_count + 1))); self.render_pdf_preview()
+        elif mode == "first" and self.pdf_info: self.pdf_workspace_owner.set_scope(mode, (1,)); self.render_pdf_preview()
+        else: self.pdf_workspace_owner.state.scope_mode = mode; self.pdf_workspace_owner.project()
         self._update_pdf_scope_controls()
 
     def update_pdf_scope(self) -> None:
@@ -2478,9 +2468,8 @@ class MarkerApp(ctk.CTk):
                     values.extend(range(start, end + 1))
             values = sorted(set(values))
             if any(value < 1 or value > self.pdf_info.metrics.item_count for value in values): raise ValueError("Page is outside the PDF.")
-            self.pdf_active_scope = tuple(values); self.pdf_scope_input = text; self.pdf_scope_message.configure(text="")
-            self.pdf_current_page = values[0]; self.render_pdf_preview()
-            self._sync_pdf_state()
+            self.pdf_workspace_owner.set_scope(self.pdf_scope_mode, tuple(values), text)
+            self.pdf_scope_message.configure(text=""); self.render_pdf_preview()
         except (TypeError, ValueError):
             self.pdf_scope_message.configure(text="Invalid page selection. The previous scope was preserved.")
 
@@ -2528,8 +2517,7 @@ class MarkerApp(ctk.CTk):
 
     def change_pdf_page(self, delta: int) -> None:
         if not self.pdf_info: return
-        self.pdf_current_page = max(1, min(self.pdf_info.metrics.item_count, self.pdf_current_page + delta))
-        self._sync_pdf_state()
+        self.pdf_workspace_owner.set_current_page(self.pdf_workspace_owner.state.current_page + delta)
         self.render_pdf_preview()
 
     def _mount_image_workspace(self) -> None:

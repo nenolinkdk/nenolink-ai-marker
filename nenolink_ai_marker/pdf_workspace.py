@@ -29,11 +29,30 @@ class PdfWorkspace:
             root.grid_remove()
 
     def project(self) -> None:
-        # B1 retains the existing synchronization direction.  B2 will replace
-        # this with state-owned event projections.
-        sync = getattr(self.app, "_sync_pdf_state", None)
-        if callable(sync):
-            sync()
+        app = self.app; state = self.state
+        app.pdf_path = state.path
+        app.pdf_current_page = state.current_page
+        app.pdf_scope_mode = state.scope_mode
+        app.pdf_scope_input = state.scope_input
+        app.pdf_active_scope = tuple(state.active_scope)
+        if state.path is None: app.pdf_info = None
+        for name, value in (("pdf_badge_enabled_var", state.badge.enabled), ("badge_var", state.badge.badge_id), ("position_var", state.badge.position), ("size_var", state.badge.size), ("margin_var", state.badge.margin), ("opacity_var", state.badge.opacity), ("logo_enabled_var", state.logo.enabled), ("logo_path_var", str(state.logo.path or "")), ("logo_position_var", state.logo.position), ("logo_size_var", state.logo.size), ("logo_margin_var", state.logo.margin), ("logo_opacity_var", state.logo.opacity)):
+            variable = getattr(app, name, None)
+            if variable is not None: variable.set(value)
+
+    def accept_file(self, path, info) -> None:
+        self.state.path = path; self.state.page_count = info.metrics.item_count; self.state.current_page = 1
+        self.state.scope_mode = "all"; self.state.scope_input = ""; self.state.active_scope = tuple(range(1, self.state.page_count + 1)); self.state.preview_image = None
+        self.app.pdf_info = info
+        self.project()
+
+    def set_current_page(self, page: int) -> None:
+        self.state.current_page = max(1, min(self.state.page_count, int(page))); self.project()
+
+    def set_scope(self, mode: str, values: tuple[int, ...], text: str = "") -> None:
+        self.state.scope_mode = mode; self.state.scope_input = text; self.state.active_scope = tuple(values)
+        if values: self.state.current_page = values[0]
+        self.project()
 
     def has_active_work(self) -> bool:
         if getattr(self.state, "path", None) is not None:
