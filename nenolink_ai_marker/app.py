@@ -21,6 +21,7 @@ from .badges import BadgeSourceManager, choose_badge_selection
 from .batch import BatchProcessor, BatchResult, FolderScan, VIDEO_EXTENSIONS, destination_root, extract_video_frame, find_ffmpeg, hidden_subprocess_kwargs, is_above_recommended_size, scan_folder
 from .config import ConfigStore
 from .document_processing import ItemSelection, ProcessingRequest, settings_for_documents
+from .image_output import ImageProcessingRequest
 from .document_limits import DocumentMetrics, assess_document
 from .guide import open_user_guide
 from .i18n import LANGUAGES, Translator
@@ -3013,21 +3014,22 @@ class MarkerApp(ctk.CTk):
         self._sync_image_state()
         badge = self.badges.find(self.image_state.badge.badge_id) if self.image_state.badge.enabled else None
         logo = self.image_state.logo.path if self.image_state.logo.enabled else None
-        if not self.sources or (badge is None and logo is None):
+        request = ImageProcessingRequest(tuple(self.image_state.selected_files), badge, logo, self.settings())
+        if not request.sources or (request.badge is None and request.logo is None):
             messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("warning.nothing_to_save")); return
         saved, failures, metadata_warnings = [], [], []
         metadata = marker_metadata(self.image_state.badge.badge_id, self.badge_name_var.get()) if badge else None
-        for source in self.sources:
+        for source in request.sources:
             suggested = source.with_name(f"{source.stem}_ai{source.suffix}")
             selected = filedialog.asksaveasfilename(title=self.translator.text("dialog.save_as"), initialdir=str(source.parent), initialfile=suggested.name, defaultextension=source.suffix, filetypes=[(self.translator.text("files.supported"), f"*{source.suffix}"), (self.translator.text("files.all"), "*.*")], confirmoverwrite=True)
             if not selected: continue
             try:
-                written = self.processor.save(self.processor.process(source, badge, self.settings(), logo), Path(selected), metadata)
+                written = self.processor.save(self.processor.process(source, request.badge, request.settings, request.logo), Path(selected), metadata)
                 saved.append(Path(selected))
                 if metadata and not written: metadata_warnings.append(source.name)
             except (OSError, ValueError) as error:
                 failures.append(f"{source.name}: {error}")
-        summary = self.translator.text("process.summary", saved=len(saved), total=len(self.sources)); self.status_var.set(summary)
+        summary = self.translator.text("process.summary", saved=len(saved), total=len(request.sources)); self.status_var.set(summary)
         warning = "\n\n" + self.translator.text("warning.metadata_failed") if metadata_warnings else ""
         (messagebox.showerror if failures else messagebox.showinfo)(self.translator.text("error.completed") if failures else self.translator.text("complete.title"), summary + ("\n\n" + "\n".join(failures[:8]) if failures else "") + warning)
 
