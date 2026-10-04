@@ -142,6 +142,55 @@ processor implementations. They are not merged with Image or Video. Their
 next migration must adopt the same ownership and lifecycle principles while
 preserving PDF page/scope and PPTX slide/scope semantics.
 
+## Current migration status (3I-DOC2)
+
+The pre-migration PDF tables above are historical and must not be read as the
+current production architecture. Image, Video and PDF are now reference peer
+workspaces. PPTX is the remaining migration target.
+
+| Concern | Image | Video | PDF |
+|---|---|---|---|
+| Registry owner | `ImageWorkspace` | `VideoWorkspace` | `PdfWorkspace` |
+| Workspace/lifecycle | `ImageWorkspace` | `VideoWorkspace` | `PdfWorkspace` |
+| State | `ImageWorkspaceState` | `VideoWorkspaceState` | `PdfWorkspaceState` |
+| File/session | workspace state | workspace state | workspace state |
+| Visual state | workspace state | workspace state | workspace state |
+| Preview | `ImageWorkspace.refresh_preview()` | `VideoWorkspace.refresh_preview()` | `PdfWorkspace.refresh_preview()` |
+| Preview UI resource | workspace retained CTk image | workspace retained CTk image | `PdfWorkspace.preview_photo` |
+| Save/output | `ImageWorkspace.save()` | `VideoWorkspace.save()` | `PdfWorkspace.save()` |
+| Processing request | `ImageProcessingRequest` | `VideoProcessingRequest` | `PdfProcessingRequest` |
+| Processor/service | `ImageProcessor` | video service/FFmpeg | `PdfProcessor` |
+| Active work | workspace state | workspace state | `PdfWorkspace.has_active_work()` |
+| Clear/reset | workspace lifecycle | workspace lifecycle | `PdfWorkspace.clear_runtime_state()` |
+
+### Current PDF production contract
+
+`Shell → registry["pdf"] → PdfWorkspace → PdfWorkspaceState → projection /
+preview / immutable processing request → UI / PdfPreviewRenderer /
+PdfProcessor`
+
+PDF ownership is workspace-based: file/session, scope, physical page navigation,
+badge/logo events, preview, retained preview resource, Save, active-work and
+clear/reset are all behind `PdfWorkspace`. The migration preserved All, First,
+Selected draft plus Update, Range draft plus Update, invalid-update rollback,
+physical-page/scope independence, out-of-scope overlay behavior, badge/logo
+semantics, Save As/source protection and existing processor behavior.
+
+Remaining MarkerApp surfaces are compatibility-only and one-way:
+`PdfWorkspaceState → compatibility mirror`. They include
+`_mount_pdf_workspace`, `_sync_pdf_state`, `render_pdf_preview`,
+`process_pdf_phase6`, `pdf_path`, `pdf_info`, `pdf_current_page`,
+`pdf_preview_photo`, PDF scope mirrors and PDF Tk mirrors. None is an
+authoritative PDF state owner.
+
+PPTX is substantially closer to the target than pre-migration PDF. It already
+has `PptxWorkspace`, `PptxWorkspaceState`, reducer/state direction, independent
+scope and physical slide navigation, workspace preview and existing processors.
+Remaining PPTX work is direct registry/lifecycle cutover, reclassification or
+removal of MarkerApp mirrors, consolidation of preview/output compatibility
+paths and production-route acceptance. This is not a reason to mechanically
+repeat the Image/Video/PDF migration sequence.
+
 The packaged Video workspace had retained the pre-migration filename-only placeholder because the active ShellController-owned `MarkerApp` mounted a separate video workspace; the earlier extraction was only wired to the legacy media renderer. The active workspace now resolves the bundled FFmpeg, extracts a representative PNG frame, composites the authoritative `VideoWorkspaceState` badge, and retains the CTkImage reference on the preview widget.
 ## Video structural UI contract
 
