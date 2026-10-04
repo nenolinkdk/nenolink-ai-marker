@@ -1785,7 +1785,10 @@ class MarkerApp(ctk.CTk):
                 self._shell_executor.execute(spec, _ShellRuntimeAdapter(self))
             except RuntimeError:
                 return
-            self.render_shell_state(remount=False)
+            # Tool transitions must remount the requested overlay.  The
+            # underlying content is preserved by the executor; only the tool
+            # view is replaced.
+            self.render_shell_state(remount=True)
             return
         # All global shell events, including reset, use the same table-driven
         # executor.  No legacy MarkerApp runtime field is consulted or cleared
@@ -2583,16 +2586,22 @@ class MarkerApp(ctk.CTk):
         return output
 
     def _mount_tool(self, tool: str) -> None:
+        mounted_tool = getattr(self, "_mounted_tool_name", None)
         if self.tool_workspace is not None and self.tool_workspace.winfo_exists():
-            self.tool_workspace.grid(); return
+            if mounted_tool == tool:
+                self.tool_workspace.grid()
+                return
+            self._unmount_tool()
         self.tool_workspace = ctk.CTkFrame(self.content_host); self.tool_workspace.grid(row=0, column=0, sticky="nsew"); self.tool_workspace.grid_columnconfigure(0, weight=1); self.tool_workspace.grid_rowconfigure(1, weight=1)
         ctk.CTkButton(self.tool_workspace, text=self.translator.text("button.back"), command=lambda: self.dispatch_shell_event("back"), width=110).grid(row=0, column=0, padx=16, pady=(10, 4), sticky="w")
         if tool == "badges": self._build_badges_tool()
         else: self._build_inspect_tool()
+        self._mounted_tool_name = tool
 
     def _unmount_tool(self) -> None:
         if self.tool_workspace is not None and self.tool_workspace.winfo_exists(): self.tool_workspace.destroy()
         self.tool_workspace = None
+        self._mounted_tool_name = None
 
     def _unmount_image_workspace(self) -> None:
         self.image_workspace_owner.clear_runtime_state()
