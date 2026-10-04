@@ -7,6 +7,15 @@ widget construction lives here.
 from __future__ import annotations
 
 import customtkinter as ctk
+from pathlib import Path
+from dataclasses import replace
+from tkinter import filedialog, messagebox
+from PIL import Image
+from .batch import is_above_recommended_size
+from .inspection import human_file_size
+from .processor import SUPPORTED_EXTENSIONS
+from .image_output import ImageProcessingRequest
+from .metadata import marker_metadata
 
 
 class ImageWorkspace:
@@ -49,12 +58,102 @@ class ImageWorkspace:
         if self.root is not None and self.root.winfo_exists():
             self.app.refresh_image_badges()
 
+    def choose_files(self):
+        """Own the Image file event; dialog and status are injected services."""
+        app = self.app
+        selected = filedialog.askopenfilenames(title=app.translator.text("dialog.open_media"), filetypes=[(app.translator.text("files.supported_media"), " ".join(f"*{e}" for e in sorted(SUPPORTED_EXTENSIONS))), (app.translator.text("files.all"), "*.*")])
+        if not selected:
+            return
+        candidates = [Path(path) for path in selected if Path(path).suffix.lower() in SUPPORTED_EXTENSIONS]
+        if any(is_above_recommended_size(path) for path in candidates) and not messagebox.askokcancel(app.translator.text("warning.large_title"), app.translator.text("warning.large_file")):
+            return
+        self.state.set_session(candidates)
+        app.sources = list(self.state.selected_files)
+        app.media_sources["image"] = list(self.state.selected_files)
+        if candidates:
+            app.file_label.configure(text=f"{candidates[0].name} · {human_file_size(candidates[0].stat().st_size)}")
+        else:
+            app.file_label.configure(text=app.translator.text("files.none_supported"))
+        self.refresh_preview()
+
+    def refresh_preview(self):
+        """Project ImageWorkspaceState through the existing renderer."""
+        app = self.app
+        files = self.state.selected_files
+        if not files:
+            self.state.preview_image = None
+            app.preview_photo = app.preview_image = None
+            app._show_welcome()
+            return
+        badge = app.badges.find(self.state.badge.badge_id) if self.state.badge.enabled else None
+        logo = self.state.logo.path if self.state.logo.enabled else None
+        settings = replace(app.settings(), position=self.state.badge.position, size_percent=self.state.badge.size, margin=self.state.badge.margin, opacity=self.state.badge.opacity, logo_enabled=self.state.logo.enabled, logo_position=self.state.logo.position, logo_size_percent=self.state.logo.size, logo_margin=self.state.logo.margin, logo_opacity=self.state.logo.opacity)
+        app._show_preview()
+        try:
+            image = app.preview_renderer.render(files[0], badge, settings, logo)
+            self.state.preview_image = image.copy()
+            app.preview_image = self.state.preview_image
+            app.preview_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
+            app.preview_label.configure(image=app.preview_photo, text=""); app.preview_label.image = app.preview_photo
+        except (OSError, ValueError) as error:
+            app.preview_label.configure(image=None, text=app.translator.text("error.preview", error=error))
+
+    def save(self):
+        """Save from authoritative workspace state through the existing processor."""
+        app = self.app
+        badge = app.badges.find(self.state.badge.badge_id) if self.state.badge.enabled else None
+        logo = self.state.logo.path if self.state.logo.enabled else None
+        request = ImageProcessingRequest(tuple(self.state.selected_files), badge, logo, app.settings())
+        if not request.sources or (request.badge is None and request.logo is None):
+            messagebox.showwarning(app.translator.text("warning.title"), app.translator.text("warning.nothing_to_save"))
+            return
+        metadata = marker_metadata(self.state.badge.badge_id, app.badge_name_var.get()) if badge else None
+        saved, failures, metadata_warnings = [], [], []
+        for source in request.sources:
+            suggested = source.with_name(f"{source.stem}_ai{source.suffix}")
+            selected = filedialog.asksaveasfilename(title=app.translator.text("dialog.save_as"), initialdir=str(source.parent), initialfile=suggested.name, defaultextension=source.suffix, filetypes=[(app.translator.text("files.supported"), f"*{source.suffix}"), (app.translator.text("files.all"), "*.*")], confirmoverwrite=True)
+            if not selected:
+                continue
+            try:
+                written = app.processor.save(app.processor.process(source, request.badge, request.settings, request.logo), Path(selected), metadata)
+                saved.append(Path(selected))
+                if metadata and not written:
+                    metadata_warnings.append(source.name)
+            except (OSError, ValueError) as error:
+                failures.append(f"{source.name}: {error}")
+        summary = app.translator.text("process.summary", saved=len(saved), total=len(request.sources))
+        app.status_var.set(summary)
+        warning = "\n\n" + app.translator.text("warning.metadata_failed") if metadata_warnings else ""
+        (messagebox.showerror if failures else messagebox.showinfo)(app.translator.text("error.completed") if failures else app.translator.text("complete.title"), summary + ("\n\n" + "\n".join(failures[:8]) if failures else "") + warning)
+
+    def badge_changed(self):
+        self.state.badge.badge_id = self.app.badge_var.get()
+        self.app._project_image_visual_state()
+        self.refresh_preview()
+
+    def logo_changed(self, *_args):
+        self.state.logo.enabled = bool(self.app.logo_enabled_var.get())
+        self.state.logo.path = self.app._logo_path()
+        self.state.logo.position = self.app.logo_position_var.get()
+        self.state.logo.size = int(self.app.logo_size_var.get())
+        self.state.logo.margin = int(self.app.logo_margin_var.get())
+        self.state.logo.opacity = int(self.app.logo_opacity_var.get())
+        self.app._project_image_visual_state()
+        self.refresh_preview()
+
+    def visual_changed(self, *_args):
+        self.state.badge.position = self.app.position_var.get()
+        self.state.badge.size = int(self.app.size_var.get())
+        self.state.badge.margin = int(self.app.margin_var.get())
+        self.state.badge.opacity = int(self.app.opacity_var.get())
+        self.logo_changed()
+
     def _slider(self, parent, variable, start, end, row):
         app = self.app
         label = ctk.CTkLabel(parent)
         label.grid(row=row, column=0, padx=14, pady=(4, 0), sticky="w")
         ctk.CTkSlider(parent, from_=start, to=end, number_of_steps=end-start,
-                      variable=variable, command=app.changed).grid(
+                      variable=variable, command=self.visual_changed).grid(
                           row=row + 1, column=0, padx=14, pady=(1, 3), sticky="ew")
         return label
 
@@ -67,7 +166,7 @@ class ImageWorkspace:
         app.image_controls = left
         left.grid(row=0, column=0, padx=(4, 8), pady=4, sticky="nsew")
         left.grid_columnconfigure(0, weight=1)
-        app.open_button = ctk.CTkButton(left, command=app.open_images)
+        app.open_button = ctk.CTkButton(left, command=self.choose_files)
         app.open_button.grid(row=0, column=0, padx=14, pady=(10, 4), sticky="ew")
         app.file_label = ctk.CTkLabel(left, anchor="w", justify="left", wraplength=280)
         app.file_label.grid(row=1, column=0, padx=14, pady=3, sticky="ew")
@@ -76,11 +175,11 @@ class ImageWorkspace:
         badge_section = ctk.CTkFrame(left)
         badge_section.grid(row=3, column=0, padx=14, pady=(4, 4), sticky="ew")
         badge_section.grid_columnconfigure(0, weight=1)
-        app.badge_enable = ctk.CTkCheckBox(badge_section, variable=app.badge_enabled_var, command=app.badge_enabled_changed)
+        app.badge_enable = ctk.CTkCheckBox(badge_section, variable=app.badge_enabled_var, command=self.visual_changed)
         app.badge_enable.grid(row=0, column=0, padx=8, pady=(7, 3), sticky="w")
         app.single_badge_label = ctk.CTkLabel(badge_section, font=ctk.CTkFont(weight="bold"))
         app.single_badge_label.grid(row=1, column=0, padx=8, pady=(2, 1), sticky="w")
-        app.badge_menu = ctk.CTkOptionMenu(badge_section, variable=app.badge_display_var, values=["—"], command=app.select_badge_display)
+        app.badge_menu = ctk.CTkOptionMenu(badge_section, variable=app.badge_display_var, values=["—"], command=lambda value: self.badge_changed())
         app.badge_menu.grid(row=2, column=0, padx=8, pady=2, sticky="ew")
         badge_preview = ctk.CTkFrame(badge_section)
         badge_preview.grid(row=3, column=0, padx=8, pady=(3, 7), sticky="ew")
@@ -100,19 +199,19 @@ class ImageWorkspace:
         app.logo_controls.grid(row=12, column=0, padx=14, pady=(5, 8), sticky="ew")
         app.logo_controls.grid_columnconfigure(1, weight=1)
         app.logo_heading = ctk.CTkLabel(app.logo_controls, font=ctk.CTkFont(weight="bold")); app.logo_heading.grid(row=0, column=0, columnspan=2, padx=8, pady=(6, 2), sticky="w")
-        app.logo_enable = ctk.CTkCheckBox(app.logo_controls, variable=app.logo_enabled_var, command=app.logo_changed); app.logo_enable.grid(row=1, column=0, columnspan=2, padx=8, pady=3, sticky="w")
+        app.logo_enable = ctk.CTkCheckBox(app.logo_controls, variable=app.logo_enabled_var, command=self.logo_changed); app.logo_enable.grid(row=1, column=0, columnspan=2, padx=8, pady=3, sticky="w")
         app.logo_choose = ctk.CTkButton(app.logo_controls, command=app.choose_logo, height=28); app.logo_choose.grid(row=2, column=0, padx=8, pady=3, sticky="w")
         app.logo_filename = ctk.CTkLabel(app.logo_controls, textvariable=app.logo_filename_var, anchor="w", wraplength=155); app.logo_filename.grid(row=2, column=1, padx=(2, 8), pady=3, sticky="ew")
         app.logo_position_label = ctk.CTkLabel(app.logo_controls); app.logo_position_label.grid(row=3, column=0, padx=8, pady=2, sticky="w")
         app.logo_position_menu = ctk.CTkOptionMenu(app.logo_controls, variable=app.logo_position_display_var, values=["—"], command=app.change_logo_position, height=28); app.logo_position_menu.grid(row=3, column=1, padx=8, pady=2, sticky="ew")
         app.logo_size_label = ctk.CTkLabel(app.logo_controls); app.logo_size_label.grid(row=4, column=0, columnspan=2, padx=8, sticky="w")
-        app.logo_size_slider = ctk.CTkSlider(app.logo_controls, from_=1, to=100, number_of_steps=99, variable=app.logo_size_var, command=app.logo_changed); app.logo_size_slider.grid(row=5, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="ew")
+        app.logo_size_slider = ctk.CTkSlider(app.logo_controls, from_=1, to=100, number_of_steps=99, variable=app.logo_size_var, command=self.logo_changed); app.logo_size_slider.grid(row=5, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="ew")
         app.logo_margin_label = ctk.CTkLabel(app.logo_controls); app.logo_margin_label.grid(row=6, column=0, columnspan=2, padx=8, sticky="w")
-        app.logo_margin_slider = ctk.CTkSlider(app.logo_controls, from_=0, to=250, number_of_steps=250, variable=app.logo_margin_var, command=app.logo_changed); app.logo_margin_slider.grid(row=7, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="ew")
+        app.logo_margin_slider = ctk.CTkSlider(app.logo_controls, from_=0, to=250, number_of_steps=250, variable=app.logo_margin_var, command=self.logo_changed); app.logo_margin_slider.grid(row=7, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="ew")
         app.logo_opacity_label = ctk.CTkLabel(app.logo_controls); app.logo_opacity_label.grid(row=8, column=0, columnspan=2, padx=8, sticky="w")
-        app.logo_opacity_slider = ctk.CTkSlider(app.logo_controls, from_=0, to=100, number_of_steps=100, variable=app.logo_opacity_var, command=app.logo_changed); app.logo_opacity_slider.grid(row=9, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="ew")
+        app.logo_opacity_slider = ctk.CTkSlider(app.logo_controls, from_=0, to=100, number_of_steps=100, variable=app.logo_opacity_var, command=self.logo_changed); app.logo_opacity_slider.grid(row=9, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="ew")
         app.logo_images_only = ctk.CTkLabel(app.logo_controls, text_color="gray60"); app.logo_images_only.grid(row=10, column=0, columnspan=2, padx=8, pady=(0, 6), sticky="w")
-        app.process_button = ctk.CTkButton(left, command=app.save_images); app.process_button.grid(row=13, column=0, padx=14, pady=(2, 10), sticky="ew")
+        app.process_button = ctk.CTkButton(left, command=self.save); app.process_button.grid(row=13, column=0, padx=14, pady=(2, 10), sticky="ew")
         right = ctk.CTkFrame(workspace); right.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right.grid_columnconfigure(0, weight=1); right.grid_rowconfigure(0, weight=1)
         app.preview_label = ctk.CTkLabel(right)
         app.welcome_frame = ctk.CTkFrame(right, fg_color="transparent"); app.welcome_frame.grid(row=0, column=0, padx=18, pady=14, sticky="nsew"); app.welcome_frame.grid_columnconfigure(0, weight=1); app.welcome_frame.grid_rowconfigure(4, weight=1)

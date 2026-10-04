@@ -39,3 +39,11 @@ def test_image_workspace_owns_mount_and_lifecycle_contract():
     mount = APP[mount_start:mount_end]
     assert "image_workspace_owner.mount(self.content_host)" in mount
     assert "CTkFrame" not in mount
+
+
+def test_image_save_is_workspace_owned():
+    assert "def save(self):" in WORKSPACE
+    assert "ImageProcessingRequest" in WORKSPACE
+    assert "filedialog.asksaveasfilename" in WORKSPACE
+    builder_start = WORKSPACE.index("def _build_ui")
+    assert "command=self.save" in WORKSPACE[builder_start:]
