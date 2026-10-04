@@ -124,7 +124,7 @@ def apply_image_event(state: ImageWorkspaceState, event: ImageEvent | str, paylo
             if key in payload:
                 setattr(state.logo, key, Path(payload[key]) if key == "path" and payload[key] else payload[key])
     elif event is ImageEvent.VISUAL_CHANGED:
-        for key in ("position", "size", "margin", "opacity"):
+        for key in ("enabled", "position", "size", "margin", "opacity"):
             if key in payload:
                 setattr(state.badge, key, payload[key])
         for key in ("enabled", "path", "position", "size", "margin", "opacity"):

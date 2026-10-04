@@ -135,7 +135,10 @@ class ImageWorkspace:
         (messagebox.showerror if failures else messagebox.showinfo)(app.translator.text("error.completed") if failures else app.translator.text("complete.title"), summary + ("\n\n" + "\n".join(failures[:8]) if failures else "") + warning)
 
     def badge_changed(self):
-        apply_image_event(self.state, ImageEvent.BADGE_CHANGED, {"badge_id": self.app.badge_var.get()})
+        selector = getattr(self.app, "badge_display_var", None)
+        displayed = selector.get() if selector is not None else self.app.badge_var.get()
+        badge_id = getattr(self.app, "badge_display_to_file", {}).get(displayed, displayed)
+        apply_image_event(self.state, ImageEvent.BADGE_CHANGED, {"badge_id": badge_id})
         self.app._project_image_visual_state()
         self.refresh_preview()
 
@@ -150,6 +153,7 @@ class ImageWorkspace:
 
     def visual_changed(self, *_args):
         apply_image_event(self.state, ImageEvent.VISUAL_CHANGED, {
+            "enabled": bool(self.app.badge_enabled_var.get()),
             "position": self.app.position_var.get(), "size": int(self.app.size_var.get()),
             "margin": int(self.app.margin_var.get()), "opacity": int(self.app.opacity_var.get()),
             "logo_enabled": bool(self.app.logo_enabled_var.get()), "logo_path": self.app._logo_path(),
