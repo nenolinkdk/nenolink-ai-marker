@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Tuple
 
 
 class ContentState(str, Enum):
@@ -14,6 +15,100 @@ class ContentEvent(str, Enum):
 
 DESTINATIONS = tuple(state.value for state in ContentState)
 DEFAULT_DESTINATION = ContentState.IMAGE.value
+
+class ToolState(str, Enum):
+    NONE = "none"; BADGES = "badges"; INSPECT = "inspect"
+
+class ShellEvent(str, Enum):
+    IMAGE = "image"; VIDEO = "video"; PDF = "pdf"; PPTX = "pptx"
+    BADGES = "badges"; INSPECT = "inspect"; BACK = "back"; RESET = "reset"
+
+class ShellAction(str, Enum):
+    PRESERVE_SOURCE = "preserve_source"
+    CLEAR_SOURCE = "clear_source"
+    UNMOUNT_SOURCE = "unmount_source"
+    MOUNT_DESTINATION = "mount_destination"
+    PROJECT_DESTINATION = "project_destination"
+    MOUNT_TOOL = "mount_tool"
+    UNMOUNT_TOOL = "unmount_tool"
+    CLEAR_TOOL = "clear_tool"
+
+@dataclass(frozen=True)
+class ShellTransitionSpec:
+    source_content: ContentState
+    source_tool: ToolState
+    event: ShellEvent
+    requires_confirmation: bool
+    actions: Tuple[ShellAction, ...]
+    destination_content: ContentState
+    destination_tool: ToolState
+    preserve_source: bool
+    decision: str | None = None
+
+class ShellTransitionExecutor:
+    """Single lifecycle executor for table-resolved shell plans."""
+    def execute(self, spec: ShellTransitionSpec, runtime) -> tuple[str, ...]:
+        executed = []; failure = None
+        if hasattr(runtime, "begin_receipt"):
+            runtime.begin_receipt(spec)
+        try:
+          for action in spec.actions:
+            if action is ShellAction.PRESERVE_SOURCE:
+                runtime.preserve_source(); executed.append(action.value)
+            elif action is ShellAction.CLEAR_SOURCE:
+                runtime.clear_source(spec.source_content.value); executed.append(action.value)
+            elif action is ShellAction.UNMOUNT_SOURCE:
+                runtime.unmount_source(spec.source_content.value); executed.append(action.value)
+            elif action is ShellAction.MOUNT_DESTINATION:
+                runtime.mount_destination(spec.destination_content.value); executed.append(action.value)
+            elif action is ShellAction.PROJECT_DESTINATION:
+                runtime.project_destination(spec.destination_content.value); executed.append(action.value)
+            elif action is ShellAction.MOUNT_TOOL:
+                runtime.mount_tool(spec.destination_tool.value); executed.append(action.value)
+            elif action is ShellAction.UNMOUNT_TOOL:
+                runtime.unmount_tool(); executed.append(action.value)
+            elif action is ShellAction.CLEAR_TOOL:
+                runtime.clear_tool(); executed.append(action.value)
+        except Exception as error:
+            failure = f"{type(error).__name__}: {error}"
+        receipt = TransitionReceipt(
+            spec.source_content.value, spec.event.value,
+            spec.destination_content.value,
+            spec.destination_content.value if not failure else spec.source_content.value,
+            getattr(runtime, "resolved_workspace", spec.destination_content.value),
+            tuple(a.value for a in spec.actions),
+            "failure" if failure else "success",
+            spec.source_tool.value, spec.requires_confirmation, spec.decision,
+            tuple(a.value for a in spec.actions), tuple(executed), failure,
+            executed[-1] if executed else None,
+            getattr(runtime, "destination_lookup", "not_attempted"),
+            getattr(runtime, "mount_result", "not_attempted"),
+            getattr(runtime, "project_result", "not_attempted"),
+            getattr(runtime, "tool_result", "not_attempted"),
+        )
+        runtime.record_receipt(receipt)
+        if failure: raise RuntimeError(failure)
+        return tuple(executed)
+
+def shell_transition_spec(source: str, tool: str | None, event: str, active_work: bool = False, decision: str | None = None) -> ShellTransitionSpec:
+    """Return the executable shell contract for one state/event/context."""
+    src = ContentState(source); src_tool = ToolState(tool or "none"); ev = ShellEvent(event)
+    if ev in {ShellEvent.BADGES, ShellEvent.INSPECT}:
+        return ShellTransitionSpec(src, src_tool, ev, False, (ShellAction.PRESERVE_SOURCE, ShellAction.MOUNT_TOOL), src, ToolState(ev.value), True, decision)
+    if ev is ShellEvent.BACK:
+        return ShellTransitionSpec(src, src_tool, ev, False, (ShellAction.UNMOUNT_TOOL, ShellAction.CLEAR_TOOL, ShellAction.PROJECT_DESTINATION), src, ToolState.NONE, True, decision)
+    if ev is ShellEvent.RESET:
+        confirm = bool(active_work)
+        if confirm and decision == "cancel":
+            return ShellTransitionSpec(src, src_tool, ev, True, (ShellAction.PRESERVE_SOURCE,), src, src_tool, True, decision)
+        return ShellTransitionSpec(src, src_tool, ev, confirm, (ShellAction.CLEAR_SOURCE, ShellAction.UNMOUNT_SOURCE, ShellAction.CLEAR_TOOL, ShellAction.MOUNT_DESTINATION, ShellAction.PROJECT_DESTINATION), ContentState.IMAGE, ToolState.NONE, False, decision)
+    dest = ContentState(ev.value)
+    if dest is src and src_tool is ToolState.NONE:
+        return ShellTransitionSpec(src, src_tool, ev, False, (ShellAction.PRESERVE_SOURCE, ShellAction.PROJECT_DESTINATION), src, ToolState.NONE, True, decision)
+    if active_work and decision == "cancel":
+        return ShellTransitionSpec(src, src_tool, ev, True, (ShellAction.PRESERVE_SOURCE,), src, src_tool, True, decision)
+    actions = (ShellAction.CLEAR_SOURCE, ShellAction.UNMOUNT_SOURCE, ShellAction.MOUNT_DESTINATION, ShellAction.PROJECT_DESTINATION) if active_work else (ShellAction.UNMOUNT_SOURCE, ShellAction.MOUNT_DESTINATION, ShellAction.PROJECT_DESTINATION)
+    return ShellTransitionSpec(src, src_tool, ev, active_work, actions, dest, ToolState.NONE, False, decision)
 
 SHELL_TRANSITION_TABLE = {
     (source, event): destination
@@ -35,6 +130,11 @@ class ShellTransition:
 class TransitionReceipt:
     source: str; event: str; expected_destination: str; final_state: str
     workspace: str; stages: tuple[str, ...]; outcome: str = "success"
+    source_tool: str = "none"; guard: bool = False; decision: str | None = None
+    planned_actions: tuple[str, ...] = (); executed_actions: tuple[str, ...] = ()
+    failure: str | None = None; last_successful_action: str | None = None
+    destination_lookup: str = "not_attempted"; mount_result: str = "not_attempted"
+    project_result: str = "not_attempted"; tool_result: str = "not_attempted"
 
 
 class ShellController:

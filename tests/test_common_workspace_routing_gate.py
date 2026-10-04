@@ -4,7 +4,7 @@ from unittest.mock import Mock
 import pytest
 
 from nenolink_ai_marker.app import MarkerApp
-from nenolink_ai_marker.shell_controller import ShellController
+from nenolink_ai_marker.shell_controller import ShellController, ShellTransitionExecutor
 
 
 CONTENT = ("image", "video", "pdf", "pptx")
@@ -21,6 +21,7 @@ class Host:
 def _app():
     app = MarkerApp.__new__(MarkerApp)
     app.shell_controller = ShellController()
+    app._shell_executor = ShellTransitionExecutor()
     app.active_content_type = "image"
     app.active_tool = None
     app.mounted_view = ""

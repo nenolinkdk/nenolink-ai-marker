@@ -47,7 +47,46 @@ from .docx_preview import DocxPreviewRenderer
 from .shortcut import ShortcutError, create_desktop_shortcut
 from .ui_state import DocumentPreviewState, DocumentScopeState, pptx_item_selection, show_welcome
 from .update_check import UpdateCheckError, check_for_update, is_approved_update_url, should_check_automatically
-from .shell_controller import DESTINATIONS, ShellController, placeholder_for
+from .shell_controller import DESTINATIONS, ShellController, placeholder_for, shell_transition_spec, ShellTransitionExecutor
+
+class _ShellRuntimeAdapter:
+    def __init__(self, app):
+        self.app = app
+        self.destination_lookup = "not_attempted"
+        self.resolved_workspace = ""
+        self.mount_result = "not_attempted"
+        self.project_result = "not_attempted"
+        self.tool_result = "not_attempted"
+    def begin_receipt(self, spec):
+        self.destination_lookup = "not_attempted"
+        self.resolved_workspace = ""
+        self.mount_result = "not_attempted"
+        self.project_result = "not_attempted"
+        self.tool_result = "not_attempted"
+    def preserve_source(self): return None
+    def clear_source(self, source): self.app._workspace_registry[source].clear_runtime_state()
+    def unmount_source(self, source): self.app._workspace_registry[source].unmount()
+    def mount_destination(self, destination):
+        self.destination_lookup = "success" if destination in self.app._workspace_registry else "failure"
+        workspace = self.app._workspace_registry[destination]
+        self.resolved_workspace = type(workspace).__name__
+        workspace.mount(self.app.content_host)
+        self.mount_result = "success"
+    def project_destination(self, destination):
+        self.app._workspace_registry[destination].project()
+        self.app.shell_controller.dispatch(destination)
+        self.project_result = "success"
+        self.app.mounted_view = destination.upper()
+    def mount_tool(self, tool):
+        self.app._mount_tool(tool)
+        self.app.shell_controller.dispatch(tool)
+        self.tool_result = "success"
+        self.app.mounted_view = tool.upper()
+    def unmount_tool(self): self.app._unmount_tool()
+    def clear_tool(self): self.app.shell_controller.active_tool = None
+    def record_receipt(self, receipt):
+        self.app.last_shell_receipt = receipt
+        self.app.shell_controller.receipts.append(receipt)
 
 
 class AutoHideScrollableFrame(ctk.CTkScrollableFrame):
@@ -1658,6 +1697,7 @@ class MarkerApp(ctk.CTk):
         self.pdf_workspace = None
         self.pptx_workspace = None
         self.pptx_workspace_state = PptxWorkspace(self)
+        self._shell_executor = ShellTransitionExecutor()
         self.shell_trace = []
         self.tool_workspace = None
         self.content_buttons: dict[str, ctk.CTkButton] = {}
@@ -1686,7 +1726,7 @@ class MarkerApp(ctk.CTk):
         ctk.CTkLabel(header, text="Nenolink AI Marker", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0, column=0, padx=20, pady=14, sticky="w")
         self.language_var = ctk.StringVar(value=Translator.language_name(self.translator.language))
         self.language_menu = ctk.CTkOptionMenu(header, values=list(LANGUAGES), variable=self.language_var, command=self.change_image_language, width=150); self.language_menu.grid(row=0, column=1, padx=8)
-        self.reset_button = ctk.CTkButton(header, text="Reset", command=self.reset_shell, width=100); self.reset_button.grid(row=0, column=2, padx=8)
+        self.reset_button = ctk.CTkButton(header, text="Reset", command=self._reset_button_command, width=100); self.reset_button.grid(row=0, column=2, padx=8)
         self.guide_button = ctk.CTkButton(header, text="User Guide (PDF)", command=self.open_image_guide, width=170); self.guide_button.grid(row=0, column=3, padx=(8,20))
 
         navigation = ctk.CTkFrame(self, corner_radius=0); navigation.grid(row=1, column=0, sticky="ew")
@@ -1707,9 +1747,16 @@ class MarkerApp(ctk.CTk):
         buttons = ctk.CTkFrame(group, fg_color="transparent"); buttons.grid(row=1, column=0, pady=(1,0), sticky="w")
         for index, destination in enumerate(destinations):
             button = ctk.CTkButton(buttons, text=self._labels[destination], height=28, width=0,
-                command=lambda event=destination: self.dispatch_shell_event(event))
+                command=self._shell_button_command(destination))
             button.grid(row=0, column=index, padx=(0 if index == 0 else 4, 0))
             self.content_buttons[destination] = button
+
+    def _shell_button_command(self, destination: str):
+        """Command seam used by every constructed content/tool button."""
+        return lambda: self.dispatch_shell_event(destination)
+
+    def _reset_button_command(self):
+        return self.reset_shell()
 
     def dispatch_shell_event(self, event: str) -> None:
         if event == "pptx": self.shell_trace.append("PPTX_BUTTON")
@@ -1719,8 +1766,13 @@ class MarkerApp(ctk.CTk):
             return
         source = self.shell_controller.active_content_type
         if event in {"badges", "inspect"} or event == "back":
-            self.shell_controller.dispatch(event)
-            self.render_shell_state()
+            spec = shell_transition_spec(source, self.shell_controller.active_tool, event, self._format_has_active_work(source))
+            self.last_shell_spec = spec
+            try:
+                self._shell_executor.execute(spec, _ShellRuntimeAdapter(self))
+            except RuntimeError:
+                return
+            self.render_shell_state(remount=False)
             return
         if source == "image" and event != "image" and event != "reset" and self._image_has_active_work():
             if not messagebox.askokcancel(self.translator.text("navigation.switch_title"), self.translator.text("navigation.switch_message")):
@@ -1746,32 +1798,37 @@ class MarkerApp(ctk.CTk):
             if legacy_state is not None and legacy_state is not workspace and hasattr(legacy_state, "clear"):
                 legacy_state.clear()
         self.shell_controller.dispatch(event)
-        self.render_shell_state()
+        self.render_shell_state(remount=False)
 
     def request_content_transition(self, destination: str) -> bool:
         """Apply the single external content transition algorithm."""
         if destination not in self._workspace_registry:
             raise ValueError(f"Unknown content destination: {destination}")
         source = self.shell_controller.active_content_type
+        active = self._format_has_active_work(source)
+        self.last_shell_spec = shell_transition_spec(source, self.shell_controller.active_tool, destination, active)
         # A tool is an overlay, not a content state. Returning to the
         # underlying destination must close only the overlay and restore the
         # existing workspace without warning, clearing or remounting it.
         if self.shell_controller.active_tool is not None and destination == source:
-            self.shell_controller.dispatch("back")
+            spec = shell_transition_spec(source, self.shell_controller.active_tool, "back", False)
+            self.last_shell_spec = spec
+            self._shell_executor.execute(spec, _ShellRuntimeAdapter(self))
             self.render_shell_state()
             return True
         if destination == source and self.shell_controller.active_tool is None:
             self.render_shell_state()
             return True
-        if self._format_has_active_work(source) and not self._confirm_format_switch(source, destination):
+        if active and not self._confirm_format_switch(source, destination):
+            self.last_shell_spec = shell_transition_spec(source, self.shell_controller.active_tool, destination, True, "cancel")
             return False
-        # Cleanup is deliberately performed before changing the authoritative
-        # shell state, so a destination can never inherit source widgets.
-        source_workspace = self._workspace_registry[source]
-        source_workspace.clear_runtime_state()
-        source_workspace.unmount()
-        self.shell_controller.dispatch(destination)
-        self.render_shell_state()
+        spec = shell_transition_spec(source, self.shell_controller.active_tool, destination, active, "continue" if active else None)
+        self.last_shell_spec = spec
+        try:
+            self._shell_executor.execute(spec, _ShellRuntimeAdapter(self))
+        except RuntimeError:
+            return False
+        self.render_shell_state(remount=False)
         return True
 
     def _confirm_format_switch(self, source: str, destination: str) -> bool:
@@ -1787,7 +1844,9 @@ class MarkerApp(ctk.CTk):
 
     def reset_shell(self) -> None:
         source = self.shell_controller.active_content_type
-        if self._format_has_active_work(source):
+        active = self._format_has_active_work(source)
+        self.last_shell_spec = shell_transition_spec(source, self.shell_controller.active_tool, "reset", active)
+        if active:
             workspace = getattr(self, "pptx_workspace_state", None) if source == "pptx" else None
             if not messagebox.askokcancel(
                 self.translator.text("navigation.switch_title"),
@@ -1795,13 +1854,16 @@ class MarkerApp(ctk.CTk):
             ):
                 if workspace is not None:
                     workspace.receipts.record({"layer": "pptx", "event": "GLOBAL_RESET_WARNING_SHOWN", "result": "cancel"})
+                self.last_shell_spec = shell_transition_spec(source, self.shell_controller.active_tool, "reset", True, "cancel")
                 return
             if workspace is not None:
                 workspace.receipts.record({"layer": "pptx", "event": "GLOBAL_RESET_WARNING_SHOWN", "result": "continue"})
-        workspace = self._workspace_registry[source]
-        workspace.clear_runtime_state()
-        workspace.unmount()
-        self.shell_controller.dispatch("reset")
+        spec = shell_transition_spec(source, self.shell_controller.active_tool, "reset", active, "continue" if active else None)
+        self.last_shell_spec = spec
+        try:
+            self._shell_executor.execute(spec, _ShellRuntimeAdapter(self))
+        except RuntimeError:
+            return
         self.render_shell_state()
         workspace=getattr(self,"pptx_workspace_state",None)
         if workspace is not None:
@@ -1820,7 +1882,7 @@ class MarkerApp(ctk.CTk):
             return False
         return False
 
-    def render_shell_state(self) -> None:
+    def render_shell_state(self, remount: bool = True) -> None:
         destination = self.shell_controller.active_content_type
         tool = self.shell_controller.active_tool
         self.active_content_type = destination
@@ -1831,7 +1893,8 @@ class MarkerApp(ctk.CTk):
         if tool:
             if self.image_workspace is not None: self.image_workspace.grid_remove()
             if self.video_workspace is not None: self.video_workspace.grid_remove()
-            self._mount_tool(tool)
+            if remount:
+                self._mount_tool(tool)
             self.mounted_view = placeholder_for(tool)
             return
         self._unmount_tool()
@@ -1843,7 +1906,8 @@ class MarkerApp(ctk.CTk):
             trace = self.__dict__.get("shell_trace")
             if destination == "pptx" and trace is not None: trace.append("PPTX_REGISTRY")
             workspace = self._workspace_registry[destination]
-            workspace.mount(self.content_host)
+            if remount:
+                workspace.mount(self.content_host)
             workspace.project()
             self.mounted_view = destination.upper()
         else:
