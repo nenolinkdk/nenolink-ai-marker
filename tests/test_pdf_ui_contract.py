@@ -178,3 +178,18 @@ def test_pdf_badge_visual_projection_uses_common_repository_and_retains_photo():
     assert "self.badges.display_name(badge.name)" in handler
     assert "self.pdf_badge_photo = ctk.CTkImage" in handler
     assert "configure(image=self.pdf_badge_photo, text=display_name)" in handler
+
+
+def test_visual_preference_snapshot_is_deterministic_and_projects_one_way():
+    from nenolink_ai_marker.models import MarkerSettings
+    from nenolink_ai_marker.preference_snapshot import VisualPreferenceSnapshot, project_snapshot_to_tk
+    class Var:
+        def __init__(self): self.value = None
+        def set(self, value): self.value = value
+    settings = MarkerSettings(badge_name="no-ai.png", size_percent=31)
+    first = VisualPreferenceSnapshot.from_settings(settings)
+    assert first == VisualPreferenceSnapshot.from_settings(settings)
+    badge = Var()
+    project_snapshot_to_tk(first, {"badge_var": badge})
+    assert badge.value == "no-ai.png"
+    assert not hasattr(first, "set")
