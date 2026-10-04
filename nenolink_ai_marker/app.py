@@ -2568,7 +2568,7 @@ class MarkerApp(ctk.CTk):
         self.video_mode_label = ctk.CTkLabel(left, text="Video badge mode"); self.video_mode_label.grid(row=17, column=0, padx=14, pady=1, sticky="w")
         self.video_mode_menu = ctk.CTkOptionMenu(left, variable=self.video_mode_display_var, values=list(self.video_mode_display_to_value), command=self.change_video_mode); self.video_mode_menu.grid(row=18, column=0, padx=14, pady=2, sticky="ew")
         self.video_duration_var = ctk.IntVar(value=5); self.video_duration_label = ctk.CTkLabel(left, text="Duration"); self.video_duration_entry = ctk.CTkEntry(left, textvariable=self.video_duration_var); self.video_seconds_label = ctk.CTkLabel(left, text="seconds")
-        self.video_duration_label.grid(row=19, column=0, padx=14, pady=1, sticky="w"); self.video_duration_entry.grid(row=20, column=0, padx=14, pady=2, sticky="ew")
+        self.video_duration_label.grid(row=19, column=0, padx=14, pady=1, sticky="w"); self.video_duration_entry.grid(row=20, column=0, padx=14, pady=2, sticky="ew"); self.video_duration_entry.bind("<FocusOut>", self.change_video_duration)
         heading("OUTPUT", 21)
         self.video_process_button = ctk.CTkButton(left, text="Save Marked Video...", command=self.save_video); self.video_process_button.grid(row=22, column=0, padx=14, pady=(2, 10), sticky="ew")
         self.video_preview_label = ctk.CTkLabel(right, text="Video preview"); self.video_preview_label.grid(row=0, column=0, padx=20, pady=20)
@@ -2648,21 +2648,37 @@ class MarkerApp(ctk.CTk):
         (self.video_duration_label.grid if visible else self.video_duration_label.grid_remove)(); (self.video_duration_entry.grid if visible else self.video_duration_entry.grid_remove)()
 
     def change_video_mode(self, label: str) -> None:
-        self.video_mode_var.set(self.video_mode_display_to_value[label]); self._sync_video_state(); self._update_video_duration_visibility(); self._save_image_settings()
+        self.video_state.mode = self.video_mode_display_to_value[label]
+        self._project_video_state(); self._update_video_duration_visibility(); self._save_image_settings()
+
+    def change_video_duration(self, *_args) -> None:
+        try:
+            self.video_state.duration = max(1, int(self.video_duration_var.get()))
+        except (TypeError, ValueError):
+            self.video_state.duration = max(1, int(self.video_state.duration))
+        self._project_video_state(); self._update_video_duration_visibility(); self._save_image_settings()
 
     def change_video_position(self, label: str) -> None:
-        self.video_position_var.set(self.video_position_display_to_value[label]); self._sync_video_state(); self._render_video_preview(); self._save_image_settings()
+        self.video_state.badge.position = self.video_position_display_to_value[label]
+        self._project_video_state(); self._render_video_preview(); self._save_image_settings()
 
     def change_video_badge(self, label: str) -> None:
-        self.video_badge_var.set(label); self._sync_video_state(); self._update_video_badge_preview(); self._render_video_preview(); self._save_image_settings()
+        self.video_state.badge.badge_id = label
+        self._project_video_state(); self._update_video_badge_preview(); self._render_video_preview(); self._save_image_settings()
 
     def _video_changed(self, *_args) -> None:
-        self._sync_video_state(); self.video_size_label.configure(text=self.translator.text("size.value",value=int(self.video_size_var.get()))); self.video_margin_label.configure(text=self.translator.text("margin.value",value=int(self.video_margin_var.get()))); self.video_opacity_label.configure(text=self.translator.text("opacity.value",value=int(self.video_opacity_var.get()))); self._render_video_preview(); self._save_image_settings()
+        self.video_state.badge.size = int(self.video_size_var.get()); self.video_state.badge.margin = int(self.video_margin_var.get()); self.video_state.badge.opacity = int(self.video_opacity_var.get())
+        self._project_video_state(); self.video_size_label.configure(text=self.translator.text("size.value",value=self.video_state.badge.size)); self.video_margin_label.configure(text=self.translator.text("margin.value",value=self.video_state.badge.margin)); self.video_opacity_label.configure(text=self.translator.text("opacity.value",value=self.video_state.badge.opacity)); self._render_video_preview(); self._save_image_settings()
 
     def _sync_video_state(self) -> None:
-        self.video_state.badge.enabled = bool(self.badge_enabled_var.get()); self.video_state.badge.badge_id = self.video_badge_var.get()
-        self.video_state.badge.position = self.video_position_var.get(); self.video_state.badge.size = int(self.video_size_var.get()); self.video_state.badge.margin = int(self.video_margin_var.get()); self.video_state.badge.opacity = int(self.video_opacity_var.get())
-        self.video_state.mode = self.video_mode_var.get(); self.video_state.duration = max(1, int(self.video_duration_var.get()))
+        self._project_video_state()
+
+    def _project_video_state(self) -> None:
+        """Project authoritative Video state into legacy Tk adapters."""
+        state = self.video_state
+        self.video_mode_var.set(state.mode); self.video_duration_var.set(max(1, int(state.duration)))
+        self.video_badge_var.set(state.badge.badge_id); self.video_position_var.set(state.badge.position)
+        self.video_size_var.set(state.badge.size); self.video_margin_var.set(state.badge.margin); self.video_opacity_var.set(state.badge.opacity)
 
     def _video_badge_path(self):
         return next((path for path in self.badges.display_badges() if self.badges.display_name(path.name) == self.video_badge_var.get()), None)

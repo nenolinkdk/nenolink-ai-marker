@@ -67,7 +67,8 @@ def test_video_visual_events_rerender_projection():
     end = source.index("    def _sync_video_state", start)
     handlers = source[start:end]
     assert handlers.count("self._render_video_preview()") >= 3
-    assert "self.video_state.badge.enabled = bool(self.badge_enabled_var.get())" in source
+    assert "def _project_video_state" in source
+    assert "self.video_state.badge.size = int(self.video_size_var.get())" in source
 
 
 def test_video_preview_uses_authoritative_badge_state():
