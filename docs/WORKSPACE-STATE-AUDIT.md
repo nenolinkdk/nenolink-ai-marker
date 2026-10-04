@@ -1,5 +1,10 @@
 # Workspace state audit (v1.0.3)
 
+> **Current architecture baseline (3I-DOC1).** The historical audit tables
+> below describe the pre-migration state and are retained as history. The
+> current production baseline is the peer-workspace model documented at the
+> end of this file.
+
 This audit deliberately precedes implementation. The outer `ShellController`
 remains the only owner of `IMAGE`, `VIDEO`, `PDF` and `PPTX` navigation.
 
@@ -77,6 +82,65 @@ state.
 
 Image keeps a responsive readable control column (approximately 35–40% of the workspace) while the preview receives the remaining width. Video follows the Image grouping and owns badge selection and visual state through `VideoWorkspaceState`. A representative frame is extracted with the bundled FFmpeg and composited through the same authoritative badge projection used by video output; preview extraction is runtime cache only and never modifies the source.
 ## Video preview correction
+
+## Current peer-workspace contract
+
+Production flow is:
+
+`UI event → workspace → authoritative workspace state → projection or immutable processing request → UI/preview/processor`.
+
+The shell owns only global navigation, the workspace registry, tool overlays,
+locale and Reset coordination. Each workspace owns its format-specific UI,
+lifecycle, callbacks, runtime state, preview and output orchestration.
+
+Every workspace implements the common lifecycle contract:
+
+- `mount(host)`: attach/build the view and project state;
+- `unmount()`: detach the view without destroying the session;
+- `project()`: state → UI projection;
+- `has_active_work()`: state-owned active-work predicate;
+- `clear_runtime_state()`: explicit session/runtime destruction.
+
+`unmount()` is never a substitute for `clear_runtime_state()`.
+
+### Ownership vocabulary
+
+**Authoritative state** is the single source of truth for runtime values.
+**Compatibility mirrors** are temporary one-way projections from state to
+legacy/shared consumers; they never write back. Tk variables/widgets are UI
+adapters, not state owners. CTkImage objects, extracted frames and preview
+caches are UI/rendering resources. Dialogs, localization, status, asset
+lookup, FFmpeg lookup and processors are application services.
+
+### Image and Video reference implementations
+
+| Concern | Image | Video |
+|---|---|---|
+| Registry | `ImageWorkspace` | `VideoWorkspace` |
+| State | `ImageWorkspaceState` | `VideoWorkspaceState` |
+| UI/lifecycle | `ImageWorkspace` | `VideoWorkspace` |
+| Preview | `ImageWorkspace.refresh_preview()` | `VideoWorkspace.refresh_preview()` |
+| Output | `ImageWorkspace.save()` → `ImageProcessingRequest` | `VideoWorkspace.save()` → `VideoProcessingRequest` |
+| Processor | `ImageProcessor` | `BatchProcessor.process_video()` |
+| Active work/clear | workspace state/lifecycle | workspace state/lifecycle |
+
+Image and Video are fully migrated peer-workspace reference implementations.
+Their remaining `sources`, `media_sources`, Tk variables and old MarkerApp
+methods are compatibility/service surfaces only and are not authoritative.
+
+### State tables and receipts
+
+The state/transition table defines required behavior. A transition or execution
+receipt records observed stages of the real production route. Tests must enter
+through production callbacks where possible; static source assertions alone do
+not prove runtime behavior.
+
+### PDF and PPTX next
+
+PDF and PPTX retain independent state, scope, navigation, renderer and
+processor implementations. They are not merged with Image or Video. Their
+next migration must adopt the same ownership and lifecycle principles while
+preserving PDF page/scope and PPTX slide/scope semantics.
 
 The packaged Video workspace had retained the pre-migration filename-only placeholder because the active ShellController-owned `MarkerApp` mounted a separate video workspace; the earlier extraction was only wired to the legacy media renderer. The active workspace now resolves the bundled FFmpeg, extracts a representative PNG frame, composites the authoritative `VideoWorkspaceState` badge, and retains the CTkImage reference on the preview widget.
 ## Video structural UI contract
