@@ -57,14 +57,26 @@ class _ShellRuntimeAdapter:
         self.mount_result = "not_attempted"
         self.project_result = "not_attempted"
         self.tool_result = "not_attempted"
+        self.cleared_workspaces = []
+        self.clear_failures = []
     def begin_receipt(self, spec):
         self.destination_lookup = "not_attempted"
         self.resolved_workspace = ""
         self.mount_result = "not_attempted"
         self.project_result = "not_attempted"
         self.tool_result = "not_attempted"
+        self.cleared_workspaces = []
+        self.clear_failures = []
     def preserve_source(self): return None
     def clear_source(self, source): self.app._workspace_registry[source].clear_runtime_state()
+    def clear_all_workspaces(self):
+        for source in DESTINATIONS:
+            try:
+                self.app._workspace_registry[source].clear_runtime_state()
+                self.cleared_workspaces.append(source)
+            except Exception as error:
+                self.clear_failures.append(f"{source}: {type(error).__name__}: {error}")
+                raise
     def unmount_source(self, source): self.app._workspace_registry[source].unmount()
     def mount_destination(self, destination):
         self.destination_lookup = "success" if destination in self.app._workspace_registry else "failure"
@@ -1844,7 +1856,7 @@ class MarkerApp(ctk.CTk):
 
     def reset_shell(self) -> None:
         source = self.shell_controller.active_content_type
-        active = self._format_has_active_work(source)
+        active = any(self._format_has_active_work(content) for content in DESTINATIONS)
         self.last_shell_spec = shell_transition_spec(source, self.shell_controller.active_tool, "reset", active)
         if active:
             workspace = getattr(self, "pptx_workspace_state", None) if source == "pptx" else None
@@ -1864,7 +1876,7 @@ class MarkerApp(ctk.CTk):
             self._shell_executor.execute(spec, _ShellRuntimeAdapter(self))
         except RuntimeError:
             return
-        self.render_shell_state()
+        self.render_shell_state(remount=False)
         workspace=getattr(self,"pptx_workspace_state",None)
         if workspace is not None:
             workspace.receipts.record({"layer":"pptx","event":"GLOBAL_RESET_PPTX_CLEARED","result":"ok"})

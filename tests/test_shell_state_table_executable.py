@@ -31,7 +31,8 @@ def test_reset_plans_cover_cancel_and_confirm():
     assert cancelled.preserve_source
     assert cancelled.actions == (ShellAction.PRESERVE_SOURCE,)
     assert confirmed.destination_content is ContentState.IMAGE
-    assert ShellAction.CLEAR_SOURCE in confirmed.actions
+    assert ShellAction.CLEAR_ALL_WORKSPACES in confirmed.actions
+    assert ShellAction.CLEAR_SOURCE not in confirmed.actions
 
 
 def test_executor_receipt_stops_at_destination_mount_failure():

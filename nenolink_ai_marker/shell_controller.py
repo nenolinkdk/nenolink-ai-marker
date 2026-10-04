@@ -32,6 +32,7 @@ class ShellAction(str, Enum):
     MOUNT_TOOL = "mount_tool"
     UNMOUNT_TOOL = "unmount_tool"
     CLEAR_TOOL = "clear_tool"
+    CLEAR_ALL_WORKSPACES = "clear_all_workspaces"
 
 @dataclass(frozen=True)
 class ShellTransitionSpec:
@@ -57,6 +58,8 @@ class ShellTransitionExecutor:
                 runtime.preserve_source(); executed.append(action.value)
             elif action is ShellAction.CLEAR_SOURCE:
                 runtime.clear_source(spec.source_content.value); executed.append(action.value)
+            elif action is ShellAction.CLEAR_ALL_WORKSPACES:
+                runtime.clear_all_workspaces(); executed.append(action.value)
             elif action is ShellAction.UNMOUNT_SOURCE:
                 runtime.unmount_source(spec.source_content.value); executed.append(action.value)
             elif action is ShellAction.MOUNT_DESTINATION:
@@ -85,6 +88,9 @@ class ShellTransitionExecutor:
             getattr(runtime, "mount_result", "not_attempted"),
             getattr(runtime, "project_result", "not_attempted"),
             getattr(runtime, "tool_result", "not_attempted"),
+            tuple(getattr(runtime, "cleared_workspaces", ())),
+            tuple(getattr(runtime, "clear_failures", ())),
+            spec.destination_tool.value if not failure else spec.source_tool.value,
         )
         runtime.record_receipt(receipt)
         if failure: raise RuntimeError(failure)
@@ -101,7 +107,11 @@ def shell_transition_spec(source: str, tool: str | None, event: str, active_work
         confirm = bool(active_work)
         if confirm and decision == "cancel":
             return ShellTransitionSpec(src, src_tool, ev, True, (ShellAction.PRESERVE_SOURCE,), src, src_tool, True, decision)
-        return ShellTransitionSpec(src, src_tool, ev, confirm, (ShellAction.CLEAR_SOURCE, ShellAction.UNMOUNT_SOURCE, ShellAction.CLEAR_TOOL, ShellAction.MOUNT_DESTINATION, ShellAction.PROJECT_DESTINATION), ContentState.IMAGE, ToolState.NONE, False, decision)
+        actions = [ShellAction.CLEAR_ALL_WORKSPACES]
+        if src_tool is not ToolState.NONE:
+            actions.append(ShellAction.UNMOUNT_TOOL)
+        actions.extend((ShellAction.CLEAR_TOOL, ShellAction.MOUNT_DESTINATION, ShellAction.PROJECT_DESTINATION))
+        return ShellTransitionSpec(src, src_tool, ev, confirm, tuple(actions), ContentState.IMAGE, ToolState.NONE, False, decision)
     dest = ContentState(ev.value)
     if dest is src and src_tool is ToolState.NONE:
         return ShellTransitionSpec(src, src_tool, ev, False, (ShellAction.PRESERVE_SOURCE, ShellAction.PROJECT_DESTINATION), src, ToolState.NONE, True, decision)
@@ -135,6 +145,9 @@ class TransitionReceipt:
     failure: str | None = None; last_successful_action: str | None = None
     destination_lookup: str = "not_attempted"; mount_result: str = "not_attempted"
     project_result: str = "not_attempted"; tool_result: str = "not_attempted"
+    cleared_workspaces: tuple[str, ...] = ()
+    clear_failures: tuple[str, ...] = ()
+    final_tool: str = "none"
 
 
 class ShellController:
