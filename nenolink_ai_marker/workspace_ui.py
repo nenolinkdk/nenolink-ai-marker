@@ -8,8 +8,8 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class WorkspaceLayoutTokens:
-    section_gap: int = 6
-    row_gap: int = 2
+    section_gap: int = 4
+    row_gap: int = 1
     heading_gap: int = 2
     control_width: int = 320
     dropdown_width: int = 180
@@ -20,6 +20,16 @@ class WorkspaceLayoutTokens:
 
 
 WORKSPACE_LAYOUT = WorkspaceLayoutTokens()
+
+
+def build_badge_visual(parent, *, name_variable=None):
+    """Create the shared stateless badge image/name projection widget."""
+    import customtkinter as ctk
+    return ctk.CTkLabel(
+        parent, textvariable=name_variable, anchor="w", compound="left",
+        width=WORKSPACE_LAYOUT.badge_thumbnail_width,
+        height=WORKSPACE_LAYOUT.badge_row_height,
+    )
 
 
 def build_badge_section(parent, *, enabled_var, badge_var, badge_values,

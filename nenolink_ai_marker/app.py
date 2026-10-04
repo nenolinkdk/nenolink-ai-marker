@@ -35,7 +35,7 @@ from .pptx_preview import PptxPreviewRenderer
 from .pptx_state import PptxWorkspaceState, PptxEvent, apply_pptx_visual_event
 from .pptx_workspace import PptxWorkspace, PPTX_STATE_TOKEN
 from .workspace_state import ImageWorkspaceState, VideoWorkspaceState, PdfWorkspaceState, visual_projection
-from .workspace_ui import WORKSPACE_LAYOUT, build_badge_section, build_logo_section, build_workspace_control_template
+from .workspace_ui import WORKSPACE_LAYOUT, build_badge_section, build_logo_section, build_workspace_control_template, build_badge_visual
 from .pdf_processor import PasswordProtectedPdfError, PdfInfo, PdfProcessor
 from .pdf_preview import PdfPreviewRenderer
 from .docx_processor import DocxInfo, DocxProcessor
@@ -999,6 +999,10 @@ class LegacyMarkerApp(ctk.CTk):
         if not source or not Path(source).is_file():
             messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("pptx.choose_first")); return
         source = Path(source)
+        workspace = getattr(self, "pptx_workspace_state", None)
+        receipts = getattr(workspace, "receipts", None)
+        if receipts:
+            receipts.record({"layer": "pptx", "event": "PPTX_SAVE_DIALOG_REQUEST"})
         try:
             metrics = self.pptx_processor.document_metrics(source)
             self.pptx_metrics = metrics
@@ -1014,11 +1018,15 @@ class LegacyMarkerApp(ctk.CTk):
         if not selected:
             return
         destination = Path(selected)
+        if receipts:
+            receipts.record({"layer": "pptx", "event": "PPTX_SAVE_DESTINATION", "selected": True})
         if destination.resolve() == source.resolve() or destination.suffix.lower() != ".pptx":
             messagebox.showerror(self.translator.text("error.title"), self.translator.text("pptx.extension_error")); return
         settings = MarkerSettings(badge_name=state.badge.badge_id, position=state.badge.position, size_percent=state.badge.size, margin=state.badge.margin, opacity=state.badge.opacity, logo_enabled=bool(logo_path), logo_path=str(logo_path or ""), logo_position=state.logo.position, logo_size_percent=state.logo.size, logo_margin=state.logo.margin, logo_opacity=state.logo.opacity, language=self.translator.language).validated()
         label = self.badges.display_name(badge.name) if badge else "No AI badge"
         disclosure, logo = settings_for_documents(settings, label=label, disclosure_language=self.translator.language)
+        if receipts:
+            receipts.record({"layer": "pptx", "event": "PPTX_PROCESS_START"})
         try:
             result = self.pptx_processor.process(ProcessingRequest(source, destination, disclosure, badge_path=badge, logo=logo), ItemSelection("selected", tuple(state.active_scope)))
         except (OSError, ValueError) as error:
@@ -1958,9 +1966,9 @@ class MarkerApp(ctk.CTk):
         self.pdf_scope_menu.grid_configure(row=4); self.pdf_scope_entry.grid_configure(row=5); self.pdf_scope_update.grid_configure(row=6); self.pdf_scope_message.grid_configure(row=7)
         ctk.CTkLabel(self.pdf_workspace, text="AI BADGE", font=bold).grid(row=8, column=0, pady=(2, 1), sticky="w")
         self.pdf_badge_enable.grid_configure(row=9); self.pdf_badge_menu.grid_configure(row=10)
-        self.pdf_badge_visual = ctk.CTkFrame(self.pdf_workspace, fg_color="transparent"); self.pdf_badge_visual.grid(row=11, column=0, padx=4, pady=(2, 4), sticky="w")
-        self.pdf_badge_image_label = ctk.CTkLabel(self.pdf_badge_visual, text="", width=110, height=54); self.pdf_badge_image_label.grid(row=0, column=0, padx=(0, 8), sticky="w")
-        self.pdf_badge_name_label = ctk.CTkLabel(self.pdf_badge_visual, textvariable=self.badge_name_var, anchor="w", height=WORKSPACE_LAYOUT.badge_row_height); self.pdf_badge_name_label.grid(row=0, column=1, sticky="w")
+        self.pdf_badge_visual = build_badge_visual(self.pdf_workspace, name_variable=self.badge_name_var); self.pdf_badge_visual.grid(row=11, column=0, padx=4, pady=(2, 4), sticky="w")
+        self.pdf_badge_image_label = self.pdf_badge_visual
+        self.pdf_badge_name_label = self.pdf_badge_visual
         ctk.CTkLabel(self.pdf_workspace, text="Badge Position").grid(row=12, column=0, pady=(4, 1), sticky="w"); self.pdf_position_menu.grid_configure(row=13)
         self.pdf_size_label = ctk.CTkLabel(self.pdf_workspace, text=f"Badge Size: {int(self.size_var.get())}%", anchor="w"); self.pdf_size_label.grid(row=14, column=0, sticky="w"); self.pdf_size_slider.grid_configure(row=15)
         self.pdf_margin_label = ctk.CTkLabel(self.pdf_workspace, text=f"Margin: {int(self.margin_var.get())} px", anchor="w"); self.pdf_margin_label.grid(row=16, column=0, sticky="w"); self.pdf_margin_slider.grid_configure(row=17)
@@ -2016,7 +2024,7 @@ class MarkerApp(ctk.CTk):
         self.pptx_size_slider = self.pptx_controls_view["badge"]["size_slider"]
         self.pptx_margin_slider = self.pptx_controls_view["badge"]["margin_slider"]
         self.pptx_opacity_slider = self.pptx_controls_view["badge"]["opacity_slider"]
-        self.pptx_badge_name_label = ctk.CTkLabel(self.pptx_controls_view["badge"]["frame"], textvariable=self.badge_name_var, anchor="w", compound="left", height=WORKSPACE_LAYOUT.badge_row_height)
+        self.pptx_badge_name_label = build_badge_visual(self.pptx_controls_view["badge"]["frame"], name_variable=self.badge_name_var)
         self.pptx_badge_name_label.grid(row=11, column=0, sticky="w")
         self.pptx_logo_enable = self.pptx_controls_view["logo"]["frame"].winfo_children()[1]
         self.pptx_logo_choose = self.pptx_controls_view["logo"]["frame"].winfo_children()[2]
@@ -2052,7 +2060,7 @@ class MarkerApp(ctk.CTk):
         self.pptx_badge_enabled_var = ctk.BooleanVar(value=True)
         self.pptx_badge_enable = ctk.CTkCheckBox(self.pptx_workspace, text="AI BADGE — " + self.translator.text("pdf.add_badge"), variable=self.pptx_badge_enabled_var, command=self.pptx_visual_changed); self.pptx_badge_enable.grid(row=10, column=0, pady=(3, 1), sticky="w")
         self.pptx_badge_menu = ctk.CTkOptionMenu(self.pptx_workspace, variable=self.badge_display_var, values=["—"], command=self.select_badge_display); self.pptx_badge_menu.grid(row=11, column=0, pady=2, sticky="w")
-        self.pptx_badge_name_label = ctk.CTkLabel(self.pptx_workspace, textvariable=self.badge_name_var, anchor="w", compound="left", height=WORKSPACE_LAYOUT.badge_row_height); self.pptx_badge_name_label.grid(row=11, column=0, padx=(190, 0), sticky="w")
+        self.pptx_badge_name_label = build_badge_visual(self.pptx_workspace, name_variable=self.badge_name_var); self.pptx_badge_name_label.grid(row=11, column=0, padx=(190, 0), sticky="w")
         self.pptx_logo_enable = ctk.CTkCheckBox(self.pptx_workspace, text="OWN LOGO — " + self.translator.text("logo.enable"), variable=self.logo_enabled_var, command=self.pptx_visual_changed); self.pptx_logo_enable.grid(row=12, column=0, pady=(4, 2), sticky="w")
         self.pptx_logo_choose = ctk.CTkButton(self.pptx_workspace, text=self.translator.text("logo.choose"), command=self.choose_logo, width=150); self.pptx_logo_choose.grid(row=13, column=0, pady=2, sticky="w")
         self.pptx_position_menu = ctk.CTkOptionMenu(self.pptx_workspace, variable=self.position_display_var, values=list(self.position_display_to_value), command=lambda value: (self.pptx_badge_position_var.set(self.position_display_to_value.get(value, "bottom-right")), self.pptx_visual_changed())); self.pptx_position_menu.grid(row=14, column=0, pady=2, sticky="w")
@@ -2239,10 +2247,8 @@ class MarkerApp(ctk.CTk):
         self.pdf_badge_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
         display_name = self.badges.display_name(badge.name)
         self.badge_name_var.set(display_name)
-        if getattr(self, "pdf_badge_image_label", None):
-            self.pdf_badge_image_label.configure(image=self.pdf_badge_photo, text=display_name)
-            self.pdf_badge_image_label.configure(text="")
-        if getattr(self, "pdf_badge_name_label", None): self.pdf_badge_name_label.configure(image=None, text=display_name)
+        if getattr(self, "pdf_badge_visual", None):
+            self.pdf_badge_visual.configure(image=self.pdf_badge_photo, text=display_name)
 
     def _project_pdf_badge_selection(self) -> None:
         """Project the authoritative/default badge into the PDF selector."""

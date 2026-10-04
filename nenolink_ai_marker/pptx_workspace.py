@@ -15,6 +15,7 @@ from .pptx_state import (PptxWorkspaceState, PptxEvent, PptxEventReceipt, apply_
                           apply_pptx_scope_event, choose_file_success, project_file, project_badge)
 from .diagnostic_receipts import ReceiptLog
 from .document_preview_layout import fit_preview_size
+from .workspace_ui import build_badge_visual
 
 
 class PptxConstructionReceipt:
@@ -90,9 +91,9 @@ class PptxWorkspace:
         names = list(getattr(getattr(self.app, "badge_display_to_file", None), "keys", lambda: [])()) or ["AI Assisted"]
         self.badge_var = ctk.StringVar(value="AI Assisted" if "AI Assisted" in names else names[0])
         self.badge_menu = ctk.CTkOptionMenu(controls, variable=self.badge_var, values=names, command=lambda v: self._dispatch(PptxEvent.BADGE_SELECT, v), width=190); self.badge_menu.grid(row=11, column=0, padx=12, pady=2, sticky="w")
-        self.badge_visual = ctk.CTkFrame(controls, fg_color="transparent"); self.badge_visual.grid(row=12, column=0, columnspan=2, padx=12, pady=(2, 4), sticky="w")
-        self.badge_image = ctk.CTkLabel(self.badge_visual, text="", width=54, height=48); self.badge_image.grid(row=0, column=0, padx=(0, 8), sticky="w")
-        self.badge_name = ctk.CTkLabel(self.badge_visual, text=self.badge_var.get(), anchor="w"); self.badge_name.grid(row=0, column=1, padx=0, sticky="w")
+        self.badge_visual = build_badge_visual(controls, name_variable=self.badge_var); self.badge_visual.grid(row=12, column=0, columnspan=2, padx=12, pady=(2, 4), sticky="w")
+        self.badge_image = self.badge_visual
+        self.badge_name = self.badge_visual
         self.construction_receipt.badge_section_created = True
         self._build_visual_controls(controls)
         # Keep a fixed viewport: rendered slide pixels must never determine
@@ -278,9 +279,19 @@ class PptxWorkspace:
 
     def _save_as(self):
         """Delegate only the output side effect; state remains workspace-owned."""
+        self.receipts.record({"layer": "pptx", "event": "PPTX_SAVE_CLICK"})
+        self.receipts.record({"layer": "pptx", "event": "PPTX_SAVE_AS_ENTER"})
+        if not self.state.path or not Path(self.state.path).is_file():
+            self.receipts.record({"layer": "pptx", "event": "PPTX_SAVE_STATE_VALID", "valid": False})
+            self.scope_status.configure(text="Choose a PowerPoint file before saving.")
+            return
+        self.receipts.record({"layer": "pptx", "event": "PPTX_SAVE_STATE_VALID", "valid": True})
         handler = getattr(self.app, "process_pptx_from_workspace", None)
         if callable(handler):
+            self.receipts.record({"layer": "pptx", "event": "PPTX_SAVE_HANDLER_ENTER"})
             handler(self.state)
+        else:
+            self.receipts.record({"layer": "pptx", "event": "PPTX_SAVE_HANDLER_ENTER", "callable": False})
 
     def _scope_mode(self, value):
         mode = self._scope_value.get(str(value), str(value).lower())
@@ -338,7 +349,7 @@ class PptxWorkspace:
                     with Image.open(asset) as opened: image = opened.convert("RGBA")
                     image.thumbnail((110, 54), Image.Resampling.LANCZOS)
                     self.badge_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
-                    self.badge_image.configure(image=self.badge_photo, text="")
+                    self.badge_visual.configure(image=self.badge_photo, text=model["display_name"])
 
     def _project_file(self):
         t = getattr(getattr(self.app, "translator", None), "text", lambda key, **v: key)
