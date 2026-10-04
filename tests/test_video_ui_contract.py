@@ -45,7 +45,8 @@ def test_video_file_selection_does_not_rebuild_workspace():
     start = source.index("    def open_video(self)")
     end = source.index("    def save_video", start)
     handler = source[start:end]
-    assert "self.video_sources = [Path(selected)]" in handler
+    assert "self.video_state.path = path" in handler
+    assert "self.video_sources = [path]" in handler
     assert "_mount_video_workspace" not in handler
     assert "video_controls_host" not in handler
     assert "video_preview_host" not in handler

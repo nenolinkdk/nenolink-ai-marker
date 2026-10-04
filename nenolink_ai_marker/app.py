@@ -2604,12 +2604,20 @@ class MarkerApp(ctk.CTk):
         return bool(self.image_state.selected_files)
 
     def _video_has_active_work(self) -> bool:
-        return bool(getattr(self, "video_sources", []))
+        return self.video_state.path is not None
 
     def _unmount_video_workspace(self) -> None:
-        self.video_sources = []
+        # Unmount detaches the view; explicit clear/reset owns session cleanup.
+        if self.video_workspace is not None and self.video_workspace.winfo_exists():
+            self.video_workspace.grid_remove()
+        self.video_preview_photo = None
+
+    def _clear_video_runtime_state(self) -> None:
+        """Explicit Video session clear; distinct from UI unmount."""
         self.video_state.clear_runtime_state()
-        self._clear_content_host()
+        self.video_sources = []
+        self.media_sources["video"] = []
+        self.video_preview_photo = None
 
     def _refresh_video_labels(self) -> None:
         if not getattr(self, "video_open_button", None): return
@@ -2652,7 +2660,6 @@ class MarkerApp(ctk.CTk):
         self._sync_video_state(); self.video_size_label.configure(text=self.translator.text("size.value",value=int(self.video_size_var.get()))); self.video_margin_label.configure(text=self.translator.text("margin.value",value=int(self.video_margin_var.get()))); self.video_opacity_label.configure(text=self.translator.text("opacity.value",value=int(self.video_opacity_var.get()))); self._render_video_preview(); self._save_image_settings()
 
     def _sync_video_state(self) -> None:
-        self.video_state.path = self.video_sources[0] if getattr(self, "video_sources", []) else None
         self.video_state.badge.enabled = bool(self.badge_enabled_var.get()); self.video_state.badge.badge_id = self.video_badge_var.get()
         self.video_state.badge.position = self.video_position_var.get(); self.video_state.badge.size = int(self.video_size_var.get()); self.video_state.badge.margin = int(self.video_margin_var.get()); self.video_state.badge.opacity = int(self.video_opacity_var.get())
         self.video_state.mode = self.video_mode_var.get(); self.video_state.duration = max(1, int(self.video_duration_var.get()))
@@ -2665,7 +2672,7 @@ class MarkerApp(ctk.CTk):
         try:
             ffmpeg=find_ffmpeg()
             if not ffmpeg: raise ValueError(self.translator.text("error.video_component_missing"))
-            frame=extract_video_frame(ffmpeg,self.video_sources[0]); frame.thumbnail((720,600),Image.Resampling.LANCZOS)
+            frame=extract_video_frame(ffmpeg,self.video_state.path); frame.thumbnail((720,600),Image.Resampling.LANCZOS)
             state=self.video_state; badge=self._video_badge_path() if state.badge.enabled else None
             if badge:
                 with Image.open(badge) as opened: frame=self.processor.compose(frame,opened.convert("RGBA"),MarkerSettings(badge_name=badge.name,position=state.badge.position,size_percent=state.badge.size,margin=state.badge.margin,opacity=state.badge.opacity))
@@ -2676,12 +2683,16 @@ class MarkerApp(ctk.CTk):
     def open_video(self) -> None:
         selected = filedialog.askopenfilename(title=self.translator.text("dialog.open_media"), filetypes=[(self.translator.text("files.supported_videos"), "*.mp4 *.mov *.mkv *.avi *.webm"), (self.translator.text("files.all"), "*.*")])
         if selected:
-            self.video_sources = [Path(selected)]; self.video_file_label.configure(text=self.video_sources[0].name); self._sync_video_state(); self._render_video_preview(); self._save_image_settings()
+            path = Path(selected)
+            self.video_state.path = path
+            self.video_sources = [path]  # compatibility mirror: state → legacy consumers
+            self.media_sources["video"] = [path]
+            self.video_file_label.configure(text=path.name); self._sync_video_state(); self._render_video_preview(); self._save_image_settings()
 
     def save_video(self) -> None:
         self._sync_video_state()
         if not self._video_has_active_work(): messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("warning.nothing_to_save")); return
-        source = self.video_sources[0]; suggested = source.with_name(f"{source.stem}_ai{source.suffix}")
+        source = self.video_state.path; suggested = source.with_name(f"{source.stem}_ai{source.suffix}")
         target = filedialog.asksaveasfilename(title=self.translator.text("dialog.save_video_as"), initialdir=str(source.parent), initialfile=suggested.name, defaultextension=source.suffix, filetypes=[(self.translator.text("files.supported_videos"), "*.mp4 *.mov *.mkv *.avi *.webm"), (self.translator.text("files.all"), "*.*")], confirmoverwrite=True)
         if not target: return
         target_path = Path(target)
