@@ -2873,6 +2873,10 @@ class MarkerApp(ctk.CTk):
         t = self.translator.text; self.size_label.configure(text="4. " + t("size.value", value=self.size_var.get())); self.margin_label.configure(text="5. " + t("margin.value", value=self.margin_var.get())); self.opacity_label.configure(text="6. " + t("opacity.value", value=self.opacity_var.get()))
 
     def changed(self, *_args) -> None:
+        if self.active_content_type == "image":
+            self.image_state.badge.position=self.position_var.get(); self.image_state.badge.size=int(self.size_var.get()); self.image_state.badge.margin=int(self.margin_var.get()); self.image_state.badge.opacity=int(self.opacity_var.get())
+            self.image_state.logo.enabled=bool(self.logo_enabled_var.get()); self.image_state.logo.path=self._logo_path(); self.image_state.logo.position=self.logo_position_var.get(); self.image_state.logo.size=int(self.logo_size_var.get()); self.image_state.logo.margin=int(self.logo_margin_var.get()); self.image_state.logo.opacity=int(self.logo_opacity_var.get())
+            self._project_image_visual_state()
         self._update_image_slider_labels(); self._update_logo_labels()
         if self.active_content_type == "pdf": self.render_pdf_preview()
         elif self.active_content_type == "pptx": self._update_pptx_preview()
@@ -2880,6 +2884,8 @@ class MarkerApp(ctk.CTk):
         self._save()
 
     def badge_enabled_changed(self) -> None:
+        self.image_state.badge.enabled = bool(self.badge_enabled_var.get())
+        self._project_image_visual_state()
         self._update_badge_controls(); self.update_preview(); self._save()
 
     def _update_badge_controls(self) -> None:
@@ -2947,6 +2953,8 @@ class MarkerApp(ctk.CTk):
         if filename: self.badge_var.set(filename); self.select_image_badge()
 
     def select_image_badge(self) -> None:
+        self.image_state.badge.badge_id = self.badge_var.get()
+        self._project_image_visual_state()
         self.badge_display_var.set(self.badges.display_name(self.badge_var.get()));
         if getattr(self, "single_badge_preview_label", None): self.update_image_badge_preview()
         if self.active_content_type == "image": self.update_preview()
@@ -2955,9 +2963,17 @@ class MarkerApp(ctk.CTk):
         self._save()
 
     def _sync_image_state(self) -> None:
-        """Project Image UI adapters into the authoritative runtime state."""
-        self.image_state.badge.enabled=bool(self.badge_enabled_var.get()); self.image_state.badge.badge_id=self.badge_var.get(); self.image_state.badge.position=self.position_var.get(); self.image_state.badge.size=int(self.size_var.get()); self.image_state.badge.margin=int(self.margin_var.get()); self.image_state.badge.opacity=int(self.opacity_var.get())
-        self.image_state.logo.enabled=bool(self.logo_enabled_var.get()); self.image_state.logo.path=self._logo_path(); self.image_state.logo.position=self.logo_position_var.get(); self.image_state.logo.size=int(self.logo_size_var.get()); self.image_state.logo.margin=int(self.logo_margin_var.get()); self.image_state.logo.opacity=int(self.logo_opacity_var.get())
+        """Seed Image runtime visuals once from preference/Tk adapters."""
+        if not self.image_state.badge.badge_id:
+            self.image_state.badge.enabled=bool(self.badge_enabled_var.get()); self.image_state.badge.badge_id=self.badge_var.get(); self.image_state.badge.position=self.position_var.get(); self.image_state.badge.size=int(self.size_var.get()); self.image_state.badge.margin=int(self.margin_var.get()); self.image_state.badge.opacity=int(self.opacity_var.get())
+            self.image_state.logo.enabled=bool(self.logo_enabled_var.get()); self.image_state.logo.path=self._logo_path(); self.image_state.logo.position=self.logo_position_var.get(); self.image_state.logo.size=int(self.logo_size_var.get()); self.image_state.logo.margin=int(self.logo_margin_var.get()); self.image_state.logo.opacity=int(self.logo_opacity_var.get())
+
+    def _project_image_visual_state(self) -> None:
+        """Project authoritative Image visuals into legacy adapters."""
+        state = self.image_state
+        self.badge_var.set(state.badge.badge_id); self.badge_enabled_var.set(state.badge.enabled)
+        self.position_var.set(state.badge.position); self.size_var.set(state.badge.size); self.margin_var.set(state.badge.margin); self.opacity_var.set(state.badge.opacity)
+        self.logo_enabled_var.set(state.logo.enabled); self.logo_path_var.set(str(state.logo.path or "")); self.logo_position_var.set(state.logo.position); self.logo_size_var.set(state.logo.size); self.logo_margin_var.set(state.logo.margin); self.logo_opacity_var.set(state.logo.opacity)
 
     def open_images(self) -> None:
         selected = filedialog.askopenfilenames(title=self.translator.text("dialog.open_media"), filetypes=[(self.translator.text("files.supported_media"), " ".join(f"*{extension}" for extension in sorted(SUPPORTED_EXTENSIONS))), (self.translator.text("files.all"), "*.*")])
