@@ -1894,7 +1894,9 @@ class MarkerApp(ctk.CTk):
         self.pdf_logo_size_slider = ctk.CTkSlider(self.pdf_workspace, from_=1, to=100, number_of_steps=99, variable=self.logo_size_var, command=self.change_pdf_logo_size); self.pdf_logo_size_slider.grid(row=18, column=0, pady=2, sticky="ew")
         self.pdf_logo_margin_slider = ctk.CTkSlider(self.pdf_workspace, from_=0, to=250, number_of_steps=250, variable=self.logo_margin_var, command=self.change_pdf_logo_margin); self.pdf_logo_margin_slider.grid(row=19, column=0, pady=2, sticky="ew")
         self.pdf_logo_opacity_slider = ctk.CTkSlider(self.pdf_workspace, from_=0, to=100, number_of_steps=100, variable=self.logo_opacity_var, command=self.change_pdf_logo_opacity); self.pdf_logo_opacity_slider.grid(row=20, column=0, pady=2, sticky="ew")
-        self.pdf_preview_label = ctk.CTkLabel(self.pdf_preview_host, text="PDF page preview", fg_color=("gray92", "gray13"), width=680, height=240); self.pdf_preview_label.grid(row=0, column=0, pady=(12, 4), sticky="nsew")
+        # The host, not the image label, owns preview geometry.  The label is
+        # an expanding projection target with no document-sized request.
+        self.pdf_preview_label = ctk.CTkLabel(self.pdf_preview_host, text="PDF page preview", fg_color=("gray92", "gray13")); self.pdf_preview_label.grid(row=0, column=0, pady=(12, 4), sticky="nsew")
         nav = ctk.CTkFrame(self.pdf_preview_host, fg_color="transparent"); nav.grid(row=1, column=0, pady=4)
         self.pdf_previous_button = ctk.CTkButton(nav, text="◀", width=42, command=lambda: self.change_pdf_page(-1)); self.pdf_previous_button.grid(row=0, column=0, padx=4)
         self.pdf_page_status = ctk.CTkLabel(nav, text="—", width=120); self.pdf_page_status.grid(row=0, column=1, padx=4)
@@ -2410,7 +2412,14 @@ class MarkerApp(ctk.CTk):
             # PdfPreviewRenderer.  This is a projection-only layout decision.
             host_width = max(1, self.pdf_preview_host.winfo_width())
             host_height = max(1, self.pdf_preview_host.winfo_height())
-            max_size = (max(240, host_width - 32), max(160, host_height - 72))
+            try:
+                page = PdfProcessor._reader(self.pdf_path).pages[self.pdf_current_page - 1]
+                aspect = float(page.mediabox.width) / max(1.0, float(page.mediabox.height))
+            except (OSError, ValueError, IndexError):
+                aspect = 1.0
+            from .document_preview_layout import fit_preview_size
+            max_size = fit_preview_size(host_width, host_height, aspect, padding=16,
+                                        navigation_height=48, target_fraction=0.8)
             try:
                 result = self.pdf_preview_renderer.render(self.pdf_path, self.pdf_current_page, badge, self.settings(), logo, max_size=max_size)
             except TypeError:

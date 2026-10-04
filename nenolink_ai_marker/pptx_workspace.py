@@ -183,7 +183,7 @@ class PptxWorkspace:
         # Return the available interior rectangle; the renderer then fits the
         # actual slide aspect ratio inside it.  The helper keeps this calculation
         # deterministic while avoiding source-slide-driven widget geometry.
-        return fit_preview_size(viewport_width, viewport_height, 740 / 450, padding=10)
+        return fit_preview_size(viewport_width, viewport_height, 740 / 450, padding=10, target_fraction=0.8)
 
     def apply_language(self, translator) -> None:
         """Project locale changes without rebuilding or clearing the session."""
