@@ -2572,7 +2572,7 @@ class MarkerApp(ctk.CTk):
         self.video_duration_var = ctk.IntVar(value=5); self.video_duration_label = ctk.CTkLabel(left, text="Duration"); self.video_duration_entry = ctk.CTkEntry(left, textvariable=self.video_duration_var); self.video_seconds_label = ctk.CTkLabel(left, text="seconds")
         self.video_duration_label.grid(row=19, column=0, padx=14, pady=1, sticky="w"); self.video_duration_entry.grid(row=20, column=0, padx=14, pady=2, sticky="ew"); self.video_duration_entry.bind("<FocusOut>", self.change_video_duration)
         heading("OUTPUT", 21)
-        self.video_process_button = ctk.CTkButton(left, text="Save Marked Video...", command=self.save_video); self.video_process_button.grid(row=22, column=0, padx=14, pady=(2, 10), sticky="ew")
+        self.video_process_button = ctk.CTkButton(left, text="Save Marked Video...", command=self.video_workspace_owner.save); self.video_process_button.grid(row=22, column=0, padx=14, pady=(2, 10), sticky="ew")
         self.video_preview_label = ctk.CTkLabel(right, text="Video preview"); self.video_preview_label.grid(row=0, column=0, padx=20, pady=20)
         self.video_preview_photo = None
         self._refresh_video_labels(); self._refresh_video_badges()
