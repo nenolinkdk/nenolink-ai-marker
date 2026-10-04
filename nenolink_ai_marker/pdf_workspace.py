@@ -8,9 +8,20 @@ event ownership move in the following PDF migration checkpoints.
 from __future__ import annotations
 
 from pathlib import Path
+from dataclasses import dataclass
+from tkinter import filedialog, messagebox
 import customtkinter as ctk
 from .pdf_processor import PdfProcessor
 from .document_preview_layout import fit_preview_size
+from .document_processing import ItemSelection, ProcessingRequest, settings_for_documents
+from .metadata import marker_metadata
+from dataclasses import replace
+
+
+@dataclass(frozen=True, slots=True)
+class PdfProcessingRequest:
+    request: ProcessingRequest
+    selection: ItemSelection
 
 
 class PdfWorkspace:
@@ -93,6 +104,35 @@ class PdfWorkspace:
             app._boot(f"PDF_HOST={width}x{height} PDF_FIT={max_size[0]}x{max_size[1]} PDF_RENDER={result.image.width}x{result.image.height} PDF_CTKIMAGE={result.image.width}x{result.image.height} PDF_LABEL={app.pdf_preview_label.winfo_width()}x{app.pdf_preview_label.winfo_height()}")
         except (OSError, ValueError) as error:
             app.pdf_preview_label.configure(image=None, text=f"Could not render PDF page: {error}")
+
+    def build_processing_request(self, destination: Path) -> PdfProcessingRequest:
+        state = self.state; app = self.app
+        badge = app.badges.find(state.badge.badge_id) if state.badge.enabled else None
+        label = app.badges.display_name(state.badge.badge_id) if badge else ""
+        settings = replace(app.settings(), position=state.badge.position, size_percent=state.badge.size, margin=state.badge.margin, opacity=state.badge.opacity, logo_enabled=state.logo.enabled, logo_path=str(state.logo.path or ""), logo_position=state.logo.position, logo_size_percent=state.logo.size, logo_margin=state.logo.margin, logo_opacity=state.logo.opacity)
+        disclosure, logo = settings_for_documents(settings, label=label, disclosure_language=app.translator.language)
+        request = ProcessingRequest(state.path, destination, disclosure, badge_path=badge, logo=logo, metadata=marker_metadata(disclosure.badge_name, disclosure.label))
+        return PdfProcessingRequest(request, ItemSelection("selected", tuple(state.active_scope)))
+
+    def save(self) -> None:
+        app = self.app; state = self.state
+        if not state.path or not getattr(app, "pdf_info", None):
+            messagebox.showwarning(app.translator.text("warning.title"), app.translator.text("pdf.choose_first")); return
+        if not app._confirm_pdf_limits_phase6() or not app._confirm_pdf_signature(): return
+        destination_name = f"{state.path.stem}_ai.pdf"
+        selected = filedialog.asksaveasfilename(title=app.translator.text("pdf.save_as"), initialdir=str(state.path.parent), initialfile=destination_name, defaultextension=".pdf", filetypes=[("PDF (*.pdf)", "*.pdf")], confirmoverwrite=True)
+        if not selected: return
+        destination = Path(selected)
+        if destination.resolve() == state.path.resolve():
+            messagebox.showerror(app.translator.text("error.title"), app.translator.text("pdf.extension_error")); return
+        try:
+            prepared = self.build_processing_request(destination)
+            if prepared.request.badge_path is None and not prepared.request.logo.enabled:
+                messagebox.showwarning(app.translator.text("warning.title"), app.translator.text("pdf.overlay_required")); return
+            result = app.pdf_processor.process(prepared.request, prepared.selection)
+        except (OSError, ValueError) as error:
+            messagebox.showerror(app.translator.text("error.title"), app.translator.text("pdf.error", error=error)); return
+        app.status_var.set(app.translator.text("pdf.saved", name=result.destination.name, count=len(result.selected_pages)))
 
     def has_active_work(self) -> bool:
         if getattr(self.state, "path", None) is not None:

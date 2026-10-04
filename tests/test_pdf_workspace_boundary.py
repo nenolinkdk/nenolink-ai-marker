@@ -2,6 +2,8 @@ from types import SimpleNamespace
 
 from nenolink_ai_marker.pdf_workspace import PdfWorkspace
 from nenolink_ai_marker.workspace_state import PdfWorkspaceState
+from nenolink_ai_marker.models import MarkerSettings
+from pathlib import Path
 
 
 class _State:
@@ -86,3 +88,23 @@ def test_pdf_page_and_scope_events_preserve_independent_dimensions():
     assert state.current_page == 3 and state.active_scope == (2, 4)
     workspace.set_scope("selected", (1, 5), "1,5")
     assert state.active_scope == (1, 5) and state.current_page == 1
+
+
+def test_pdf_processing_request_is_immutable_and_uses_workspace_state(tmp_path):
+    state = PdfWorkspaceState(path=tmp_path / "source.pdf", page_count=4, current_page=3, active_scope=(1, 3))
+    state.badge.badge_id = "ai-assisted.png"
+    app = SimpleNamespace(
+        badges=SimpleNamespace(find=lambda _value: tmp_path / "ai-assisted.png", display_name=lambda _value: "AI Assisted"),
+        settings=lambda: MarkerSettings(),
+        translator=SimpleNamespace(language="en"),
+    )
+    workspace = PdfWorkspace(app, state)
+    prepared = workspace.build_processing_request(tmp_path / "output.pdf")
+    assert prepared.request.source == state.path
+    assert prepared.selection.items == state.active_scope
+    assert prepared.request.destination == tmp_path / "output.pdf"
+    try:
+        prepared.selection = None
+        assert False
+    except Exception:
+        pass

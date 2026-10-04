@@ -1988,7 +1988,7 @@ class MarkerApp(ctk.CTk):
         self.pdf_scope_entry = ctk.CTkEntry(self.pdf_workspace, placeholder_text="2,4,7 or 5-7,10-12"); self.pdf_scope_entry.grid(row=10, column=0, pady=2, sticky="w")
         self.pdf_scope_update = ctk.CTkButton(self.pdf_workspace, text=t("document.scope_update"), command=self.update_pdf_scope, width=100); self.pdf_scope_update.grid(row=11, column=0, pady=(2, 4), sticky="w")
         self.pdf_scope_message = ctk.CTkLabel(self.pdf_workspace, text="", text_color="#b42318", anchor="w"); self.pdf_scope_message.grid(row=12, column=0, sticky="w")
-        self.pdf_process_button = ctk.CTkButton(self.pdf_workspace, text="Save", command=self.process_pdf_phase6, width=58); self.pdf_process_button.grid(row=21, column=1, pady=(2, 4), sticky="w")
+        self.pdf_process_button = ctk.CTkButton(self.pdf_workspace, text="Save", command=self.pdf_workspace_owner.save, width=58); self.pdf_process_button.grid(row=21, column=1, pady=(2, 4), sticky="w")
         # Normative order: FILE → PDF PAGES → AI BADGE → OWN LOGO → OUTPUT.
         bold = ctk.CTkFont(weight="bold")
         self.pdf_workspace.grid_columnconfigure(1, weight=1)
