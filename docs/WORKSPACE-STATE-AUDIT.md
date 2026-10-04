@@ -1,5 +1,9 @@
 # Workspace state audit (v1.0.3)
 
+> **Historical note:** material below the current architecture section that
+> describes migration targets is retained for traceability and is
+> **HISTORICAL / PRE-MIGRATION**. It must not be read as the current route.
+
 > **Current architecture baseline (3I-DOC1).** The historical audit tables
 > below describe the pre-migration state and are retained as history. The
 > current production baseline is the peer-workspace model documented at the
@@ -15,7 +19,7 @@ remains the only owner of `IMAGE`, `VIDEO`, `PDF` and `PPTX` navigation.
 | PDF | `pdf_path`, `pdf_info`, `pdf_preview_state`, `document_scope_states["pdf"]`, PDF badge variables | PDF preview renderer/state | independent validated page scope | `PdfProcessor` and metadata |
 | PPTX | `PptxWorkspaceState` plus projected Tk variables for compatibility | `pptx_preview_state` / renderer | independent validated slide scope | `PptxProcessor` and metadata |
 
-## Findings
+## Findings (HISTORICAL / PRE-MIGRATION)
 
 Image and Video still use the shared persisted `MarkerSettings` as their
 authoritative visual model. This is correct for their common badge/logo
@@ -31,7 +35,7 @@ all four workspaces would risk the frozen navigation and processing behaviour.
 The safe sequence is to establish adapters/events around existing state first,
 then migrate one workspace at a time.
 
-## Common contract
+## Common contract (HISTORICAL / PRE-MIGRATION)
 
 Each workspace should expose `load/clear`, `has_active_work`, visual property
 events, `render_preview` and `process_output`. Events validate and mutate the
@@ -43,7 +47,7 @@ processing scope. Cancel preserves the complete source state, Continue clears
 the source runtime before ShellController mounts the destination, Tools/Back
 does not clear it, and Reset unconditionally returns to clean Image.
 
-## Recommended implementation sequence
+## Recommended implementation sequence (HISTORICAL / PRE-MIGRATION)
 
 1. Add a small common state/event contract and parity tests without changing
    behaviour.
@@ -142,7 +146,7 @@ processor implementations. They are not merged with Image or Video. Their
 next migration must adopt the same ownership and lifecycle principles while
 preserving PDF page/scope and PPTX slide/scope semantics.
 
-## Current migration status (3I-DOC2)
+## Current migration status (3I-DOC2) — HISTORICAL / PRE-MIGRATION
 
 The pre-migration PDF tables above are historical and must not be read as the
 current production architecture. Image, Video and PDF are now reference peer
@@ -282,6 +286,75 @@ branch in `_render_authoritative_state()` had replaced the complete PPTX route
 with the historical `PPTX TEST` placeholder, which made the packaged screen
 appear truncated even though the builder created the controls. That competing
 path is disconnected.
+
+## Final four-workspace architecture (3I-DOC3)
+
+This is the current production contract. Image, Video, PDF and PPTX are all
+fully migrated peer workspaces; none is a remaining migration target.
+
+```text
+Shell → workspace registry → format workspace → authoritative workspace state
+      → projection / preview / deterministic processing boundary
+      → UI / renderer / processor
+```
+
+| Format | Direct registry owner | Sole runtime state owner |
+|---|---|---|
+| Image | `ImageWorkspace` | `ImageWorkspaceState` |
+| Video | `VideoWorkspace` | `VideoWorkspaceState` |
+| PDF | `PdfWorkspace` | `PdfWorkspaceState` |
+| PPTX | `PptxWorkspace` | `PptxWorkspaceState` |
+
+All four workspaces implement `mount(host)`, `unmount()`, `project()`,
+`has_active_work()` and `clear_runtime_state()`. `unmount()` removes the
+presentation while preserving the session; `clear_runtime_state()` is the
+destructive runtime reset. They are not interchangeable.
+
+Workspace state is authoritative. MarkerApp fields and Tk variables are
+compatibility mirrors or UI adapters only, with one-way flow
+`workspace/state → compatibility mirror/adapter`; they never write back as a
+second runtime owner. Retained CTkImage objects, frame caches and preview
+resources are projection resources, not business state.
+
+Preview ownership is workspace-local: state → workspace preview method or
+projection → renderer → workspace-owned UI resource. The PPTX route is
+`PptxWorkspaceState → PptxWorkspace._render_preview() → PptxPreviewRenderer`.
+`MarkerApp._update_pptx_preview` is compatibility-only and is not the
+production preview owner.
+
+Output follows the same boundary: authoritative state → deterministic value
+boundary → processor/service → result. Image uses `ImageProcessingRequest`,
+Video uses `VideoProcessingRequest`, and PDF uses `PdfProcessingRequest`.
+PPTX legitimately uses the active application service
+`PptxWorkspace._save_as() → process_pptx_from_workspace(state) →
+PptxProcessor`; that service is not a second state owner.
+
+PPTX preserves All, First, Selected draft plus Update, Range draft plus
+Update, invalid-update preservation, physical-slide navigation independent of
+processing scope, badge/logo state, visual changes preserving slide/scope,
+new-file reset, preview and Save As behavior. This migration preserved the
+existing PPTX contract; it was not a processing rewrite.
+
+The accepted global shell FSM is: same-content transitions preserve session;
+Content → Tool and Tool → the same underlying Content preserve the session;
+active Content → different Content warns, with Cancel preserving the source
+and Continue clearing it before mounting a clean destination. Reset confirms
+when active, preserves on Cancel, and on Confirm clears runtime/tool state and
+returns to clean Image. Reset without active work follows the same clean Image
+destination contract.
+
+The state table defines required behavior; transition/execution receipts
+record observed production stages. Tests should enter through production
+callbacks where practical, not only helpers or static source assertions.
+
+Compatibility surfaces remain intentionally where required by identified
+consumers. They are one-way, non-authoritative, narrow services or
+production-unreachable legacy code. Final legacy cleanup is technical debt,
+not an incomplete workspace migration.
+
+Architecture acceptance is complete. Packaged Windows behavior and physical
+geometry remain **RUNTIME VERIFICATION REQUIRED** and must not be inferred
+from headless tests.
 
 ## Mandatory pre-build gate
 
