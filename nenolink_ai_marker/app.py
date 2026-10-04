@@ -988,6 +988,42 @@ class LegacyMarkerApp(ctk.CTk):
             result=self.pptx_processor.process(ProcessingRequest(self.pptx_path,destination,disclosure,badge_path=badge,logo=logo),selection)
         except (OSError,ValueError) as error:messagebox.showerror(self.translator.text("error.title"),self.translator.text("pptx.error",error=error)); return
         text=self.translator.text("pptx.saved",name=result.destination.name,count=len(result.selected_slides)); self.status_var.set(text); messagebox.showinfo(self.translator.text("complete.title"),text)
+
+    def process_pptx_from_workspace(self, state) -> None:
+        """Save from the authoritative PptxWorkspaceState boundary.
+
+        This is intentionally separate from the legacy MarkerApp fields: the
+        active workspace supplies the source path, scope and visual projection.
+        """
+        source = getattr(state, "path", None)
+        if not source or not Path(source).is_file():
+            messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("pptx.choose_first")); return
+        source = Path(source)
+        try:
+            metrics = self.pptx_processor.document_metrics(source)
+            self.pptx_metrics = metrics
+        except (OSError, ValueError, KeyError) as error:
+            messagebox.showerror(self.translator.text("error.title"), self.translator.text("pptx.error", error=error)); return
+        if not self._confirm_pptx_limits():
+            return
+        badge = self.badges.find(state.badge.badge_id) if state.badge.enabled else None
+        logo_path = Path(state.logo.path) if state.logo.enabled and state.logo.path else None
+        if not badge and not logo_path:
+            messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("pdf.overlay_required")); return
+        selected = filedialog.asksaveasfilename(title=self.translator.text("pptx.save_as"), initialdir=str(source.parent), initialfile=f"{source.stem}_ai.pptx", defaultextension=".pptx", filetypes=[("PowerPoint (*.pptx)", "*.pptx"), (self.translator.text("files.all"), "*.*")], confirmoverwrite=True)
+        if not selected:
+            return
+        destination = Path(selected)
+        if destination.resolve() == source.resolve() or destination.suffix.lower() != ".pptx":
+            messagebox.showerror(self.translator.text("error.title"), self.translator.text("pptx.extension_error")); return
+        settings = MarkerSettings(badge_name=state.badge.badge_id, position=state.badge.position, size_percent=state.badge.size, margin=state.badge.margin, opacity=state.badge.opacity, logo_enabled=bool(logo_path), logo_path=str(logo_path or ""), logo_position=state.logo.position, logo_size_percent=state.logo.size, logo_margin=state.logo.margin, logo_opacity=state.logo.opacity, language=self.translator.language).validated()
+        label = self.badges.display_name(badge.name) if badge else "No AI badge"
+        disclosure, logo = settings_for_documents(settings, label=label, disclosure_language=self.translator.language)
+        try:
+            result = self.pptx_processor.process(ProcessingRequest(source, destination, disclosure, badge_path=badge, logo=logo), ItemSelection("selected", tuple(state.active_scope)))
+        except (OSError, ValueError) as error:
+            messagebox.showerror(self.translator.text("error.title"), self.translator.text("pptx.error", error=error)); return
+        text = self.translator.text("pptx.saved", name=result.destination.name, count=len(result.selected_slides)); self.status_var.set(text); messagebox.showinfo(self.translator.text("complete.title"), text)
     def _render_update_notification(self):
         if self._available_update_version:
             self.update_notification.configure(text=self.translator.text("update.available",version=self._available_update_version)); self.update_notification.grid()
@@ -1922,7 +1958,9 @@ class MarkerApp(ctk.CTk):
         self.pdf_scope_menu.grid_configure(row=4); self.pdf_scope_entry.grid_configure(row=5); self.pdf_scope_update.grid_configure(row=6); self.pdf_scope_message.grid_configure(row=7)
         ctk.CTkLabel(self.pdf_workspace, text="AI BADGE", font=bold).grid(row=8, column=0, pady=(2, 1), sticky="w")
         self.pdf_badge_enable.grid_configure(row=9); self.pdf_badge_menu.grid_configure(row=10)
-        self.pdf_badge_name_label = ctk.CTkLabel(self.pdf_workspace, textvariable=self.badge_name_var, anchor="w", compound="left", height=WORKSPACE_LAYOUT.badge_row_height); self.pdf_badge_name_label.grid(row=11, column=0, padx=4, pady=(2, 4), sticky="w")
+        self.pdf_badge_visual = ctk.CTkFrame(self.pdf_workspace, fg_color="transparent"); self.pdf_badge_visual.grid(row=11, column=0, padx=4, pady=(2, 4), sticky="w")
+        self.pdf_badge_image_label = ctk.CTkLabel(self.pdf_badge_visual, text="", width=110, height=54); self.pdf_badge_image_label.grid(row=0, column=0, padx=(0, 8), sticky="w")
+        self.pdf_badge_name_label = ctk.CTkLabel(self.pdf_badge_visual, textvariable=self.badge_name_var, anchor="w", height=WORKSPACE_LAYOUT.badge_row_height); self.pdf_badge_name_label.grid(row=0, column=1, sticky="w")
         ctk.CTkLabel(self.pdf_workspace, text="Badge Position").grid(row=12, column=0, pady=(4, 1), sticky="w"); self.pdf_position_menu.grid_configure(row=13)
         self.pdf_size_label = ctk.CTkLabel(self.pdf_workspace, text=f"Badge Size: {int(self.size_var.get())}%", anchor="w"); self.pdf_size_label.grid(row=14, column=0, sticky="w"); self.pdf_size_slider.grid_configure(row=15)
         self.pdf_margin_label = ctk.CTkLabel(self.pdf_workspace, text=f"Margin: {int(self.margin_var.get())} px", anchor="w"); self.pdf_margin_label.grid(row=16, column=0, sticky="w"); self.pdf_margin_slider.grid_configure(row=17)
@@ -2192,7 +2230,7 @@ class MarkerApp(ctk.CTk):
         badge_id = self.pdf_state.badge.badge_id or self.badge_var.get()
         badge = self.badges.find(badge_id) if badge_id else None
         if not badge:
-            if getattr(self, "pdf_badge_name_label", None): self.pdf_badge_name_label.configure(image=None, text="")
+            if getattr(self, "pdf_badge_image_label", None): self.pdf_badge_image_label.configure(image=None, text="")
             self.pdf_badge_photo = None
             return
         with Image.open(badge) as opened:
@@ -2201,7 +2239,10 @@ class MarkerApp(ctk.CTk):
         self.pdf_badge_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
         display_name = self.badges.display_name(badge.name)
         self.badge_name_var.set(display_name)
-        if getattr(self, "pdf_badge_name_label", None): self.pdf_badge_name_label.configure(image=self.pdf_badge_photo, text=display_name)
+        if getattr(self, "pdf_badge_image_label", None):
+            self.pdf_badge_image_label.configure(image=self.pdf_badge_photo, text=display_name)
+            self.pdf_badge_image_label.configure(text="")
+        if getattr(self, "pdf_badge_name_label", None): self.pdf_badge_name_label.configure(image=None, text=display_name)
 
     def _project_pdf_badge_selection(self) -> None:
         """Project the authoritative/default badge into the PDF selector."""
@@ -2419,6 +2460,9 @@ class MarkerApp(ctk.CTk):
             # PdfPreviewRenderer.  This is a projection-only layout decision.
             host_width = max(1, self.pdf_preview_host.winfo_width())
             host_height = max(1, self.pdf_preview_host.winfo_height())
+            self.pdf_preview_host.update_idletasks()
+            host_width = max(1, self.pdf_preview_host.winfo_width())
+            host_height = max(1, self.pdf_preview_host.winfo_height())
             try:
                 page = PdfProcessor._reader(self.pdf_path).pages[self.pdf_current_page - 1]
                 aspect = float(page.mediabox.width) / max(1.0, float(page.mediabox.height))
@@ -2427,6 +2471,8 @@ class MarkerApp(ctk.CTk):
             from .document_preview_layout import fit_preview_size
             max_size = fit_preview_size(host_width, host_height, aspect, padding=16,
                                         navigation_height=48, target_fraction=0.8)
+            usable = (max(1, host_width - 32), max(1, host_height - 32 - 48))
+            target80 = (round(usable[0] * 0.8), round(usable[1] * 0.8))
             try:
                 result = self.pdf_preview_renderer.render(self.pdf_path, self.pdf_current_page, badge, self.settings(), logo, max_size=max_size)
             except TypeError:
@@ -2435,6 +2481,7 @@ class MarkerApp(ctk.CTk):
             self._sync_pdf_state()
             self.pdf_preview_photo = ctk.CTkImage(light_image=result.image, dark_image=result.image, size=result.image.size)
             self.pdf_preview_label.configure(image=self.pdf_preview_photo, text="")
+            self._boot(f"PDF_HOST={host_width}x{host_height} PDF_USABLE={usable[0]}x{usable[1]} PDF_TARGET80={target80[0]}x{target80[1]} PDF_FIT={max_size[0]}x{max_size[1]} PDF_RENDER={result.image.width}x{result.image.height} PDF_CTKIMAGE={result.image.width}x{result.image.height} PDF_LABEL={self.pdf_preview_label.winfo_width()}x{self.pdf_preview_label.winfo_height()}")
             self.pdf_page_status.configure(text=f"{self.pdf_current_page} / {self.pdf_info.metrics.item_count}")
             self.pdf_previous_button.configure(state="normal" if self.pdf_current_page > 1 else "disabled")
             self.pdf_next_button.configure(state="normal" if self.pdf_current_page < self.pdf_info.metrics.item_count else "disabled")

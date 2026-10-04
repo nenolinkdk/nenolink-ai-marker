@@ -217,12 +217,22 @@ class PptxWorkspace:
             settings = MarkerSettings(badge_name=self.state.badge.badge_id, position=self.state.badge.position, size_percent=self.state.badge.size, margin=self.state.badge.margin, opacity=self.state.badge.opacity, logo_enabled=self.state.logo.enabled, logo_position=self.state.logo.position, logo_size_percent=self.state.logo.size, logo_margin=self.state.logo.margin, logo_opacity=self.state.logo.opacity)
             # Use the fixed viewport's interior, not the source slide's size.
             available_width, available_height = self._preview_fit_rect()
+            if hasattr(self.preview_viewport, "update_idletasks"):
+                self.preview_viewport.update_idletasks()
+            host_width = max(1, self.preview_viewport.winfo_width())
+            host_height = max(1, self.preview_viewport.winfo_height())
+            available_width, available_height = self._preview_fit_rect()
             result = renderer.render(self.state.path, self.state.current_slide, badge, settings, self.state.logo.path if self.state.logo.enabled else None, max_size=(available_width, available_height))
             self.preview_photo = ctk.CTkImage(result.image, size=result.image.size)
             self.preview_label.configure(image=self.preview_photo, text="")
             self.slide_status.configure(text=f"{result.slide_number} / {result.slide_count}")
             self.previous_button.configure(state="normal" if self.state.current_slide > 1 else "disabled")
             self.next_button.configure(state="normal" if self.state.current_slide < self.state.slide_count else "disabled")
+            usable = (max(1, host_width - 20), max(1, host_height - 20))
+            target80 = (round(usable[0] * 0.8), round(usable[1] * 0.8))
+            boot = getattr(self.app, "_boot", None)
+            if callable(boot):
+                boot(f"PPTX_HOST={host_width}x{host_height} PPTX_USABLE={usable[0]}x{usable[1]} PPTX_TARGET80={target80[0]}x{target80[1]} PPTX_FIT={available_width}x{available_height} PPTX_RENDER={result.image.width}x{result.image.height} PPTX_CTKIMAGE={result.image.width}x{result.image.height} PPTX_LABEL={self.preview_label.winfo_width()}x{self.preview_label.winfo_height()}")
             self.receipts.record({"layer": "pptx", "event": "PPTX_PREVIEW_GEOMETRY_STABLE", "slide_bbox": result.image.size})
             self.receipts.record({"layer": "pptx", "event": "PPTX_PREVIEW_FIT_RECT", "fit_rect": [available_width, available_height]})
             self.receipts.record({"layer": "pptx", "event": "PPTX_COMPACT_NAV_READY", "counter": True})
@@ -268,9 +278,9 @@ class PptxWorkspace:
 
     def _save_as(self):
         """Delegate only the output side effect; state remains workspace-owned."""
-        handler = getattr(self.app, "process_pptx", None)
+        handler = getattr(self.app, "process_pptx_from_workspace", None)
         if callable(handler):
-            handler()
+            handler(self.state)
 
     def _scope_mode(self, value):
         mode = self._scope_value.get(str(value), str(value).lower())
