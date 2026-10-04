@@ -38,6 +38,27 @@ For Shell, the equivalent route is:
 UI command → typed shell event → ShellTransitionSpec
 → ShellTransitionExecutor → lifecycle execution
 → TransitionReceipt → resulting shell state
+
+## Evidence levels established by the migration
+
+- Normative state-table tests prove transition rules and executor outcomes.
+- Authority/projection tests prove compatibility mirrors cannot override
+  authoritative state.
+- Callback-path tests prove active UI controls reach the authoritative owner.
+- Regression tests protect product behavior.
+- Packaged Windows acceptance verifies real CustomTkinter mapping, dialogs,
+  retained images, rendering and packaged dependencies that headless tests
+  cannot fully prove.
+
+A selected checkpoint suite is not a release gate. State-table coverage and
+the full release regression suite are separate requirements. The canonical
+release command is:
+
+`.venv\\Scripts\\python.exe -m pytest -q tests`
+
+The current recorded baseline is 496 passed with one warning; future test-count
+changes are valid when tests are added or removed, but the required condition
+is zero failures.
 ```
 
 The table/specification is required behavior. Receipts, where present, only

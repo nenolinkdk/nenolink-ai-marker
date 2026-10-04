@@ -12,6 +12,29 @@
 This audit deliberately precedes implementation. The outer `ShellController`
 remains the only owner of `IMAGE`, `VIDEO`, `PDF` and `PPTX` navigation.
 
+## Resulting ownership model (current)
+
+The migration tables above are historical. The current production model is:
+
+| Owner | Authoritative responsibilities |
+|---|---|
+| ShellController | active content, active tool overlay, navigation transitions, confirmation decisions, global Reset orchestration |
+| ImageWorkspace | Image state/events/table/reducer, projection, lifecycle and processing-request boundary |
+| VideoWorkspace | Video state/events/table/reducer, projection, lifecycle and processing-request boundary |
+| PdfWorkspace | PDF state/events/table/reducer, projection, lifecycle and processing-request boundary |
+| PptxWorkspace | PPTX state/events/table/reducer, projection, lifecycle and processing-request boundary |
+
+The common lifecycle is `mount(host)`, `unmount()`, `dispatch(event)`,
+`project()`, `has_active_work()`, `clear_runtime_state()` and `enter_clean()`.
+The governing rule is:
+
+`TABLE → EXECUTION → AUTHORITATIVE STATE → PROJECTION → UI`
+
+MarkerApp fields and Tk variables may remain only as downstream compatibility or
+presentation adapters. They must not determine transitions, warnings, scope,
+active content or output requests. Each workspace owns its local runtime state;
+the shell owns only global lifecycle policy.
+
 | Workspace | Current runtime ownership | Preview | Scope | Output |
 |---|---|---|---|---|
 | Image | `sources`, selected source and shared `MarkerSettings` variables in `MarkerApp` | `preview_image` / `preview_photo` | not applicable | image processor and Save As |
