@@ -2520,63 +2520,8 @@ class MarkerApp(ctk.CTk):
         self.image_workspace_owner.mount(self.content_host)
 
     def _mount_video_workspace(self) -> None:
-        self._clear_content_host()
-        self.video_workspace = ctk.CTkFrame(self.content_host, fg_color="transparent")
-        self.video_workspace.grid(row=0, column=0, sticky="nsew")
-        self.video_workspace.grid_columnconfigure(0, weight=0, minsize=320)
-        self.video_workspace.grid_columnconfigure(1, weight=1)
-        self.video_workspace.grid_rowconfigure(0, weight=1)
-        left = AutoHideScrollableFrame(self.video_workspace, width=320, fg_color=("gray86", "gray17"))
-        self.video_controls_host = left
-        left.grid(row=0, column=0, padx=(4, 8), pady=4, sticky="nsew")
-        left.grid_columnconfigure(0, weight=1)
-        right = ctk.CTkFrame(self.video_workspace)
-        self.video_preview_host = right
-        right.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew")
-        right.grid_columnconfigure(0, weight=1); right.grid_rowconfigure(0, weight=1)
-
-        def heading(text, row):
-            ctk.CTkLabel(left, text=text, font=ctk.CTkFont(weight="bold")).grid(row=row, column=0, padx=14, pady=(8, 2), sticky="w")
-
-        heading("FILE", 0)
-        self.video_open_button = ctk.CTkButton(left, text="Choose Video", command=self.open_video)
-        self.video_open_button.grid(row=1, column=0, padx=14, pady=2, sticky="ew")
-        self.video_file_label = ctk.CTkLabel(left, text="No video selected", anchor="w", justify="left", wraplength=280)
-        self.video_file_label.grid(row=2, column=0, padx=14, pady=(2, 6), sticky="ew")
-
-        heading("AI BADGE", 3)
-        self.video_badge_enable = ctk.CTkCheckBox(left, text="Add AI badge", variable=self.badge_enabled_var, command=self._video_changed)
-        self.video_badge_enable.grid(row=4, column=0, padx=14, pady=2, sticky="w")
-        self.video_badge_label = ctk.CTkLabel(left, text="Selected Badge", anchor="w")
-        self.video_badge_label.grid(row=5, column=0, padx=14, pady=1, sticky="w")
-        self.video_badge_var = ctk.StringVar(value=self.badge_display_var.get())
-        self.video_badge_menu = ctk.CTkOptionMenu(left, variable=self.video_badge_var, values=["—"], command=self.change_video_badge)
-        self.video_badge_menu.grid(row=6, column=0, padx=14, pady=2, sticky="ew")
-        badge_preview = ctk.CTkFrame(left); badge_preview.grid(row=7, column=0, padx=14, pady=3, sticky="ew"); badge_preview.grid_columnconfigure(1, weight=1)
-        self.video_badge_preview_label = ctk.CTkLabel(badge_preview, text="", width=90, height=44); self.video_badge_preview_label.grid(row=0, column=0, padx=5, pady=5)
-        self.video_badge_name_label = ctk.CTkLabel(badge_preview, textvariable=self.badge_name_var, font=ctk.CTkFont(weight="bold"), anchor="w", wraplength=155); self.video_badge_name_label.grid(row=0, column=1, padx=(3, 5), pady=5, sticky="ew")
-        self.video_position_var = ctk.StringVar(value="bottom-right"); self.video_position_display_var = ctk.StringVar(value="Bottom right")
-        self.video_position_display_to_value = {"Top left":"top-left", "Top right":"top-right", "Bottom left":"bottom-left", "Bottom right":"bottom-right", "Center":"center"}
-        self.video_position_label = ctk.CTkLabel(left, text="Badge Position"); self.video_position_label.grid(row=8, column=0, padx=14, pady=1, sticky="w")
-        self.video_position_menu = ctk.CTkOptionMenu(left, variable=self.video_position_display_var, values=list(self.video_position_display_to_value), command=self.change_video_position); self.video_position_menu.grid(row=9, column=0, padx=14, pady=2, sticky="ew")
-        self.video_size_var = ctk.IntVar(value=20); self.video_margin_var = ctk.IntVar(value=20); self.video_opacity_var = ctk.IntVar(value=100)
-        self.video_size_label = self._video_slider(left, self.video_size_var, 1, 100, 10, "Badge Size")
-        self.video_margin_label = self._video_slider(left, self.video_margin_var, 0, 250, 12, "Badge Margin")
-        self.video_opacity_label = self._video_slider(left, self.video_opacity_var, 0, 100, 14, "Badge Opacity")
-
-        heading("VIDEO OPTIONS", 16)
-        self.video_mode_var = ctk.StringVar(value="permanent"); self.video_mode_display_var = ctk.StringVar()
-        self.video_mode_display_to_value = {"Permanent":"permanent", "Beginning":"beginning", "End":"end"}
-        self.video_mode_label = ctk.CTkLabel(left, text="Video badge mode"); self.video_mode_label.grid(row=17, column=0, padx=14, pady=1, sticky="w")
-        self.video_mode_menu = ctk.CTkOptionMenu(left, variable=self.video_mode_display_var, values=list(self.video_mode_display_to_value), command=self.change_video_mode); self.video_mode_menu.grid(row=18, column=0, padx=14, pady=2, sticky="ew")
-        self.video_duration_var = ctk.IntVar(value=5); self.video_duration_label = ctk.CTkLabel(left, text="Duration"); self.video_duration_entry = ctk.CTkEntry(left, textvariable=self.video_duration_var); self.video_seconds_label = ctk.CTkLabel(left, text="seconds")
-        self.video_duration_label.grid(row=19, column=0, padx=14, pady=1, sticky="w"); self.video_duration_entry.grid(row=20, column=0, padx=14, pady=2, sticky="ew"); self.video_duration_entry.bind("<FocusOut>", self.change_video_duration)
-        heading("OUTPUT", 21)
-        self.video_process_button = ctk.CTkButton(left, text="Save Marked Video...", command=self.video_workspace_owner.save); self.video_process_button.grid(row=22, column=0, padx=14, pady=(2, 10), sticky="ew")
-        self.video_preview_label = ctk.CTkLabel(right, text="Video preview"); self.video_preview_label.grid(row=0, column=0, padx=20, pady=20)
-        self.video_preview_photo = None
-        self._refresh_video_labels(); self._refresh_video_badges()
-
+        """Temporary registry entry adapter; VideoWorkspace owns the view."""
+        self.video_workspace_owner.mount(self.content_host)
     def _video_slider(self, parent, variable, start, end, row, label):
         output = ctk.CTkLabel(parent, text=label); output.grid(row=row, column=0, padx=14, pady=(4, 0), sticky="w")
         ctk.CTkSlider(parent, from_=start, to=end, number_of_steps=end-start, variable=variable, command=self._video_changed).grid(row=row+1, column=0, padx=14, pady=(1, 3), sticky="ew")

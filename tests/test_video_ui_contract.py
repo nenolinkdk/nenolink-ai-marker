@@ -2,13 +2,11 @@ from pathlib import Path
 
 
 APP = Path(__file__).parents[1] / "nenolink_ai_marker" / "app.py"
+WORKSPACE = Path(__file__).parents[1] / "nenolink_ai_marker" / "video_workspace.py"
 
 
 def test_active_video_workspace_has_state_order_and_no_widget_class_labels():
-    source = APP.read_text(encoding="utf-8")
-    start = source.index("    def _mount_video_workspace(self)")
-    end = source.index("    def _video_slider", start)
-    active = source[start:end]
+    active = WORKSPACE.read_text(encoding="utf-8")
     assert active.index('heading("FILE"') < active.index('heading("AI BADGE"') < active.index('heading("VIDEO OPTIONS"') < active.index('heading("OUTPUT"')
     assert 'text="Add AI badge"' in active
     assert 'text="Video preview"' in active
@@ -29,13 +27,10 @@ def test_active_video_preview_uses_ffmpeg_and_retains_ctk_image():
 
 
 def test_video_mount_owns_two_fresh_hosts_and_clears_common_host():
-    source = APP.read_text(encoding="utf-8")
-    start = source.index("    def _mount_video_workspace(self)")
-    end = source.index("    def _video_slider", start)
-    active = source[start:end]
-    assert "self._clear_content_host()" in active
-    assert "self.video_controls_host = left" in active
-    assert "self.video_preview_host = right" in active
+    active = WORKSPACE.read_text(encoding="utf-8")
+    assert "self.app._clear_content_host()" in active
+    assert "app.video_controls_host = left" in active
+    assert "app.video_preview_host = right" in active
     assert "grid_columnconfigure(0, weight=0, minsize=320)" in active
     assert "grid_columnconfigure(1, weight=1)" in active
 
