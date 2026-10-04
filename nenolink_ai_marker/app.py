@@ -1658,11 +1658,14 @@ class MarkerApp(ctk.CTk):
         self.tool_workspace = None
         self.content_buttons: dict[str, ctk.CTkButton] = {}
         self._initialize_image_services()
+        self.image_workspace_owner = ImageWorkspace(
+            self, self.image_state, scrollable_frame_cls=AutoHideScrollableFrame
+        )
         # One shell-level registry for all peer content workspaces.  Format
         # specific state stays inside the mounted workspace; the shell only
         # resolves and mounts the selected peer.
         self._workspace_registry = {
-            "image": self._mount_image_workspace,
+            "image": self.image_workspace_owner,
             "video": self._mount_video_workspace,
             "pdf": self._mount_pdf_workspace,
             "pptx": self._mount_pptx_workspace,
@@ -1849,7 +1852,11 @@ class MarkerApp(ctk.CTk):
         if destination in self._workspace_registry:
             trace = self.__dict__.get("shell_trace")
             if destination == "pptx" and trace is not None: trace.append("PPTX_REGISTRY")
-            self._workspace_registry[destination]()
+            workspace = self._workspace_registry[destination]
+            if hasattr(workspace, "mount"):
+                workspace.mount(self.content_host)
+            else:
+                workspace()
             self.mounted_view = destination.upper()
         else:
             self._clear_content_host()
@@ -2586,8 +2593,9 @@ class MarkerApp(ctk.CTk):
         self.tool_workspace = None
 
     def _unmount_image_workspace(self) -> None:
+        self.image_workspace_owner.clear_runtime_state()
+        self.image_workspace_owner.unmount()
         self.sources = []
-        self.image_state.clear_runtime_state()
         self.image_state.preview_image = None
         self.preview_renderer.clear(); self.preview_photo = self.preview_image = None
         self._clear_content_host()

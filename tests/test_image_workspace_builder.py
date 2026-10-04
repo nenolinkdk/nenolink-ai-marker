@@ -47,3 +47,9 @@ def test_image_save_is_workspace_owned():
     assert "filedialog.asksaveasfilename" in WORKSPACE
     builder_start = WORKSPACE.index("def _build_ui")
     assert "command=self.save" in WORKSPACE[builder_start:]
+
+
+def test_image_registry_uses_workspace_lifecycle_object():
+    assert '"image": self.image_workspace_owner' in APP
+    assert "workspace.mount(self.content_host)" in APP
+    assert '"image": self._mount_image_workspace' not in APP
