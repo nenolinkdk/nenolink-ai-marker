@@ -16,6 +16,7 @@ from .document_preview_layout import fit_preview_size
 from .document_processing import ItemSelection, ProcessingRequest, settings_for_documents
 from .metadata import marker_metadata
 from dataclasses import replace
+from .workspace_state import PdfEvent, PdfWorkspaceState, apply_pdf_event
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,17 +58,18 @@ class PdfWorkspace:
             if variable is not None: variable.set(value)
 
     def accept_file(self, path, info) -> None:
-        self.state.path = path; self.state.page_count = info.metrics.item_count; self.state.current_page = 1
-        self.state.scope_mode = "all"; self.state.scope_input = ""; self.state.active_scope = tuple(range(1, self.state.page_count + 1)); self.state.preview_image = None
+        apply_pdf_event(self.state, PdfEvent.FILE_SELECTED, {"path": path, "page_count": info.metrics.item_count})
         self.app.pdf_info = info
         self.project()
 
     def set_current_page(self, page: int) -> None:
-        self.state.current_page = max(1, min(self.state.page_count, int(page))); self.project()
+        apply_pdf_event(self.state, PdfEvent.PREVIEW_PAGE_SELECTED, {"page": page}); self.project()
 
     def set_scope(self, mode: str, values: tuple[int, ...], text: str = "") -> None:
-        self.state.scope_mode = mode; self.state.scope_input = text; self.state.active_scope = tuple(values)
-        if values: self.state.current_page = values[0]
+        apply_pdf_event(self.state, PdfEvent.SCOPE_MODE, {"mode": mode})
+        if mode in {"selected", "range"}:
+            apply_pdf_event(self.state, PdfEvent.SCOPE_TEXT_CHANGED, {"text": text})
+            apply_pdf_event(self.state, PdfEvent.SCOPE_UPDATE, {"values": tuple(values), "text": text})
         self.project()
 
     def refresh_preview(self) -> None:
@@ -142,7 +144,10 @@ class PdfWorkspace:
         return getattr(self.app, "pdf_path", None) is not None
 
     def clear_runtime_state(self) -> None:
-        self.state.clear()
+        if isinstance(self.state, PdfWorkspaceState):
+            apply_pdf_event(self.state, PdfEvent.CLEAR_RUNTIME)
+        else:
+            self.state.clear()
         # B1 intentionally performs dual cleanup so existing Reset semantics
         # remain unchanged.  These fields/resources are removed in B2/B3.
         clear = getattr(self.app, "_clear_pdf_runtime_compat", None)

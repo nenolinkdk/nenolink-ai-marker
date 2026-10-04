@@ -207,6 +207,90 @@ class PdfWorkspaceState(WorkspaceRuntimeState):
     preview_image: Any = None
 
 
+class PdfEvent(str, Enum):
+    FILE_SELECTED = "file_selected"
+    SCOPE_MODE = "scope_mode"
+    SCOPE_TEXT_CHANGED = "scope_text_changed"
+    SCOPE_UPDATE = "scope_update"
+    PREVIEW_PREVIOUS = "preview_previous"
+    PREVIEW_NEXT = "preview_next"
+    PREVIEW_PAGE_SELECTED = "preview_page_selected"
+    BADGE_CHANGED = "badge_changed"
+    LOGO_CHANGED = "logo_changed"
+    VISUAL_CHANGED = "visual_changed"
+    CLEAR_RUNTIME = "clear_runtime"
+
+
+@dataclass(frozen=True)
+class PdfTransition:
+    event: PdfEvent
+    mutates: tuple[str, ...]
+    preserves: tuple[str, ...]
+
+
+PDF_TRANSITION_TABLE: tuple[PdfTransition, ...] = (
+    PdfTransition(PdfEvent.FILE_SELECTED, ("path", "page_count", "current_page", "scope_mode", "scope_input", "active_scope"), ("badge", "logo")),
+    PdfTransition(PdfEvent.SCOPE_MODE, ("scope_mode", "active_scope", "current_page"), ("path", "page_count", "badge", "logo")),
+    PdfTransition(PdfEvent.SCOPE_TEXT_CHANGED, ("scope_input",), ("path", "page_count", "active_scope", "current_page", "badge", "logo")),
+    PdfTransition(PdfEvent.SCOPE_UPDATE, ("active_scope", "current_page", "scope_input"), ("path", "page_count", "badge", "logo")),
+    PdfTransition(PdfEvent.PREVIEW_PREVIOUS, ("current_page",), ("path", "page_count", "active_scope", "scope_input", "badge", "logo")),
+    PdfTransition(PdfEvent.PREVIEW_NEXT, ("current_page",), ("path", "page_count", "active_scope", "scope_input", "badge", "logo")),
+    PdfTransition(PdfEvent.PREVIEW_PAGE_SELECTED, ("current_page",), ("path", "page_count", "active_scope", "scope_input", "badge", "logo")),
+    PdfTransition(PdfEvent.BADGE_CHANGED, ("badge",), ("path", "page_count", "active_scope", "scope_input", "current_page", "logo")),
+    PdfTransition(PdfEvent.LOGO_CHANGED, ("logo",), ("path", "page_count", "active_scope", "scope_input", "current_page", "badge")),
+    PdfTransition(PdfEvent.VISUAL_CHANGED, ("badge", "logo"), ("path", "page_count", "active_scope", "scope_input", "current_page")),
+    PdfTransition(PdfEvent.CLEAR_RUNTIME, ("path", "page_count", "current_page", "scope_mode", "scope_input", "active_scope", "preview_image"), ("badge", "logo")),
+)
+
+
+def pdf_transition(event: PdfEvent | str) -> PdfTransition:
+    value = PdfEvent(event)
+    return next(spec for spec in PDF_TRANSITION_TABLE if spec.event is value)
+
+
+def _pdf_values(value, page_count: int, mode: str) -> tuple[int, ...]:
+    if mode == "all": return tuple(range(1, page_count + 1))
+    if mode == "first": return (1,) if page_count else ()
+    values = tuple(sorted(set(int(v) for v in value)))
+    if not values or any(v < 1 or v > page_count for v in values):
+        raise ValueError("PDF scope is outside the document")
+    return values
+
+
+def apply_pdf_event(state: PdfWorkspaceState, event: PdfEvent | str, payload=None) -> PdfWorkspaceState:
+    event = PdfEvent(event); pdf_transition(event); payload = payload or {}
+    if event is PdfEvent.FILE_SELECTED:
+        state.path = payload["path"]; state.page_count = int(payload["page_count"])
+        state.current_page = 1; state.scope_mode = "all"; state.scope_input = ""
+        state.active_scope = tuple(range(1, state.page_count + 1)); state.preview_image = None
+    elif event is PdfEvent.SCOPE_MODE:
+        mode = str(payload["mode"]); state.scope_mode = mode
+        if mode in {"all", "first"}:
+            state.active_scope = _pdf_values((), state.page_count, mode); state.current_page = state.active_scope[0] if state.active_scope else 0
+    elif event is PdfEvent.SCOPE_TEXT_CHANGED:
+        state.scope_input = str(payload.get("text", ""))
+    elif event is PdfEvent.SCOPE_UPDATE:
+        values = _pdf_values(payload.get("values", ()), state.page_count, state.scope_mode)
+        state.active_scope = values; state.current_page = values[0] if values else state.current_page
+        state.scope_input = str(payload.get("text", state.scope_input))
+    elif event in {PdfEvent.PREVIEW_PREVIOUS, PdfEvent.PREVIEW_NEXT}:
+        delta = -1 if event is PdfEvent.PREVIEW_PREVIOUS else 1
+        state.current_page = max(1, min(state.page_count, state.current_page + delta))
+    elif event is PdfEvent.PREVIEW_PAGE_SELECTED:
+        state.current_page = max(1, min(state.page_count, int(payload.get("page", state.current_page))))
+    elif event is PdfEvent.BADGE_CHANGED:
+        for key, value in payload.items(): setattr(state.badge, key, value)
+    elif event is PdfEvent.LOGO_CHANGED:
+        for key, value in payload.items(): setattr(state.logo, key, Path(value) if key == "path" and value else value)
+    elif event is PdfEvent.VISUAL_CHANGED:
+        for key, value in payload.items():
+            target = state.logo if key.startswith("logo_") else state.badge
+            setattr(target, key.removeprefix("logo_"), value)
+    elif event is PdfEvent.CLEAR_RUNTIME:
+        state.clear_runtime_state(); state.page_count = 0; state.current_page = 0; state.scope_mode = "all"; state.scope_input = ""; state.active_scope = (); state.preview_image = None
+    return state
+
+
 class WorkspaceAdapter(Protocol):
     state: WorkspaceRuntimeState
 

@@ -35,7 +35,7 @@ from .pptx_processor import PptxProcessor
 from .pptx_preview import PptxPreviewRenderer
 from .pptx_state import PptxWorkspaceState, PptxEvent, apply_pptx_visual_event
 from .pptx_workspace import PptxWorkspace, PPTX_STATE_TOKEN
-from .workspace_state import ImageWorkspaceState, VideoWorkspaceState, PdfWorkspaceState, visual_projection
+from .workspace_state import ImageWorkspaceState, VideoWorkspaceState, PdfWorkspaceState, visual_projection, PdfEvent, apply_pdf_event
 from .image_workspace import ImageWorkspace
 from .video_workspace import VideoWorkspace
 from .pdf_workspace import PdfWorkspace
@@ -2299,8 +2299,7 @@ class MarkerApp(ctk.CTk):
         filename = self.badge_display_to_file.get(display_name)
         if not filename or not self.badges.find(filename):
             return
-        self.pdf_state.badge.badge_id = filename
-        self.pdf_state.badge.enabled = bool(self.pdf_badge_enabled_var.get())
+        apply_pdf_event(self.pdf_state, PdfEvent.BADGE_CHANGED, {"badge_id": filename, "enabled": bool(self.pdf_badge_enabled_var.get())})
         self.pdf_workspace_owner.project()
         if getattr(self, "pdf_badge_name_label", None):
             self.pdf_badge_name_label.configure(text=display_name)
@@ -2342,7 +2341,7 @@ class MarkerApp(ctk.CTk):
         value = self.position_display_to_value.get(display_name)
         if not value:
             return
-        self.pdf_state.badge.position = value
+        apply_pdf_event(self.pdf_state, PdfEvent.BADGE_CHANGED, {"position": value})
         self.pdf_workspace_owner.project()
         self.render_pdf_preview()
 
@@ -2352,7 +2351,7 @@ class MarkerApp(ctk.CTk):
             normalized = max(1, min(100, int(round(float(value)))))
         except (TypeError, ValueError):
             return
-        self.pdf_state.badge.size = normalized
+        apply_pdf_event(self.pdf_state, PdfEvent.BADGE_CHANGED, {"size": normalized})
         self.pdf_workspace_owner.project()
         if getattr(self, "pdf_size_label", None):
             self.pdf_size_label.configure(text=f"Badge Size: {normalized}%")
@@ -2363,7 +2362,7 @@ class MarkerApp(ctk.CTk):
             normalized = max(0, min(250, int(round(float(value)))))
         except (TypeError, ValueError):
             return
-        self.pdf_state.badge.margin = normalized; self.pdf_workspace_owner.project()
+        apply_pdf_event(self.pdf_state, PdfEvent.BADGE_CHANGED, {"margin": normalized}); self.pdf_workspace_owner.project()
         if getattr(self, "pdf_margin_label", None): self.pdf_margin_label.configure(text=f"Margin: {normalized} px")
         self.render_pdf_preview()
 
@@ -2372,12 +2371,12 @@ class MarkerApp(ctk.CTk):
             normalized = max(0, min(100, int(round(float(value)))))
         except (TypeError, ValueError):
             return
-        self.pdf_state.badge.opacity = normalized; self.pdf_workspace_owner.project()
+        apply_pdf_event(self.pdf_state, PdfEvent.BADGE_CHANGED, {"opacity": normalized}); self.pdf_workspace_owner.project()
         if getattr(self, "pdf_opacity_label", None): self.pdf_opacity_label.configure(text=f"Opacity: {normalized}%")
         self.render_pdf_preview()
 
     def change_pdf_logo_enabled(self) -> None:
-        self.pdf_state.logo.enabled = bool(self.logo_enabled_var.get())
+        apply_pdf_event(self.pdf_state, PdfEvent.LOGO_CHANGED, {"enabled": bool(self.logo_enabled_var.get())})
         self.pdf_workspace_owner.project()
         self.render_pdf_preview()
 
@@ -2385,26 +2384,26 @@ class MarkerApp(ctk.CTk):
         value = self.position_display_to_value.get(display_name)
         if not value:
             return
-        self.pdf_state.logo.position = value; self.pdf_workspace_owner.project(); self.render_pdf_preview()
+        apply_pdf_event(self.pdf_state, PdfEvent.LOGO_CHANGED, {"position": value}); self.pdf_workspace_owner.project(); self.render_pdf_preview()
 
     def change_pdf_logo_size(self, value) -> None:
         try: normalized = max(1, min(100, int(round(float(value)))) )
         except (TypeError, ValueError): return
-        self.pdf_state.logo.size = normalized; self.pdf_workspace_owner.project()
+        apply_pdf_event(self.pdf_state, PdfEvent.LOGO_CHANGED, {"size": normalized}); self.pdf_workspace_owner.project()
         if getattr(self, "pdf_logo_size_label", None): self.pdf_logo_size_label.configure(text=f"Logo Size: {normalized}%")
         self.render_pdf_preview()
 
     def change_pdf_logo_margin(self, value) -> None:
         try: normalized = max(0, min(250, int(round(float(value)))) )
         except (TypeError, ValueError): return
-        self.pdf_state.logo.margin = normalized; self.pdf_workspace_owner.project()
+        apply_pdf_event(self.pdf_state, PdfEvent.LOGO_CHANGED, {"margin": normalized}); self.pdf_workspace_owner.project()
         if getattr(self, "pdf_logo_margin_label", None): self.pdf_logo_margin_label.configure(text=f"Logo Margin: {normalized} px")
         self.render_pdf_preview()
 
     def change_pdf_logo_opacity(self, value) -> None:
         try: normalized = max(0, min(100, int(round(float(value)))) )
         except (TypeError, ValueError): return
-        self.pdf_state.logo.opacity = normalized; self.pdf_workspace_owner.project()
+        apply_pdf_event(self.pdf_state, PdfEvent.LOGO_CHANGED, {"opacity": normalized}); self.pdf_workspace_owner.project()
         if getattr(self, "pdf_logo_opacity_label", None): self.pdf_logo_opacity_label.configure(text=f"Logo Opacity: {normalized}%")
         self.render_pdf_preview()
 
@@ -2484,7 +2483,9 @@ class MarkerApp(ctk.CTk):
         mode = {"All": "all", "First": "first", "Selected": "selected", "Range": "range"}.get(label, "all")
         if mode == "all" and self.pdf_info: self.pdf_workspace_owner.set_scope(mode, tuple(range(1, self.pdf_info.metrics.item_count + 1))); self.render_pdf_preview()
         elif mode == "first" and self.pdf_info: self.pdf_workspace_owner.set_scope(mode, (1,)); self.render_pdf_preview()
-        else: self.pdf_workspace_owner.state.scope_mode = mode; self.pdf_workspace_owner.project()
+        else:
+            apply_pdf_event(self.pdf_state, PdfEvent.SCOPE_MODE, {"mode": mode})
+            self.pdf_workspace_owner.project()
         self._update_pdf_scope_controls()
 
     def update_pdf_scope(self) -> None:
