@@ -1952,6 +1952,8 @@ class MarkerApp(ctk.CTk):
         self.badge_sources = BadgeSourceManager(badge_directory())
         self.badges = self.badge_sources.repository(saved.badge_source, saved.custom_badge_folder)
         self.sources: list[Path] = []
+        # Compatibility projection for legacy consumers; workspace state remains authoritative.
+        self.media_sources = {"image": [], "video": []}
         self.image_state = ImageWorkspaceState()
         self.video_state = VideoWorkspaceState()
         self.pdf_state = PdfWorkspaceState()
