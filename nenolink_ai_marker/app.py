@@ -1767,7 +1767,9 @@ class MarkerApp(ctk.CTk):
             return False
         # Cleanup is deliberately performed before changing the authoritative
         # shell state, so a destination can never inherit source widgets.
-        self._clear_workspace_runtime(source)
+        source_workspace = self._workspace_registry[source]
+        source_workspace.clear_runtime_state()
+        source_workspace.unmount()
         self.shell_controller.dispatch(destination)
         self.render_shell_state()
         return True
@@ -1779,25 +1781,9 @@ class MarkerApp(ctk.CTk):
         )
 
     def _clear_workspace_runtime(self, format_type: str) -> None:
-        if format_type == "image":
-            self._unmount_image_workspace()
-        elif format_type == "video":
-            self._unmount_video_workspace()
-        elif format_type == "pdf":
-            workspace = getattr(self, "pdf_workspace_owner", None)
-            if workspace is not None and hasattr(workspace, "clear_runtime_state"):
-                workspace.clear_runtime_state()
-            self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None
-            self.pdf_scope_mode = "all"; self.pdf_active_scope = (); self.pdf_scope_input = ""
-        elif format_type == "pptx":
-            workspace = getattr(self, "pptx_workspace_state", None)
-            if workspace is not None and hasattr(workspace, "clear_runtime_state"):
-                workspace.clear_runtime_state()
-            self.pptx_path = self.pptx_metrics = None; self.pptx_current_slide = 0; self.pptx_preview_photo = None
-            self.pptx_scope_mode = "all"; self.pptx_active_scope = (); self.pptx_scope_input = ""
-            legacy_state = self.__dict__.get("pptx_state")
-            if legacy_state is not None and legacy_state is not workspace and hasattr(legacy_state, "clear"):
-                legacy_state.clear()
+        workspace = self._workspace_registry[format_type]
+        workspace.clear_runtime_state()
+        workspace.unmount()
 
     def reset_shell(self) -> None:
         source = self.shell_controller.active_content_type
@@ -1812,21 +1798,9 @@ class MarkerApp(ctk.CTk):
                 return
             if workspace is not None:
                 workspace.receipts.record({"layer": "pptx", "event": "GLOBAL_RESET_WARNING_SHOWN", "result": "continue"})
-        if self.shell_controller.active_content_type == "video":
-            self._unmount_video_workspace()
-        elif self.shell_controller.active_content_type == "pdf":
-            workspace = getattr(self, "pdf_workspace_owner", None)
-            if workspace is not None:
-                workspace.clear_runtime_state()
-            else:
-                self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None; self.pdf_scope_mode = "all"; self.pdf_active_scope = (); self.pdf_scope_input = ""
-        elif self.shell_controller.active_content_type == "pptx":
-            self.pptx_path = self.pptx_metrics = None; self.pptx_current_slide = 0; self.pptx_preview_photo = None; self.pptx_scope_mode = "all"; self.pptx_active_scope = (); self.pptx_scope_input = ""
-            workspace = getattr(self, "pptx_workspace_state", None)
-            if workspace is not None:
-                workspace.clear_runtime_state()
-        else:
-            self._unmount_image_workspace()
+        workspace = self._workspace_registry[source]
+        workspace.clear_runtime_state()
+        workspace.unmount()
         self.shell_controller.dispatch("reset")
         self.render_shell_state()
         workspace=getattr(self,"pptx_workspace_state",None)
@@ -1869,10 +1843,8 @@ class MarkerApp(ctk.CTk):
             trace = self.__dict__.get("shell_trace")
             if destination == "pptx" and trace is not None: trace.append("PPTX_REGISTRY")
             workspace = self._workspace_registry[destination]
-            if hasattr(workspace, "mount"):
-                workspace.mount(self.content_host)
-            else:
-                workspace()
+            workspace.mount(self.content_host)
+            workspace.project()
             self.mounted_view = destination.upper()
         else:
             self._clear_content_host()

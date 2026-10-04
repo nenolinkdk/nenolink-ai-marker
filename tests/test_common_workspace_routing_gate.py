@@ -39,12 +39,23 @@ def _app():
     app._unmount_video_workspace = lambda: app.content_host.clear()
     app._clear_workspace_runtime = lambda _kind: app.content_host.clear()
 
-    def mount(kind):
-        app.content_host.clear()
-        app.content_host.children.append(kind)
-        setattr(app, f"{kind}_workspace", kind)
+    class Workspace:
+        def __init__(self, kind):
+            self.kind = kind
+            self.cleared = 0
+            self.unmounted = 0
+        def mount(self, host):
+            host.clear()
+            host.children.append(self.kind)
+            setattr(app, f"{self.kind}_workspace", self.kind)
+        def project(self):
+            return None
+        def clear_runtime_state(self):
+            self.cleared += 1
+        def unmount(self):
+            self.unmounted += 1
 
-    app._workspace_registry = {kind: (lambda kind=kind: mount(kind)) for kind in CONTENT}
+    app._workspace_registry = {kind: Workspace(kind) for kind in CONTENT}
     app.pdf_path = app.pdf_info = app.pptx_path = app.pptx_metrics = None
     app.pdf_current_page = app.pptx_current_slide = 0
     app.pdf_preview_photo = app.pptx_preview_photo = None
