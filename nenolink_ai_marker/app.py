@@ -2991,16 +2991,20 @@ class MarkerApp(ctk.CTk):
         self.update_preview()
 
     def update_preview(self) -> None:
-        if not self.sources:
+        """Temporary UI adapter for the authoritative Image preview route."""
+        files = self.image_state.selected_files
+        if not files:
+            self.image_state.preview_image = None
             self.preview_photo = self.preview_image = None; self._show_welcome(); return
-        self._sync_image_state()
         badge = self.badges.find(self.image_state.badge.badge_id) if self.image_state.badge.enabled else None
         logo = self.image_state.logo.path if self.image_state.logo.enabled else None
         image_settings = replace(self.settings(), position=self.image_state.badge.position, size_percent=self.image_state.badge.size, margin=self.image_state.badge.margin, opacity=self.image_state.badge.opacity, logo_enabled=self.image_state.logo.enabled, logo_position=self.image_state.logo.position, logo_size_percent=self.image_state.logo.size, logo_margin=self.image_state.logo.margin, logo_opacity=self.image_state.logo.opacity)
         self._show_preview()
         try:
-            image = self.preview_renderer.render(self.sources[0], badge, image_settings, logo)
-            self.preview_image = image.copy(); self.preview_photo = ctk.CTkImage(light_image=self.preview_image, dark_image=self.preview_image, size=self.preview_image.size)
+            image = self.preview_renderer.render(files[0], badge, image_settings, logo)
+            self.image_state.preview_image = image.copy()
+            self.preview_image = self.image_state.preview_image
+            self.preview_photo = ctk.CTkImage(light_image=self.preview_image, dark_image=self.preview_image, size=self.preview_image.size)
             self.preview_label.configure(image=self.preview_photo, text=""); self.preview_label.image = self.preview_photo
         except (OSError, ValueError) as error:
             self.preview_label.configure(image=None, text=self.translator.text("error.preview", error=error))
