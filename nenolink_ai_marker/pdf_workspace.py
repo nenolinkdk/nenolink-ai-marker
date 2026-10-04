@@ -7,6 +7,11 @@ event ownership move in the following PDF migration checkpoints.
 """
 from __future__ import annotations
 
+from pathlib import Path
+import customtkinter as ctk
+from .pdf_processor import PdfProcessor
+from .document_preview_layout import fit_preview_size
+
 
 class PdfWorkspace:
     """Lifecycle facade around the existing PDF implementation."""
@@ -53,6 +58,41 @@ class PdfWorkspace:
         self.state.scope_mode = mode; self.state.scope_input = text; self.state.active_scope = tuple(values)
         if values: self.state.current_page = values[0]
         self.project()
+
+    def refresh_preview(self) -> None:
+        """Render the current physical page from authoritative workspace state."""
+        app = self.app; state = self.state
+        if not state.path or not getattr(app, "pdf_preview_label", None):
+            return
+        info = getattr(app, "pdf_info", None)
+        if info is None or not state.page_count:
+            return
+        try:
+            current = max(1, min(state.page_count, state.current_page))
+            marked = current in set(state.active_scope)
+            badge = app.badges.find(state.badge.badge_id) if marked and state.badge.enabled else None
+            logo = state.logo.path if marked and state.logo.enabled else None
+            host = app.pdf_preview_host
+            host.update_idletasks()
+            width = max(1, host.winfo_width()); height = max(1, host.winfo_height())
+            try:
+                page = PdfProcessor._reader(state.path).pages[current - 1]
+                aspect = float(page.mediabox.width) / max(1.0, float(page.mediabox.height))
+            except (OSError, ValueError, IndexError):
+                aspect = 1.0
+            max_size = fit_preview_size(width, height, aspect, padding=16, navigation_height=48, target_fraction=0.8)
+            result = app.pdf_preview_renderer.render(state.path, current, badge, app.settings(), logo, max_size=max_size)
+            state.current_page = result.page_number
+            self.project()
+            self.preview_photo = ctk.CTkImage(light_image=result.image, dark_image=result.image, size=result.image.size)
+            app.pdf_preview_label.configure(image=self.preview_photo, text="")
+            app.pdf_preview_photo = self.preview_photo
+            app.pdf_page_status.configure(text=f"{state.current_page} / {state.page_count}")
+            app.pdf_previous_button.configure(state="normal" if state.current_page > 1 else "disabled")
+            app.pdf_next_button.configure(state="normal" if state.current_page < state.page_count else "disabled")
+            app._boot(f"PDF_HOST={width}x{height} PDF_FIT={max_size[0]}x{max_size[1]} PDF_RENDER={result.image.width}x{result.image.height} PDF_CTKIMAGE={result.image.width}x{result.image.height} PDF_LABEL={app.pdf_preview_label.winfo_width()}x{app.pdf_preview_label.winfo_height()}")
+        except (OSError, ValueError) as error:
+            app.pdf_preview_label.configure(image=None, text=f"Could not render PDF page: {error}")
 
     def has_active_work(self) -> bool:
         if getattr(self.state, "path", None) is not None:

@@ -2474,6 +2474,10 @@ class MarkerApp(ctk.CTk):
             self.pdf_scope_message.configure(text="Invalid page selection. The previous scope was preserved.")
 
     def render_pdf_preview(self) -> None:
+        """Compatibility entry point; active PDF preview is workspace-owned."""
+        self.pdf_workspace_owner.refresh_preview()
+        return
+        # Legacy implementation retained below only for later cleanup.
         if not self.pdf_path or not self.pdf_info or not getattr(self, "pdf_preview_label", None): return
         try:
             scope = getattr(self, "pdf_active_scope", tuple(range(1, self.pdf_info.metrics.item_count + 1)))
