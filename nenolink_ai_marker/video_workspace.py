@@ -47,13 +47,21 @@ class VideoWorkspace:
     def clear_runtime_state(self):
         self.state.clear_runtime_state(); self.preview_photo = None
 
+    def choose_video(self):
+        from tkinter import filedialog
+        selected = filedialog.askopenfilename(title=self.app.translator.text("dialog.open_media"), filetypes=[(self.app.translator.text("files.supported_videos"), "*.mp4 *.mov *.mkv *.avi *.webm"), (self.app.translator.text("files.all"), "*.*")])
+        if selected:
+            path = Path(selected); self.state.path = path
+            self.app.video_sources = [path]; self.app.media_sources["video"] = [path]
+            self.app.video_file_label.configure(text=path.name); self.project(); self.refresh_preview()
+
     def _build_ui(self, workspace):
         app = self.app
         left = app.AutoHideScrollableFrame(workspace, width=320, fg_color=("gray86", "gray17")) if hasattr(app, "AutoHideScrollableFrame") else ctk.CTkScrollableFrame(workspace, width=320, fg_color=("gray86", "gray17"))
         app.video_controls_host = left; left.grid(row=0, column=0, padx=(4, 8), pady=4, sticky="nsew"); left.grid_columnconfigure(0, weight=1)
         right = ctk.CTkFrame(workspace); app.video_preview_host = right; right.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right.grid_columnconfigure(0, weight=1); right.grid_rowconfigure(0, weight=1)
         def heading(text, row): ctk.CTkLabel(left, text=text, font=ctk.CTkFont(weight="bold")).grid(row=row, column=0, padx=14, pady=(8, 2), sticky="w")
-        heading("FILE", 0); app.video_open_button = ctk.CTkButton(left, text="Choose Video", command=app.open_video); app.video_open_button.grid(row=1, column=0, padx=14, pady=2, sticky="ew")
+        heading("FILE", 0); app.video_open_button = ctk.CTkButton(left, text="Choose Video", command=self.choose_video); app.video_open_button.grid(row=1, column=0, padx=14, pady=2, sticky="ew")
         app.video_file_label = ctk.CTkLabel(left, text="No video selected", anchor="w", justify="left", wraplength=280); app.video_file_label.grid(row=2, column=0, padx=14, pady=(2, 6), sticky="ew")
         heading("AI BADGE", 3); app.video_badge_enable = ctk.CTkCheckBox(left, text="Add AI badge", variable=app.badge_enabled_var, command=app._video_changed); app.video_badge_enable.grid(row=4, column=0, padx=14, pady=2, sticky="w")
         app.video_badge_label = ctk.CTkLabel(left, text="Selected Badge", anchor="w"); app.video_badge_label.grid(row=5, column=0, padx=14, pady=1, sticky="w")
