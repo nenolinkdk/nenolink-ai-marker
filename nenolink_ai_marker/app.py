@@ -38,6 +38,7 @@ from .pptx_workspace import PptxWorkspace, PPTX_STATE_TOKEN
 from .workspace_state import ImageWorkspaceState, VideoWorkspaceState, PdfWorkspaceState, visual_projection
 from .image_workspace import ImageWorkspace
 from .video_workspace import VideoWorkspace
+from .pdf_workspace import PdfWorkspace
 from .workspace_ui import WORKSPACE_LAYOUT, build_badge_section, build_logo_section, build_workspace_control_template, build_badge_visual
 from .pdf_processor import PasswordProtectedPdfError, PdfInfo, PdfProcessor
 from .pdf_preview import PdfPreviewRenderer
@@ -1663,6 +1664,7 @@ class MarkerApp(ctk.CTk):
             self, self.image_state, scrollable_frame_cls=AutoHideScrollableFrame
         )
         self.video_workspace_owner = VideoWorkspace(self, self.video_state)
+        self.pdf_workspace_owner = PdfWorkspace(self, self.pdf_state)
         # One shell-level registry for all peer content workspaces.  Format
         # specific state stays inside the mounted workspace; the shell only
         # resolves and mounts the selected peer.
@@ -1780,7 +1782,7 @@ class MarkerApp(ctk.CTk):
         elif format_type == "video":
             self._unmount_video_workspace()
         elif format_type == "pdf":
-            workspace = getattr(self, "pdf_workspace_state", None)
+            workspace = getattr(self, "pdf_workspace_owner", None)
             if workspace is not None and hasattr(workspace, "clear_runtime_state"):
                 workspace.clear_runtime_state()
             self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None
@@ -1811,7 +1813,11 @@ class MarkerApp(ctk.CTk):
         if self.shell_controller.active_content_type == "video":
             self._unmount_video_workspace()
         elif self.shell_controller.active_content_type == "pdf":
-            self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None; self.pdf_scope_mode = "all"; self.pdf_active_scope = (); self.pdf_scope_input = ""
+            workspace = getattr(self, "pdf_workspace_owner", None)
+            if workspace is not None:
+                workspace.clear_runtime_state()
+            else:
+                self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None; self.pdf_scope_mode = "all"; self.pdf_active_scope = (); self.pdf_scope_input = ""
         elif self.shell_controller.active_content_type == "pptx":
             self.pptx_path = self.pptx_metrics = None; self.pptx_current_slide = 0; self.pptx_preview_photo = None; self.pptx_scope_mode = "all"; self.pptx_active_scope = (); self.pptx_scope_input = ""
             workspace = getattr(self, "pptx_workspace_state", None)
@@ -1828,7 +1834,9 @@ class MarkerApp(ctk.CTk):
     def _format_has_active_work(self, format_type: str) -> bool:
         if format_type == "image": return self._image_has_active_work()
         if format_type == "video": return self._video_has_active_work()
-        if format_type == "pdf": return self.pdf_path is not None
+        if format_type == "pdf":
+            workspace = getattr(self, "pdf_workspace_owner", None)
+            return workspace.has_active_work() if workspace is not None else self.pdf_path is not None
         if format_type == "pptx":
             workspace = getattr(self, "pptx_workspace_state", None)
             if workspace is not None:
@@ -1914,6 +1922,19 @@ class MarkerApp(ctk.CTk):
         self.image_workspace = self.video_workspace = self.pdf_workspace = self.pptx_workspace = self.tool_workspace = None
 
     def _mount_pdf_workspace(self) -> None:
+        """Temporary shell entry adapter for the PDF workspace boundary."""
+        self.pdf_workspace_owner.mount(self.content_host)
+
+    def _clear_pdf_runtime_compat(self) -> None:
+        """B1 compatibility cleanup; removed once PDF state owns file events."""
+        self.pdf_path = self.pdf_info = None
+        self.pdf_current_page = 0
+        self.pdf_preview_photo = None
+        self.pdf_scope_mode = "all"
+        self.pdf_active_scope = ()
+        self.pdf_scope_input = ""
+
+    def _build_pdf_workspace_compat(self, host=None) -> None:
         """Phase PDF-1 shell only; no processor or legacy document runtime."""
         if self.pdf_workspace is not None and self.pdf_workspace.winfo_exists():
             self.pdf_workspace.grid(); return
