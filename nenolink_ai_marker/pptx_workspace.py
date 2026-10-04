@@ -364,6 +364,10 @@ class PptxWorkspace:
         self._project_file()
         self._project_scope()
         self._project_badge()
+        if self.state.loaded:
+            self._render_preview()
+        else:
+            self.preview_photo = None; self.preview_label.configure(image=None, text=self.app.translator.text("pptx.preview_hint")); self.slide_status.configure(text="—")
 
     def unmount(self) -> None:
         if self.root is not None and self.root.winfo_exists():
@@ -372,5 +376,11 @@ class PptxWorkspace:
         self.mounted = False
 
     def clear_runtime_state(self) -> None:
-        self.state.clear()
+        apply_pptx_event(self.state, PptxEvent.CLEAR_RUNTIME)
         self.unmount()
+
+    def dispatch(self, event, value=None):
+        return apply_pptx_event(self.state, event, value)
+
+    def enter_clean(self):
+        return self.dispatch(PptxEvent.CLEAR_RUNTIME)

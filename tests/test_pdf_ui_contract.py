@@ -50,8 +50,7 @@ def test_pdf_badge_selection_uses_shared_repository_and_rerenders_without_remoun
     handler = source[start:end]
     assert "self.badge_display_to_file.get(display_name)" in handler
     assert "self.badges.find(filename)" in handler
-    assert "self.pdf_state.badge.badge_id = filename" in handler
-    assert "self.render_pdf_preview()" in handler
+    assert "self.pdf_workspace_owner.set_badge" in handler
     assert "_mount_pdf_workspace" not in handler
 
 
@@ -61,8 +60,7 @@ def test_pdf_badge_position_projects_state_and_preview_without_remount():
     end = source.index("    def _sync_pdf_state", start)
     handler = source[start:end]
     assert "self.position_display_to_value.get(display_name)" in handler
-    assert "self.pdf_state.badge.position = value" in handler
-    assert "self.render_pdf_preview()" in handler
+    assert "self.pdf_workspace_owner.set_badge(position=value)" in handler
     assert "_mount_pdf_workspace" not in handler
     mount = _mount_source()
     assert "command=self.change_pdf_badge_position" in mount
@@ -74,9 +72,7 @@ def test_pdf_badge_size_projects_normalized_state_and_preview():
     end = source.index("    def _sync_pdf_state", start)
     handler = source[start:end]
     assert "max(1, min(100" in handler
-    assert "self.pdf_state.badge.size = normalized" in handler
-    assert "Badge Size: {normalized}%" in handler
-    assert "self.render_pdf_preview()" in handler
+    assert "self.pdf_workspace_owner.set_badge(size=normalized)" in handler
     assert "command=self.change_pdf_badge_size" in _mount_source()
 
 
@@ -90,9 +86,7 @@ def test_pdf_badge_margin_and_opacity_project_state_and_preview():
         end = source.index("    def ", start + 5)
         handler = source[start:end]
         assert bounds in handler
-        assert state_field in handler
-        assert label in handler
-        assert "self.render_pdf_preview()" in handler
+        assert "self.pdf_workspace_owner.set_badge" in handler
     mount = _mount_source()
     assert "command=self.change_pdf_badge_margin" in mount
     assert "command=self.change_pdf_badge_opacity" in mount
@@ -103,8 +97,7 @@ def test_pdf_logo_enable_projection_preserves_selected_path():
     start = source.index("    def change_pdf_logo_enabled")
     end = source.index("    def ", start + 5)
     handler = source[start:end]
-    assert "self.pdf_state.logo.enabled = bool(self.logo_enabled_var.get())" in handler
-    assert "self.render_pdf_preview()" in handler
+    assert "self.pdf_workspace_owner.set_logo" in handler
     assert "logo.path =" not in handler
     assert "command=self.change_pdf_logo_enabled" in _mount_source()
 
@@ -120,7 +113,7 @@ def test_pdf_preview_projection_event_contract_is_explicit():
         start = source.index(f"    def {event}")
         end = source.find("    def ", start + 5)
         handler = source[start:] if end == -1 else source[start:end]
-        assert ("render_pdf_preview" in handler or "update_pdf_preview" in handler), event
+        assert ("pdf_workspace_owner" in handler or "render_pdf_preview" in handler or "update_pdf_preview" in handler), event
 
 
 def test_pdf_logo_properties_have_independent_state_handlers_and_labels():
@@ -129,7 +122,7 @@ def test_pdf_logo_properties_have_independent_state_handlers_and_labels():
         start = source.index(f"    def {name}")
         end = source.find("    def ", start + 5)
         handler = source[start:] if end == -1 else source[start:end]
-        assert field in handler and "render_pdf_preview" in handler
+        assert "pdf_workspace_owner.set_logo" in handler
         assert label in source
     assert "self.pdf_state.logo.path =" in source
 

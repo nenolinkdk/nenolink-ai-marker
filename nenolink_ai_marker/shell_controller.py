@@ -33,6 +33,7 @@ class ShellAction(str, Enum):
     UNMOUNT_TOOL = "unmount_tool"
     CLEAR_TOOL = "clear_tool"
     CLEAR_ALL_WORKSPACES = "clear_all_workspaces"
+    CLEAN_DESTINATION = "clean_destination"
 
 @dataclass(frozen=True)
 class ShellTransitionSpec:
@@ -60,6 +61,8 @@ class ShellTransitionExecutor:
                 runtime.clear_source(spec.source_content.value); executed.append(action.value)
             elif action is ShellAction.CLEAR_ALL_WORKSPACES:
                 runtime.clear_all_workspaces(); executed.append(action.value)
+            elif action is ShellAction.CLEAN_DESTINATION:
+                runtime.clean_destination(spec.destination_content.value); executed.append(action.value)
             elif action is ShellAction.UNMOUNT_SOURCE:
                 runtime.unmount_source(spec.source_content.value); executed.append(action.value)
             elif action is ShellAction.MOUNT_DESTINATION:
@@ -117,7 +120,9 @@ def shell_transition_spec(source: str, tool: str | None, event: str, active_work
         return ShellTransitionSpec(src, src_tool, ev, False, (ShellAction.PRESERVE_SOURCE, ShellAction.PROJECT_DESTINATION), src, ToolState.NONE, True, decision)
     if active_work and decision == "cancel":
         return ShellTransitionSpec(src, src_tool, ev, True, (ShellAction.PRESERVE_SOURCE,), src, src_tool, True, decision)
-    actions = (ShellAction.CLEAR_SOURCE, ShellAction.UNMOUNT_SOURCE, ShellAction.MOUNT_DESTINATION, ShellAction.PROJECT_DESTINATION) if active_work else (ShellAction.UNMOUNT_SOURCE, ShellAction.MOUNT_DESTINATION, ShellAction.PROJECT_DESTINATION)
+    actions = ((ShellAction.CLEAR_SOURCE, ShellAction.UNMOUNT_SOURCE, ShellAction.CLEAN_DESTINATION, ShellAction.MOUNT_DESTINATION, ShellAction.PROJECT_DESTINATION)
+               if active_work else
+               (ShellAction.UNMOUNT_SOURCE, ShellAction.CLEAN_DESTINATION, ShellAction.MOUNT_DESTINATION, ShellAction.PROJECT_DESTINATION))
     return ShellTransitionSpec(src, src_tool, ev, active_work, actions, dest, ToolState.NONE, False, decision)
 
 SHELL_TRANSITION_TABLE = {

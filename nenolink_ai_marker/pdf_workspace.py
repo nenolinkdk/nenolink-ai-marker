@@ -38,7 +38,7 @@ class PdfWorkspace:
         # compatibility builder still uses app.content_host and preserves the
         # verified PDF UI unchanged.
         self.app._build_pdf_workspace_compat(host)
-        self.root = getattr(self.app, "pdf_workspace", None)
+        self.root = getattr(self.app, "pdf_workspace_root", None) or getattr(self.app, "pdf_workspace", None)
 
     def unmount(self) -> None:
         root = self.root or getattr(self.app, "pdf_workspace", None)
@@ -56,6 +56,16 @@ class PdfWorkspace:
         for name, value in (("pdf_badge_enabled_var", state.badge.enabled), ("badge_var", state.badge.badge_id), ("position_var", state.badge.position), ("size_var", state.badge.size), ("margin_var", state.badge.margin), ("opacity_var", state.badge.opacity), ("logo_enabled_var", state.logo.enabled), ("logo_path_var", str(state.logo.path or "")), ("logo_position_var", state.logo.position), ("logo_size_var", state.logo.size), ("logo_margin_var", state.logo.margin), ("logo_opacity_var", state.logo.opacity)):
             variable = getattr(app, name, None)
             if variable is not None: variable.set(value)
+        if getattr(app, "pdf_file_label", None) is not None:
+            app.pdf_file_label.configure(text=(state.path.name if state.path else app.translator.text("pdf.no_file")))
+        if getattr(app, "pdf_page_status", None) is not None:
+            app.pdf_page_status.configure(text=(f"{state.current_page} / {state.page_count}" if state.path else "—"))
+        if state.path and getattr(app, "pdf_info", None) is not None:
+            self.refresh_preview()
+        else:
+            if getattr(app, "pdf_preview_label", None) is not None: app.pdf_preview_label.configure(image=None, text="PDF page preview")
+            self.preview_photo = None; app.pdf_preview_photo = None
+        if getattr(app, "_project_pdf_badge_selection", None): app._project_pdf_badge_selection()
 
     def accept_file(self, path, info) -> None:
         apply_pdf_event(self.state, PdfEvent.FILE_SELECTED, {"path": path, "page_count": info.metrics.item_count})
@@ -65,11 +75,25 @@ class PdfWorkspace:
     def set_current_page(self, page: int) -> None:
         apply_pdf_event(self.state, PdfEvent.PREVIEW_PAGE_SELECTED, {"page": page}); self.project()
 
+    def set_badge(self, **changes) -> None:
+        apply_pdf_event(self.state, PdfEvent.BADGE_CHANGED, changes)
+        self.project()
+        self.refresh_preview()
+
+    def set_logo(self, **changes) -> None:
+        apply_pdf_event(self.state, PdfEvent.LOGO_CHANGED, changes)
+        self.project()
+        self.refresh_preview()
+
     def set_scope(self, mode: str, values: tuple[int, ...], text: str = "") -> None:
         apply_pdf_event(self.state, PdfEvent.SCOPE_MODE, {"mode": mode})
         if mode in {"selected", "range"}:
             apply_pdf_event(self.state, PdfEvent.SCOPE_TEXT_CHANGED, {"text": text})
             apply_pdf_event(self.state, PdfEvent.SCOPE_UPDATE, {"values": tuple(values), "text": text})
+        self.project()
+
+    def set_scope_mode(self, mode: str) -> None:
+        apply_pdf_event(self.state, PdfEvent.SCOPE_MODE, {"mode": mode})
         self.project()
 
     def refresh_preview(self) -> None:
@@ -96,7 +120,6 @@ class PdfWorkspace:
             max_size = fit_preview_size(width, height, aspect, padding=16, navigation_height=48, target_fraction=0.8)
             result = app.pdf_preview_renderer.render(state.path, current, badge, app.settings(), logo, max_size=max_size)
             state.current_page = result.page_number
-            self.project()
             self.preview_photo = ctk.CTkImage(light_image=result.image, dark_image=result.image, size=result.image.size)
             app.pdf_preview_label.configure(image=self.preview_photo, text="")
             app.pdf_preview_photo = self.preview_photo
@@ -137,11 +160,7 @@ class PdfWorkspace:
         app.status_var.set(app.translator.text("pdf.saved", name=result.destination.name, count=len(result.selected_pages)))
 
     def has_active_work(self) -> bool:
-        if getattr(self.state, "path", None) is not None:
-            return True
-        # Temporary compatibility fallback required until B2 migrates file
-        # selection and removes MarkerApp.pdf_path.
-        return getattr(self.app, "pdf_path", None) is not None
+        return getattr(self.state, "path", None) is not None
 
     def clear_runtime_state(self) -> None:
         if isinstance(self.state, PdfWorkspaceState):
@@ -153,4 +172,28 @@ class PdfWorkspace:
         clear = getattr(self.app, "_clear_pdf_runtime_compat", None)
         if callable(clear):
             clear()
+
+    def dispatch(self, event, payload=None):
+        return apply_pdf_event(self.state, event, payload)
+
+    def enter_clean(self):
+        return self.dispatch(PdfEvent.CLEAR_RUNTIME)
+
+    def choose_file(self) -> None:
+        app = self.app
+        selected = filedialog.askopenfilename(title=app.translator.text("pdf.choose"), filetypes=[("PDF (*.pdf)", "*.pdf"), (app.translator.text("files.all"), "*.*")])
+        if not selected:
+            return
+        path = Path(selected)
+        try:
+            info = app.pdf_processor.inspect(path)
+        except Exception as error:
+            messagebox.showerror(app.translator.text("error.title"), app.translator.text("pdf.error", error=error))
+            return
+        self.accept_file(path, info)
+        app.pdf_info = info
+        app.pdf_file_label.configure(text=f"{path.name}\n{info.metrics.size_bytes} · {info.metrics.item_count} pages")
+        self.project()
+        app._project_pdf_badge_selection()
+        self.refresh_preview()
 

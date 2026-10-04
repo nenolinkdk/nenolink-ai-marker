@@ -179,6 +179,7 @@ class PptxEvent(str, Enum):
     SCOPE_UPDATE = "scope_update"
     PREVIEW_PREVIOUS = "preview_previous"
     PREVIEW_NEXT = "preview_next"
+    CLEAR_RUNTIME = "clear_runtime"
 
 
 @dataclass(frozen=True)
@@ -219,6 +220,7 @@ PPTX_TRANSITION_TABLE: tuple[PptxTransition, ...] = (
     PptxTransition(PptxEvent.SCOPE_UPDATE, mutates=("scope_mode", "active_scope", "current_slide"), rerender=True),
     PptxTransition(PptxEvent.PREVIEW_PREVIOUS, mutates=("current_slide",), preserves=("path", "active_scope", "badge", "logo"), rerender=True),
     PptxTransition(PptxEvent.PREVIEW_NEXT, mutates=("current_slide",), preserves=("path", "active_scope", "badge", "logo"), rerender=True),
+    PptxTransition(PptxEvent.CLEAR_RUNTIME, mutates=("path", "slide_count", "current_slide", "scope_mode", "active_scope", "scope_input", "output_status"), preserves=("badge", "logo")),
 )
 
 
@@ -255,6 +257,10 @@ def apply_pptx_event(state: PptxWorkspaceState, event: PptxEvent | str, value=No
         path, count = value
         return choose_file_success(state, Path(path), int(count))
     if event is PptxEvent.SAVE_AS:
+        return state
+    if event is PptxEvent.CLEAR_RUNTIME:
+        state.path = None; state.slide_count = 0; state.current_slide = 1
+        state.scope_mode = "all"; state.active_scope = (); state.scope_input = ""; state.output_status = ""
         return state
     if event in {PptxEvent.SCOPE_MODE, PptxEvent.SCOPE_TEXT_CHANGED, PptxEvent.SCOPE_UPDATE,
                  PptxEvent.PREVIEW_PREVIOUS, PptxEvent.PREVIEW_NEXT}:

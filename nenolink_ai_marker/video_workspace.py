@@ -41,6 +41,15 @@ class VideoWorkspace:
     def project(self):
         if self.root is not None and self.root.winfo_exists():
             self.app._project_video_state(); self.app._refresh_video_labels(); self.app._refresh_video_badges()
+            loaded = self.state.path is not None
+            self.app.video_sources = [self.state.path] if loaded else []
+            self.app.media_sources["video"] = list(self.app.video_sources)
+            self.app.video_file_label.configure(text=self.state.path.name if loaded else self.app.translator.text("files.none"))
+            if loaded:
+                self.refresh_preview()
+            else:
+                self.app.video_preview_label.configure(image=None, text="Video preview")
+                self.preview_photo = None; self.app.video_preview_photo = None
 
     def has_active_work(self):
         return self.state.path is not None
@@ -48,13 +57,18 @@ class VideoWorkspace:
     def clear_runtime_state(self):
         self.state.clear_runtime_state(); self.preview_photo = None
 
+    def dispatch(self, event, payload=None):
+        return apply_video_event(self.state, event, payload)
+
+    def enter_clean(self):
+        return self.dispatch(VideoEvent.CLEAR_RUNTIME)
+
     def choose_video(self):
         from tkinter import filedialog
         selected = filedialog.askopenfilename(title=self.app.translator.text("dialog.open_media"), filetypes=[(self.app.translator.text("files.supported_videos"), "*.mp4 *.mov *.mkv *.avi *.webm"), (self.app.translator.text("files.all"), "*.*")])
         if selected:
             path = Path(selected); apply_video_event(self.state, VideoEvent.FILE_SELECTED, {"path": path})
-            self.app.video_sources = [path]; self.app.media_sources["video"] = [path]
-            self.app.video_file_label.configure(text=path.name); self.project(); self.refresh_preview()
+            self.project()
 
     def change_mode(self, label):
         apply_video_event(self.state, VideoEvent.MODE_CHANGED, {"mode": self.app.video_mode_display_to_value[label]})

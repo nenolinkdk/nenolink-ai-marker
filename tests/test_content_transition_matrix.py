@@ -24,6 +24,7 @@ def test_empty_content_matrix_uses_production_adapter(source, destination):
     before = {kind: workspace.cleared for kind, workspace in app._workspace_registry.items()}
     assert MarkerApp.request_content_transition(app, destination)
     assert app.shell_controller.active_content_type == destination
+    assert app._workspace_registry[destination].cleaned >= (0 if source == destination else 1)
     assert all(workspace.cleared == before[kind] for kind, workspace in app._workspace_registry.items())
     if source == destination:
         assert app.last_shell_spec.preserve_source
@@ -49,12 +50,16 @@ def test_active_same_content_preserves_session_without_destructive_actions(sourc
 def test_active_cross_content_cancel_preserves_source_and_receipt_policy(source, destination):
     app = _app()
     assert MarkerApp.request_content_transition(app, source)
+    destination_workspace = app._workspace_registry[destination]
+    destination_unmounted_before = destination_workspace.unmounted
     app._format_has_active_work = lambda _kind: True
     app._confirm_format_switch.return_value = False
     assert not MarkerApp.request_content_transition(app, destination)
     workspace = app._workspace_registry[source]
     assert workspace.cleared == 0
     assert workspace.unmounted == 0
+    assert destination_workspace.cleaned == 0
+    assert destination_workspace.unmounted == destination_unmounted_before
     assert app.shell_controller.active_content_type == source
     assert app.last_shell_spec.decision == "cancel"
     assert app.last_shell_spec.preserve_source
@@ -69,6 +74,7 @@ def test_active_cross_content_continue_clears_only_source_and_matches_spec(sourc
     assert MarkerApp.request_content_transition(app, destination)
     source_workspace = app._workspace_registry[source]
     assert source_workspace.cleared == 1
+    assert app._workspace_registry[destination].cleaned == 1
     assert all(workspace.cleared == 0 for kind, workspace in app._workspace_registry.items() if kind != source)
     receipt = app.last_shell_receipt
     expected = shell_transition_spec(source, None, destination, True, "continue")

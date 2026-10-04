@@ -42,6 +42,7 @@ def test_executor_receipt_stops_at_destination_mount_failure():
         preserve_source=lambda: None,
         clear_source=lambda _source: seen.append("clear"),
         unmount_source=lambda _source: seen.append("unmount"),
+        clean_destination=lambda _destination: seen.append("clean"),
         mount_destination=lambda _destination: (_ for _ in ()).throw(OSError("mount failed")),
         project_destination=lambda _destination: seen.append("project"),
         mount_tool=lambda _tool: None, unmount_tool=lambda: None,
@@ -52,7 +53,7 @@ def test_executor_receipt_stops_at_destination_mount_failure():
     receipt = seen[-1]
     assert receipt.outcome == "failure"
     assert receipt.failure and "mount failed" in receipt.failure
-    assert receipt.last_successful_action == "unmount_source"
+    assert receipt.last_successful_action == "clean_destination"
     assert "project_destination" not in receipt.executed_actions
 
 
@@ -64,6 +65,7 @@ def test_receipt_propagates_confirmation_decision(decision):
         preserve_source=lambda: None,
         clear_source=lambda _source: None,
         unmount_source=lambda _source: None,
+        clean_destination=lambda _destination: None,
         mount_destination=lambda _destination: None,
         project_destination=lambda _destination: None,
         mount_tool=lambda _tool: None, unmount_tool=lambda: None,
@@ -84,6 +86,7 @@ def test_executor_receipt_captures_tool_mount_failure():
         preserve_source=lambda: None,
         clear_source=lambda _source: None,
         unmount_source=lambda _source: None,
+        clean_destination=lambda _destination: None,
         mount_destination=lambda _destination: None,
         project_destination=lambda _destination: None,
         mount_tool=lambda _tool: (_ for _ in ()).throw(OSError("tool mount failed")),

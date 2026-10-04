@@ -54,10 +54,23 @@ class ImageWorkspace:
     def clear_runtime_state(self):
         apply_image_event(self.state, ImageEvent.CLEAR_RUNTIME)
 
+    def dispatch(self, event, payload=None):
+        return apply_image_event(self.state, event, payload)
+
+    def enter_clean(self):
+        return self.dispatch(ImageEvent.CLEAR_RUNTIME)
+
     def project(self):
         """Project authoritative state through the existing app adapters."""
         if self.root is not None and self.root.winfo_exists():
             self.app.refresh_image_badges()
+            files = self.state.selected_files
+            if getattr(self.app, "file_label", None) is not None:
+                self.app.file_label.configure(text=(f"{files[0].name} · {human_file_size(files[0].stat().st_size)}" if files else self.app.translator.text("files.none")))
+            self.app._project_image_visual_state()
+            self.app.sources = list(files)
+            self.app.media_sources["image"] = list(files)
+            self.refresh_preview()
 
     def choose_files(self):
         """Own the Image file event; dialog and status are injected services."""
@@ -69,13 +82,7 @@ class ImageWorkspace:
         if any(is_above_recommended_size(path) for path in candidates) and not messagebox.askokcancel(app.translator.text("warning.large_title"), app.translator.text("warning.large_file")):
             return
         apply_image_event(self.state, ImageEvent.FILE_SELECTED, {"files": tuple(candidates)})
-        app.sources = list(self.state.selected_files)
-        app.media_sources["image"] = list(self.state.selected_files)
-        if candidates:
-            app.file_label.configure(text=f"{candidates[0].name} · {human_file_size(candidates[0].stat().st_size)}")
-        else:
-            app.file_label.configure(text=app.translator.text("files.none_supported"))
-        self.refresh_preview()
+        self.project()
 
     def refresh_preview(self):
         """Project ImageWorkspaceState through the existing renderer."""

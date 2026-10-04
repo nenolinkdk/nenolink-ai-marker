@@ -69,6 +69,7 @@ class _ShellRuntimeAdapter:
         self.clear_failures = []
     def preserve_source(self): return None
     def clear_source(self, source): self.app._workspace_registry[source].clear_runtime_state()
+    def clean_destination(self, destination): self.app._workspace_registry[destination].enter_clean()
     def clear_all_workspaces(self):
         for source in DESTINATIONS:
             try:
@@ -541,7 +542,7 @@ class LegacyMarkerApp(ctk.CTk):
     def change_language(self,name):
         self.translator.set_language(LANGUAGES.get(name,"en")); self.apply_translations()
         workspace = getattr(self, "pptx_workspace_state", None)
-        if self.active_content_type == "pptx" and self.active_tool is None and workspace is not None:
+        if self.shell_controller.active_content_type == "pptx" and self.shell_controller.active_tool is None and workspace is not None:
             workspace.apply_language(self.translator)
         self._save()
     def _build_content_navigation(self):
@@ -1786,30 +1787,18 @@ class MarkerApp(ctk.CTk):
                 return
             self.render_shell_state(remount=False)
             return
-        if source == "image" and event != "image" and event != "reset" and self._image_has_active_work():
-            if not messagebox.askokcancel(self.translator.text("navigation.switch_title"), self.translator.text("navigation.switch_message")):
-                return
-        if source == "video" and event != "video" and event != "reset" and self._video_has_active_work():
-            if not messagebox.askokcancel(self.translator.text("navigation.switch_title"), self.translator.text("navigation.switch_message")):
-                return
-        if source == "pdf" and event not in {"pdf", "reset"} and getattr(self, "pdf_path", None) is not None:
-            if not messagebox.askokcancel(self.translator.text("navigation.switch_title"), self.translator.text("navigation.switch_message")):
-                return
-        if source == "pptx" and event not in {"pptx", "reset"} and self._format_has_active_work("pptx"):
-            if not messagebox.askokcancel(self.translator.text("navigation.switch_title"), self.translator.text("navigation.switch_message")):
-                return
-        if source == "image" and event != "image":
-            self._unmount_image_workspace()
-        if source == "video" and event != "video":
-            self._unmount_video_workspace()
-        if source == "pdf" and event != "pdf":
-            self.pdf_path = self.pdf_info = None; self.pdf_current_page = 0; self.pdf_preview_photo = None; self.pdf_scope_mode = "all"; self.pdf_active_scope = (); self.pdf_scope_input = ""
-        if source == "pptx" and event != "pptx":
-            self.pptx_path = self.pptx_metrics = None; self.pptx_current_slide = 0; self.pptx_preview_photo = None; self.pptx_scope_mode = "all"; self.pptx_active_scope = (); self.pptx_scope_input = ""
-            legacy_state = self.__dict__.get("pptx_state")
-            if legacy_state is not None and legacy_state is not workspace and hasattr(legacy_state, "clear"):
-                legacy_state.clear()
-        self.shell_controller.dispatch(event)
+        # All global shell events, including reset, use the same table-driven
+        # executor.  No legacy MarkerApp runtime field is consulted or cleared
+        # here; workspace lifecycle methods own those values.
+        if event == "reset":
+            self.reset_shell()
+            return
+        spec = shell_transition_spec(source, self.shell_controller.active_tool, event, self._format_has_active_work(source))
+        self.last_shell_spec = spec
+        try:
+            self._shell_executor.execute(spec, _ShellRuntimeAdapter(self))
+        except RuntimeError:
+            return
         self.render_shell_state(remount=False)
 
     def request_content_transition(self, destination: str) -> bool:
@@ -1910,10 +1899,6 @@ class MarkerApp(ctk.CTk):
             self.mounted_view = placeholder_for(tool)
             return
         self._unmount_tool()
-        if destination != "pdf" and self.active_content_type == "pdf":
-            self.pdf_workspace_owner.unmount()
-        if destination != "pptx" and self.active_content_type == "pptx":
-            self.pptx_workspace_state.unmount()
         if destination in self._workspace_registry:
             trace = self.__dict__.get("shell_trace")
             if destination == "pptx" and trace is not None: trace.append("PPTX_REGISTRY")
@@ -1921,12 +1906,34 @@ class MarkerApp(ctk.CTk):
             if remount:
                 workspace.mount(self.content_host)
             workspace.project()
+            self._project_active_status(destination)
             self.mounted_view = destination.upper()
         else:
             self._clear_content_host()
             self.mounted_view = placeholder_for(destination)
             self.placeholder_label = ctk.CTkLabel(self.content_host, text=self.mounted_view, font=ctk.CTkFont(size=28, weight="bold"))
             self.placeholder_label.grid(row=0, column=0)
+
+    def _project_active_status(self, destination: str) -> None:
+        """Single shell-owned status projection sink.
+
+        Workspace status is derived from its authoritative state after every
+        lifecycle projection.  ``status_var`` is deliberately write-only UI
+        output; no transition or workspace decision reads it.
+        """
+        workspace = self._workspace_registry.get(destination)
+        state = getattr(workspace, "state", None)
+        path = getattr(state, "path", None)
+        files = getattr(state, "selected_files", ())
+        if path is not None:
+            text = f"{getattr(path, 'name', path)}"
+        elif files:
+            text = f"{getattr(files[0], 'name', files[0])}"
+        else:
+            text = ""
+        status_var = self.__dict__.get("status_var")
+        if status_var is not None:
+            status_var.set(text)
 
     # --- Image module lifecycle -------------------------------------------------
 
@@ -2003,6 +2010,7 @@ class MarkerApp(ctk.CTk):
         self.pdf_state.logo.path = None
         self.pdf_workspace = ctk.CTkFrame(self.content_host, fg_color="transparent")
         self.pdf_workspace.grid(row=0, column=0, padx=8, pady=8, sticky="nsew")
+        self.pdf_workspace_root = self.pdf_workspace
         self.pdf_workspace.grid_columnconfigure(0, weight=0, minsize=320)
         self.pdf_workspace.grid_columnconfigure(1, weight=1)
         self.pdf_workspace.grid_rowconfigure(0, weight=1)
@@ -2017,7 +2025,7 @@ class MarkerApp(ctk.CTk):
         self.pdf_workspace = self.pdf_controls_host
         self.pdf_workspace.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(self.pdf_workspace, text="PDF", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0, column=0, pady=(2, 1), sticky="w")
-        self.pdf_choose_button = ctk.CTkButton(self.pdf_workspace, text=t("pdf.choose"), command=self.choose_pdf_phase2); self.pdf_choose_button.grid(row=1, column=0, pady=(4, 8), sticky="w")
+        self.pdf_choose_button = ctk.CTkButton(self.pdf_workspace, text=t("pdf.choose"), command=self.pdf_workspace_owner.choose_file); self.pdf_choose_button.grid(row=1, column=0, pady=(4, 8), sticky="w")
         self.pdf_file_label = ctk.CTkLabel(self.pdf_workspace, text=t("pdf.no_file"), text_color="gray60", anchor="w"); self.pdf_file_label.grid(row=2, column=0, pady=4, sticky="w")
         self.pdf_badge_enable = ctk.CTkCheckBox(self.pdf_workspace, text=t("pdf.add_badge"), variable=self.pdf_badge_enabled_var, command=self.pdf_visual_changed); self.pdf_badge_enable.grid(row=3, column=0, pady=(8, 2), sticky="w")
         self.pdf_badge_menu = ctk.CTkOptionMenu(self.pdf_workspace, variable=self.badge_display_var, values=["—"], command=self.select_pdf_badge_display); self.pdf_badge_menu.grid(row=4, column=0, pady=2, sticky="w")
@@ -2301,6 +2309,8 @@ class MarkerApp(ctk.CTk):
 
     def pdf_visual_changed(self, *_args) -> None:
         """Rerender only the current page; PDF scope and navigation stay intact."""
+        self.pdf_workspace_owner.set_badge(enabled=bool(self.pdf_badge_enabled_var.get()))
+        return
         if getattr(self, "pdf_badge_menu", None):
             self.pdf_badge_menu.configure(state="normal" if self.pdf_badge_enabled_var.get() else "disabled")
         self._update_logo_controls()
@@ -2311,12 +2321,7 @@ class MarkerApp(ctk.CTk):
         filename = self.badge_display_to_file.get(display_name)
         if not filename or not self.badges.find(filename):
             return
-        apply_pdf_event(self.pdf_state, PdfEvent.BADGE_CHANGED, {"badge_id": filename, "enabled": bool(self.pdf_badge_enabled_var.get())})
-        self.pdf_workspace_owner.project()
-        if getattr(self, "pdf_badge_name_label", None):
-            self.pdf_badge_name_label.configure(text=display_name)
-        self._project_pdf_badge_visual()
-        self.render_pdf_preview()
+        self.pdf_workspace_owner.set_badge(badge_id=filename, enabled=bool(self.pdf_badge_enabled_var.get()))
 
     def _project_pdf_badge_visual(self) -> None:
         """Project the selected common badge graphic and human name into PDF UI."""
@@ -2353,9 +2358,7 @@ class MarkerApp(ctk.CTk):
         value = self.position_display_to_value.get(display_name)
         if not value:
             return
-        apply_pdf_event(self.pdf_state, PdfEvent.BADGE_CHANGED, {"position": value})
-        self.pdf_workspace_owner.project()
-        self.render_pdf_preview()
+        self.pdf_workspace_owner.set_badge(position=value)
 
     def change_pdf_badge_size(self, value) -> None:
         """Normalize the shared 1–100% size range into PDF badge state."""
@@ -2363,61 +2366,45 @@ class MarkerApp(ctk.CTk):
             normalized = max(1, min(100, int(round(float(value)))))
         except (TypeError, ValueError):
             return
-        apply_pdf_event(self.pdf_state, PdfEvent.BADGE_CHANGED, {"size": normalized})
-        self.pdf_workspace_owner.project()
-        if getattr(self, "pdf_size_label", None):
-            self.pdf_size_label.configure(text=f"Badge Size: {normalized}%")
-        self.render_pdf_preview()
+        self.pdf_workspace_owner.set_badge(size=normalized)
 
     def change_pdf_badge_margin(self, value) -> None:
         try:
             normalized = max(0, min(250, int(round(float(value)))))
         except (TypeError, ValueError):
             return
-        apply_pdf_event(self.pdf_state, PdfEvent.BADGE_CHANGED, {"margin": normalized}); self.pdf_workspace_owner.project()
-        if getattr(self, "pdf_margin_label", None): self.pdf_margin_label.configure(text=f"Margin: {normalized} px")
-        self.render_pdf_preview()
+        self.pdf_workspace_owner.set_badge(margin=normalized)
 
     def change_pdf_badge_opacity(self, value) -> None:
         try:
             normalized = max(0, min(100, int(round(float(value)))))
         except (TypeError, ValueError):
             return
-        apply_pdf_event(self.pdf_state, PdfEvent.BADGE_CHANGED, {"opacity": normalized}); self.pdf_workspace_owner.project()
-        if getattr(self, "pdf_opacity_label", None): self.pdf_opacity_label.configure(text=f"Opacity: {normalized}%")
-        self.render_pdf_preview()
+        self.pdf_workspace_owner.set_badge(opacity=normalized)
 
     def change_pdf_logo_enabled(self) -> None:
-        apply_pdf_event(self.pdf_state, PdfEvent.LOGO_CHANGED, {"enabled": bool(self.logo_enabled_var.get())})
-        self.pdf_workspace_owner.project()
-        self.render_pdf_preview()
+        self.pdf_workspace_owner.set_logo(enabled=bool(self.logo_enabled_var.get()))
 
     def change_pdf_logo_position(self, display_name: str) -> None:
         value = self.position_display_to_value.get(display_name)
         if not value:
             return
-        apply_pdf_event(self.pdf_state, PdfEvent.LOGO_CHANGED, {"position": value}); self.pdf_workspace_owner.project(); self.render_pdf_preview()
+        self.pdf_workspace_owner.set_logo(position=value)
 
     def change_pdf_logo_size(self, value) -> None:
         try: normalized = max(1, min(100, int(round(float(value)))) )
         except (TypeError, ValueError): return
-        apply_pdf_event(self.pdf_state, PdfEvent.LOGO_CHANGED, {"size": normalized}); self.pdf_workspace_owner.project()
-        if getattr(self, "pdf_logo_size_label", None): self.pdf_logo_size_label.configure(text=f"Logo Size: {normalized}%")
-        self.render_pdf_preview()
+        self.pdf_workspace_owner.set_logo(size=normalized)
 
     def change_pdf_logo_margin(self, value) -> None:
         try: normalized = max(0, min(250, int(round(float(value)))) )
         except (TypeError, ValueError): return
-        apply_pdf_event(self.pdf_state, PdfEvent.LOGO_CHANGED, {"margin": normalized}); self.pdf_workspace_owner.project()
-        if getattr(self, "pdf_logo_margin_label", None): self.pdf_logo_margin_label.configure(text=f"Logo Margin: {normalized} px")
-        self.render_pdf_preview()
+        self.pdf_workspace_owner.set_logo(margin=normalized)
 
     def change_pdf_logo_opacity(self, value) -> None:
         try: normalized = max(0, min(100, int(round(float(value)))) )
         except (TypeError, ValueError): return
-        apply_pdf_event(self.pdf_state, PdfEvent.LOGO_CHANGED, {"opacity": normalized}); self.pdf_workspace_owner.project()
-        if getattr(self, "pdf_logo_opacity_label", None): self.pdf_logo_opacity_label.configure(text=f"Logo Opacity: {normalized}%")
-        self.render_pdf_preview()
+        self.pdf_workspace_owner.set_logo(opacity=normalized)
 
     def _sync_pdf_state(self) -> None:
         # Compatibility entry point retained for preview/output until B3/B4.
@@ -2496,8 +2483,7 @@ class MarkerApp(ctk.CTk):
         if mode == "all" and self.pdf_info: self.pdf_workspace_owner.set_scope(mode, tuple(range(1, self.pdf_info.metrics.item_count + 1))); self.render_pdf_preview()
         elif mode == "first" and self.pdf_info: self.pdf_workspace_owner.set_scope(mode, (1,)); self.render_pdf_preview()
         else:
-            apply_pdf_event(self.pdf_state, PdfEvent.SCOPE_MODE, {"mode": mode})
-            self.pdf_workspace_owner.project()
+            self.pdf_workspace_owner.set_scope_mode(mode)
         self._update_pdf_scope_controls()
 
     def update_pdf_scope(self) -> None:

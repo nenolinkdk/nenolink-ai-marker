@@ -44,6 +44,7 @@ def _app():
         def __init__(self, kind):
             self.kind = kind
             self.cleared = 0
+            self.cleaned = 0
             self.unmounted = 0
         def mount(self, host):
             host.clear()
@@ -53,6 +54,8 @@ def _app():
             return None
         def clear_runtime_state(self):
             self.cleared += 1
+        def enter_clean(self):
+            self.cleaned += 1
         def unmount(self):
             self.unmounted += 1
 
