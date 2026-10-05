@@ -202,6 +202,11 @@ class PdfWorkspace:
     def enter_clean(self):
         result = self.dispatch(PdfEvent.CLEAR_RUNTIME)
         self._ensure_badge_selection()
+        # A clean lifecycle transition is complete only after its state has
+        # been projected; file selection must not be required to populate the
+        # default badge visual.
+        if self.root is not None:
+            self.project()
         return result
 
     def choose_file(self) -> None:
