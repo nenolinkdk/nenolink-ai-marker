@@ -53,3 +53,20 @@ def test_image_registry_uses_workspace_lifecycle_object():
     assert '"image": self.image_workspace_owner' in APP
     assert "workspace.mount(self.content_host)" in APP
     assert '"image": self._mount_image_workspace' not in APP
+
+def test_image_table_is_normative_for_workspace_events():
+    from nenolink_ai_marker.workspace_state import IMAGE_TRANSITION_TABLE, ImageEvent, image_transition
+    assert {spec.event for spec in IMAGE_TRANSITION_TABLE} == set(ImageEvent)
+    for event in ImageEvent:
+        assert image_transition(event).event is event
+
+def test_image_workspace_callbacks_dispatch_table_events():
+    source = WORKSPACE
+    for event in ("FILE_SELECTED", "BADGE_CHANGED", "LOGO_CHANGED", "VISUAL_CHANGED"):
+        assert f"ImageEvent.{event}" in source
+    assert "apply_image_event" in source
+
+def test_image_save_preview_and_projection_read_authoritative_state():
+    for token in ("self.state.selected_files", "self.state.badge", "self.state.logo", "ImageProcessingRequest"):
+        assert token in WORKSPACE
+    assert "command=self.save" in WORKSPACE
