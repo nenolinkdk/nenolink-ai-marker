@@ -47,6 +47,7 @@ class PdfWorkspace:
 
     def project(self) -> None:
         app = self.app; state = self.state
+        self._ensure_badge_selection()
         app.pdf_path = state.path
         app.pdf_current_page = state.current_page
         app.pdf_scope_mode = state.scope_mode
@@ -66,6 +67,23 @@ class PdfWorkspace:
             if getattr(app, "pdf_preview_label", None) is not None: app.pdf_preview_label.configure(image=None, text="PDF page preview")
             self.preview_photo = None; app.pdf_preview_photo = None
         if getattr(app, "_project_pdf_badge_selection", None): app._project_pdf_badge_selection()
+
+    def _ensure_badge_selection(self) -> None:
+        """Seed a valid default badge through the PDF event boundary."""
+        state = self.state
+        if state.badge.badge_id:
+            return
+        app = self.app
+        candidate = ""
+        badge_var = getattr(app, "badge_var", None)
+        if badge_var is not None:
+            candidate = str(badge_var.get() or "")
+        badges = getattr(app, "badges", None)
+        if badges is None or not badges.find(candidate):
+            paths = tuple(badges.display_badges()) if badges is not None else ()
+            candidate = paths[0].name if paths else ""
+        if candidate:
+            apply_pdf_event(state, PdfEvent.BADGE_CHANGED, {"badge_id": candidate})
 
     def accept_file(self, path, info) -> None:
         apply_pdf_event(self.state, PdfEvent.FILE_SELECTED, {"path": path, "page_count": info.metrics.item_count})
@@ -141,6 +159,9 @@ class PdfWorkspace:
 
     def save(self) -> None:
         app = self.app; state = self.state
+        diagnostic = getattr(app, "_pdf_runtime_diagnostic", None)
+        if callable(diagnostic):
+            diagnostic("pdf_workspace_save_entered", {"callback": "PdfWorkspace.save", "owner_id": id(self), "state_path": str(state.path) if state.path else None, "badge_enabled": bool(state.badge.enabled), "badge_id": state.badge.badge_id})
         if not state.path or not getattr(app, "pdf_info", None):
             messagebox.showwarning(app.translator.text("warning.title"), app.translator.text("pdf.choose_first")); return
         if not app._confirm_pdf_limits_phase6() or not app._confirm_pdf_signature(): return
@@ -196,4 +217,6 @@ class PdfWorkspace:
         self.project()
         app._project_pdf_badge_selection()
         self.refresh_preview()
+        diagnostic = getattr(app, "_pdf_runtime_diagnostic", None)
+        if callable(diagnostic): diagnostic("pdf_choose_file_projected", {"owner_id": id(self), "state_path": str(self.state.path) if self.state.path else None})
 

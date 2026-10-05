@@ -49,6 +49,20 @@ from .ui_state import DocumentPreviewState, DocumentScopeState, pptx_item_select
 from .update_check import UpdateCheckError, check_for_update, is_approved_update_url, should_check_automatically
 from .shell_controller import DESTINATIONS, ShellController, placeholder_for, shell_transition_spec, ShellTransitionExecutor
 
+def _runtime_boot_logger():
+    """Return a flushed application logger for packaged runtime diagnostics."""
+    path = os.environ.get("NENOLINK_BOOT_LOG")
+    def write(message: str) -> None:
+        if not path:
+            return
+        try:
+            with open(path, "a", encoding="utf-8") as stream:
+                stream.write(str(message) + "\n")
+                stream.flush()
+        except OSError:
+            return
+    return write
+
 class _ShellRuntimeAdapter:
     def __init__(self, app):
         self.app = app
@@ -86,8 +100,8 @@ class _ShellRuntimeAdapter:
         workspace.mount(self.app.content_host)
         self.mount_result = "success"
     def project_destination(self, destination):
-        self.app._workspace_registry[destination].project()
         self.app.shell_controller.dispatch(destination)
+        self.app._workspace_registry[destination].project()
         self.project_result = "success"
         self.app.mounted_view = destination.upper()
     def mount_tool(self, tool):
@@ -1699,12 +1713,13 @@ class MarkerApp(ctk.CTk):
 
     def __init__(self) -> None:
         super().__init__()
+        self._boot = _runtime_boot_logger()
+        self._boot('PDF_DIAGNOSTIC ' + json.dumps({'event': 'app_runtime_ready', 'app_id': id(self)}, sort_keys=True))
         self.geometry("1280x720"); self.minsize(980, 680)
         self.shell_controller = ShellController()
         self.active_content_type = self.shell_controller.destination
         self.active_tool = None
         self.mounted_view = ""
-        self._boot = lambda _message: None
         self.image_workspace = None
         self.video_workspace = None
         self.pdf_workspace = None
@@ -1887,6 +1902,11 @@ class MarkerApp(ctk.CTk):
         return False
 
     def render_shell_state(self, remount: bool = True) -> None:
+        self._pdf_runtime_diagnostic("render_shell_state", {
+            "active_content": getattr(self.__dict__.get("shell_controller"), "active_content_type", None),
+            "active_tool": getattr(self.__dict__.get("shell_controller"), "active_tool", None),
+            "buttons": {k: {"id": id(v), "selected": k == (getattr(self.__dict__.get("shell_controller"), "active_tool", None) or getattr(self.__dict__.get("shell_controller"), "active_content_type", None)), "mapped": bool(v.winfo_ismapped()) if v.winfo_exists() else False} for k, v in self.__dict__.get("content_buttons", {}).items()},
+        })
         destination = self.shell_controller.active_content_type
         tool = self.shell_controller.active_tool
         self.active_content_type = destination
@@ -1916,6 +1936,25 @@ class MarkerApp(ctk.CTk):
             self.mounted_view = placeholder_for(destination)
             self.placeholder_label = ctk.CTkLabel(self.content_host, text=self.mounted_view, font=ctk.CTkFont(size=28, weight="bold"))
             self.placeholder_label.grid(row=0, column=0)
+
+    def _pdf_runtime_diagnostic(self, event: str, extra: dict | None = None) -> None:
+        """Emit observational PDF widget identity data to the boot log."""
+        pdf = self.__dict__.get("pdf_workspace_owner")
+        state = getattr(pdf, "state", None)
+        widgets = {}
+        for name in ("pdf_workspace", "pdf_workspace_root", "pdf_process_button", "pdf_badge_menu", "pdf_badge_visual", "pdf_badge_image_label"):
+            widget = self.__dict__.get(name)
+            if widget is not None:
+                try: widgets[name] = {"id": id(widget), "mapped": bool(widget.winfo_ismapped()), "exists": bool(widget.winfo_exists())}
+                except Exception: widgets[name] = {"id": id(widget)}
+        controller = self.__dict__.get("shell_controller")
+        badge_var = self.__dict__.get("badge_display_var")
+        menu = self.__dict__.get("pdf_badge_menu")
+        photo = self.__dict__.get("pdf_badge_photo")
+        payload = {"event": event, "active_content": getattr(controller, "active_content_type", None), "pdf_owner_id": id(pdf) if pdf else None, "state_badge": repr(getattr(state, "badge", None)), "badge_display": badge_var.get() if badge_var is not None else None, "selector_values": list(getattr(menu, "_values", []) or []) if menu is not None else [], "badge_asset": str(photo) if photo else None, "widgets": widgets}
+        if extra: payload.update(extra)
+        try: self._boot("PDF_DIAGNOSTIC " + json.dumps(payload, default=str, sort_keys=True))
+        except Exception: pass
 
     def _project_active_status(self, destination: str) -> None:
         """Single shell-owned status projection sink.
@@ -2344,6 +2383,7 @@ class MarkerApp(ctk.CTk):
         self.badge_name_var.set(display_name)
         if getattr(self, "pdf_badge_visual", None):
             self.pdf_badge_visual.configure(image=self.pdf_badge_photo, text=display_name)
+        self._pdf_runtime_diagnostic("pdf_badge_visual_projected", {"badge_id": badge_id, "display_name": display_name, "asset_found": True, "image_retained": self.pdf_badge_photo is not None})
 
     def _project_pdf_badge_selection(self) -> None:
         """Project the authoritative/default badge into the PDF selector."""
@@ -2357,6 +2397,8 @@ class MarkerApp(ctk.CTk):
                 self.pdf_badge_menu.set(display_name)
             if getattr(self, "pdf_badge_name_label", None): self.pdf_badge_name_label.configure(text=display_name)
             self._project_pdf_badge_visual()
+        else:
+            self._pdf_runtime_diagnostic("pdf_badge_selection_projected", {"badge_id": filename, "display_name": display_name, "asset_found": False})
 
     def change_pdf_badge_position(self, display_name: str) -> None:
         """Validate and project a PDF badge-position event without remounting."""
@@ -2456,6 +2498,7 @@ class MarkerApp(ctk.CTk):
 
     def process_pdf_phase6(self) -> None:
         """Save a new PDF using the already validated PDF-owned scope."""
+        self._pdf_runtime_diagnostic("process_pdf_phase6_entered", {"callback": "MarkerApp.process_pdf_phase6"})
         if not self.pdf_path or not self.pdf_info:
             messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("pdf.choose_first")); return
         if not self._confirm_pdf_limits_phase6() or not self._confirm_pdf_signature(): return
