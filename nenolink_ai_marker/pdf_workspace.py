@@ -17,6 +17,7 @@ from .document_processing import ItemSelection, ProcessingRequest, settings_for_
 from .metadata import marker_metadata
 from dataclasses import replace
 from .workspace_state import PdfEvent, PdfWorkspaceState, apply_pdf_event
+from .workspace_ui import build_badge_visual
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,11 +35,28 @@ class PdfWorkspace:
         self.root = None
 
     def mount(self, host) -> None:
-        # The host is retained for the eventual extracted builder.  For B1 the
-        # compatibility builder still uses app.content_host and preserves the
-        # verified PDF UI unchanged.
-        self.app._build_pdf_workspace_compat(host)
-        self.root = getattr(self.app, "pdf_workspace_root", None) or getattr(self.app, "pdf_workspace", None)
+        if self.root is not None and self.root.winfo_exists():
+            self.root.grid(); self.project(); return
+        app = self.app; t = app.translator.text
+        self.root = ctk.CTkFrame(host, fg_color="transparent"); self.root.grid(row=0, column=0, sticky="nsew")
+        self.root.grid_columnconfigure(0, weight=0, minsize=320); self.root.grid_columnconfigure(1, weight=1); self.root.grid_rowconfigure(0, weight=1)
+        controls = ctk.CTkScrollableFrame(self.root, width=320, fg_color=("gray86", "gray17")); controls.grid(row=0, column=0, padx=(4,8), pady=4, sticky="nsew")
+        preview_host = ctk.CTkFrame(self.root); preview_host.grid(row=0, column=1, padx=(8,4), pady=4, sticky="nsew"); preview_host.grid_columnconfigure(0, weight=1); preview_host.grid_rowconfigure(0, weight=1)
+        app.pdf_workspace = controls; app.pdf_workspace_root = self.root; app.pdf_controls_host = controls; app.pdf_preview_host = preview_host
+        ctk.CTkLabel(controls, text="PDF", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0,column=0,pady=(2,1),sticky="w")
+        app.pdf_choose_button = ctk.CTkButton(controls, text=t("pdf.choose"), command=self.choose_file); app.pdf_choose_button.grid(row=1,column=0,pady=(4,8),sticky="w")
+        app.pdf_file_label = ctk.CTkLabel(controls,text=t("pdf.no_file"),text_color="gray60",anchor="w"); app.pdf_file_label.grid(row=2,column=0,pady=4,sticky="w")
+        app.pdf_badge_enabled_var.set(self.state.badge.enabled)
+        app.pdf_badge_enable = ctk.CTkCheckBox(controls,text=t("pdf.add_badge"),variable=app.pdf_badge_enabled_var,command=app.pdf_visual_changed); app.pdf_badge_enable.grid(row=3,column=0,pady=(8,2),sticky="w")
+        app.pdf_badge_menu = ctk.CTkOptionMenu(controls,variable=app.badge_display_var,values=["—"],command=app.select_pdf_badge_display); app.pdf_badge_menu.grid(row=4,column=0,pady=2,sticky="w")
+        app.pdf_badge_visual = build_badge_visual(controls, image=None, name_variable=app.badge_name_var); app.pdf_badge_visual.grid(row=5,column=0,pady=(2,4),sticky="w"); app.pdf_badge_image_label=app.pdf_badge_visual; app.pdf_badge_name_label=app.pdf_badge_visual
+        app.pdf_preview_label = ctk.CTkLabel(preview_host,text="PDF page preview",fg_color=("gray92","gray13")); app.pdf_preview_label.grid(row=0,column=0,pady=(12,4),sticky="nsew")
+        nav = ctk.CTkFrame(preview_host,fg_color="transparent"); nav.grid(row=1,column=0,pady=4)
+        app.pdf_previous_button=ctk.CTkButton(nav,text="◀",width=42,command=lambda:self.set_current_page(self.state.current_page-1)); app.pdf_previous_button.grid(row=0,column=0,padx=4)
+        app.pdf_page_status=ctk.CTkLabel(nav,text="—",width=120); app.pdf_page_status.grid(row=0,column=1,padx=4)
+        app.pdf_next_button=ctk.CTkButton(nav,text="▶",width=42,command=lambda:self.set_current_page(self.state.current_page+1)); app.pdf_next_button.grid(row=0,column=2,padx=4)
+        app.pdf_process_button=ctk.CTkButton(controls,text="Save",command=self.save,width=58); app.pdf_process_button.grid(row=6,column=0,pady=(8,4),sticky="w")
+        self.project()
 
     def unmount(self) -> None:
         root = self.root or getattr(self.app, "pdf_workspace", None)
