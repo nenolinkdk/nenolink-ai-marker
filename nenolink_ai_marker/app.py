@@ -195,11 +195,9 @@ class LegacyMarkerApp(ctk.CTk):
         self._build_ui(); boot("UI built"); self.apply_translations(); self.refresh_badges(False); self._validate_saved_logo(); boot("resources loaded"); self.protocol("WM_DELETE_WINDOW", self.destroy)
         self.after(250, self._automatic_update_check)
         if os.environ.get("NENOLINK_VERIFY_FILE_DIALOG") == "1":
-            self.after(800, self.open_images)
+            self.after(800, self.image_workspace_owner.choose_files)
         if os.environ.get("NENOLINK_VERIFY_BADGE_FOLDER_DIALOG") == "1":
             self.after(800, self.browse_custom_badges)
-        if os.environ.get("NENOLINK_VERIFY_REPORT"):
-            self.after(800, self._write_hotfix_verification)
         elif getattr(sys,"frozen",False) and not self.shortcut_offer_shown:
             self.after(700,self._show_first_run_shortcut_offer)
 
@@ -234,7 +232,8 @@ class LegacyMarkerApp(ctk.CTk):
         self.single_tab=self.tabs.add(self.tab_names["single"]); self.batch_tab=self.tabs.add(self.tab_names["batch"]); self.settings_tab=self.tabs.add(self.tab_names["badges"]); self.inspect_tab=self.tabs.add(self.tab_names["inspect"]); self.pdf_tab=self.tabs.add(self.tab_names["pdf"]); self.pptx_tab=self.tabs.add(self.tab_names["pptx"])
         # Only the active content owns live widgets.  PDF/PPTX contexts are
         # created by the central transition controller, never by navigation.
-        self._single_ui(); self._batch_ui(); self._settings_ui(); self._inspect_ui()
+        # Image and Video controls are mounted exclusively by their workspaces.
+        self._batch_ui(); self._settings_ui(); self._inspect_ui()
         self.pdf_context_widgets=None; self.pptx_context_widgets=None
         footer=ctk.CTkFrame(self,corner_radius=0,fg_color="transparent"); footer.grid(row=2,column=0,padx=20,pady=(0,8),sticky="ew"); footer.grid_columnconfigure(1,weight=1)
         footer_left=ctk.CTkFrame(footer,corner_radius=0,fg_color="transparent"); footer_left.grid(row=0,column=0,sticky="w")
@@ -345,54 +344,6 @@ class LegacyMarkerApp(ctk.CTk):
             return
         for name,value in vars(context).items():
             setattr(self,name,value)
-
-    def _single_ui(self) -> None:
-        tab=self.single_tab; tab.grid_columnconfigure(1,weight=1); tab.grid_rowconfigure(0,weight=1)
-        left=AutoHideScrollableFrame(tab,width=310,fg_color=("gray86","gray17")); self.single_controls=left; left.grid(row=0,column=0,padx=(4,8),pady=4,sticky="nsew"); left.grid_columnconfigure(0,weight=1)
-        self.open_button=ctk.CTkButton(left,text="",command=self.open_images); self.open_button.grid(row=0,column=0,padx=14,pady=(10,4),sticky="ew")
-        self.file_label=ctk.CTkLabel(left,text="",wraplength=270,justify="left"); self.file_label.grid(row=1,column=0,padx=14,pady=3,sticky="w")
-        self.file_size_guidance=ctk.CTkLabel(left,text="",wraplength=270,justify="left",text_color="gray60"); self.file_size_guidance.grid(row=2,column=0,padx=14,pady=(0,2),sticky="w")
-        self.single_badge_label=ctk.CTkLabel(left,text="",font=ctk.CTkFont(weight="bold")); self.single_badge_label.grid(row=3,column=0,padx=14,pady=(4,1),sticky="w")
-        self.badge_menu=ctk.CTkOptionMenu(left,variable=self.badge_display_var,values=["—"],command=self.select_badge_display); self.badge_menu.grid(row=4,column=0,padx=14,pady=2,sticky="ew")
-        badge_preview=ctk.CTkFrame(left); badge_preview.grid(row=5,column=0,padx=14,pady=4,sticky="ew"); badge_preview.grid_columnconfigure(1,weight=1)
-        self.single_badge_preview_label=ctk.CTkLabel(badge_preview,text="",width=90,height=44); self.single_badge_preview_label.grid(row=0,column=0,padx=5,pady=5)
-        self.single_badge_name_label=ctk.CTkLabel(badge_preview,textvariable=self.badge_name_var,font=ctk.CTkFont(weight="bold"),anchor="w",wraplength=150); self.single_badge_name_label.grid(row=0,column=1,padx=(3,5),pady=5,sticky="ew")
-        self.position_label=ctk.CTkLabel(left,text=""); self.position_label.grid(row=6,column=0,padx=16,pady=(8,2),sticky="w")
-        self.position_menu=ctk.CTkOptionMenu(left,variable=self.position_display_var,values=["—"],command=self.change_position_display); self.position_menu.grid(row=7,column=0,padx=16,pady=4,sticky="ew")
-        self.size_label=self._slider(left,self.size_var,1,100,8); self.margin_label=self._slider(left,self.margin_var,0,250,10); self.opacity_label=self._slider(left,self.opacity_var,0,100,12)
-        self.logo_controls=ctk.CTkFrame(left); self.logo_controls.grid(row=14,column=0,padx=14,pady=(5,3),sticky="ew"); self.logo_controls.grid_columnconfigure(1,weight=1)
-        self.logo_heading=ctk.CTkLabel(self.logo_controls,text="",font=ctk.CTkFont(weight="bold")); self.logo_heading.grid(row=0,column=0,columnspan=2,padx=8,pady=(6,2),sticky="w")
-        self.logo_enable=ctk.CTkCheckBox(self.logo_controls,text="",variable=self.logo_enabled_var,command=self.logo_changed); self.logo_enable.grid(row=1,column=0,columnspan=2,padx=8,pady=3,sticky="w")
-        self.logo_choose=ctk.CTkButton(self.logo_controls,text="",command=self.choose_logo,height=28); self.logo_choose.grid(row=2,column=0,padx=8,pady=3,sticky="w")
-        self.logo_filename=ctk.CTkLabel(self.logo_controls,textvariable=self.logo_filename_var,anchor="w",wraplength=150); self.logo_filename.grid(row=2,column=1,padx=(2,8),pady=3,sticky="ew")
-        self.logo_position_label=ctk.CTkLabel(self.logo_controls,text=""); self.logo_position_label.grid(row=3,column=0,padx=8,pady=2,sticky="w")
-        self.logo_position_menu=ctk.CTkOptionMenu(self.logo_controls,variable=self.logo_position_display_var,values=["—"],command=self.change_logo_position,height=28); self.logo_position_menu.grid(row=3,column=1,padx=8,pady=2,sticky="ew")
-        self.logo_size_label=ctk.CTkLabel(self.logo_controls,text=""); self.logo_size_label.grid(row=4,column=0,columnspan=2,padx=8,sticky="w")
-        self.logo_size_slider=ctk.CTkSlider(self.logo_controls,from_=1,to=100,number_of_steps=99,variable=self.logo_size_var,command=self.logo_changed); self.logo_size_slider.grid(row=5,column=0,columnspan=2,padx=8,pady=(0,2),sticky="ew")
-        self.logo_margin_label=ctk.CTkLabel(self.logo_controls,text=""); self.logo_margin_label.grid(row=6,column=0,columnspan=2,padx=8,sticky="w")
-        self.logo_margin_slider=ctk.CTkSlider(self.logo_controls,from_=0,to=250,number_of_steps=250,variable=self.logo_margin_var,command=self.logo_changed); self.logo_margin_slider.grid(row=7,column=0,columnspan=2,padx=8,pady=(0,2),sticky="ew")
-        self.logo_opacity_label=ctk.CTkLabel(self.logo_controls,text=""); self.logo_opacity_label.grid(row=8,column=0,columnspan=2,padx=8,sticky="w")
-        self.logo_opacity_slider=ctk.CTkSlider(self.logo_controls,from_=0,to=100,number_of_steps=100,variable=self.logo_opacity_var,command=self.logo_changed); self.logo_opacity_slider.grid(row=9,column=0,columnspan=2,padx=8,pady=(0,3),sticky="ew")
-        self.logo_images_only=ctk.CTkLabel(self.logo_controls,text="",text_color="gray60"); self.logo_images_only.grid(row=10,column=0,columnspan=2,padx=8,pady=(0,6),sticky="w")
-        self.video_controls=ctk.CTkFrame(left,fg_color="transparent"); self.video_controls.grid(row=16,column=0,padx=14,pady=(2,0),sticky="ew"); self.video_controls.grid_columnconfigure(1,weight=1)
-        self.video_settings_heading=ctk.CTkLabel(self.video_controls,text="",font=ctk.CTkFont(weight="bold")); self.video_settings_heading.grid(row=0,column=0,columnspan=3,pady=(2,0),sticky="w")
-        self.video_mode_label=ctk.CTkLabel(self.video_controls,text=""); self.video_mode_label.grid(row=1,column=0,columnspan=3,sticky="w")
-        self.video_mode_menu=ctk.CTkOptionMenu(self.video_controls,variable=self.video_mode_display_var,values=["—"],command=self.change_video_mode); self.video_mode_menu.grid(row=2,column=0,columnspan=3,pady=(1,3),sticky="ew")
-        self.video_duration_label=ctk.CTkLabel(self.video_controls,text=""); self.video_duration_label.grid(row=3,column=0,pady=2,sticky="w")
-        self.video_duration_entry=ctk.CTkEntry(self.video_controls,textvariable=self.video_duration_var,width=58); self.video_duration_entry.grid(row=3,column=1,padx=(8,4),pady=2,sticky="e"); self.video_duration_entry.bind("<FocusOut>",self.changed)
-        self.video_seconds_label=ctk.CTkLabel(self.video_controls,text=""); self.video_seconds_label.grid(row=3,column=2,pady=2,sticky="w")
-        self.process_button=ctk.CTkButton(left,text="",command=self.save_images); self.process_button.grid(row=17,column=0,padx=14,pady=(6,10),sticky="ew")
-        self.video_controls.grid_remove()
-        right=ctk.CTkFrame(tab); right.grid(row=0,column=1,padx=(8,4),pady=4,sticky="nsew"); right.grid_columnconfigure(0,weight=1); right.grid_rowconfigure(0,weight=1)
-        self.preview_label=ctk.CTkLabel(right,text="")
-        self.welcome_frame=ctk.CTkFrame(right,fg_color="transparent"); self.welcome_frame.grid(row=0,column=0,padx=18,pady=14,sticky="nsew"); self.welcome_frame.grid_columnconfigure(0,weight=1); self.welcome_frame.grid_rowconfigure(4,weight=1)
-        self.welcome_title=ctk.CTkLabel(self.welcome_frame,text="",font=ctk.CTkFont(size=28,weight="bold")); self.welcome_title.grid(row=0,column=0,padx=12,pady=(12,4))
-        self.welcome_tagline=ctk.CTkLabel(self.welcome_frame,text="",font=ctk.CTkFont(size=18,weight="bold"),text_color=("#2469a0","#65b6ef")); self.welcome_tagline.grid(row=1,column=0,padx=12,pady=(0,10))
-        self.welcome_description1=ctk.CTkLabel(self.welcome_frame,text="",wraplength=720,justify="center"); self.welcome_description1.grid(row=2,column=0,padx=18,pady=2)
-        self.welcome_description2=ctk.CTkLabel(self.welcome_frame,text="",wraplength=720,justify="center"); self.welcome_description2.grid(row=3,column=0,padx=18,pady=(2,10))
-        self.welcome_illustration=ctk.CTkLabel(self.welcome_frame,text="",anchor="center"); self.welcome_illustration.grid(row=4,column=0,padx=12,pady=(4,12),sticky="nsew")
-        self._load_welcome_image(self._boot)
-        self.welcome_frame.bind("<Configure>",self._resize_welcome)
 
     def _load_welcome_image(self,diagnostic):
         path=welcome_image_path()
@@ -610,8 +561,12 @@ class LegacyMarkerApp(ctk.CTk):
     def _create_context_widgets(self, content_type):
         if not hasattr(self,"single_tab"):
             return
-        if content_type in {"image","video"}:
-            self._single_ui(); self._batch_ui()
+        if content_type == "image":
+            self.image_workspace_owner.mount(self.content_host)
+        elif content_type == "video":
+            self.video_workspace_owner.mount(self.content_host)
+        elif content_type == "batch":
+            self._batch_ui()
         else:
             tab=self.pdf_tab if content_type=="pdf" else self.pptx_tab
             context=self._document_context_ui(tab)
@@ -638,10 +593,10 @@ class LegacyMarkerApp(ctk.CTk):
             return
         self.tools_navigation.set(""); MarkerApp._set_format_navigation(self,self.active_content_type)
         self._configure_secondary_navigation("single")
-        if self.active_content_type in {"image","video"}:
-            if self.video_controls is not None:
-                self.video_controls.grid() if self.active_content_type=="video" else self.video_controls.grid_remove()
-            self._update_logo_controls(); self.update_preview()
+        if self.active_content_type == "image":
+            self.image_workspace_owner.mount(self.content_host)
+        elif self.active_content_type == "video":
+            self.video_workspace_owner.mount(self.content_host)
         elif self.active_content_type == "pdf":
             self._mount_pdf_workspace()
         else:
@@ -651,7 +606,9 @@ class LegacyMarkerApp(ctk.CTk):
         self.visible_workspace_type=self.active_content_type
 
     def _format_has_active_work(self,format_type):
-        if format_type in {"image","video"}:return bool(self.sources or self.media_sources.get(format_type) or self.scan)
+        if format_type == "image": return self.image_workspace_owner.has_active_work()
+        if format_type == "video": return self.video_workspace_owner.has_active_work()
+        if format_type == "batch": return bool(self.scan)
         if format_type=="pdf":return self.pdf_path is not None
         if format_type=="pptx":return self.pptx_path is not None
         return False
@@ -681,13 +638,13 @@ class LegacyMarkerApp(ctk.CTk):
 
     def reset_format_context(self,format_type,preserve_visual_settings=True,*,keep_file=False,scope="all"):
         """Reset file/navigation state without touching shared badge/logo styling."""
-        if format_type in {"image","video"}:
-            self.media_sources[format_type]=[]
-            if self.active_content_type==format_type:self.sources=[]
-            self.preview_photo=None; self.preview_image=None
-            renderer=getattr(self,"preview_renderer",None)
-            if renderer is not None:renderer.clear()
-            if hasattr(self,"status_var"):self.status_var.set("")
+        if format_type == "image":
+            self.image_workspace_owner.clear_runtime_state()
+            self.media_sources["image"] = []
+            return
+        if format_type == "video":
+            self.video_workspace_owner.clear_runtime_state()
+            self.media_sources["video"] = []
             return
         if format_type not in {"pdf","pptx","docx"}:return
         if not hasattr(self,"document_scope_states"):self.document_scope_states={"pdf":DocumentScopeState(),"pptx":DocumentScopeState()}
@@ -1243,76 +1200,11 @@ class LegacyMarkerApp(ctk.CTk):
         for state in self.document_scope_states.values():state.reset()
         self.pptx_selection_mode_var.set("all"); self.pptx_selected_var.set(""); self.pptx_range_var.set("1-2"); self.pptx_file_var.set("")
         if hasattr(self,"pptx_scope_validation_label"):self.pptx_scope_validation_label.configure(text="")
-    def changed(self,*_):
-        try:self.video_duration_var.set(max(1,int(self.video_duration_var.get())))
-        except (ValueError,TypeError):self.video_duration_var.set(5)
-        t=self.translator.text
-        if getattr(self,"size_label",None):
-            self.size_label.configure(text="4. "+t("size.value",value=self.size_var.get())); self.margin_label.configure(text="5. "+t("margin.value",value=self.margin_var.get())); self.opacity_label.configure(text="6. "+t("opacity.value",value=self.opacity_var.get()))
-        if getattr(self,"pptx_size_label",None):
-            self.pptx_size_label.configure(text=t("size.value",value=self.size_var.get())); self.pptx_margin_label.configure(text=t("margin.value",value=self.margin_var.get())); self.pptx_opacity_label.configure(text=t("opacity.value",value=self.opacity_var.get())); self.pptx_logo_size_label.configure(text=t("logo.size",value=self.logo_size_var.get())); self.pptx_logo_margin_label.configure(text=t("logo.margin",value=self.logo_margin_var.get())); self.pptx_logo_opacity_label.configure(text=t("logo.opacity",value=self.logo_opacity_var.get()))
-        self._update_logo_labels(); self._update_batch_logo_value()
-        if self.active_content_type in {"image","video"}:self.update_preview()
-        elif self.active_content_type == "pdf":self.render_pdf_preview()
-        elif self.active_content_type == "pptx":
-            self._project_pptx_badge_visual()
-            self._update_pptx_preview()
-        self._save()
-    def change_video_mode(self,label):
-        self.video_mode_var.set(self.video_mode_display_to_value[label]); self._update_video_duration_controls(); self.changed()
-    def _update_video_duration_controls(self):
-        t=self.translator.text; self.video_duration_label.configure(text=t("video.duration")); self.video_seconds_label.configure(text=t("video.seconds")); self.batch_video_duration_label.configure(text=f"{t('video.duration')} ({t('video.seconds')})")
-        visible=self.video_mode_var.get() in {"beginning","end"}
-        for widget in (self.video_duration_label,self.video_duration_entry,self.video_seconds_label):
-            widget.grid() if visible else widget.grid_remove()
-        self.batch_video_duration_label.grid() if visible else self.batch_video_duration_label.grid_remove()
-        self.batch_video_duration_entry.grid() if visible else self.batch_video_duration_entry.grid_remove()
-        self.single_controls.after_idle(self.single_controls.update_scrollbar_visibility)
-    def change_position_display(self,label): self.position_var.set(self.position_display_to_value[label]); self.changed()
-    def change_logo_position(self,label): self.logo_position_var.set(self.logo_position_display_to_value[label]); self.logo_changed()
-    def _logo_path(self):
-        path=Path(self.logo_path_var.get()).expanduser() if self.logo_path_var.get() else None
-        return path if path and path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS else None
-    def _validate_saved_logo(self):
-        if self.logo_enabled_var.get() and not self._logo_path():
-            self.logo_enabled_var.set(False); self.status_var.set(self.translator.text("logo.missing")); self._save()
-        self._update_logo_controls(); self._update_batch_logo_value()
-    def choose_logo(self):
-        selected=filedialog.askopenfilename(title=self.translator.text("logo.choose"),filetypes=[(self.translator.text("logo.supported"),"*.png *.jpg *.jpeg *.webp"),(self.translator.text("files.all"),"*.*")])
-        if not selected:return
-        path=Path(selected)
-        try:
-            with Image.open(path) as opened:opened.verify()
-        except (OSError,Image.UnidentifiedImageError):
-            messagebox.showerror(self.translator.text("error.title"),self.translator.text("logo.invalid")); return
-        self.logo_path_var.set(str(path)); self.logo_enabled_var.set(True); self.logo_changed()
-    def logo_changed(self,*_):
-        if self.logo_enabled_var.get() and not self._logo_path():
-            self.logo_enabled_var.set(False); self.status_var.set(self.translator.text("logo.missing"))
-        self._update_logo_controls(); self._update_pptx_logo_controls(); self.changed()
-    def _update_logo_labels(self):
-        t=self.translator.text; self.logo_size_label.configure(text=t("logo.size",value=self.logo_size_var.get())); self.logo_margin_label.configure(text=t("logo.margin",value=self.logo_margin_var.get())); self.logo_opacity_label.configure(text=t("logo.opacity",value=self.logo_opacity_var.get()))
-    def _update_logo_controls(self):
-        if not getattr(self,"logo_enable",None):return
-        is_video=self.active_content_type=="video" or bool(self.sources and self.sources[0].suffix.lower() in VIDEO_EXTENSIONS)
-        enabled=self.logo_enabled_var.get() and not is_video
-        state="normal" if enabled else "disabled"
-        for widget in (self.logo_position_menu,self.logo_size_slider,self.logo_margin_slider,self.logo_opacity_slider):widget.configure(state=state)
-        self.logo_enable.configure(state="disabled" if is_video else "normal")
-        self.logo_choose.configure(state="disabled" if is_video else "normal")
-        self.logo_filename_var.set(Path(self.logo_path_var.get()).name if self.logo_path_var.get() else "—")
-    def _update_batch_logo_value(self):
-        if not hasattr(self,"batch_logo_value"):return
-        path=self._logo_path(); text=path.name if self.logo_enabled_var.get() and path else self.translator.text("logo.disabled")
-        self.batch_logo_value.configure(text=f"{text} · {self.translator.text('logo.images_only')}")
-    def change_badge_source(self): self._show_badge_source_controls(); self.refresh_badges(); self._save()
-    def _show_badge_source_controls(self):
-        if self.badge_source_var.get()=="custom":self.custom_controls.grid()
-        else:self.custom_controls.grid_remove()
     def select_badge(self):
         self.badge_display_var.set(self.badges.display_name(self.badge_var.get()))
         self.update_badge_preview(); self.update_gallery_selection()
-        if self.active_content_type in {"image","video"}:self.update_preview()
+        if self.active_content_type == "image": self.image_workspace_owner.refresh_preview()
+        elif self.active_content_type == "video": self.video_workspace_owner.refresh_preview()
         elif self.active_content_type == "pdf":self.render_pdf_preview()
         elif self.active_content_type == "pptx":
             self._project_pptx_badge_visual()
@@ -1369,75 +1261,6 @@ class LegacyMarkerApp(ctk.CTk):
             info=self.badges.metadata(badge.name); self.badge_name_var.set(info.display_name if info else self.badges.display_name(badge.name)); self.badge_description_var.set(self.translator.text("badge.no_ai_disclaimer") if badge.name=="no-ai.png" else (info.description if info else self.translator.text("badge.custom_description")))
         except OSError as error:self.single_badge_preview_label.configure(image=None,text=str(error))
 
-    def open_images(self):
-        video=self.active_content_type=="video"; extensions=VIDEO_EXTENSIONS if video else SUPPORTED_EXTENSIONS; pattern=" ".join(f"*{extension}" for extension in sorted(extensions))
-        selected=filedialog.askopenfilenames(title=self.translator.text("dialog.open_media"),filetypes=[(self.translator.text("files.supported_media"),pattern),(self.translator.text("files.all"),"*.*")])
-        if selected:
-            candidates=[Path(p) for p in selected if Path(p).suffix.lower() in extensions]
-            if any(is_above_recommended_size(p) for p in candidates) and not messagebox.askokcancel(self.translator.text("warning.large_title"),self.translator.text("warning.large_file")):return
-            self.reset_format_context(self.active_content_type)
-            self.sources=candidates; self.media_sources[self.active_content_type]=list(candidates); self.file_label.configure(text=self.translator.text("files.selected",count=len(self.sources),name=self.sources[0].name) if self.sources else self.translator.text("files.none_supported")); self.process_button.configure(text=self.translator.text("button.process_video") if video else self.translator.text("button.process")); self.video_controls.grid() if video else self.video_controls.grid_remove(); self._update_logo_controls(); self.update_preview()
-
-    def update_preview(self):
-        badge=self.badges.find(self.badge_var.get())
-        if show_welcome(self.sources):self.preview_photo=None; self.preview_image=None; self._show_welcome(); return
-        self._show_preview()
-        if not badge:self.preview_label.configure(image=None,text=self.translator.text("badge.none")); return
-        if self.sources[0].suffix.lower() in VIDEO_EXTENSIONS:
-            try:
-                self._sync_video_state()
-                ffmpeg=find_ffmpeg()
-                if not ffmpeg: raise ValueError(self.translator.text("error.video_component_missing"))
-                frame=extract_video_frame(ffmpeg,self.sources[0])
-                frame.thumbnail((720,600),Image.Resampling.LANCZOS)
-                state=self.video_state
-                settings=replace(self.settings(), position=state.badge.position, size_percent=state.badge.size, margin=state.badge.margin, opacity=state.badge.opacity, video_mode=state.mode, video_duration=state.duration)
-                with Image.open(badge) as opened_badge:
-                    composed=self.processor.compose(frame,opened_badge.convert("RGBA"),settings)
-                self.preview_image=composed.copy(); self.preview_photo=ctk.CTkImage(light_image=self.preview_image,dark_image=self.preview_image,size=self.preview_image.size); self.preview_label.configure(image=self.preview_photo,text=""); self.preview_label.image=self.preview_photo
-                self.status_var.set(self.translator.text("preview.showing",name=self.sources[0].name))
-            except (OSError,ValueError) as error:
-                self.preview_photo=None; self.preview_image=None; self.preview_label.configure(image=None,text=self.translator.text("error.preview",error=error)); self.status_var.set(self.translator.text("error.preview",error=error))
-            return
-        try:
-            settings=self.settings(); logo=self._logo_path() if settings.logo_enabled else None
-            image=self.preview_renderer.render(self.sources[0],badge,settings,logo); self.preview_image=image.copy(); self.preview_photo=ctk.CTkImage(light_image=self.preview_image,dark_image=self.preview_image,size=self.preview_image.size); self.preview_label.configure(image=self.preview_photo,text=""); self.preview_label.image=self.preview_photo; self.status_var.set(self.translator.text("preview.showing",name=self.sources[0].name))
-        except (OSError,ValueError) as error:self.status_var.set(self.translator.text("error.preview",error=error))
-
-    def clear_images(self):
-        self.sources=[]
-        if self.active_content_type in self.media_sources:self.media_sources[self.active_content_type]=[]
-        self.preview_renderer.clear(); self.file_label.configure(text=self.translator.text("files.none")); self._update_logo_controls(); self.update_preview()
-
-    def save_images(self):
-        badge=self.badges.find(self.badge_var.get())
-        if not self.sources or not badge:messagebox.showwarning(self.translator.text("warning.title"),self.translator.text("warning.nothing_to_save")); return
-        saved=[]; failures=[]; metadata_warnings=[]
-        display_var=getattr(self,"badge_name_var",None)
-        metadata=marker_metadata(self.badge_var.get(),display_var.get() if display_var else None)
-        for source in self.sources:
-            suggested=source.with_name(f"{source.stem}_ai{source.suffix}")
-            is_video=source.suffix.lower() in VIDEO_EXTENSIONS
-            formats=" ".join(f"*{extension}" for extension in sorted(VIDEO_EXTENSIONS)) if is_video else f"*{source.suffix}"
-            selected=filedialog.asksaveasfilename(title=self.translator.text("dialog.save_video_as" if is_video else "dialog.save_as"),initialdir=str(source.parent),initialfile=suggested.name,defaultextension=source.suffix,filetypes=[(self.translator.text("files.supported_videos" if is_video else "files.supported"),formats),(self.translator.text("files.all"),"*.*")],confirmoverwrite=True)
-            if not selected:continue
-            try:
-                target=Path(selected)
-                if is_video:
-                    if target.suffix.lower() not in VIDEO_EXTENSIONS:raise ValueError(self.translator.text("error.unsupported_video_output",extension=target.suffix or "—"))
-                    if not find_ffmpeg():raise ValueError(self.translator.text("error.video_component_missing"))
-                    metadata_written=self.batch_processor.process_video(source,badge,target,self.settings(),metadata)
-                else:
-                    settings=self.settings(); logo=self._logo_path() if getattr(settings,"logo_enabled",False) else None
-                    metadata_written=self.processor.save(self.processor.process(source,badge,settings,logo),target,metadata)
-                saved.append(target)
-                if not metadata_written:metadata_warnings.append(source.name)
-            except (OSError,ValueError) as error:failures.append(f"{source.name}: {error}")
-        only_video=bool(saved) and all(path.suffix.lower() in VIDEO_EXTENSIONS for path in self.sources)
-        summary=self.translator.text("video.saved_name",name=saved[-1].name) if only_video and not failures else self.translator.text("process.summary",saved=len(saved),total=len(self.sources)); self.status_var.set(summary)
-        warning=("\n\n"+self.translator.text("warning.metadata_failed")) if metadata_warnings else ""
-        (messagebox.showerror if failures else messagebox.showinfo)(self.translator.text("error.completed") if failures else self.translator.text("complete.title"),summary+("\n\n"+"\n".join(failures[:8]) if failures else "")+warning)
-
     def choose_input_folder(self):
         value=filedialog.askdirectory(title=self.translator.text("button.choose_input"))
         if value:self.input_folder_var.set(value); self.scan=None; self.changed()
@@ -1468,197 +1291,6 @@ class LegacyMarkerApp(ctk.CTk):
     def open_guide(self):
         try:open_user_guide(localized_user_guide_path(self.translator.language))
         except (OSError,FileNotFoundError) as error:messagebox.showerror(self.translator.text("error.title"),self.translator.text("guide.missing",error=error))
-
-    def _write_hotfix_verification(self):
-        """Exercise the real packaged widgets for release verification only."""
-        report_path=Path(os.environ["NENOLINK_VERIFY_REPORT"])
-        progress_path=report_path.with_suffix(".progress")
-        def checkpoint(stage):progress_path.write_text(stage,encoding="utf-8")
-        checkpoint("startup")
-        release_regressions={"inspect_then_image":False,"selected_image_inspect_back":False,"inspect_reset_then_image":False,"selected_video_inspect_back":False}
-        initial_badge_settings={"language":self.translator.language,"source":self.badge_source_var.get(),"folder":self.custom_badge_var.get(),"selection":self.badge_var.get(),"batch_suffix":self.batch_suffix_var.get(),"video_mode":self.video_mode_var.get(),"video_duration":self.video_duration_var.get(),"logo_enabled":self.logo_enabled_var.get(),"logo_path":self.logo_path_var.get(),"logo_position":self.logo_position_var.get(),"logo_size":self.logo_size_var.get(),"logo_margin":self.logo_margin_var.get(),"logo_opacity":self.logo_opacity_var.get(),"status":self.status_var.get(),"count":len(self.badges.display_badges()),"custom_controls_visible":self.custom_controls.winfo_manager()=="grid"}
-        tab_switching={}
-        for key,frame in (("single",self.single_tab),("batch",self.batch_tab),("badges",self.settings_tab),("inspect",self.inspect_tab)):
-            self.show_tab(key); self.update(); time.sleep(.15); self.update()
-            tab_switching[key]={"selected":self.tabs.get()==self.tab_names[key],"visible":bool(frame.winfo_ismapped()),"other_visible":any(bool(other.winfo_ismapped()) for other in (self.single_tab,self.batch_tab,self.settings_tab,self.inspect_tab) if other is not frame)}
-        self.sources=[Path(os.environ.get("NENOLINK_VERIFY_IMAGE","preserved-image.png"))]
-        self.badge_var.set("ai-translation.png"); self.position_var.set("top-left"); self.size_var.set(33); self.margin_var.set(27); self.opacity_var.set(81)
-        self.input_folder_var.set(r"C:\verification\batch-input"); self.batch_suffix_var.set("_published"); self.badge_source_var.set("standard")
-        self.show_tab("badges"); self.update(); self.badges_back_button.invoke(); self.update(); time.sleep(.15); self.update()
-        badges_back_preserved=self.tabs.get()==self.tab_names["single"] and self.badge_var.get()=="ai-translation.png" and len(self.sources)==1 and self.position_var.get()=="top-left" and self.size_var.get()==33 and self.margin_var.get()==27 and self.opacity_var.get()==81
-        self.show_tab("batch"); self.update(); self.batch_back_button.invoke(); self.update(); time.sleep(.15); self.update()
-        batch_back_preserved=self.tabs.get()==self.tab_names["single"] and self.input_folder_var.get()==r"C:\verification\batch-input" and self.batch_suffix_var.get()=="_published" and self.badge_var.get()=="ai-translation.png" and len(self.sources)==1
-        self.show_tab("single")
-        welcome_before_image=self.welcome_frame.winfo_manager()=="grid" and self.preview_label.winfo_manager()==""
-        welcome_illustration=bool(self.welcome_image and self.welcome_photo)
-        self.change_language("English"); self.update()
-        english={"title":self.title(),"tabs":list(self.tab_names.values()),"guide":self.guide_button.cget("text"),"back":self.badges_back_button.cget("text"),"choose":self.open_button.cget("text"),"process":self.process_button.cget("text"),"position":self.position_label.cget("text"),"welcome_title":self.welcome_title.cget("text"),"welcome_tagline":self.welcome_tagline.cget("text"),"welcome_description1":self.welcome_description1.cget("text"),"welcome_description2":self.welcome_description2.cget("text")}
-        self.change_language("Dansk"); self.update(); danish={"guide":self.guide_button.cget("text"),"back":self.badges_back_button.cget("text"),"choose":self.open_button.cget("text"),"tabs":list(self.tab_names.values()),"welcome_title":self.welcome_title.cget("text"),"welcome_tagline":self.welcome_tagline.cget("text"),"welcome_description1":self.welcome_description1.cget("text"),"welcome_description2":self.welcome_description2.cget("text")}
-        self.change_language("Deutsch"); self.update(); german={"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text"),"welcome_title":self.welcome_title.cget("text"),"welcome_tagline":self.welcome_tagline.cget("text"),"welcome_description1":self.welcome_description1.cget("text"),"welcome_description2":self.welcome_description2.cget("text")}
-        self.change_language("Français"); self.update(); french={"guide":self.guide_button.cget("text"),"choose":self.open_button.cget("text")}
-        self.change_language("English"); self.badge_source_var.set("standard"); self.refresh_badges(False); badge_names=[p.name for p in self.badges.display_badges()]
-        selected=[]
-        for name in ("ai-assisted.png","ai-generated.png","ai-translation.png"):
-            self.badge_var.set(name); self.select_badge(); self.update(); selected.append({"file":name,"display":self.badge_name_var.get(),"preview":bool(self.badge_photo)})
-        sample=os.environ.get("NENOLINK_VERIFY_IMAGE")
-        if sample:self.sources=[Path(sample)]; self.update_preview(); self.update()
-        selected_badge_written=False
-        image_metadata_verification=None
-        if sample:
-            sample_path=Path(sample); sample_hash=hashlib.sha256(sample_path.read_bytes()).hexdigest()
-            translation=self.processor.process(sample_path,self.badges.find("ai-translation.png"),self.settings())
-            assisted=self.processor.process(Path(sample),self.badges.find("ai-assisted.png"),self.settings())
-            selected_badge_written=translation.tobytes()!=assisted.tobytes() and self.badge_var.get()=="ai-translation.png"
-            metadata_root=report_path.with_name("packaged-metadata-verification")
-            if metadata_root.exists():shutil.rmtree(metadata_root)
-            metadata_root.mkdir(parents=True)
-            localization=self.processor.process(sample_path,self.badges.find("ai-localization.png"),self.settings())
-            no_ai=self.processor.process(sample_path,self.badges.find("no-ai.png"),self.settings())
-            metadata=marker_metadata("ai-localization.png","AI Localization")
-            jpeg_output=metadata_root/"sample_ai.jpg"; png_output=metadata_root/"sample_ai.png"; webp_output=metadata_root/"sample_ai.webp"; no_ai_output=metadata_root/"sample_no_ai.png"
-            jpeg_written=self.processor.save(localization,jpeg_output,metadata)
-            png_written=self.processor.save(localization,png_output,metadata)
-            webp_written=self.processor.save(localization,webp_output,metadata)
-            no_ai_written=self.processor.save(no_ai,no_ai_output,marker_metadata("no-ai.png","No AI")); no_ai_inspected=inspect_file(no_ai_output)
-            with Image.open(jpeg_output) as checked:jpeg_exif=checked.getexif(); jpeg_values={"software":jpeg_exif.get(305),"description":jpeg_exif.get(270)}
-            with Image.open(png_output) as checked:png_values={key:checked.info.get(key) for key in ("Software","AI Label","Marker Version","NenolinkAIMarker")}
-            with Image.open(webp_output) as checked:webp_exif=checked.getexif(); webp_values={"software":webp_exif.get(305),"description":webp_exif.get(270)}
-            inspected={path.suffix.lower().lstrip("."):inspect_file(path) for path in (jpeg_output,png_output,webp_output)}
-            ordinary=inspect_file(sample_path)
-            self.inspection_path=jpeg_output; self.inspection_result=inspected["jpg"]; self._render_inspection(); self.show_tab("inspect"); self.update(); self.inspect_back_button.invoke(); self.update()
-            inspect_back_preserved=self.inspection_path==jpeg_output and self.inspection_result==inspected["jpg"] and self.tabs.get()==self.tab_names["single"]
-            processed_after_inspect=self.processor.process(sample_path,self.badges.find("ai-assisted.png"),self.settings())
-            release_regressions["inspect_then_image"]=processed_after_inspect.size==localization.size
-            release_regressions["selected_image_inspect_back"]=self.sources==[sample_path] and processed_after_inspect.size==localization.size
-            image_metadata_verification={"source_sha256_before":sample_hash,"source_sha256_after":hashlib.sha256(sample_path.read_bytes()).hexdigest(),"jpeg":{"path":str(jpeg_output),"written":jpeg_written,"values":jpeg_values,"inspected":inspected["jpg"].found,"label":inspected["jpg"].ai_label,"version":inspected["jpg"].marker_version},"png":{"path":str(png_output),"written":png_written,"values":png_values,"inspected":inspected["png"].found,"label":inspected["png"].ai_label},"webp":{"path":str(webp_output),"written":webp_written,"values":webp_values,"inspected":inspected["webp"].found},"no_ai":{"path":str(no_ai_output),"written":no_ai_written,"inspected":no_ai_inspected.found,"label":no_ai_inspected.ai_label,"version":no_ai_inspected.marker_version,"packaged_badge":bool(self.badges.find("no-ai.png"))},"ordinary_not_found":not ordinary.found,"inspect_back_preserved":inspect_back_preserved}
-        checkpoint("image metadata")
-        self.select_gallery_badge("ai-software.png"); gallery_selection_persisted=self.badge_var.get()=="ai-software.png" and self.badge_display_var.get()=="AI Software"
-        logo_verification=None
-        logo_sample=os.environ.get("NENOLINK_VERIFY_LOGO")
-        if sample and logo_sample:
-            logo_path=Path(logo_sample); logo_root=report_path.with_name("packaged-logo-verification")
-            if logo_root.exists():shutil.rmtree(logo_root)
-            logo_root.mkdir(parents=True)
-            logo_settings=MarkerSettings(badge_name="ai-assisted.png",position="bottom-right",size_percent=20,margin=12,opacity=90,logo_enabled=True,logo_path=str(logo_path),logo_position="top-left",logo_size_percent=18,logo_margin=9,logo_opacity=75)
-            self.sources=[Path(sample)]; self.badge_var.set(logo_settings.badge_name); self.position_var.set(logo_settings.position); self.size_var.set(logo_settings.size_percent); self.margin_var.set(logo_settings.margin); self.opacity_var.set(logo_settings.opacity)
-            self.logo_path_var.set(str(logo_path)); self.logo_enabled_var.set(True); self.logo_position_var.set(logo_settings.logo_position); self.logo_size_var.set(logo_settings.logo_size_percent); self.logo_margin_var.set(logo_settings.logo_margin); self.logo_opacity_var.set(logo_settings.logo_opacity)
-            self.update_preview(); self.update(); preview_both=self.preview_image.tobytes() if self.preview_image else b""
-            self.logo_enabled_var.set(False); self.update_preview(); preview_badge_only=self.preview_image.tobytes() if self.preview_image else b""
-            self.logo_enabled_var.set(True); self.logo_position_var.set("bottom-left"); self.update_preview(); preview_moved=self.preview_image.tobytes() if self.preview_image else b""
-            self.logo_position_var.set(logo_settings.logo_position); self.update_preview()
-            preview_output=logo_root/"live-preview.png"
-            if self.preview_image:self.preview_image.save(preview_output)
-            logo_output=logo_root/"single_ai.png"
-            logo_metadata=marker_metadata(logo_settings.badge_name,"AI Assisted")
-            logo_written=self.processor.save(self.processor.process(Path(sample),self.badges.find(logo_settings.badge_name),logo_settings,logo_path),logo_output,logo_metadata)
-            inspected_logo=inspect_file(logo_output)
-            batch_input=logo_root/"batch-input"; batch_output=logo_root/"batch-output"; batch_input.mkdir(); batch_output.mkdir()
-            shutil.copy2(sample,batch_input/"brand01.png"); shutil.copy2(sample,batch_input/"brand02.png")
-            logo_settings.output_preference="separate"; logo_settings.output_folder=str(batch_output); logo_settings.process_images=True; logo_settings.process_videos=False
-            logo_batch=self.batch_processor.process(scan_folder(batch_input),self.badges.find(logo_settings.badge_name),logo_settings)
-            output_bytes=logo_output.read_bytes()
-            logo_verification={"output":str(logo_output),"output_exists":logo_output.is_file(),"metadata_written":logo_written,"ai_label":inspected_logo.ai_label,"logo_path_absent_from_metadata":str(logo_path).encode("utf-8") not in output_bytes,"source_sha256_before":hashlib.sha256(Path(sample).read_bytes()).hexdigest(),"source_sha256_after":hashlib.sha256(Path(sample).read_bytes()).hexdigest(),"live_preview":{"rendered":bool(preview_both),"path":str(preview_output),"logo_toggle_changes":preview_both!=preview_badge_only,"logo_position_changes":preview_both!=preview_moved,"size":self.preview_image.size if self.preview_image else None},"settings":{"badge_position":logo_settings.position,"logo_position":logo_settings.logo_position,"logo_size":logo_settings.logo_size_percent,"logo_margin":logo_settings.logo_margin,"logo_opacity":logo_settings.logo_opacity},"batch_successful":logo_batch.successful,"batch_outputs":sorted(path.name for path in batch_output.glob("*.png"))}
-        checkpoint("own logo")
-        custom_verification=None
-        custom_folder=os.environ.get("NENOLINK_VERIFY_CUSTOM_BADGES")
-        if custom_folder:
-            if logo_sample:self.logo_path_var.set(str(logo_sample)); self.logo_enabled_var.set(True)
-            self.custom_badge_var.set(custom_folder); self.badge_source_var.set("custom"); self.refresh_badges(False); self.update()
-            custom_paths=self.badges.display_badges(); custom_names=[path.name for path in custom_paths]
-            custom_displays=[self.badges.display_name(path.name) for path in custom_paths]
-            if custom_paths:
-                chosen=custom_paths[-1]; self.select_gallery_badge(chosen.name); self.update()
-                if sample:self.sources=[Path(sample)]; self.update_preview(); self.update()
-                output=report_path.with_name("verified-custom-output.png")
-                processed=self.processor.process(Path(sample),chosen,self.settings(),self._logo_path()) if sample else None
-                if processed is not None:self.processor.save(processed,output,marker_metadata(chosen.name,self.badges.display_name(chosen.name)))
-                custom_metadata=None
-                if output.is_file():
-                    with Image.open(output) as checked:custom_metadata={key:checked.info.get(key) for key in ("Software","AI Label","Marker Version","NenolinkAIMarker")}
-                selected_custom=self.badge_var.get(); retained_custom=self.custom_badge_var.get(); retained_sources=list(self.sources); self.show_tab("badges"); self.update(); self.badges_back_button.invoke(); self.update(); time.sleep(.15); self.update()
-                custom_back_preserved=self.tabs.get()==self.tab_names["single"] and self.badge_source_var.get()=="custom" and self.badge_var.get()==selected_custom and self.custom_badge_var.get()==retained_custom and self.sources==retained_sources
-                custom_verification={"files":custom_names,"displays":custom_displays,"selected":self.badge_var.get(),"selector_values":list(self.badge_menu.cget("values")),"gallery_badges":len(self.gallery_buttons),"preview":bool(self.preview_photo),"own_logo_enabled":self.logo_enabled_var.get(),"output_saved":output.is_file(),"metadata":custom_metadata,"logo_path_absent_from_metadata":not output.is_file() or str(logo_sample or "").encode("utf-8") not in output.read_bytes(),"status":self.status_var.get(),"source_controls_visible":self.custom_controls.winfo_manager()=="grid","back_preserved":custom_back_preserved}
-        checkpoint("custom badges")
-        guide_paths={code:localized_user_guide_path(code) for code in ("da","en","fr")}
-        guide_language=os.environ.get("NENOLINK_VERIFY_GUIDE_LANGUAGE","en").lower()
-        guide=localized_user_guide_path(guide_language); guide_opened=False
-        if os.environ.get("NENOLINK_VERIFY_OPEN_GUIDE") == "1":
-            try:open_user_guide(guide); guide_opened=True
-            except OSError:guide_opened=False
-        prior_tab=self.tabs.get(); self.show_tab("badges"); self.update_idletasks(); self.update()
-        prior_offer=self.shortcut_offer_shown; self.shortcut_offer_shown=False; self._show_first_run_shortcut_offer(); self.update_idletasks()
-        first_run_offer={"visible":bool(self.shortcut_offer_dialog and self.shortcut_offer_dialog.winfo_exists()),"title":self.shortcut_offer_title_label.cget("text"),"message":self.shortcut_offer_message_label.cget("text"),"create":self.shortcut_offer_create_button.cget("text"),"not_now":self.shortcut_offer_not_now_button.cget("text"),"persisted":self.settings().shortcut_offer_shown}
-        self._dismiss_shortcut_offer(); self.shortcut_offer_shown=prior_offer or True
-        packaged_ui_evidence={"footer_text":self.footer_copyright_label.cget("text"),"footer_visible":bool(self.footer_copyright_label.winfo_ismapped()),"footer_update_text":self.footer_update_link.cget("text"),"footer_update_visible":bool(self.footer_update_link.winfo_ismapped()),"footer_update_cursor":self.footer_update_link.cget("cursor"),"footer_update_action":callable(self._footer_update_callback) and callable(self.check_for_updates),"badges_update_button_present":hasattr(self,"check_updates_button"),"shortcut_text":self.desktop_shortcut_button.cget("text"),"shortcut_visible":bool(self.desktop_shortcut_button.winfo_ismapped()),"shortcut_module":create_desktop_shortcut.__module__,"shortcut_callable":callable(create_desktop_shortcut),"first_run_offer":first_run_offer,"update_notification_present":bool(self.update_notification.winfo_exists()),"update_notification_cursor":self.update_notification.cget("cursor"),"approved_update_handler":callable(self._open_update_page)}
-        prior_workspace=self.active_content_type; self.active_content_type="pptx"; MarkerApp._render_authoritative_state(self); self.update_idletasks()
-        packaged_ui_evidence["pptx_workspace"]={"visible":bool(self.pptx_controls.winfo_ismapped()),"selection_modes":sorted(self.pptx_selection_display_to_value.values()),"badge_count":len(self.pptx_badge_menu.cget("values")),"logo_visible":bool(self.pptx_logo_enable.winfo_ismapped()),"metadata_supported":self.pptx_processor.capabilities.supports_metadata,"process_callable":callable(self.process_pptx)}
-        self.active_content_type=prior_workspace; MarkerApp._render_authoritative_state(self); self.update_idletasks()
-        no_ai_root=report_path.with_name("packaged-no-ai-verification"); no_ai_root.mkdir(parents=True,exist_ok=True)
-        no_ai_source=no_ai_root/"source.png"; no_ai_output=no_ai_root/"source_ai.png"; Image.new("RGB",(640,360),"white").save(no_ai_source)
-        no_ai_source_hash=hashlib.sha256(no_ai_source.read_bytes()).hexdigest(); no_ai_badge=self.badges.find("no-ai.png")
-        no_ai_marked=self.processor.process(no_ai_source,no_ai_badge,MarkerSettings(badge_name="no-ai.png")); no_ai_written=self.processor.save(no_ai_marked,no_ai_output,marker_metadata("no-ai.png","No AI")); no_ai_inspected=inspect_file(no_ai_output)
-        no_ai_verification={"packaged_badge":bool(no_ai_badge and no_ai_badge.is_file()),"written":no_ai_written,"inspected":no_ai_inspected.found,"label":no_ai_inspected.ai_label,"version":no_ai_inspected.marker_version,"source_unchanged":no_ai_source_hash==hashlib.sha256(no_ai_source.read_bytes()).hexdigest(),"visible_overlay":no_ai_marked.tobytes()!=Image.new("RGBA",no_ai_marked.size,"white").tobytes()}
-        payload={"version":__version__,"packaged_ui_evidence":packaged_ui_evidence,"no_ai_verification":no_ai_verification,"english":english,"danish":danish,"german":german,"french":french,"initial_badge_settings":initial_badge_settings,"welcome_before_image":welcome_before_image,"welcome_illustration":welcome_illustration,"welcome_hidden_after_image":(not sample or self.welcome_frame.winfo_manager()==""),"badges_found":len(badge_names),"badge_selector_visible":self.badge_menu.winfo_manager()=="grid","badge_selector_values":list(self.badge_menu.cget("values")),"gallery_badges":len(self.gallery_buttons),"gallery_selection_persisted":gallery_selection_persisted,"badges_tab_is_distinct":self.badge_source_frame.master is self.settings_tab,"selected_badges":selected,"image_preview":bool(self.preview_photo),"selected_badge_written":selected_badge_written,"image_metadata_verification":image_metadata_verification,"logo_verification":logo_verification,"custom_verification":custom_verification,"friendly_status":("_MEI" not in self.status_var.get() and "assets" not in self.status_var.get()),"process_button_state":self.process_button.cget("state"),"guide_language":guide_language,"guide_filename":guide.name,"guide_paths":{code:path.name for code,path in guide_paths.items()},"guide_exists":guide.is_file(),"guide_opened":guide_opened,"translation_keys_visible":any("." in str(value) and " " not in str(value) for group in (english,danish,german,french) for value in group.values() if isinstance(value,str))}
-        ffmpeg_path=find_ffmpeg(); payload["ffmpeg_found"]=bool(ffmpeg_path); payload["ffmpeg_path"]=ffmpeg_path
-        video_source=os.environ.get("NENOLINK_VERIFY_VIDEO")
-        if video_source and ffmpeg_path:
-            checkpoint("video start")
-            video_source_path=Path(video_source); video_root=report_path.with_name("packaged-video-verification")
-            self.sources=[video_source_path]; self.video_controls.grid(); self.video_mode_var.set("end"); self._update_video_duration_controls()
-            layout={"sizes":{},"languages":{}}
-            for geometry in ("1280x720","1366x768","1920x1080"):
-                self.show_tab("single"); self.geometry(geometry); self.single_controls._parent_canvas.yview_moveto(0); self.update_idletasks(); self.update(); time.sleep(.15); self.update(); self.single_controls.update_scrollbar_visibility()
-                before=self.single_controls._parent_canvas.yview(); self.single_controls._parent_canvas.yview_moveto(1); self.update_idletasks()
-                self.update()
-                canvas_bottom=self.single_controls._parent_canvas.winfo_rooty()+self.single_controls._parent_canvas.winfo_height()
-                button_bottom=self.process_button.winfo_rooty()+self.process_button.winfo_height()
-                layout["sizes"][geometry]={"scrollbar_needed":self.single_controls.scrollbar_needed,"process_reachable":button_bottom<=canvas_bottom,"scroll_range":before!=self.single_controls._parent_canvas.yview()}
-            for language in ("English","Dansk","Deutsch","Français"):
-                self.change_language(language); self.update_idletasks()
-                layout["languages"][language]={"process_visible":bool(self.process_button.winfo_ismapped()),"video_mode_visible":bool(self.video_mode_menu.winfo_ismapped()),"duration_visible":bool(self.video_duration_entry.winfo_ismapped())}
-            self.video_mode_var.set("permanent"); self._update_video_duration_controls(); self.update_idletasks(); layout["permanent_hides_duration"]=not bool(self.video_duration_entry.winfo_ismapped())
-            self.video_mode_var.set("end"); self._update_video_duration_controls(); payload["layout_verification"]=layout
-            if video_root.exists():shutil.rmtree(video_root)
-            video_root.mkdir(parents=True,exist_ok=True)
-            standard=self.badge_sources.repository("standard")
-            settings_a=MarkerSettings(badge_name="ai-localization.png",position="top-left",size_percent=20,margin=40,opacity=100,video_mode="permanent")
-            settings_b=MarkerSettings(badge_name="ai-generated.png",position="bottom-right",size_percent=30,margin=60,opacity=50,video_mode="beginning",video_duration=5)
-            settings_c=MarkerSettings(badge_name="ai-generated.png",position="top-right",size_percent=25,margin=30,opacity=75,video_mode="end",video_duration=5)
-            settings_d=MarkerSettings(badge_name="ai-assisted.png",position="bottom-left",size_percent=18,margin=25,opacity=85,video_mode="end",video_duration=10)
-            output_a=video_root/f"{video_source_path.stem}_ai.mp4"; output_b=video_root/f"{video_source_path.stem}_beginning.mp4"; output_c=video_root/f"{video_source_path.stem}_end5.mp4"; output_d=video_root/f"{video_source_path.stem}_end10.mp4"
-            self.batch_processor.process_video(video_source_path,standard.find(settings_a.badge_name),output_a,settings_a)
-            checkpoint("video permanent")
-            self.batch_processor.process_video(video_source_path,standard.find(settings_b.badge_name),output_b,settings_b)
-            checkpoint("video beginning")
-            self.batch_processor.process_video(video_source_path,standard.find(settings_c.badge_name),output_c,settings_c)
-            checkpoint("video end5")
-            self.batch_processor.process_video(video_source_path,standard.find(settings_d.badge_name),output_d,settings_d)
-            checkpoint("video end10")
-            mov_output=video_root/f"{video_source_path.stem}_ai.mov"
-            self.batch_processor.process_video(video_source_path,standard.find(settings_c.badge_name),mov_output,settings_c)
-            checkpoint("video mov")
-            batch_input=video_root/"batch-input"; batch_output=video_root/"batch-output"; batch_input.mkdir(exist_ok=True)
-            shutil.copy2(video_source_path,batch_input/"clip01.mp4"); shutil.copy2(video_source_path,batch_input/"clip02.mp4")
-            batch_settings=MarkerSettings(badge_name="ai-generated.png",position="top-right",size_percent=25,margin=30,opacity=75,process_images=False,process_videos=True,output_preference="separate",output_folder=str(batch_output),batch_filename_suffix="_ai",video_mode="end",video_duration=5)
-            batch_result=self.batch_processor.process(scan_folder(batch_input),standard.find(batch_settings.badge_name),batch_settings)
-            checkpoint("video batch")
-            inspected_mp4=inspect_file(output_c); inspected_mov=inspect_file(mov_output); ordinary_video_hash=hashlib.sha256(video_source_path.read_bytes()).hexdigest(); ordinary_video=inspect_file(video_source_path)
-            self.sources=[video_source_path]; self.inspection_path=output_c; self.inspection_result=inspected_mp4; self._render_inspection(); self.show_tab("inspect"); self.update(); self.inspect_back_button.invoke(); self.update()
-            regression_video=video_root/"inspect-back-regression.mp4"; self.batch_processor.process_video(video_source_path,standard.find(settings_c.badge_name),regression_video,settings_c)
-            release_regressions["selected_video_inspect_back"]=self.sources==[video_source_path] and regression_video.is_file()
-            version=subprocess.run([ffmpeg_path,"-version"],capture_output=True,text=True,**hidden_subprocess_kwargs()).stdout.splitlines()[0]
-            payload["video_verification"]={"ffmpeg_version":version,"suggested_name":f"{video_source_path.stem}_ai{video_source_path.suffix}","outputs":{"permanent":str(output_a),"beginning5":str(output_b),"end5":str(output_c),"end10":str(output_d),"mov":str(mov_output)},"all_outputs_exist":all(path.is_file() for path in (output_a,output_b,output_c,output_d,mov_output)),"mp4_inspection":{"found":inspected_mp4.found,"software":inspected_mp4.software,"label":inspected_mp4.ai_label,"version":inspected_mp4.marker_version},"mov_inspection":{"found":inspected_mov.found,"software":inspected_mov.software,"label":inspected_mov.ai_label,"version":inspected_mov.marker_version},"ordinary_not_found":not ordinary_video.found,"source_sha256_before":ordinary_video_hash,"source_sha256_after":hashlib.sha256(video_source_path.read_bytes()).hexdigest(),"settings":[{"badge":s.badge_name,"mode":s.video_mode,"duration":s.video_duration,"position":s.position,"size":s.size_percent,"margin":s.margin,"opacity":s.opacity} for s in (settings_a,settings_b,settings_c,settings_d)],"batch_mode":batch_settings.video_mode,"batch_duration":batch_settings.video_duration,"batch_badge":batch_settings.badge_name,"batch_successful":batch_result.successful,"batch_metadata_warnings":batch_result.metadata_warnings,"batch_outputs":sorted(path.name for path in batch_output.glob("*.mp4"))}
-        payload["tab_switching"]=tab_switching
-        payload["back_navigation"]={"badges_preserved":badges_back_preserved,"batch_preserved":batch_back_preserved,"english_label":english["back"],"danish_label":danish["back"]}
-        if os.environ.get("NENOLINK_VERIFY_RESET_LANGUAGE")=="da":self.change_language("Dansk")
-        if logo_sample:self.logo_path_var.set(str(logo_sample)); self.logo_enabled_var.set(True)
-        retained_custom_folder=self.custom_badge_var.get(); self.reset_application(); self.update(); time.sleep(.2); self.update()
-        payload["reset_verification"]={"source":self.badge_source_var.get(),"selection":self.badge_var.get(),"folder_retained":self.custom_badge_var.get()==retained_custom_folder,"position":self.position_var.get(),"size":self.size_var.get(),"margin":self.margin_var.get(),"opacity":self.opacity_var.get(),"logo_enabled":self.logo_enabled_var.get(),"logo_path_retained":self.logo_path_var.get()==str(logo_sample or ""),"logo_position":self.logo_position_var.get(),"logo_size":self.logo_size_var.get(),"logo_margin":self.logo_margin_var.get(),"logo_opacity":self.logo_opacity_var.get(),"video_mode":self.video_mode_var.get(),"video_duration":self.video_duration_var.get(),"batch_suffix":self.batch_suffix_var.get(),"sources":len(self.sources),"scan_cleared":self.scan is None,"inspection_cleared":self.inspection_path is None and self.inspection_result is None and not self.inspection_error,"single_selected":self.tabs.get()==self.tab_names["single"],"welcome":self.welcome_frame.winfo_manager()=="grid","welcome_mapped":bool(self.welcome_frame.winfo_ismapped()),"welcome_title":self.welcome_title.cget("text"),"welcome_illustration":bool(self.welcome_photo and self.welcome_illustration.winfo_ismapped()),"preview_hidden":not bool(self.preview_label.winfo_ismapped()),"status":self.status_var.get()}
-        if sample:
-            after_reset=self.processor.process(Path(sample),self.badges.find("ai-assisted.png"),self.settings())
-            release_regressions["inspect_reset_then_image"]=bool(after_reset.width and after_reset.height)
-        payload["release_regressions"]=release_regressions
-        report_path.write_text(json.dumps(payload,indent=2),encoding="utf-8"); checkpoint("complete"); self.destroy()
 
     def settings(self):
         return MarkerSettings(badge_name=self.badge_var.get(),position=self.position_var.get(),size_percent=self.size_var.get(),margin=self.margin_var.get(),opacity=self.opacity_var.get(),language=self.translator.language,badge_source=self.badge_source_var.get(),custom_badge_folder=self.custom_badge_var.get(),input_folder=self.input_folder_var.get(),output_preference=self.output_preference_var.get(),output_folder=self.output_folder_var.get(),output_subfolder=self.output_subfolder_var.get(),include_subfolders=self.recursive_var.get(),preserve_folder_structure=self.preserve_var.get(),process_images=self.images_var.get(),process_videos=self.videos_var.get(),skip_processed=self.skip_var.get(),video_mode=self.video_mode_var.get(),video_duration=self.video_duration_var.get(),batch_filename_suffix=self.batch_suffix_var.get(),logo_enabled=self.logo_enabled_var.get(),logo_path=self.logo_path_var.get(),logo_position=self.logo_position_var.get(),logo_size_percent=self.logo_size_var.get(),logo_margin=self.logo_margin_var.get(),logo_opacity=self.logo_opacity_var.get(),automatic_update_check=self.automatic_update_var.get(),last_update_check=self.last_update_check,shortcut_offer_shown=self.shortcut_offer_shown).validated()
@@ -2609,7 +2241,10 @@ class MarkerApp(ctk.CTk):
                 widget.bind("<Button-1>", select, add="+")
 
     def _tool_select_badge(self, name: str) -> None:
-        self.badge_var.set(name); self.select_image_badge(); self._tool_refresh_badges()
+        self.badge_var.set(name)
+        self.badge_display_var.set(self.badges.display_name(name))
+        self.image_workspace_owner.badge_changed()
+        self._tool_refresh_badges()
 
     def _build_inspect_tool(self) -> None:
         panel = ctk.CTkFrame(self.tool_workspace); panel.grid(row=1, column=0, padx=16, pady=6, sticky="nsew"); panel.grid_columnconfigure(0, weight=1)
@@ -2696,31 +2331,21 @@ class MarkerApp(ctk.CTk):
         t = self.translator.text; self.size_label.configure(text="4. " + t("size.value", value=self.size_var.get())); self.margin_label.configure(text="5. " + t("margin.value", value=self.margin_var.get())); self.opacity_label.configure(text="6. " + t("opacity.value", value=self.opacity_var.get()))
 
     def changed(self, *_args) -> None:
+        """Compatibility adapter; workspace events own Image/Video runtime state."""
         if self.active_content_type == "image":
-            self.image_state.badge.position=self.position_var.get(); self.image_state.badge.size=int(self.size_var.get()); self.image_state.badge.margin=int(self.margin_var.get()); self.image_state.badge.opacity=int(self.opacity_var.get())
-            self.image_state.logo.enabled=bool(self.logo_enabled_var.get()); self.image_state.logo.path=self._logo_path(); self.image_state.logo.position=self.logo_position_var.get(); self.image_state.logo.size=int(self.logo_size_var.get()); self.image_state.logo.margin=int(self.logo_margin_var.get()); self.image_state.logo.opacity=int(self.logo_opacity_var.get())
-            self._project_image_visual_state()
-        self._update_image_slider_labels(); self._update_logo_labels()
-        if self.active_content_type == "pdf": self.render_pdf_preview()
-        elif self.active_content_type == "pptx": self._update_pptx_preview()
-        else: self.image_workspace_owner.refresh_preview()
+            self.image_workspace_owner.visual_changed(*_args)
+        elif self.active_content_type == "video":
+            self.video_workspace_owner.change_visual(*_args)
+        elif self.active_content_type == "pdf":
+            self.render_pdf_preview()
+        elif self.active_content_type == "pptx":
+            self._update_pptx_preview()
         self._save()
-
-    def badge_enabled_changed(self) -> None:
-        self.image_state.badge.enabled = bool(self.badge_enabled_var.get())
-        self._project_image_visual_state()
-        self._update_badge_controls(); self.image_workspace_owner.refresh_preview(); self._save()
 
     def _update_badge_controls(self) -> None:
         enabled = self.badge_enabled_var.get()
         self.badge_menu.configure(state="normal" if enabled else "disabled")
         self.single_badge_preview_label.configure(text="" if enabled else "—", image=self.single_badge_photo if enabled else None)
-
-    def change_position_display(self, label: str) -> None:
-        self.position_var.set(self.position_display_to_value[label]); self.changed()
-
-    def change_logo_position(self, label: str) -> None:
-        self.logo_position_var.set(self.logo_position_display_to_value[label]); self.logo_changed()
 
     def _update_logo_labels(self) -> None:
         t = self.translator.text; self.logo_size_label.configure(text=t("logo.size", value=self.logo_size_var.get())); self.logo_margin_label.configure(text=t("logo.margin", value=self.logo_margin_var.get())); self.logo_opacity_label.configure(text=t("logo.opacity", value=self.logo_opacity_var.get()))
@@ -2740,20 +2365,6 @@ class MarkerApp(ctk.CTk):
         path = Path(self.logo_path_var.get()).expanduser() if self.logo_path_var.get() else None
         return path if path and path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS else None
 
-    def choose_logo(self) -> None:
-        selected = filedialog.askopenfilename(title=self.translator.text("logo.choose"), filetypes=[(self.translator.text("logo.supported"), "*.png *.jpg *.jpeg *.webp"), (self.translator.text("files.all"), "*.*")])
-        if not selected: return
-        path = Path(selected)
-        try:
-            with Image.open(path) as opened: opened.verify()
-        except (OSError, Image.UnidentifiedImageError):
-            messagebox.showerror(self.translator.text("error.title"), self.translator.text("logo.invalid")); return
-        self.logo_path_var.set(str(path)); self.logo_enabled_var.set(True); self.logo_changed()
-
-    def logo_changed(self, *_args) -> None:
-        if self.logo_enabled_var.get() and not self._logo_path(): self.logo_enabled_var.set(False); self.status_var.set(self.translator.text("logo.missing"))
-        self._update_logo_controls(); self.changed()
-
     def refresh_image_badges(self) -> None:
         self.badges = self.badge_sources.repository(self.badge_source_var.get(), self.custom_badge_var.get())
         names = [path.name for path in self.badges.display_badges()]
@@ -2763,97 +2374,12 @@ class MarkerApp(ctk.CTk):
         self.badge_display_var.set(self.badges.display_name(self.badge_var.get()))
         if getattr(self, "single_badge_preview_label", None): self.update_image_badge_preview()
 
-    def update_image_badge_preview(self) -> None:
-        badge = self.badges.find(self.badge_var.get())
-        if not badge: self.single_badge_preview_label.configure(image=None, text=self.translator.text("badge.none")); return
-        with Image.open(badge) as opened: image = opened.convert("RGBA")
-        image.thumbnail((110, 54), Image.Resampling.LANCZOS); self.single_badge_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size); self.badge_photo = self.single_badge_photo
-        self.single_badge_preview_label.configure(image=self.single_badge_photo, text="")
-        info = self.badges.metadata(badge.name); self.badge_name_var.set(info.display_name if info else self.badges.display_name(badge.name))
-
-    def select_badge_display(self, display_name: str) -> None:
-        filename = self.badge_display_to_file.get(display_name)
-        if filename: self.badge_var.set(filename); self.select_image_badge()
-
-    def select_image_badge(self) -> None:
-        self.image_state.badge.badge_id = self.badge_var.get()
-        self._project_image_visual_state()
-        self.badge_display_var.set(self.badges.display_name(self.badge_var.get()));
-        if getattr(self, "single_badge_preview_label", None): self.update_image_badge_preview()
-        if self.active_content_type == "image": self.image_workspace_owner.refresh_preview()
-        elif self.active_content_type == "pdf": self.render_pdf_preview()
-        elif self.active_content_type == "pptx": self._update_pptx_preview()
-        self._save()
-
-    def _sync_image_state(self) -> None:
-        """Seed Image runtime visuals once from preference/Tk adapters."""
-        if not self.image_state.badge.badge_id:
-            self.image_state.badge.enabled=bool(self.badge_enabled_var.get()); self.image_state.badge.badge_id=self.badge_var.get(); self.image_state.badge.position=self.position_var.get(); self.image_state.badge.size=int(self.size_var.get()); self.image_state.badge.margin=int(self.margin_var.get()); self.image_state.badge.opacity=int(self.opacity_var.get())
-            self.image_state.logo.enabled=bool(self.logo_enabled_var.get()); self.image_state.logo.path=self._logo_path(); self.image_state.logo.position=self.logo_position_var.get(); self.image_state.logo.size=int(self.logo_size_var.get()); self.image_state.logo.margin=int(self.logo_margin_var.get()); self.image_state.logo.opacity=int(self.logo_opacity_var.get())
-
     def _project_image_visual_state(self) -> None:
         """Project authoritative Image visuals into legacy adapters."""
         state = self.image_state
         self.badge_var.set(state.badge.badge_id); self.badge_enabled_var.set(state.badge.enabled)
         self.position_var.set(state.badge.position); self.size_var.set(state.badge.size); self.margin_var.set(state.badge.margin); self.opacity_var.set(state.badge.opacity)
         self.logo_enabled_var.set(state.logo.enabled); self.logo_path_var.set(str(state.logo.path or "")); self.logo_position_var.set(state.logo.position); self.logo_size_var.set(state.logo.size); self.logo_margin_var.set(state.logo.margin); self.logo_opacity_var.set(state.logo.opacity)
-
-    def open_images(self) -> None:
-        selected = filedialog.askopenfilenames(title=self.translator.text("dialog.open_media"), filetypes=[(self.translator.text("files.supported_media"), " ".join(f"*{extension}" for extension in sorted(SUPPORTED_EXTENSIONS))), (self.translator.text("files.all"), "*.*")])
-        if not selected: return
-        candidates = [Path(path) for path in selected if Path(path).suffix.lower() in SUPPORTED_EXTENSIONS]
-        if any(is_above_recommended_size(path) for path in candidates) and not messagebox.askokcancel(self.translator.text("warning.large_title"), self.translator.text("warning.large_file")): return
-        self.image_state.set_session(candidates)
-        self.sources = list(self.image_state.selected_files)  # compatibility mirror
-        self.media_sources["image"] = list(self.image_state.selected_files)  # compatibility mirror
-        self._sync_image_state()
-        if candidates:
-            self.file_label.configure(text=f"{candidates[0].name} · {human_file_size(candidates[0].stat().st_size)}")
-        else:
-            self.file_label.configure(text=self.translator.text("files.none_supported"))
-        self.image_workspace_owner.refresh_preview()
-
-    def update_preview(self) -> None:
-        """Temporary UI adapter for the authoritative Image preview route."""
-        files = self.image_state.selected_files
-        if not files:
-            self.image_state.preview_image = None
-            self.preview_photo = self.preview_image = None; self._show_welcome(); return
-        badge = self.badges.find(self.image_state.badge.badge_id) if self.image_state.badge.enabled else None
-        logo = self.image_state.logo.path if self.image_state.logo.enabled else None
-        image_settings = replace(self.settings(), position=self.image_state.badge.position, size_percent=self.image_state.badge.size, margin=self.image_state.badge.margin, opacity=self.image_state.badge.opacity, logo_enabled=self.image_state.logo.enabled, logo_position=self.image_state.logo.position, logo_size_percent=self.image_state.logo.size, logo_margin=self.image_state.logo.margin, logo_opacity=self.image_state.logo.opacity)
-        self._show_preview()
-        try:
-            image = self.preview_renderer.render(files[0], badge, image_settings, logo)
-            self.image_state.preview_image = image.copy()
-            self.preview_image = self.image_state.preview_image
-            self.preview_photo = ctk.CTkImage(light_image=self.preview_image, dark_image=self.preview_image, size=self.preview_image.size)
-            self.preview_label.configure(image=self.preview_photo, text=""); self.preview_label.image = self.preview_photo
-        except (OSError, ValueError) as error:
-            self.preview_label.configure(image=None, text=self.translator.text("error.preview", error=error))
-
-    def save_images(self) -> None:
-        self._sync_image_state()
-        badge = self.badges.find(self.image_state.badge.badge_id) if self.image_state.badge.enabled else None
-        logo = self.image_state.logo.path if self.image_state.logo.enabled else None
-        request = ImageProcessingRequest(tuple(self.image_state.selected_files), badge, logo, self.settings())
-        if not request.sources or (request.badge is None and request.logo is None):
-            messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("warning.nothing_to_save")); return
-        saved, failures, metadata_warnings = [], [], []
-        metadata = marker_metadata(self.image_state.badge.badge_id, self.badge_name_var.get()) if badge else None
-        for source in request.sources:
-            suggested = source.with_name(f"{source.stem}_ai{source.suffix}")
-            selected = filedialog.asksaveasfilename(title=self.translator.text("dialog.save_as"), initialdir=str(source.parent), initialfile=suggested.name, defaultextension=source.suffix, filetypes=[(self.translator.text("files.supported"), f"*{source.suffix}"), (self.translator.text("files.all"), "*.*")], confirmoverwrite=True)
-            if not selected: continue
-            try:
-                written = self.processor.save(self.processor.process(source, request.badge, request.settings, request.logo), Path(selected), metadata)
-                saved.append(Path(selected))
-                if metadata and not written: metadata_warnings.append(source.name)
-            except (OSError, ValueError) as error:
-                failures.append(f"{source.name}: {error}")
-        summary = self.translator.text("process.summary", saved=len(saved), total=len(request.sources)); self.status_var.set(summary)
-        warning = "\n\n" + self.translator.text("warning.metadata_failed") if metadata_warnings else ""
-        (messagebox.showerror if failures else messagebox.showinfo)(self.translator.text("error.completed") if failures else self.translator.text("complete.title"), summary + ("\n\n" + "\n".join(failures[:8]) if failures else "") + warning)
 
     def settings(self) -> MarkerSettings:
         return replace(self._saved_settings, badge_name=self.badge_var.get(), position=self.position_var.get(), size_percent=self.size_var.get(), margin=self.margin_var.get(), opacity=self.opacity_var.get(), language=self.translator.language, badge_source=self.badge_source_var.get(), custom_badge_folder=self.custom_badge_var.get(), logo_enabled=self.logo_enabled_var.get(), logo_path=self.logo_path_var.get(), logo_position=self.logo_position_var.get(), logo_size_percent=self.logo_size_var.get(), logo_margin=self.logo_margin_var.get(), logo_opacity=self.logo_opacity_var.get()).validated()

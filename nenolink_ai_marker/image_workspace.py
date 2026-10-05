@@ -142,10 +142,24 @@ class ImageWorkspace:
         self.app._project_image_visual_state()
         self.refresh_preview()
 
-    def logo_changed(self, *_args):
+    def position_changed(self, label):
+        value = getattr(self.app, "position_display_to_value", {}).get(label, label)
+        apply_image_event(self.state, ImageEvent.VISUAL_CHANGED, {"position": value})
+        self.project(); self.refresh_preview()
+
+    def choose_logo(self):
+        selected = filedialog.askopenfilename(title=self.app.translator.text("logo.choose"), filetypes=[("Images", "*.png *.jpg *.jpeg *.webp")])
+        if not selected:
+            return
+        self.logo_changed(path=Path(selected), enabled=True)
+
+    def logo_position_changed(self, label):
+        value = getattr(self.app, "logo_position_display_to_value", {}).get(label, label)
+        self.logo_changed(position=value)
+    def logo_changed(self, *_args, **changes):
         apply_image_event(self.state, ImageEvent.LOGO_CHANGED, {
-            "enabled": bool(self.app.logo_enabled_var.get()), "path": self.app._logo_path(),
-            "position": self.app.logo_position_var.get(), "size": int(self.app.logo_size_var.get()),
+            "enabled": changes.get("enabled", bool(self.app.logo_enabled_var.get())), "path": changes.get("path", self.app._logo_path()),
+            "position": changes.get("position", self.app.logo_position_var.get()), "size": int(self.app.logo_size_var.get()),
             "margin": int(self.app.logo_margin_var.get()), "opacity": int(self.app.logo_opacity_var.get()),
         })
         self.app._project_image_visual_state()
@@ -205,7 +219,7 @@ class ImageWorkspace:
         app.single_badge_name_label.grid(row=0, column=1, padx=(3, 5), pady=5, sticky="ew")
         app.position_label = ctk.CTkLabel(left)
         app.position_label.grid(row=4, column=0, padx=14, pady=(5, 1), sticky="w")
-        app.position_menu = ctk.CTkOptionMenu(left, variable=app.position_display_var, values=["—"], command=app.change_position_display)
+        app.position_menu = ctk.CTkOptionMenu(left, variable=app.position_display_var, values=["—"], command=self.position_changed)
         app.position_menu.grid(row=5, column=0, padx=14, pady=2, sticky="ew")
         app.size_label = self._slider(left, app.size_var, 1, 100, 6)
         app.margin_label = self._slider(left, app.margin_var, 0, 250, 8)
@@ -215,10 +229,10 @@ class ImageWorkspace:
         app.logo_controls.grid_columnconfigure(1, weight=1)
         app.logo_heading = ctk.CTkLabel(app.logo_controls, font=ctk.CTkFont(weight="bold")); app.logo_heading.grid(row=0, column=0, columnspan=2, padx=8, pady=(6, 2), sticky="w")
         app.logo_enable = ctk.CTkCheckBox(app.logo_controls, variable=app.logo_enabled_var, command=self.logo_changed); app.logo_enable.grid(row=1, column=0, columnspan=2, padx=8, pady=3, sticky="w")
-        app.logo_choose = ctk.CTkButton(app.logo_controls, command=app.choose_logo, height=28); app.logo_choose.grid(row=2, column=0, padx=8, pady=3, sticky="w")
+        app.logo_choose = ctk.CTkButton(app.logo_controls, command=self.choose_logo, height=28); app.logo_choose.grid(row=2, column=0, padx=8, pady=3, sticky="w")
         app.logo_filename = ctk.CTkLabel(app.logo_controls, textvariable=app.logo_filename_var, anchor="w", wraplength=155); app.logo_filename.grid(row=2, column=1, padx=(2, 8), pady=3, sticky="ew")
         app.logo_position_label = ctk.CTkLabel(app.logo_controls); app.logo_position_label.grid(row=3, column=0, padx=8, pady=2, sticky="w")
-        app.logo_position_menu = ctk.CTkOptionMenu(app.logo_controls, variable=app.logo_position_display_var, values=["—"], command=app.change_logo_position, height=28); app.logo_position_menu.grid(row=3, column=1, padx=8, pady=2, sticky="ew")
+        app.logo_position_menu = ctk.CTkOptionMenu(app.logo_controls, variable=app.logo_position_display_var, values=["—"], command=self.logo_position_changed, height=28); app.logo_position_menu.grid(row=3, column=1, padx=8, pady=2, sticky="ew")
         app.logo_size_label = ctk.CTkLabel(app.logo_controls); app.logo_size_label.grid(row=4, column=0, columnspan=2, padx=8, sticky="w")
         app.logo_size_slider = ctk.CTkSlider(app.logo_controls, from_=1, to=100, number_of_steps=99, variable=app.logo_size_var, command=self.logo_changed); app.logo_size_slider.grid(row=5, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="ew")
         app.logo_margin_label = ctk.CTkLabel(app.logo_controls); app.logo_margin_label.grid(row=6, column=0, columnspan=2, padx=8, sticky="w")
