@@ -28,7 +28,8 @@ def test_active_production_controls_bind_to_workspace_callbacks():
     assert 'command=self.choose_files' in (ROOT / "nenolink_ai_marker" / "image_workspace.py").read_text(encoding="utf-8")
     assert 'command=self.choose_video' in (ROOT / "nenolink_ai_marker" / "video_workspace.py").read_text(encoding="utf-8")
     assert 'command=self._choose_file' in (ROOT / "nenolink_ai_marker" / "pptx_workspace.py").read_text(encoding="utf-8")
-    assert 'command=self.pdf_workspace_owner.choose_file' in APP
+    assert 'command=self.choose_file' in (ROOT / "nenolink_ai_marker" / "pdf_workspace.py").read_text(encoding="utf-8")
+    assert 'command=self.save' in (ROOT / "nenolink_ai_marker" / "pdf_workspace.py").read_text(encoding="utf-8")
 
 
 def test_workspace_active_work_ignores_legacy_mirrors():
