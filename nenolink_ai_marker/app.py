@@ -1915,8 +1915,8 @@ class MarkerApp(ctk.CTk):
             selected = key == (tool or destination)
             button.configure(fg_color=("#2474ad", "#1f6aa5") if selected else ("#6b6b6b", "#454545"))
         if tool:
-            if self.image_workspace is not None: self.image_workspace.grid_remove()
-            if self.video_workspace is not None: self.video_workspace.grid_remove()
+            for workspace in (self.__dict__.get("image_workspace"), self.__dict__.get("video_workspace"), self.__dict__.get("pdf_workspace"), self.__dict__.get("pptx_workspace")):
+                if workspace is not None and hasattr(workspace, "winfo_exists") and workspace.winfo_exists(): workspace.grid_remove()
             if remount:
                 self._mount_tool(tool)
             self.mounted_view = placeholder_for(tool)

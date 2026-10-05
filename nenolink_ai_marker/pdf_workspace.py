@@ -178,7 +178,9 @@ class PdfWorkspace:
             result = app.pdf_processor.process(prepared.request, prepared.selection)
         except (OSError, ValueError) as error:
             messagebox.showerror(app.translator.text("error.title"), app.translator.text("pdf.error", error=error)); return
-        app.status_var.set(app.translator.text("pdf.saved", name=result.destination.name, count=len(result.selected_pages)))
+        text = app.translator.text("pdf.saved", name=result.destination.name, count=len(result.selected_pages))
+        app.status_var.set(text)
+        messagebox.showinfo(app.translator.text("complete.title"), text)
 
     def has_active_work(self) -> bool:
         return getattr(self.state, "path", None) is not None
@@ -198,7 +200,9 @@ class PdfWorkspace:
         return apply_pdf_event(self.state, event, payload)
 
     def enter_clean(self):
-        return self.dispatch(PdfEvent.CLEAR_RUNTIME)
+        result = self.dispatch(PdfEvent.CLEAR_RUNTIME)
+        self._ensure_badge_selection()
+        return result
 
     def choose_file(self) -> None:
         app = self.app
