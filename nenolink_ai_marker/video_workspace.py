@@ -40,7 +40,7 @@ class VideoWorkspace:
 
     def project(self):
         if self.root is not None and self.root.winfo_exists():
-            self.app._project_video_state(); self.app._refresh_video_labels(); self.app._refresh_video_badges()
+            self._project_controls()
             loaded = self.state.path is not None
             self.app.video_sources = [self.state.path] if loaded else []
             self.app.media_sources["video"] = list(self.app.video_sources)
@@ -50,6 +50,30 @@ class VideoWorkspace:
             else:
                 self.app.video_preview_label.configure(image=None, text="Video preview")
                 self.preview_photo = None; self.app.video_preview_photo = None
+
+    def _project_controls(self):
+        app = self.app
+        app.video_mode_var.set(self.state.mode)
+        app.video_duration_var.set(max(1, int(self.state.duration)))
+        app.video_badge_var.set(app.badges.display_name(self.state.badge.badge_id))
+        app.video_position_var.set(self.state.badge.position)
+        app.video_size_var.set(self.state.badge.size); app.video_margin_var.set(self.state.badge.margin); app.video_opacity_var.set(self.state.badge.opacity)
+        names = [path.name for path in app.badges.display_badges()]
+        displays = [app.badges.display_name(name) for name in names]
+        app.video_badge_menu.configure(values=displays or [app.translator.text("badge.none")])
+        app.video_badge_preview_label.configure(image=None, text=app.translator.text("badge.none"))
+        badge = self._badge_path()
+        if badge:
+            try:
+                with Image.open(badge) as opened: image = opened.convert("RGBA")
+                image.thumbnail((110, 54), Image.Resampling.LANCZOS)
+                app.video_badge_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
+                app.video_badge_preview_label.configure(image=app.video_badge_photo, text="")
+            except OSError: pass
+        app.video_badge_enable.select() if self.state.badge.enabled else app.video_badge_enable.deselect()
+
+    def _badge_path(self):
+        return next((path for path in self.app.badges.display_badges() if path.name == self.state.badge.badge_id), None)
 
     def has_active_work(self):
         return self.state.path is not None
@@ -81,12 +105,12 @@ class VideoWorkspace:
         self.project(); self.app._update_video_duration_visibility(); self.app._save_image_settings()
 
     def change_badge(self, label):
-        apply_video_event(self.state, VideoEvent.BADGE_CHANGED, {"badge_id": label})
-        self.project(); self.app._update_video_badge_preview(); self.refresh_preview(); self.app._save_image_settings()
+        apply_video_event(self.state, VideoEvent.BADGE_CHANGED, {"badge_id": self.app.badge_display_to_file.get(label, label)})
+        self.project(); self.refresh_preview(); self.app._save_image_settings()
 
     def change_visual(self, *_args):
         apply_video_event(self.state, VideoEvent.VISUAL_CHANGED, {
-            "position": self.app.video_position_var.get(), "size": int(self.app.video_size_var.get()),
+            "enabled": bool(self.app.badge_enabled_var.get()), "position": self.app.video_position_display_to_value.get(self.app.video_position_display_var.get(), self.app.video_position_display_var.get()), "size": int(self.app.video_size_var.get()),
             "margin": int(self.app.video_margin_var.get()), "opacity": int(self.app.video_opacity_var.get()),
         })
         self.project(); self.refresh_preview(); self.app._save_image_settings()
@@ -127,7 +151,7 @@ class VideoWorkspace:
                 raise ValueError(app.translator.text("error.video_component_missing"))
             frame = extract_video_frame(ffmpeg, path)
             frame.thumbnail((720, 600), Image.Resampling.LANCZOS)
-            badge = app._video_badge_path() if self.state.badge.enabled else None
+            badge = self._badge_path() if self.state.badge.enabled else None
             if badge:
                 with Image.open(badge) as opened:
                     frame = app.processor.compose(frame, opened.convert("RGBA"), MarkerSettings(
@@ -156,7 +180,7 @@ class VideoWorkspace:
         destination = Path(target)
         if destination.resolve() == source.resolve():
             messagebox.showwarning(app.translator.text("warning.title"), app.translator.text("warning.nothing_to_save")); return
-        badge = app._video_badge_path() if self.state.badge.enabled else None
+        badge = self._badge_path() if self.state.badge.enabled else None
         if badge is None:
             messagebox.showwarning(app.translator.text("warning.title"), app.translator.text("warning.nothing_to_save")); return
         settings = MarkerSettings(badge_name=badge.name, position=self.state.badge.position, size_percent=self.state.badge.size, margin=self.state.badge.margin, opacity=self.state.badge.opacity, video_mode=self.state.mode, video_duration=self.state.duration)

@@ -1497,8 +1497,8 @@ class MarkerApp(ctk.CTk):
             workspace.receipts.record({"layer":"pptx","event":"GLOBAL_RESET_PPTX_CLEARED","result":"ok"})
 
     def _format_has_active_work(self, format_type: str) -> bool:
-        if format_type == "image": return self._image_has_active_work()
-        if format_type == "video": return self._video_has_active_work()
+        if format_type == "image": return self.image_workspace_owner.has_active_work()
+        if format_type == "video": return self.video_workspace_owner.has_active_work()
         if format_type == "pdf":
             workspace = getattr(self, "pdf_workspace_owner", None)
             return workspace.has_active_work() if workspace is not None else self.pdf_path is not None
@@ -2035,6 +2035,14 @@ class MarkerApp(ctk.CTk):
     def _mount_video_workspace(self) -> None:
         """Temporary registry entry adapter; VideoWorkspace owns the view."""
         self.video_workspace_owner.mount(self.content_host)
+    def change_video_mode(self, label):
+        """Batch-only video preference adapter; VideoWorkspace owns runtime mode."""
+        self.video_mode_var.set(self.video_mode_display_to_value.get(label, label)); self._save()
+
+    def _video_changed(self, *_args):
+        """Batch-only visual preference callback."""
+        self._save()
+
     def _video_slider(self, parent, variable, start, end, row, label, command=None):
         output = ctk.CTkLabel(parent, text=label); output.grid(row=row, column=0, padx=14, pady=(4, 0), sticky="w")
         ctk.CTkSlider(parent, from_=start, to=end, number_of_steps=end-start, variable=variable, command=command or self._video_changed).grid(row=row+1, column=0, padx=14, pady=(1, 3), sticky="ew")
@@ -2066,134 +2074,10 @@ class MarkerApp(ctk.CTk):
         self.preview_renderer.clear(); self.preview_photo = self.preview_image = None
         self._clear_content_host()
 
-    def _image_has_active_work(self) -> bool:
-        return bool(self.image_state.selected_files)
-
-    def _video_has_active_work(self) -> bool:
-        return self.video_state.path is not None
-
-    def _unmount_video_workspace(self) -> None:
-        # Unmount detaches the view; explicit clear/reset owns session cleanup.
-        if self.video_workspace is not None and self.video_workspace.winfo_exists():
-            self.video_workspace.grid_remove()
-        self.video_preview_photo = None
-
-    def _clear_video_runtime_state(self) -> None:
-        """Explicit Video session clear; distinct from UI unmount."""
-        self.video_state.clear_runtime_state()
-        self.video_sources = []
-        self.media_sources["video"] = []
-        self.video_preview_photo = None
-
-    def _refresh_video_labels(self) -> None:
-        if not getattr(self, "video_open_button", None): return
-        t = self.translator.text
-        self.video_open_button.configure(text=t("button.open_media")); self.video_badge_enable.configure(text=t("pdf.add_badge")); self.video_badge_label.configure(text=t("badge")); self.video_position_label.configure(text=t("position")); self.video_process_button.configure(text=t("button.process_video")); self.video_mode_label.configure(text=t("video.badge")); self.video_duration_label.configure(text=t("video.duration")); self.video_size_label.configure(text=t("size.value",value=int(self.video_size_var.get()))); self.video_margin_label.configure(text=t("margin.value",value=int(self.video_margin_var.get()))); self.video_opacity_label.configure(text=t("opacity.value",value=int(self.video_opacity_var.get())))
-        self.video_mode_display_to_value = {t("video.mode.permanent"): "permanent", t("video.mode.beginning"): "beginning", t("video.mode.end"): "end"}; self.video_mode_menu.configure(values=list(self.video_mode_display_to_value)); self.video_mode_display_var.set(next((label for label, value in self.video_mode_display_to_value.items() if value == self.video_mode_var.get()), list(self.video_mode_display_to_value)[0]))
-        self.video_position_display_to_value = {t("position.top_left"): "top-left", t("position.top_right"): "top-right", t("position.bottom_left"): "bottom-left", t("position.bottom_right"): "bottom-right", t("position.center"): "center"}; self.video_position_menu.configure(values=list(self.video_position_display_to_value)); self.video_position_display_var.set(next((label for label, value in self.video_position_display_to_value.items() if value == self.video_position_var.get()), t("position.bottom_right")))
-        self._update_video_duration_visibility()
-
-    def _refresh_video_badges(self) -> None:
-        if not getattr(self, "video_badge_menu", None): return
-        displays = [self.badges.display_name(path.name) for path in self.badges.display_badges()]; self.video_badge_menu.configure(values=displays or [self.translator.text("badge.none")]); self.video_badge_var.set(self.badges.display_name(self.badge_var.get()) if self.badges.find(self.badge_var.get()) else (displays[0] if displays else "—")); self._update_video_badge_preview()
-
-    def _update_video_badge_preview(self) -> None:
-        if not getattr(self, "video_badge_preview_label", None): return
-        path=self._video_badge_path()
-        if not path:
-            self.video_badge_preview_label.configure(image=None, text=self.translator.text("badge.none")); return
-        try:
-            with Image.open(path) as opened: image=opened.convert("RGBA")
-            image.thumbnail((110,54),Image.Resampling.LANCZOS); self.video_badge_photo=ctk.CTkImage(light_image=image,dark_image=image,size=image.size); self.video_badge_preview_label.configure(image=self.video_badge_photo,text="")
-        except OSError:
-            self.video_badge_preview_label.configure(image=None,text=self.translator.text("badge.none"))
-
     def _update_video_duration_visibility(self) -> None:
         if not getattr(self, "video_duration_entry", None): return
         visible = self.video_mode_var.get() in {"beginning", "end"}
         (self.video_duration_label.grid if visible else self.video_duration_label.grid_remove)(); (self.video_duration_entry.grid if visible else self.video_duration_entry.grid_remove)()
-
-    def change_video_mode(self, label: str) -> None:
-        self.video_state.mode = self.video_mode_display_to_value[label]
-        self._project_video_state(); self._update_video_duration_visibility(); self._save_image_settings()
-
-    def change_video_duration(self, *_args) -> None:
-        try:
-            self.video_state.duration = max(1, int(self.video_duration_var.get()))
-        except (TypeError, ValueError):
-            self.video_state.duration = max(1, int(self.video_state.duration))
-        self._project_video_state(); self._update_video_duration_visibility(); self._save_image_settings()
-
-    def change_video_position(self, label: str) -> None:
-        self.video_state.badge.position = self.video_position_display_to_value[label]
-        self._project_video_state(); self.video_workspace_owner.refresh_preview(); self._save_image_settings()
-
-    def change_video_badge(self, label: str) -> None:
-        self.video_state.badge.badge_id = label
-        self._project_video_state(); self._update_video_badge_preview(); self.video_workspace_owner.refresh_preview(); self._save_image_settings()
-
-    def _video_changed(self, *_args) -> None:
-        self.video_state.badge.size = int(self.video_size_var.get()); self.video_state.badge.margin = int(self.video_margin_var.get()); self.video_state.badge.opacity = int(self.video_opacity_var.get())
-        self._project_video_state(); self.video_size_label.configure(text=self.translator.text("size.value",value=self.video_state.badge.size)); self.video_margin_label.configure(text=self.translator.text("margin.value",value=self.video_state.badge.margin)); self.video_opacity_label.configure(text=self.translator.text("opacity.value",value=self.video_state.badge.opacity)); self.video_workspace_owner.refresh_preview(); self._save_image_settings()
-
-    def _sync_video_state(self) -> None:
-        self._project_video_state()
-
-    def _project_video_state(self) -> None:
-        """Project authoritative Video state into legacy Tk adapters."""
-        state = self.video_state
-        self.video_mode_var.set(state.mode); self.video_duration_var.set(max(1, int(state.duration)))
-        self.video_badge_var.set(state.badge.badge_id); self.video_position_var.set(state.badge.position)
-        self.video_size_var.set(state.badge.size); self.video_margin_var.set(state.badge.margin); self.video_opacity_var.set(state.badge.opacity)
-
-    def _video_badge_path(self):
-        return next((path for path in self.badges.display_badges() if self.badges.display_name(path.name) == self.video_badge_var.get()), None)
-
-    def _render_video_preview(self) -> None:
-        if not self._video_has_active_work() or not getattr(self, "video_preview_label", None): return
-        try:
-            ffmpeg=find_ffmpeg()
-            if not ffmpeg: raise ValueError(self.translator.text("error.video_component_missing"))
-            frame=extract_video_frame(ffmpeg,self.video_state.path); frame.thumbnail((720,600),Image.Resampling.LANCZOS)
-            state=self.video_state; badge=self._video_badge_path() if state.badge.enabled else None
-            if badge:
-                with Image.open(badge) as opened: frame=self.processor.compose(frame,opened.convert("RGBA"),MarkerSettings(badge_name=badge.name,position=state.badge.position,size_percent=state.badge.size,margin=state.badge.margin,opacity=state.badge.opacity))
-            self.video_preview_photo=ctk.CTkImage(light_image=frame,dark_image=frame,size=frame.size); self.video_preview_label.configure(image=self.video_preview_photo,text=""); self.video_preview_label.image=self.video_preview_photo
-        except (OSError,ValueError) as error:
-            self.video_preview_photo=None; self.video_preview_label.configure(image=None,text=self.translator.text("error.preview",error=error))
-
-    def open_video(self) -> None:
-        selected = filedialog.askopenfilename(title=self.translator.text("dialog.open_media"), filetypes=[(self.translator.text("files.supported_videos"), "*.mp4 *.mov *.mkv *.avi *.webm"), (self.translator.text("files.all"), "*.*")])
-        if selected:
-            path = Path(selected)
-            self.video_state.path = path
-            self.video_sources = [path]  # compatibility mirror: state → legacy consumers
-            self.media_sources["video"] = [path]
-            self.video_file_label.configure(text=path.name); self._sync_video_state(); self.video_workspace_owner.refresh_preview(); self._save_image_settings()
-
-    def save_video(self) -> None:
-        self._sync_video_state()
-        if not self._video_has_active_work(): messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("warning.nothing_to_save")); return
-        source = self.video_state.path; suggested = source.with_name(f"{source.stem}_ai{source.suffix}")
-        target = filedialog.asksaveasfilename(title=self.translator.text("dialog.save_video_as"), initialdir=str(source.parent), initialfile=suggested.name, defaultextension=source.suffix, filetypes=[(self.translator.text("files.supported_videos"), "*.mp4 *.mov *.mkv *.avi *.webm"), (self.translator.text("files.all"), "*.*")], confirmoverwrite=True)
-        if not target: return
-        target_path = Path(target)
-        try:
-            if target_path.resolve() == source.resolve():
-                messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("warning.nothing_to_save")); return
-        except OSError:
-            pass
-        badge_name = self.badge_display_to_file.get(self.video_badge_var.get(), self.badge_var.get())
-        badge = self.badges.find(badge_name) if self.video_state.badge.enabled else None
-        if self.video_state.badge.enabled and not badge:
-            messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("warning.nothing_to_save")); return
-        if badge is None:
-            messagebox.showwarning(self.translator.text("warning.title"), self.translator.text("warning.nothing_to_save")); return
-        settings = MarkerSettings(badge_name=badge.name, position=self.video_state.badge.position, size_percent=self.video_state.badge.size, margin=self.video_state.badge.margin, opacity=self.video_state.badge.opacity, video_mode=self.video_state.mode, video_duration=self.video_state.duration)
-        try:
-            if not find_ffmpeg(): raise ValueError(self.translator.text("error.video_component_missing"))
-            self.batch_processor = BatchProcessor(self.processor); self.batch_processor.process_video(source, badge, Path(target), settings, marker_metadata(badge.name, self.badges.display_name(badge.name))); self.status_var.set(self.translator.text("video.saved_name", name=Path(target).name))
-        except (OSError, ValueError) as error: messagebox.showerror(self.translator.text("error.title"), str(error))
 
     def _build_badges_tool(self) -> None:
         panel = ctk.CTkFrame(self.tool_workspace); panel.grid(row=1, column=0, padx=16, pady=6, sticky="nsew"); panel.grid_columnconfigure(0, weight=1); panel.grid_rowconfigure(4, weight=1)

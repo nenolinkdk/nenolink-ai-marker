@@ -188,7 +188,7 @@ def apply_video_event(state: VideoWorkspaceState, event: VideoEvent | str, paylo
             if key in payload:
                 setattr(state.badge, key, payload[key])
     elif event is VideoEvent.VISUAL_CHANGED:
-        for key in ("position", "size", "margin", "opacity"):
+        for key in ("enabled", "position", "size", "margin", "opacity"):
             if key in payload:
                 setattr(state.badge, key, payload[key])
     elif event is VideoEvent.CLEAR_RUNTIME:
