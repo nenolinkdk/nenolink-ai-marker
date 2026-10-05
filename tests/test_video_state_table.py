@@ -54,3 +54,10 @@ def test_video_clear_preserves_visual_preferences():
     state.badge.badge_id = "AI Assisted"
     apply_video_event(state, VideoEvent.CLEAR_RUNTIME)
     assert state.path is None and state.badge.badge_id == "AI Assisted"
+
+def test_video_workspace_actions_are_table_backed():
+    from pathlib import Path
+    source=(Path(__file__).parents[1]/"nenolink_ai_marker"/"video_workspace.py").read_text(encoding="utf-8")
+    for action in ("choose_video","change_mode","change_duration","change_badge","change_visual","clear_runtime_state"):
+        assert f"def {action}" in source
+    assert "apply_video_event" in source
