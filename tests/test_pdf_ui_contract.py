@@ -38,7 +38,7 @@ def test_pdf_legacy_routes_absent_structural_guard():
     assert not hasattr(MarkerApp, "_build_pdf_workspace_compat") and not hasattr(MarkerApp, "process_pdf_phase6")
 def test_pdf_state_contract_and_mixed_scope_remain_explicit():
     state = (ROOT / "nenolink_ai_marker" / "workspace_state.py").read_text(encoding="utf-8"); app = _app()
-    assert "class PdfWorkspaceState" in state and "bounds = part.split(\"-\")" in app and "self.pdf_active_scope" in app
+    assert "class PdfWorkspaceState" in state and "active_scope" in state
 def test_pdf_visual_preference_snapshot_is_deterministic_and_one_way():
     from nenolink_ai_marker.models import MarkerSettings
     from nenolink_ai_marker.preference_snapshot import VisualPreferenceSnapshot, project_snapshot_to_tk

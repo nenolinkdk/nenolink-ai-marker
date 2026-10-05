@@ -820,7 +820,7 @@ class LegacyMarkerApp(ctk.CTk):
 
     def process_active_document(self):
         if self.active_content_type=="pdf":self.process_pdf()
-        else:self.process_pptx()
+        else:self.pptx_workspace_state._save_as()
 
     def change_document_preview_page(self,delta):
         if self.active_content_type=="pdf":self.change_pdf_preview_page(delta)
@@ -1034,30 +1034,6 @@ class LegacyMarkerApp(ctk.CTk):
             self.pptx_previous_button.configure(state="normal" if self.pptx_preview_state.can_previous else "disabled"); self.pptx_next_button.configure(state="normal" if self.pptx_preview_state.can_next else "disabled")
         except (OSError,ValueError,KeyError):
             self.pptx_preview_photo=None; self.pptx_preview_label.configure(image=None,text=t("pptx.preview_unavailable")); self.pptx_slide_status.configure(text="")
-
-    def process_pptx(self):
-        self._sync_pptx_visual_state()
-        if not self.pptx_path or not self.pptx_path.is_file():messagebox.showwarning(self.translator.text("warning.title"),self.translator.text("pptx.choose_first")); return
-        try:self.pptx_metrics=self.pptx_processor.document_metrics(self.pptx_path); self._set_pptx_file_summary()
-        except (OSError,ValueError,KeyError) as error:messagebox.showerror(self.translator.text("error.title"),self.translator.text("pptx.error",error=error)); return
-        if not self._confirm_pptx_limits():return
-        badge=self.badges.find(self.badge_var.get()) if self.pptx_badge_enabled_var.get() else None
-        logo_path = self._logo_path() if self.logo_enabled_var.get() else None
-        if not badge and not logo_path:
-            messagebox.showwarning(self.translator.text("warning.title"),self.translator.text("pdf.overlay_required")); return
-        suggested=self.pptx_path.with_name(f"{self.pptx_path.stem}_ai.pptx")
-        selected=filedialog.asksaveasfilename(title=self.translator.text("pptx.save_as"),initialdir=str(self.pptx_path.parent),initialfile=suggested.name,defaultextension=".pptx",filetypes=[("PowerPoint (*.pptx)","*.pptx"),(self.translator.text("files.all"),"*.*")],confirmoverwrite=True)
-        if not selected:return
-        try:
-            destination=Path(selected)
-            if destination.suffix.lower() != ".pptx":raise ValueError(self.translator.text("pptx.extension_error"))
-            selection=ItemSelection("selected", self.pptx_state.active_scope or self.document_scope_states["pptx"].active_scope)
-            display_name=self.badge_name_var.get() or (self.badges.display_name(badge.name) if badge else "No AI badge"); language=LANGUAGES.get(self.pptx_language_var.get(),"en")
-            visual_settings=self._pptx_visual_projection_settings()
-            disclosure,logo=settings_for_documents(visual_settings,label=display_name,disclosure_language=language)
-            result=self.pptx_processor.process(ProcessingRequest(self.pptx_path,destination,disclosure,badge_path=badge,logo=logo),selection)
-        except (OSError,ValueError) as error:messagebox.showerror(self.translator.text("error.title"),self.translator.text("pptx.error",error=error)); return
-        text=self.translator.text("pptx.saved",name=result.destination.name,count=len(result.selected_slides)); self.status_var.set(text); messagebox.showinfo(self.translator.text("complete.title"),text)
 
     def process_pptx_from_workspace(self, state) -> None:
         """Save from the authoritative PptxWorkspaceState boundary.
@@ -2045,98 +2021,6 @@ class MarkerApp(ctk.CTk):
         self.pptx_workspace = self.pptx_workspace_state.root
         if not self.pptx_workspace_state.mounted or self.pptx_workspace is None:
             raise RuntimeError("PPTX workspace failed to mount")
-
-    def _mount_pptx_workspace_canonical(self) -> None:
-        """Mount the single state-driven PPTX control composition."""
-        self._clear_content_host()
-        self.pptx_workspace = ctk.CTkFrame(self.content_host, fg_color="transparent")
-        self.pptx_workspace.grid(row=0, column=0, padx=24, pady=24, sticky="nsew")
-        self.pptx_workspace.grid_columnconfigure(0, weight=0, minsize=300)
-        self.pptx_workspace.grid_columnconfigure(1, weight=1)
-        self.pptx_workspace.grid_rowconfigure(4, weight=1)
-        self.pptx_badge_enabled_var = ctk.BooleanVar(value=self.pptx_state.badge.enabled)
-        self.pptx_controls_view = build_workspace_control_template(
-            self.pptx_workspace, format_label="PowerPoint", choose_command=self.choose_pptx_phase2,
-            save_command=self.process_pptx, scope_label="SLIDES", scope_command=self.change_pptx_scope_mode,
-            scope_update=self.update_pptx_scope, badge_enabled_var=self.pptx_badge_enabled_var,
-            badge_var=self.badge_display_var, badge_values=list(self.badge_display_to_file) or ["AI Assisted"],
-            badge_callbacks=(self.pptx_visual_changed, self.select_badge_display,
-                             lambda value: (self.pptx_badge_position_var.set(self.position_display_to_value.get(value, "bottom-right")), self.pptx_visual_changed()),
-                             self.pptx_visual_changed, self.pptx_visual_changed, self.pptx_visual_changed),
-            logo_enabled_var=self.logo_enabled_var,
-            logo_callbacks=(self.pptx_visual_changed, self.choose_logo, self.pptx_visual_changed,
-                            self.pptx_visual_changed, self.pptx_visual_changed, self.pptx_visual_changed),
-            position_values=list(self.position_display_to_value))
-        self.pptx_controls_view["root"].grid(row=0, column=0, sticky="nw")
-        self.pptx_choose_button = self.pptx_controls_view["choose"]
-        self.pptx_process_button = self.pptx_controls_view["save"]
-        self.pptx_file_label = self.pptx_controls_view["file_label"]
-        self.pptx_scope_menu = self.pptx_controls_view["scope"].winfo_children()[1]
-        self.pptx_scope_entry = self.pptx_controls_view["scope"].winfo_children()[2]
-        self.pptx_scope_update = self.pptx_controls_view["scope"].winfo_children()[3]
-        self.pptx_badge_enable = self.pptx_controls_view["badge"]["frame"].winfo_children()[1]
-        self.pptx_badge_menu = self.pptx_controls_view["badge"]["badge_menu"]
-        self.pptx_position_menu = self.pptx_controls_view["badge"]["position_menu"]
-        self.pptx_size_slider = self.pptx_controls_view["badge"]["size_slider"]
-        self.pptx_margin_slider = self.pptx_controls_view["badge"]["margin_slider"]
-        self.pptx_opacity_slider = self.pptx_controls_view["badge"]["opacity_slider"]
-        self.pptx_badge_name_label = build_badge_visual(self.pptx_controls_view["badge"]["frame"], name_variable=self.badge_name_var)
-        self.pptx_badge_name_label.grid(row=11, column=0, sticky="w")
-        self.pptx_logo_enable = self.pptx_controls_view["logo"]["frame"].winfo_children()[1]
-        self.pptx_logo_choose = self.pptx_controls_view["logo"]["frame"].winfo_children()[2]
-        self.pptx_logo_position_menu = self.pptx_controls_view["logo"]["position_menu"]
-        self.pptx_logo_size_slider, self.pptx_logo_margin_slider, self.pptx_logo_opacity_slider = self.pptx_controls_view["logo"]["sliders"]
-        self.pptx_scope_message = ctk.CTkLabel(self.pptx_controls_view["scope"], text="", text_color="#b42318"); self.pptx_scope_message.grid(row=4, column=0, sticky="w")
-        self.pptx_status_label = ctk.CTkLabel(self.pptx_workspace, text="PowerPoint workspace ready.", text_color="gray60"); self.pptx_status_label.grid(row=2, column=1, sticky="w")
-        self.pptx_file_label.grid_configure(row=1, column=1)
-        self.pptx_preview_column = ctk.CTkFrame(self.pptx_workspace, fg_color="transparent"); self.pptx_preview_column.grid(row=0, column=1, rowspan=2, padx=(340, 0), sticky="nsew")
-        self.pptx_preview_column.grid_columnconfigure(0, weight=1)
-        self.pptx_preview_label = ctk.CTkLabel(self.pptx_preview_column, text="Choose a PowerPoint file to preview a slide.", fg_color=("gray92", "gray13"), width=680, height=240); self.pptx_preview_label.grid(row=0, column=0, sticky="nsew")
-        nav = ctk.CTkFrame(self.pptx_preview_column, fg_color="transparent"); nav.grid(row=1, column=0, pady=2)
-        self.pptx_previous_button = ctk.CTkButton(nav, text="◀", width=42, command=lambda: self.change_pptx_slide(-1)); self.pptx_previous_button.grid(row=0, column=0, padx=4)
-        self.pptx_slide_status = ctk.CTkLabel(nav, text="—", width=120); self.pptx_slide_status.grid(row=0, column=1, padx=4)
-        self.pptx_next_button = ctk.CTkButton(nav, text="▶", width=42, command=lambda: self.change_pptx_slide(1)); self.pptx_next_button.grid(row=0, column=2, padx=4)
-        self.refresh_image_badges(); self._project_pptx_badge_visual(); self._update_pptx_scope_controls(); self._update_pptx_preview()
-        return
-        self.pptx_choose_button = ctk.CTkButton(self.pptx_workspace, text="Choose PowerPoint", command=self.choose_pptx_phase2, width=180); self.pptx_choose_button.grid(row=1, column=0, pady=(2, 4), sticky="w")
-        self.pptx_process_button = ctk.CTkButton(self.pptx_workspace, text="Save Marked PowerPoint...", command=self.process_pptx, width=190); self.pptx_process_button.grid(row=1, column=1, pady=(2, 4), sticky="w")
-        self.pptx_file_label = ctk.CTkLabel(self.pptx_workspace, text="No PowerPoint selected", text_color="gray60", anchor="w", justify="left"); self.pptx_file_label.grid(row=2, column=0, columnspan=2, pady=2, sticky="w")
-        self.pptx_status_label = ctk.CTkLabel(self.pptx_workspace, text="PowerPoint workspace ready.", text_color="gray60", anchor="w"); self.pptx_status_label.grid(row=3, column=0, columnspan=2, pady=2, sticky="w")
-        ctk.CTkLabel(self.pptx_workspace, text="SLIDES", font=ctk.CTkFont(weight="bold"), anchor="w").grid(row=5, column=0, pady=(4, 1), sticky="w")
-        self.pptx_preview_column = ctk.CTkFrame(self.pptx_workspace, fg_color="transparent"); self.pptx_preview_column.grid(row=4, column=1, rowspan=16, padx=(20, 0), sticky="nsew"); self.pptx_preview_column.grid_columnconfigure(0, weight=1)
-        self.pptx_preview_label = ctk.CTkLabel(self.pptx_preview_column, text="", fg_color=("gray92", "gray13"), width=680, height=240); self.pptx_preview_label.grid(row=0, column=0, pady=(2, 4), sticky="nsew")
-        nav = ctk.CTkFrame(self.pptx_preview_column, fg_color="transparent"); nav.grid(row=1, column=0, pady=2)
-        self.pptx_previous_button = ctk.CTkButton(nav, text="◀", width=42, command=lambda: self.change_pptx_slide(-1)); self.pptx_previous_button.grid(row=0, column=0, padx=4)
-        self.pptx_slide_status = ctk.CTkLabel(nav, text="—", width=120); self.pptx_slide_status.grid(row=0, column=1, padx=4)
-        self.pptx_next_button = ctk.CTkButton(nav, text="▶", width=42, command=lambda: self.change_pptx_slide(1)); self.pptx_next_button.grid(row=0, column=2, padx=4)
-        self.pptx_scope_menu = ctk.CTkOptionMenu(self.pptx_workspace, values=["All", "First", "Selected", "Range"], command=self.change_pptx_scope_mode); self.pptx_scope_menu.grid(row=6, column=0, pady=(4, 2), sticky="w")
-        self.pptx_scope_entry = ctk.CTkEntry(self.pptx_workspace, placeholder_text="3,7 or 2-4,7-9"); self.pptx_scope_entry.grid(row=7, column=0, pady=2, sticky="w")
-        self.pptx_scope_update = ctk.CTkButton(self.pptx_workspace, text="Update", command=self.update_pptx_scope, width=100); self.pptx_scope_update.grid(row=8, column=0, pady=2, sticky="w")
-        self.pptx_scope_message = ctk.CTkLabel(self.pptx_workspace, text="", text_color="#b42318", anchor="w"); self.pptx_scope_message.grid(row=9, column=0, sticky="w")
-        self.pptx_badge_enabled_var = ctk.BooleanVar(value=True)
-        self.pptx_badge_enable = ctk.CTkCheckBox(self.pptx_workspace, text="AI BADGE — " + self.translator.text("pdf.add_badge"), variable=self.pptx_badge_enabled_var, command=self.pptx_visual_changed); self.pptx_badge_enable.grid(row=10, column=0, pady=(3, 1), sticky="w")
-        self.pptx_badge_menu = ctk.CTkOptionMenu(self.pptx_workspace, variable=self.badge_display_var, values=["—"], command=self.select_badge_display); self.pptx_badge_menu.grid(row=11, column=0, pady=2, sticky="w")
-        self.pptx_badge_name_label = build_badge_visual(self.pptx_workspace, name_variable=self.badge_name_var); self.pptx_badge_name_label.grid(row=11, column=0, padx=(190, 0), sticky="w")
-        self.pptx_logo_enable = ctk.CTkCheckBox(self.pptx_workspace, text="OWN LOGO — " + self.translator.text("logo.enable"), variable=self.logo_enabled_var, command=self.pptx_visual_changed); self.pptx_logo_enable.grid(row=12, column=0, pady=(4, 2), sticky="w")
-        self.pptx_logo_choose = ctk.CTkButton(self.pptx_workspace, text=self.translator.text("logo.choose"), command=self.choose_logo, width=150); self.pptx_logo_choose.grid(row=13, column=0, pady=2, sticky="w")
-        self.pptx_position_menu = ctk.CTkOptionMenu(self.pptx_workspace, variable=self.position_display_var, values=list(self.position_display_to_value), command=lambda value: (self.pptx_badge_position_var.set(self.position_display_to_value.get(value, "bottom-right")), self.pptx_visual_changed())); self.pptx_position_menu.grid(row=14, column=0, pady=2, sticky="w")
-        self.pptx_size_label=ctk.CTkLabel(self.pptx_workspace,text="Size",anchor="w"); self.pptx_size_label.grid(row=15,column=0,sticky="w")
-        self.pptx_size_slider = ctk.CTkSlider(self.pptx_workspace, from_=1, to=100, number_of_steps=99, variable=self.pptx_badge_size_var, command=self.pptx_visual_changed); self.pptx_size_slider.grid(row=16, column=0, pady=1, sticky="ew")
-        self.pptx_margin_label=ctk.CTkLabel(self.pptx_workspace,text="Margin",anchor="w"); self.pptx_margin_label.grid(row=17,column=0,sticky="w")
-        self.pptx_margin_slider = ctk.CTkSlider(self.pptx_workspace, from_=0, to=250, number_of_steps=250, variable=self.pptx_badge_margin_var, command=self.pptx_visual_changed); self.pptx_margin_slider.grid(row=18, column=0, pady=1, sticky="ew")
-        self.pptx_opacity_label=ctk.CTkLabel(self.pptx_workspace,text="Opacity",anchor="w"); self.pptx_opacity_label.grid(row=19,column=0,sticky="w")
-        self.pptx_opacity_slider = ctk.CTkSlider(self.pptx_workspace, from_=0, to=100, number_of_steps=100, variable=self.pptx_badge_opacity_var, command=self.pptx_visual_changed); self.pptx_opacity_slider.grid(row=20, column=0, pady=1, sticky="ew")
-        self.pptx_logo_position_menu = ctk.CTkOptionMenu(self.pptx_workspace, variable=self.logo_position_display_var, values=list(self.position_display_to_value), command=lambda value: (self.pptx_logo_position_var.set(self.position_display_to_value.get(value, "top-left")), self.pptx_visual_changed())); self.pptx_logo_position_menu.grid(row=21, column=0, pady=2, sticky="w")
-        self.pptx_logo_size_label=ctk.CTkLabel(self.pptx_workspace,text="Logo size",anchor="w"); self.pptx_logo_size_label.grid(row=22,column=0,sticky="w")
-        self.pptx_logo_size_slider=ctk.CTkSlider(self.pptx_workspace,from_=1,to=100,number_of_steps=99,variable=self.pptx_logo_size_var,command=self.pptx_visual_changed); self.pptx_logo_size_slider.grid(row=23,column=0,pady=1,sticky="ew")
-        self.pptx_logo_margin_label=ctk.CTkLabel(self.pptx_workspace,text="Logo margin",anchor="w"); self.pptx_logo_margin_label.grid(row=24,column=0,sticky="w")
-        self.pptx_logo_margin_slider=ctk.CTkSlider(self.pptx_workspace,from_=0,to=250,number_of_steps=250,variable=self.pptx_logo_margin_var,command=self.pptx_visual_changed); self.pptx_logo_margin_slider.grid(row=25,column=0,pady=1,sticky="ew")
-        self.pptx_logo_opacity_label=ctk.CTkLabel(self.pptx_workspace,text="Logo opacity",anchor="w"); self.pptx_logo_opacity_label.grid(row=26,column=0,sticky="w")
-        self.pptx_logo_opacity_slider=ctk.CTkSlider(self.pptx_workspace,from_=0,to=100,number_of_steps=100,variable=self.pptx_logo_opacity_var,command=self.pptx_visual_changed); self.pptx_logo_opacity_slider.grid(row=27,column=0,pady=1,sticky="ew")
-        self.refresh_image_badges()
-        self._project_pptx_badge_visual()
-        self._update_pptx_scope_controls()
-        self._update_pptx_preview()
 
     def pptx_visual_changed(self, *_args) -> None:
         self._sync_pptx_visual_state()

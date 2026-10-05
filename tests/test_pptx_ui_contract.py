@@ -1,65 +1,31 @@
 from pathlib import Path
-
-
-APP = Path(__file__).parents[1] / "nenolink_ai_marker" / "app.py"
-SOURCE = APP.read_text(encoding="utf-8")
-
-
+ROOT=Path(__file__).parents[1]
+APP=(ROOT/"nenolink_ai_marker"/"app.py").read_text(encoding="utf-8")
+WS=(ROOT/"nenolink_ai_marker"/"pptx_workspace.py").read_text(encoding="utf-8")
+STATE=(ROOT/"nenolink_ai_marker"/"pptx_state.py").read_text(encoding="utf-8")
 def test_pptx_workspace_has_common_sections_and_human_labels():
-    mount = SOURCE[SOURCE.index("def _mount_pptx_workspace_canonical"):SOURCE.index("def pptx_visual_changed")]
-    for label in ("PowerPoint", "SLIDES", "AI BADGE", "OWN LOGO", "Choose PowerPoint"):
-        assert label in mount
-    for label in ("Size", "Margin", "Opacity"):
-        assert label in mount
-
-
+    assert "class PptxWorkspace" in WS and "def mount(self" in WS
+    for token in ("file_heading","slides_heading","badge_enable","logo_choose_button","preview_label"): assert token in WS
 def test_pptx_badge_uses_common_repository_and_projects_graphic():
-    assert "self.refresh_image_badges()" in SOURCE
-    assert "def _project_pptx_badge_visual" in SOURCE
-    assert "self.pptx_badge_photo" in SOURCE
-    assert "self.badges.find(badge_id)" in SOURCE
-
-
+    assert "project_badge" in WS and "build_badge_visual" in WS and "_project_badge" in WS
 def test_pptx_preview_and_output_share_authoritative_projection():
-    assert "def _pptx_visual_projection_settings" in SOURCE
-    preview = SOURCE[SOURCE.index("def _update_pptx_preview"):SOURCE.index("def change_pptx_slide")]
-    process = SOURCE[SOURCE.index("def process_pptx"):SOURCE.index("def _render_update_notification")]
-    assert "_pptx_visual_projection_settings()" in preview
-    assert "_pptx_visual_projection_settings()" in process
-    assert "self.pptx_state.active_scope" in preview
-
-
+    assert "def _render_preview" in WS and "def _save_as" in WS
+    assert "self.state.badge" in WS and "self.state.logo" in WS
 def test_pptx_scope_and_physical_navigation_are_separate():
-    assert "self.pptx_current_slide" in SOURCE
-    assert "self.pptx_state.active_scope" in SOURCE
-    assert "self.pptx_state.current_slide" in SOURCE
-    assert "self.pptx_state.scope_mode" in SOURCE
-
-
-def test_pptx_badge_selection_routes_through_projection_without_remount():
-    selection = SOURCE[SOURCE.index("def select_badge"):SOURCE.index("def select_badge_display")]
-    assert "_project_pptx_badge_visual()" in selection
-    assert "_update_pptx_preview()" in selection
-    assert "_mount_pptx_workspace" not in selection
-
-
-def test_common_presentation_builders_are_stateless_callback_adapters():
-    ui = (Path(__file__).parents[1] / "nenolink_ai_marker" / "workspace_ui.py").read_text(encoding="utf-8")
-    assert "def build_badge_section" in ui
-    assert "def build_logo_section" in ui
-    assert "on_enabled" in ui and "on_selected" in ui
-    assert "on_choose" in ui and "on_position" in ui
-    assert "WORKSPACE_LAYOUT" in ui
-
-
+    assert "PptxEvent.SCOPE_MODE" in WS and "PptxEvent.PREVIEW_NEXT" in WS
+    assert "active_scope" in WS and "current_slide" in WS
 def test_pptx_file_row_exposes_save_and_common_order():
-    mount = SOURCE[SOURCE.index("def _mount_pptx_workspace_canonical"):SOURCE.index("def pptx_visual_changed")]
-    assert 'text="Save Marked PowerPoint..."' in mount
-    for label in ("Choose PowerPoint", "SLIDES", "AI BADGE", "OWN LOGO"):
-        assert label in mount
+    assert "command=self._choose_file" in WS and "command=self._save_as" in WS
+    assert WS.index("file_heading") < WS.index("slides_heading") < WS.index("badge_enable")
+def test_pptx_table_is_normative_for_all_events():
+    from nenolink_ai_marker.pptx_state import PPTX_TRANSITION_TABLE,PptxEvent,pptx_transition
+    assert {x.event for x in PPTX_TRANSITION_TABLE}==set(PptxEvent)
+    for event in PptxEvent: assert pptx_transition(event).event is event
 
-
-def test_authoritative_shell_mounts_complete_pptx_workspace_not_placeholder():
-    render = SOURCE[SOURCE.index("def _render_authoritative_state"):SOURCE.index("def _format_has_active_work")]
-    assert "self._mount_pptx_workspace()" in render
-    assert "PPTX TEST" not in render
+def test_pptx_callbacks_dispatch_table_events():
+    for event in ("BADGE_ENABLE","BADGE_SELECT","BADGE_POSITION","SCOPE_MODE","SCOPE_UPDATE","PREVIEW_NEXT"): assert f"PptxEvent.{event}" in WS
+    assert "apply_pptx_event" in WS
+def test_pptx_legacy_routes_are_absent_from_markerapp():
+    assert "def _mount_pptx_workspace_canonical" not in APP
+    assert "def process_pptx(self)" not in APP
+    assert "self.pptx_workspace_state.mount" in APP
