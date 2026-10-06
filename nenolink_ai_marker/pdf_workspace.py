@@ -21,6 +21,7 @@ from .save_control import SaveControl
 from .badge_control import BadgeControl, BadgeProjection
 from .workspace_ui import build_badge_visual
 from .source_control import SourceControl
+from .logo_control import LogoControl, LogoProjection
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +50,7 @@ class PdfWorkspace:
         self.root = None
         self.badge_control = None
         self.source_control = None
+        self.logo_control = None
         self.preview_photo = None
         for name in ("pdf_workspace", "pdf_workspace_root", "pdf_controls_host", "pdf_preview_host", "pdf_preview_label", "pdf_process_button", "pdf_save_control", "pdf_badge_enable", "pdf_badge_menu", "pdf_badge_visual", "pdf_badge_image_label", "pdf_badge_name_label"):
             if hasattr(self.app, name):
@@ -63,6 +65,8 @@ class PdfWorkspace:
         controls = ctk.CTkScrollableFrame(self.root, width=320, fg_color=("gray86", "gray17")); controls.grid(row=0, column=0, padx=(4,8), pady=4, sticky="nsew")
         preview_host = ctk.CTkFrame(self.root); preview_host.grid(row=0, column=1, padx=(8,4), pady=4, sticky="nsew"); preview_host.grid_columnconfigure(0, weight=1); preview_host.grid_rowconfigure(0, weight=1)
         self.badge_control = BadgeControl(controls, on_enabled_changed=self.visual_changed, on_badge_selected=self.select_badge)
+        self.logo_control = LogoControl(controls, on_enabled=lambda value: self.set_logo(enabled=value), on_choose=self.choose_logo, on_size=lambda value: self.set_logo(size=value), on_margin=lambda value: self.set_logo(margin=value), on_opacity=lambda value: self.set_logo(opacity=value))
+        self.logo_control.frame.grid(row=4, column=0, pady=(8, 2), sticky="ew")
         app.pdf_workspace = controls; app.pdf_workspace_root = self.root; app.pdf_controls_host = controls; app.pdf_preview_host = preview_host
         ctk.CTkLabel(controls, text="PDF", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0,column=0,pady=(2,1),sticky="w")
         self.source_control = SourceControl(controls, choose_command=self.choose_file, choose_label=t("pdf.choose"), width=280); self.source_control.frame.grid(row=1,column=0,pady=(4,8),sticky="ew"); app.pdf_choose_button = self.source_control.choose_button; app.pdf_file_label = self.source_control.filename_label
@@ -96,6 +100,8 @@ class PdfWorkspace:
             app.pdf_file_label.configure(text=(state.path.name if state.path else app.translator.text("pdf.no_file")))
         if getattr(self, "source_control", None) is not None:
             self.source_control.project(filename=(state.path.name if state.path else ""), empty_text=app.translator.text("pdf.no_file"))
+        if getattr(self, "logo_control", None) is not None:
+            self.logo_control.project(LogoProjection(enabled=state.logo.enabled, filename=state.logo.path.name if state.logo.path else "", position=state.logo.position, size=state.logo.size, margin=state.logo.margin, opacity=state.logo.opacity))
         if getattr(app, "pdf_page_status", None) is not None:
             app.pdf_page_status.configure(text=(f"{state.current_page} / {state.page_count}" if state.path else "—"))
         if state.path and getattr(app, "pdf_info", None) is not None:
@@ -151,6 +157,12 @@ class PdfWorkspace:
         apply_pdf_event(self.state, PdfEvent.BADGE_CHANGED, changes)
         self.project()
         self.refresh_preview()
+
+    def choose_logo(self) -> None:
+        from tkinter import filedialog
+        selected = filedialog.askopenfilename(title="Choose logo", filetypes=[("Images", "*.png *.jpg *.jpeg *.webp"), ("All files", "*.*")])
+        if selected:
+            self.set_logo(path=Path(selected), enabled=True)
 
     def set_logo(self, **changes) -> None:
         apply_pdf_event(self.state, PdfEvent.LOGO_CHANGED, changes)

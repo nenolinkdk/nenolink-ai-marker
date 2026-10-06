@@ -19,6 +19,7 @@ from .workspace_ui import build_badge_visual
 from .save_control import SaveControl
 from .badge_control import BadgeControl, BadgeProjection
 from .source_control import SourceControl
+from .logo_control import LogoControl, LogoProjection
 
 
 class PptxConstructionReceipt:
@@ -107,6 +108,7 @@ class PptxWorkspace:
         self.scope_status.grid(row=8, column=0, padx=12, pady=(2, 8), sticky="w")
         ctk.CTkLabel(controls, text=t("badge"), font=ctk.CTkFont(weight="bold")).grid(row=9, column=0, padx=12, pady=(4, 2), sticky="w")
         self.badge_control = BadgeControl(controls, on_enabled_changed=lambda value: self._dispatch(PptxEvent.BADGE_ENABLE, value), on_badge_selected=lambda value: self._dispatch(PptxEvent.BADGE_SELECT, value))
+        self.logo_control = LogoControl(controls, on_enabled=lambda value: self._dispatch(PptxEvent.LOGO_ENABLE, value), on_choose=self._choose_logo, on_mode=None, on_size=lambda value: self._slider_event("logo", "size", value), on_margin=lambda value: self._slider_event("logo", "margin", value), on_opacity=lambda value: self._slider_event("logo", "opacity", value))
         self.badge_control.frame.grid(row=10, column=0, columnspan=2, padx=12, pady=2, sticky="ew")
         self.enabled_var = self.badge_control.enabled_var; self.badge_var = self.badge_control.selector_var
         self.badge_enable = self.badge_control.enabled_widget; self.badge_menu = self.badge_control.selector_widget; self.badge_visual = self.badge_control.graphic_widget; self.badge_image = self.badge_visual; self.badge_name = self.badge_visual
@@ -145,16 +147,9 @@ class PptxWorkspace:
         self._slider(controls, row+2, "size.value", "badge", "size", 1, 100, self.state.badge.size)
         self._slider(controls, row+3, "margin.value", "badge", "margin", 0, 250, self.state.badge.margin)
         self._slider(controls, row+4, "opacity.value", "badge", "opacity", 0, 100, self.state.badge.opacity)
-        ctk.CTkLabel(controls, text=t("logo.title"), font=ctk.CTkFont(weight="bold")).grid(row=row+5, column=0, padx=12, pady=(6,2), sticky="w")
-        self.logo_enabled_var = ctk.BooleanVar(value=self.state.logo.enabled)
-        ctk.CTkCheckBox(controls, text=t("logo.enable"), variable=self.logo_enabled_var, command=lambda: self._dispatch(PptxEvent.LOGO_ENABLE, self.logo_enabled_var.get())).grid(row=row+6, column=0, padx=12, pady=1, sticky="w")
-        self.logo_choose_button = ctk.CTkButton(controls, text=t("logo.choose"), command=self._choose_logo, width=120); self.logo_choose_button.grid(row=row+7, column=0, padx=12, pady=1, sticky="w")
-        self.logo_label = ctk.CTkLabel(controls, text=t("pptx.logo_none"), anchor="w"); self.logo_label.grid(row=row+8, column=0, padx=12, pady=1, sticky="w")
-        self.logo_position_var = ctk.StringVar(value=self._position_display.get(self.state.logo.position, self.state.logo.position))
-        self.logo_position_menu = ctk.CTkOptionMenu(controls, variable=self.logo_position_var, values=list(self._position_display.values()), command=lambda v: self._dispatch(PptxEvent.LOGO_POSITION, self._position_value.get(v, v)), width=190); self.logo_position_menu.grid(row=row+9, column=0, padx=12, pady=1, sticky="w")
-        self._slider(controls, row+10, "logo.size", "logo", "size", 1, 100, self.state.logo.size)
-        self._slider(controls, row+11, "logo.margin", "logo", "margin", 0, 250, self.state.logo.margin)
-        self._slider(controls, row+12, "logo.opacity", "logo", "opacity", 0, 100, self.state.logo.opacity)
+        self.logo_control = LogoControl(controls, on_enabled=lambda value: self._dispatch(PptxEvent.LOGO_ENABLE, value), on_choose=self._choose_logo, on_size=lambda value: self._dispatch(PptxEvent.LOGO_SIZE, round(value)), on_margin=lambda value: self._dispatch(PptxEvent.LOGO_MARGIN, round(value)), on_opacity=lambda value: self._dispatch(PptxEvent.LOGO_OPACITY, round(value)))
+        self.logo_control.frame.grid(row=row+5, column=0, columnspan=2, padx=12, pady=(6,2), sticky="ew")
+        self.logo_enabled_var = self.logo_control.enabled_var; self.logo_choose_button = self.logo_control.choose_button; self.logo_label = self.logo_control.filename_label; self.logo_position_var = ctk.StringVar(value="Top left")
 
     def _slider(self, host, row, label, group, field, low, high, value):
         row_host = ctk.CTkFrame(host, fg_color="transparent"); row_host.grid(row=row, column=0, columnspan=2, padx=12, pady=1, sticky="ew")
@@ -287,6 +282,8 @@ class PptxWorkspace:
         self.last_receipt = PptxEventReceipt(event, before, {"badge": self.state.badge.__dict__.copy()}, (event.value,), ("path", "current_slide", "active_scope", "logo"), True, value)
         self.receipts.record(self.last_receipt)
         self._project_badge()
+        if getattr(self, "logo_control", None):
+            self.logo_control.project(LogoProjection(enabled=self.state.logo.enabled, filename=self.state.logo.path.name if self.state.logo.path else "", position=self.state.logo.position, size=self.state.logo.size, margin=self.state.logo.margin, opacity=self.state.logo.opacity))
         self._render_preview()
 
     def _save_as(self):

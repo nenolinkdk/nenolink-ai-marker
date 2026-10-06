@@ -20,6 +20,7 @@ from .workspace_state import ImageEvent, apply_image_event
 from .save_control import SaveControl
 from .badge_control import BadgeControl, BadgeProjection
 from .source_control import SourceControl
+from .logo_control import LogoControl, LogoProjection
 
 
 class ImageWorkspace:
@@ -82,6 +83,8 @@ class ImageWorkspace:
                 self.source_control.project(filename=(files[0].name if files else ""), metadata=(human_file_size(files[0].stat().st_size) if files else ""), empty_text=self.app.translator.text("files.none"))
             badge_path = self.app.badges.find(self.state.badge.badge_id) if self.state.badge.badge_id else None
             self.badge_control.project(BadgeProjection(bool(self.state.badge.enabled), self.app.badges.display_name(self.state.badge.badge_id), tuple(self.app.badges.display_name(p.name) for p in self.app.badges.display_badges()), badge_path, self.state.badge.position, self.state.badge.size, self.state.badge.margin, self.state.badge.opacity, self.app.translator.text("pdf.add_badge")))
+            if getattr(self, "logo_control", None):
+                self.logo_control.project(LogoProjection(enabled=self.state.logo.enabled, filename=self.state.logo.path.name if self.state.logo.path else "", position=self.state.logo.position, size=self.state.logo.size, margin=self.state.logo.margin, opacity=self.state.logo.opacity))
             self.app.sources = list(files)
             self.app.media_sources["image"] = list(files)
             self.refresh_preview()
@@ -237,9 +240,11 @@ class ImageWorkspace:
         app.size_label = self._slider(app.image_badge_group, app.size_var, 1, 100, 3)
         app.margin_label = self._slider(app.image_badge_group, app.margin_var, 0, 250, 5)
         app.opacity_label = self._slider(app.image_badge_group, app.opacity_var, 0, 100, 7)
-        app.logo_controls = ctk.CTkFrame(left)
-        app.logo_controls.grid(row=12, column=0, padx=14, pady=(5, 8), sticky="ew")
-        app.logo_controls.grid_columnconfigure(1, weight=1)
+        self.logo_control = LogoControl(left, on_enabled=lambda value: self.logo_changed(enabled=value), on_choose=self.choose_logo, on_size=lambda value: self.logo_changed(size=value), on_margin=lambda value: self.logo_changed(margin=value), on_opacity=lambda value: self.logo_changed(opacity=value))
+        self.logo_control.frame.grid(row=12, column=0, padx=14, pady=(5, 8), sticky="ew")
+        app.logo_controls = self.logo_control.frame
+        app.logo_heading = self.logo_control.heading; app.logo_enable = self.logo_control.enabled_widget; app.logo_choose = self.logo_control.choose_button; app.logo_filename = self.logo_control.filename_label; app.logo_position_label = self.logo_control.position_label; app.logo_size_slider = self.logo_control.size_widget; app.logo_margin_slider = self.logo_control.margin_widget; app.logo_opacity_slider = self.logo_control.opacity_widget
+        """
         app.logo_heading = ctk.CTkLabel(app.logo_controls, font=ctk.CTkFont(weight="bold")); app.logo_heading.grid(row=0, column=0, columnspan=2, padx=8, pady=(6, 2), sticky="w")
         app.logo_enable = ctk.CTkCheckBox(app.logo_controls, variable=app.logo_enabled_var, command=self.logo_changed); app.logo_enable.grid(row=1, column=0, columnspan=2, padx=8, pady=3, sticky="w")
         app.logo_choose = ctk.CTkButton(app.logo_controls, command=self.choose_logo, height=28); app.logo_choose.grid(row=2, column=0, padx=8, pady=3, sticky="w")
@@ -252,7 +257,8 @@ class ImageWorkspace:
         app.logo_margin_slider = ctk.CTkSlider(app.logo_controls, from_=0, to=250, number_of_steps=250, variable=app.logo_margin_var, command=self.logo_changed); app.logo_margin_slider.grid(row=7, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="ew")
         app.logo_opacity_label = ctk.CTkLabel(app.logo_controls); app.logo_opacity_label.grid(row=8, column=0, columnspan=2, padx=8, sticky="w")
         app.logo_opacity_slider = ctk.CTkSlider(app.logo_controls, from_=0, to=100, number_of_steps=100, variable=app.logo_opacity_var, command=self.logo_changed); app.logo_opacity_slider.grid(row=9, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="ew")
-        app.logo_images_only = ctk.CTkLabel(app.logo_controls, text_color="gray60"); app.logo_images_only.grid(row=10, column=0, columnspan=2, padx=8, pady=(0, 6), sticky="w")
+        app.logo_images_only = self.logo_control.position_label
+        """
         app.process_save_control = SaveControl(left, command=self.save)
         app.process_button = app.process_save_control.button; app.process_button.grid(row=13, column=0, padx=14, pady=(2, 10), sticky="ew")
         right = ctk.CTkFrame(workspace); right.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right.grid_columnconfigure(0, weight=1); right.grid_rowconfigure(0, weight=1)

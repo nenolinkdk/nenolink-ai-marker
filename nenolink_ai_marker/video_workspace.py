@@ -13,6 +13,7 @@ from .workspace_state import VideoEvent, apply_video_event
 from .save_control import SaveControl
 from .badge_control import BadgeControl, BadgeProjection
 from .source_control import SourceControl
+from .logo_control import LogoControl, LogoProjection
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +45,7 @@ class VideoWorkspace:
         self.badge_control = None
         self.source_control = None
         self.logo_controls = None
+        self.logo_control = None
         self.preview_photo = None
         for name in ("video_workspace", "video_file_label", "video_preview_label", "video_badge_enable", "video_badge_menu", "video_badge_var", "video_badge_preview_label", "video_badge_name_label", "video_process_button", "video_save_control"):
             if hasattr(self.app, name):
@@ -90,6 +92,8 @@ class VideoWorkspace:
             self.logo_mode_var.set(self.state.logo.mode)
             self.logo_size_var.set(self.state.logo.size); self.logo_margin_var.set(self.state.logo.margin); self.logo_opacity_var.set(self.state.logo.opacity)
             self.logo_file_label.configure(text=self.state.logo.path.name if self.state.logo.path else "No logo selected")
+            if getattr(self, "logo_control", None):
+                self.logo_control.project(LogoProjection(enabled=self.state.logo.enabled, filename=self.state.logo.path.name if self.state.logo.path else "", mode=self.state.logo.mode, modes=("Front", "Entire", "Back"), size=self.state.logo.size, margin=self.state.logo.margin, opacity=self.state.logo.opacity))
 
     def _badge_path(self):
         return next((path for path in self.app.badges.display_badges() if path.name == self.state.badge.badge_id), None)
@@ -169,16 +173,9 @@ class VideoWorkspace:
         app.video_size_var = ctk.IntVar(value=20); app.video_margin_var = ctk.IntVar(value=20); app.video_opacity_var = ctk.IntVar(value=100)
         app.video_size_label = app._video_slider(app.video_badge_group, app.video_size_var, 1, 100, 3, "Badge Size", self.change_visual); app.video_margin_label = app._video_slider(app.video_badge_group, app.video_margin_var, 0, 250, 5, "Badge Margin", self.change_visual); app.video_opacity_label = app._video_slider(app.video_badge_group, app.video_opacity_var, 0, 100, 7, "Badge Opacity", self.change_visual)
         heading("OWN LOGO", 9)
-        self.logo_controls = ctk.CTkFrame(left, fg_color="transparent"); self.logo_controls.grid(row=10, column=0, padx=14, pady=2, sticky="ew")
-        self.logo_enabled_var = ctk.BooleanVar(value=False); ctk.CTkCheckBox(self.logo_controls, text="Add own logo", variable=self.logo_enabled_var, command=self.change_logo).grid(row=0, column=0, sticky="w")
-        ctk.CTkButton(self.logo_controls, text="Choose logo", command=self.choose_logo, width=140).grid(row=1, column=0, sticky="w")
-        self.logo_file_label = ctk.CTkLabel(self.logo_controls, text="No logo selected", anchor="w"); self.logo_file_label.grid(row=2, column=0, sticky="ew")
-        self.logo_mode_var = ctk.StringVar(value="entire"); ctk.CTkOptionMenu(self.logo_controls, variable=self.logo_mode_var, values=["Front", "Entire", "Back"], command=self.change_logo_mode, width=140).grid(row=3, column=0, sticky="w")
-        ctk.CTkLabel(self.logo_controls, text="Position: Top left").grid(row=4, column=0, sticky="w")
-        self.logo_size_var = ctk.IntVar(value=15); self.logo_margin_var = ctk.IntVar(value=20); self.logo_opacity_var = ctk.IntVar(value=100)
-        app._video_slider(self.logo_controls, self.logo_size_var, 1, 100, 5, "Logo Size", self.change_logo)
-        app._video_slider(self.logo_controls, self.logo_margin_var, 0, 250, 7, "Logo Margin", self.change_logo)
-        app._video_slider(self.logo_controls, self.logo_opacity_var, 0, 100, 9, "Logo Opacity", self.change_logo)
+        self.logo_control = LogoControl(left, on_enabled=lambda value: self.change_logo(value), on_choose=self.choose_logo, on_mode=self.change_logo_mode, on_size=lambda value: self.change_logo(), on_margin=lambda value: self.change_logo(), on_opacity=lambda value: self.change_logo())
+        self.logo_control.frame.grid(row=10, column=0, padx=14, pady=2, sticky="ew")
+        self.logo_enabled_var = self.logo_control.enabled_var; self.logo_mode_var = self.logo_control.mode_var; self.logo_file_label = self.logo_control.filename_label; self.logo_size_var = ctk.IntVar(value=15); self.logo_margin_var = ctk.IntVar(value=20); self.logo_opacity_var = ctk.IntVar(value=100)
         heading("VIDEO OPTIONS", 16); app.video_mode_var = ctk.StringVar(value="permanent"); app.video_mode_display_var = ctk.StringVar(); app.video_mode_display_to_value = {"Permanent":"permanent", "Beginning":"beginning", "End":"end"}
         app.video_mode_label = ctk.CTkLabel(left, text="Video badge mode"); app.video_mode_label.grid(row=17, column=0, padx=14, pady=1, sticky="w"); app.video_mode_menu = ctk.CTkOptionMenu(left, variable=app.video_mode_display_var, values=list(app.video_mode_display_to_value), command=self.change_mode); app.video_mode_menu.grid(row=18, column=0, padx=14, pady=2, sticky="ew")
         app.video_duration_var = ctk.IntVar(value=5); app.video_duration_label = ctk.CTkLabel(left, text="Duration"); app.video_duration_entry = ctk.CTkEntry(left, textvariable=app.video_duration_var); app.video_seconds_label = ctk.CTkLabel(left, text="seconds"); app.video_duration_label.grid(row=19, column=0, padx=14, pady=1, sticky="w"); app.video_duration_entry.grid(row=20, column=0, padx=14, pady=2, sticky="ew"); app.video_duration_entry.bind("<FocusOut>", lambda _event: self.change_duration())

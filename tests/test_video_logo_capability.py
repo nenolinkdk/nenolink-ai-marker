@@ -1,6 +1,8 @@
 from pathlib import Path
 
 from nenolink_ai_marker.workspace_state import VideoEvent, VideoWorkspaceState, apply_video_event, video_transition
+from nenolink_ai_marker.logo_control import LogoControl, LogoProjection
+import inspect
 
 
 def test_video_logo_events_are_table_backed_and_independent_from_badge():
@@ -26,3 +28,11 @@ def test_video_logo_can_be_disabled_without_changing_badge():
     apply_video_event(state, VideoEvent.LOGO_ENABLED_CHANGED, {"enabled": False})
     assert state.logo.enabled is False
     assert state.badge.badge_id == "ai-assisted.png"
+
+
+def test_logo_control_is_stateless_and_projects_video_capabilities():
+    source = inspect.getsource(LogoControl)
+    assert "WorkspaceState" not in source and "process_video" not in source
+    assert "def project" in source
+    projection = LogoProjection(enabled=True, filename="logo.png", mode="front", modes=("Front", "Entire", "Back"), position="top-left")
+    assert projection.fixed_position is True and projection.modes == ("Front", "Entire", "Back")
