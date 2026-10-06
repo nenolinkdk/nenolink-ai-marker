@@ -44,6 +44,7 @@ class BadgeControl:
         self.selector_widget = ctk.CTkOptionMenu(self.frame, variable=self.selector_var, values=["—"], command=self._selected)
         self.graphic_widget = ctk.CTkLabel(self.frame, text="")
         self._presentation_image = None
+        self._presentation_asset_path = None
         self.enabled_widget.grid(row=0, column=0, sticky="w")
         self.selector_widget.grid(row=1, column=0, sticky="ew")
         self.graphic_widget.grid(row=2, column=0, sticky="w")
@@ -53,8 +54,11 @@ class BadgeControl:
     def _selected(self, value):
         if self._on_badge_selected: self._on_badge_selected(value)
     def project(self, projection: BadgeProjection) -> None:
-        self._presentation_image = None
-        if projection.asset_path:
+        asset = str(projection.asset_path) if projection.asset_path else None
+        if asset != self._presentation_asset_path:
+            self._presentation_image = None
+            self._presentation_asset_path = asset
+        if self._presentation_image is None and projection.asset_path:
             try:
                 with Image.open(projection.asset_path) as opened:
                     source = opened.convert("RGBA")
