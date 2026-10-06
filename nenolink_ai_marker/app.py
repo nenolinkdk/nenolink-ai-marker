@@ -1889,11 +1889,6 @@ class MarkerApp(ctk.CTk):
             self._update_pptx_preview()
         self._save()
 
-    def _update_badge_controls(self) -> None:
-        enabled = self.badge_enabled_var.get()
-        self.badge_menu.configure(state="normal" if enabled else "disabled")
-        self.single_badge_preview_label.configure(text="" if enabled else "—", image=self.single_badge_photo if enabled else None)
-
     def _update_logo_labels(self) -> None:
         t = self.translator.text; self.logo_size_label.configure(text=t("logo.size", value=self.logo_size_var.get())); self.logo_margin_label.configure(text=t("logo.margin", value=self.logo_margin_var.get())); self.logo_opacity_label.configure(text=t("logo.opacity", value=self.logo_opacity_var.get()))
 
