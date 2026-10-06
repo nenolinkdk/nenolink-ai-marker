@@ -20,6 +20,7 @@ from .workspace_state import PdfEvent, PdfWorkspaceState, apply_pdf_event
 from .save_control import SaveControl
 from .badge_control import BadgeControl, BadgeProjection
 from .workspace_ui import build_badge_visual
+from .source_control import SourceControl
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +48,7 @@ class PdfWorkspace:
                 pass
         self.root = None
         self.badge_control = None
+        self.source_control = None
         self.preview_photo = None
         for name in ("pdf_workspace", "pdf_workspace_root", "pdf_controls_host", "pdf_preview_host", "pdf_preview_label", "pdf_process_button", "pdf_save_control", "pdf_badge_enable", "pdf_badge_menu", "pdf_badge_visual", "pdf_badge_image_label", "pdf_badge_name_label"):
             if hasattr(self.app, name):
@@ -63,8 +65,7 @@ class PdfWorkspace:
         self.badge_control = BadgeControl(controls, on_enabled_changed=self.visual_changed, on_badge_selected=self.select_badge)
         app.pdf_workspace = controls; app.pdf_workspace_root = self.root; app.pdf_controls_host = controls; app.pdf_preview_host = preview_host
         ctk.CTkLabel(controls, text="PDF", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0,column=0,pady=(2,1),sticky="w")
-        app.pdf_choose_button = ctk.CTkButton(controls, text=t("pdf.choose"), command=self.choose_file); app.pdf_choose_button.grid(row=1,column=0,pady=(4,8),sticky="w")
-        app.pdf_file_label = ctk.CTkLabel(controls,text=t("pdf.no_file"),text_color="gray60",anchor="w"); app.pdf_file_label.grid(row=2,column=0,pady=4,sticky="w")
+        self.source_control = SourceControl(controls, choose_command=self.choose_file, choose_label=t("pdf.choose"), width=280); self.source_control.frame.grid(row=1,column=0,pady=(4,8),sticky="ew"); app.pdf_choose_button = self.source_control.choose_button; app.pdf_file_label = self.source_control.filename_label
         self.badge_control.frame.grid(row=3,column=0,pady=(8,2),sticky="w")
         app.pdf_badge_enable = self.badge_control.enabled_widget; app.pdf_badge_menu = self.badge_control.selector_widget; app.badge_display_var = self.badge_control.selector_var; app.pdf_badge_visual = self.badge_control.graphic_widget; app.pdf_badge_image_label=app.pdf_badge_visual; app.pdf_badge_name_label=app.pdf_badge_visual
         app.pdf_preview_label = ctk.CTkLabel(preview_host,text="PDF page preview",fg_color=("gray92","gray13")); app.pdf_preview_label.grid(row=0,column=0,pady=(12,4),sticky="nsew")
@@ -93,6 +94,8 @@ class PdfWorkspace:
             if variable is not None: variable.set(value)
         if getattr(app, "pdf_file_label", None) is not None:
             app.pdf_file_label.configure(text=(state.path.name if state.path else app.translator.text("pdf.no_file")))
+        if getattr(self, "source_control", None) is not None:
+            self.source_control.project(filename=(state.path.name if state.path else ""), empty_text=app.translator.text("pdf.no_file"))
         if getattr(app, "pdf_page_status", None) is not None:
             app.pdf_page_status.configure(text=(f"{state.current_page} / {state.page_count}" if state.path else "—"))
         if state.path and getattr(app, "pdf_info", None) is not None:

@@ -12,6 +12,7 @@ from .metadata import marker_metadata
 from .workspace_state import VideoEvent, apply_video_event
 from .save_control import SaveControl
 from .badge_control import BadgeControl, BadgeProjection
+from .source_control import SourceControl
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +41,7 @@ class VideoWorkspace:
                 pass
         self.root = None
         self.badge_control = None
+        self.source_control = None
         self.preview_photo = None
         for name in ("video_workspace", "video_file_label", "video_preview_label", "video_badge_enable", "video_badge_menu", "video_badge_var", "video_badge_preview_label", "video_badge_name_label", "video_process_button", "video_save_control"):
             if hasattr(self.app, name):
@@ -62,6 +64,8 @@ class VideoWorkspace:
             self.app.video_sources = [self.state.path] if loaded else []
             self.app.media_sources["video"] = list(self.app.video_sources)
             self.app.video_file_label.configure(text=self.state.path.name if loaded else self.app.translator.text("files.none"))
+            if getattr(self, "source_control", None) is not None:
+                self.source_control.project(filename=(self.state.path.name if loaded else ""), empty_text=self.app.translator.text("files.none"))
             if loaded:
                 self.refresh_preview()
             else:
@@ -130,8 +134,7 @@ class VideoWorkspace:
         app.video_controls_host = left; left.grid(row=0, column=0, padx=(4, 8), pady=4, sticky="nsew"); left.grid_columnconfigure(0, weight=1)
         right = ctk.CTkFrame(workspace); app.video_preview_host = right; right.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right.grid_columnconfigure(0, weight=1); right.grid_rowconfigure(0, weight=1)
         def heading(text, row): ctk.CTkLabel(left, text=text, font=ctk.CTkFont(weight="bold")).grid(row=row, column=0, padx=14, pady=(8, 2), sticky="w")
-        heading("FILE", 0); app.video_open_button = ctk.CTkButton(left, text="Choose Video", command=self.choose_video); app.video_open_button.grid(row=1, column=0, padx=14, pady=2, sticky="ew")
-        app.video_file_label = ctk.CTkLabel(left, text="No video selected", anchor="w", justify="left", wraplength=280); app.video_file_label.grid(row=2, column=0, padx=14, pady=(2, 6), sticky="ew")
+        heading("FILE", 0); self.source_control = SourceControl(left, choose_command=self.choose_video, choose_label="Choose Video", width=280); self.source_control.frame.grid(row=1, column=0, padx=14, pady=2, sticky="ew"); app.video_open_button = self.source_control.choose_button; app.video_file_label = self.source_control.filename_label
         heading("AI BADGE", 3)
         app.video_badge_group = ctk.CTkFrame(left, fg_color="transparent"); app.video_badge_group.grid(row=4, column=0, padx=14, pady=2, sticky="ew"); app.video_badge_group.grid_columnconfigure(0, weight=1)
         self.badge_control.frame.grid(row=0, column=0, sticky="ew")

@@ -18,6 +18,7 @@ from .document_preview_layout import fit_preview_size
 from .workspace_ui import build_badge_visual
 from .save_control import SaveControl
 from .badge_control import BadgeControl, BadgeProjection
+from .source_control import SourceControl
 
 
 class PptxConstructionReceipt:
@@ -59,6 +60,7 @@ class PptxWorkspace:
         self.root = None
         self.mounted = False
         self.preview_photo = None
+        self.source_control = None
         for name in ("badge_control", "save_control", "preview_host", "preview_label", "file_label", "choose_button", "save_button", "scope_menu", "scope_input", "scope_status", "previous_button", "next_button", "slide_status"):
             if hasattr(self, name):
                 setattr(self, name, None)
@@ -84,10 +86,10 @@ class PptxWorkspace:
         t = getattr(getattr(self.app, "translator", None), "text", lambda key: key)
         self.heading_label = ctk.CTkLabel(controls, text=t("content.powerpoint"), font=ctk.CTkFont(size=24, weight="bold")); self.heading_label.grid(row=0, column=0, padx=12, pady=(10, 8), sticky="w")
         self.file_heading = ctk.CTkLabel(controls, text=t("pptx.file_heading"), font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=1, column=0, padx=12, pady=(4, 2), sticky="w")
-        self.choose_button = ctk.CTkButton(controls, text=t("pptx.choose"), command=self._choose_file, width=160); self.choose_button.grid(row=2, column=0, padx=(12, 4), pady=2, sticky="w")
+        self.source_control = SourceControl(controls, choose_command=self._choose_file, choose_label=t("pptx.choose"), width=180); self.source_control.frame.grid(row=2, column=0, padx=(12, 4), pady=2, sticky="ew"); self.choose_button = self.source_control.choose_button
         self.save_control = SaveControl(controls, label="Save", command=self._save_as, width=58); self.save_button = self.save_control.button; self.save_button.grid(row=2, column=1, padx=(4, 12), pady=2, sticky="w")
         controls.grid_columnconfigure(0, weight=0, minsize=180); controls.grid_columnconfigure(1, weight=0, minsize=180)
-        self.file_label = ctk.CTkLabel(controls, text=t("pptx.no_file"), anchor="w"); self.file_label.grid(row=3, column=0, columnspan=2, padx=12, pady=(2, 5), sticky="w")
+        self.file_label = self.source_control.filename_label; self.file_metadata_label = self.source_control.metadata_label
         self.construction_receipt.file_section_created = True
         self.slides_heading = ctk.CTkLabel(controls, text=t("pptx.slides_heading"), font=ctk.CTkFont(weight="bold")); self.slides_heading.grid(row=4, column=0, padx=12, pady=(4, 2), sticky="w")
         self.scope_var = ctk.StringVar(value=t("pptx.scope.all"))
@@ -362,6 +364,8 @@ class PptxWorkspace:
         model = project_file(self.state, t)
         if hasattr(self, "file_label"):
             self.file_label.configure(text=model["status"] if not model["filename"] else f"{model['filename']}\n{model['details']}")
+        if hasattr(self, "source_control"):
+            self.source_control.project(filename=model["filename"], metadata=model["details"], empty_text=model["status"])
 
     def project(self) -> None:
         """Project the authoritative PPTX state into the mounted view."""

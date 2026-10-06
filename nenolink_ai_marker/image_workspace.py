@@ -19,6 +19,7 @@ from .metadata import marker_metadata
 from .workspace_state import ImageEvent, apply_image_event
 from .save_control import SaveControl
 from .badge_control import BadgeControl, BadgeProjection
+from .source_control import SourceControl
 
 
 class ImageWorkspace:
@@ -39,6 +40,7 @@ class ImageWorkspace:
                 pass
         self.root = None
         self.badge_control = None
+        self.source_control = None
         for name in ("image_workspace", "image_controls", "file_label", "preview_label", "welcome_frame", "process_button", "process_save_control", "badge_enable", "badge_menu", "single_badge_preview_label", "single_badge_name_label"):
             if hasattr(self.app, name):
                 setattr(self.app, name, None)
@@ -76,6 +78,8 @@ class ImageWorkspace:
             files = self.state.selected_files
             if getattr(self.app, "file_label", None) is not None:
                 self.app.file_label.configure(text=(f"{files[0].name} · {human_file_size(files[0].stat().st_size)}" if files else self.app.translator.text("files.none")))
+            if getattr(self, "source_control", None) is not None:
+                self.source_control.project(filename=(files[0].name if files else ""), metadata=(human_file_size(files[0].stat().st_size) if files else ""), empty_text=self.app.translator.text("files.none"))
             badge_path = self.app.badges.find(self.state.badge.badge_id) if self.state.badge.badge_id else None
             self.badge_control.project(BadgeProjection(bool(self.state.badge.enabled), self.app.badges.display_name(self.state.badge.badge_id), tuple(self.app.badges.display_name(p.name) for p in self.app.badges.display_badges()), badge_path, self.state.badge.position, self.state.badge.size, self.state.badge.margin, self.state.badge.opacity, self.app.translator.text("pdf.add_badge")))
             self.app.sources = list(files)
@@ -217,12 +221,9 @@ class ImageWorkspace:
         app.image_controls = left
         left.grid(row=0, column=0, padx=(4, 8), pady=4, sticky="nsew")
         left.grid_columnconfigure(0, weight=1)
-        app.open_button = ctk.CTkButton(left, command=self.choose_files)
-        app.open_button.grid(row=0, column=0, padx=14, pady=(10, 4), sticky="ew")
-        app.file_label = ctk.CTkLabel(left, anchor="w", justify="left", wraplength=280)
-        app.file_label.grid(row=1, column=0, padx=14, pady=3, sticky="ew")
-        app.file_size_guidance = ctk.CTkLabel(left, anchor="w", justify="left", wraplength=280, text_color="gray60")
-        app.file_size_guidance.grid(row=2, column=0, padx=14, pady=(0, 4), sticky="ew")
+        self.source_control = SourceControl(left, choose_command=self.choose_files, choose_label="Choose file", width=280)
+        self.source_control.frame.grid(row=0, column=0, padx=14, pady=(10, 4), sticky="ew")
+        app.open_button = self.source_control.choose_button; app.file_label = self.source_control.filename_label; app.file_size_guidance = self.source_control.metadata_label
         app.image_badge_group = ctk.CTkFrame(left, fg_color="transparent")
         app.image_badge_group.grid(row=3, column=0, padx=14, pady=(4, 4), sticky="ew")
         app.image_badge_group.grid_columnconfigure(0, weight=1)
