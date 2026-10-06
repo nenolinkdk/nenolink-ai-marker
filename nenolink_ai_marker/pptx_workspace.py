@@ -46,13 +46,29 @@ class PptxWorkspace:
         self.last_receipt = None
         self.construction_receipt = None
         self.receipts = ReceiptLog()
+        self.presentation_generation = 0
+
+    def _dispose_view(self) -> None:
+        root = self.root
+        if root is not None:
+            try:
+                if root.winfo_exists():
+                    root.destroy()
+            except Exception:
+                pass
+        self.root = None
+        self.mounted = False
+        self.preview_photo = None
+        for name in ("badge_control", "save_control", "preview_host", "preview_label", "file_label", "choose_button", "save_button", "scope_menu", "scope_input", "scope_status", "previous_button", "next_button", "slide_status"):
+            if hasattr(self, name):
+                setattr(self, name, None)
 
     def has_active_work(self) -> bool:
         return self.state.loaded
 
     def mount(self, content_host) -> None:
-        for child in content_host.winfo_children():
-            child.destroy()
+        self._dispose_view()
+        self.presentation_generation += 1
         self.root = ctk.CTkFrame(content_host, fg_color="transparent")
         self.root.grid(row=0, column=0, sticky="nsew")
         self.root.grid_columnconfigure(0, weight=0, minsize=360)
@@ -109,10 +125,6 @@ class PptxWorkspace:
         self.next_button = ctk.CTkButton(self.navigation, text="›", width=34, command=lambda: self._change_slide(1)); self.next_button.grid(row=0, column=2, padx=4)
         self.construction_receipt.preview_host_created = True
         preview.grid_columnconfigure(0, weight=1); preview.grid_rowconfigure(0, weight=1)
-        self._project_badge()
-        self._project_file()
-        self._project_scope()
-        self._dispatch(PptxEvent.BADGE_SELECT, self.badge_var.get(), record_only=True)
         self.state_token_reached = True
         self.receipts.record(self.construction_receipt)
         self.receipts.record({"layer": "pptx", "event": "PPTX_CONTROLS_LAYOUT_READY", "controls_column": True, "logo_controls": True})

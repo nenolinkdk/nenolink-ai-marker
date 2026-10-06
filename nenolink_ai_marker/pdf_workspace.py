@@ -35,12 +35,28 @@ class PdfWorkspace:
         self.app = app
         self.state = state
         self.root = None
+        self.presentation_generation = 0
+
+    def _dispose_view(self):
+        root = self.root
+        if root is not None:
+            try:
+                if root.winfo_exists():
+                    root.destroy()
+            except Exception:
+                pass
+        self.root = None
+        self.badge_control = None
+        self.preview_photo = None
+        for name in ("pdf_workspace", "pdf_workspace_root", "pdf_controls_host", "pdf_preview_host", "pdf_preview_label", "pdf_process_button", "pdf_save_control", "pdf_badge_enable", "pdf_badge_menu", "pdf_badge_visual", "pdf_badge_image_label", "pdf_badge_name_label"):
+            if hasattr(self.app, name):
+                setattr(self.app, name, None)
 
     def mount(self, host) -> None:
-        if self.root is not None and self.root.winfo_exists():
-            self.root.grid(); self.project(); return
+        self._dispose_view()
         app = self.app; t = app.translator.text
         self.root = ctk.CTkFrame(host, fg_color="transparent"); self.root.grid(row=0, column=0, sticky="nsew")
+        self.presentation_generation += 1
         self.root.grid_columnconfigure(0, weight=0, minsize=320); self.root.grid_columnconfigure(1, weight=1); self.root.grid_rowconfigure(0, weight=1)
         controls = ctk.CTkScrollableFrame(self.root, width=320, fg_color=("gray86", "gray17")); controls.grid(row=0, column=0, padx=(4,8), pady=4, sticky="nsew")
         preview_host = ctk.CTkFrame(self.root); preview_host.grid(row=0, column=1, padx=(8,4), pady=4, sticky="nsew"); preview_host.grid_columnconfigure(0, weight=1); preview_host.grid_rowconfigure(0, weight=1)
@@ -57,12 +73,9 @@ class PdfWorkspace:
         app.pdf_page_status=ctk.CTkLabel(nav,text="—",width=120); app.pdf_page_status.grid(row=0,column=1,padx=4)
         app.pdf_next_button=ctk.CTkButton(nav,text="▶",width=42,command=lambda:self.set_current_page(self.state.current_page+1)); app.pdf_next_button.grid(row=0,column=2,padx=4)
         app.pdf_save_control=SaveControl(controls,label="Save",command=self.save,width=58); app.pdf_process_button=app.pdf_save_control.button; app.pdf_process_button.grid(row=6,column=0,pady=(8,4),sticky="w")
-        self.project()
 
     def unmount(self) -> None:
-        root = self.root or getattr(self.app, "pdf_workspace", None)
-        if root is not None and root.winfo_exists():
-            root.grid_remove()
+        self._dispose_view()
 
     def project(self) -> None:
         app = self.app; state = self.state

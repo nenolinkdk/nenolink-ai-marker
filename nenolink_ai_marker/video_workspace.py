@@ -28,17 +28,32 @@ class VideoWorkspace:
         self.state = state
         self.preview_photo = None
         self.root = None
+        self.presentation_generation = 0
+
+    def _dispose_view(self):
+        root = self.root
+        if root is not None:
+            try:
+                if root.winfo_exists():
+                    root.destroy()
+            except Exception:
+                pass
+        self.root = None
+        self.badge_control = None
+        self.preview_photo = None
+        for name in ("video_workspace", "video_file_label", "video_preview_label", "video_badge_enable", "video_badge_menu", "video_badge_var", "video_badge_preview_label", "video_badge_name_label", "video_process_button", "video_save_control"):
+            if hasattr(self.app, name):
+                setattr(self.app, name, None)
 
     def mount(self, host):
-        if self.root is not None and self.root.winfo_exists():
-            self.root.grid(); self.project(); self.refresh_preview(); return
-        self.app._clear_content_host()
+        self._dispose_view()
         self.root = ctk.CTkFrame(host, fg_color="transparent"); self.root.grid(row=0, column=0, sticky="nsew")
+        self.presentation_generation += 1
         self.root.grid_columnconfigure(0, weight=0, minsize=320); self.root.grid_columnconfigure(1, weight=1); self.root.grid_rowconfigure(0, weight=1)
-        self._build_ui(self.root); self.project()
+        self._build_ui(self.root)
 
     def unmount(self):
-        if self.root is not None and self.root.winfo_exists(): self.root.grid_remove()
+        self._dispose_view()
 
     def project(self):
         if self.root is not None and self.root.winfo_exists():

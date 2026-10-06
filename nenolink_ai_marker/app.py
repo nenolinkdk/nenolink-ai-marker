@@ -1736,7 +1736,6 @@ class MarkerApp(ctk.CTk):
         self.sources = []
         self.image_state.preview_image = None
         self.preview_renderer.clear(); self.preview_photo = self.preview_image = None
-        self._clear_content_host()
 
     def _update_video_duration_visibility(self) -> None:
         if not getattr(self, "video_duration_entry", None): return

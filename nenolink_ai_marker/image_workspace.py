@@ -27,28 +27,35 @@ class ImageWorkspace:
         self.state = state
         self.scrollable_frame_cls = scrollable_frame_cls
         self.root = None
+        self.presentation_generation = 0
+
+    def _dispose_view(self):
+        root = self.root
+        if root is not None:
+            try:
+                if root.winfo_exists():
+                    root.destroy()
+            except Exception:
+                pass
+        self.root = None
+        self.badge_control = None
+        for name in ("image_workspace", "image_controls", "file_label", "preview_label", "welcome_frame", "process_button", "process_save_control", "badge_enable", "badge_menu", "single_badge_preview_label", "single_badge_name_label"):
+            if hasattr(self.app, name):
+                setattr(self.app, name, None)
 
     def mount(self, host):
         """Own Image view creation and projection; registry switch is deferred."""
-        if self.root is not None and self.root.winfo_exists():
-            self.root.grid()
-            self.project()
-            return
-        self.app._clear_content_host()
+        self._dispose_view()
         self.root = ctk.CTkFrame(host, fg_color="transparent")
+        self.presentation_generation += 1
         self.root.grid(row=0, column=0, sticky="nsew")
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_rowconfigure(0, weight=1)
         self.app.image_workspace = self.root
         self._build_ui(self.root)
-        self.project()
-        self.app.apply_image_translations()
-        self.app._validate_saved_logo()
-        self.app._show_welcome()
 
     def unmount(self):
-        if self.root is not None and self.root.winfo_exists():
-            self.root.grid_remove()
+        self._dispose_view()
 
     def has_active_work(self):
         return bool(self.state.selected_files)
@@ -65,6 +72,7 @@ class ImageWorkspace:
     def project(self):
         """Project authoritative state through the existing app adapters."""
         if self.root is not None and self.root.winfo_exists():
+            self.app.apply_image_translations()
             files = self.state.selected_files
             if getattr(self.app, "file_label", None) is not None:
                 self.app.file_label.configure(text=(f"{files[0].name} · {human_file_size(files[0].stat().st_size)}" if files else self.app.translator.text("files.none")))
