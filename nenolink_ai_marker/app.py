@@ -97,10 +97,13 @@ class _ShellRuntimeAdapter:
         self.destination_lookup = "success" if destination in self.app._workspace_registry else "failure"
         workspace = self.app._workspace_registry[destination]
         self.resolved_workspace = type(workspace).__name__
+        # Commit the destination in the authoritative Shell FSM before any
+        # destination mount/projection can observe or render it.
+        if self.app.shell_controller.active_content_type != destination:
+            self.app.shell_controller.dispatch(destination)
         workspace.mount(self.app.content_host)
         self.mount_result = "success"
     def project_destination(self, destination):
-        self.app.shell_controller.dispatch(destination)
         self.app._workspace_registry[destination].project()
         self.project_result = "success"
         self.app.mounted_view = destination.upper()
@@ -208,7 +211,7 @@ class LegacyMarkerApp(ctk.CTk):
         self.update_notification=ctk.CTkLabel(header,text="",text_color="#d62828",font=ctk.CTkFont(weight="bold"),cursor="hand2")
         self.update_notification.grid(row=0,column=1,padx=8); self.update_notification.bind("<Button-1>",self._open_update_page); self.update_notification.grid_remove()
         self.language_menu=ctk.CTkOptionMenu(header,variable=self.language_var,values=list(LANGUAGES),command=self.change_language,width=150); self.language_menu.grid(row=0,column=2,padx=8)
-        self.reset_button=ctk.CTkButton(header,text="",command=self.reset_application,width=100); self.reset_button.grid(row=0,column=3,padx=8)
+        self.reset_button=ctk.CTkButton(header,text="",command=lambda:self.dispatch_shell_event("reset"),width=100); self.reset_button.grid(row=0,column=3,padx=8)
         self.guide_button=ctk.CTkButton(header,text="",command=self.open_guide,width=170); self.guide_button.grid(row=0,column=4,padx=(8,20))
         self.content_display_to_kind={}; self.content_buttons={}
         self.content_navigation_frame=ctk.CTkFrame(self,height=1,fg_color=("gray90","gray18"),corner_radius=8); self.content_navigation_frame.grid(row=1,column=0,padx=20,pady=0,sticky="nw")
@@ -527,83 +530,27 @@ class LegacyMarkerApp(ctk.CTk):
         return self.request_content_transition(target) if target else False
 
     def request_content_transition(self,destination):
-        """Authoritative transition controller for the four content states."""
+        """Execute content navigation exclusively through the Shell table."""
+        if destination not in self._workspace_registry:
+            raise ValueError(f"Unknown content destination: {destination}")
+        source = self.shell_controller.active_content_type
+        active = self._format_has_active_work(source)
+        spec = shell_transition_spec(source, self.shell_controller.active_tool, destination, active)
+        self.last_shell_spec = spec
+        if spec.requires_confirmation:
+            if not self._confirm_format_switch(source, destination):
+                spec = shell_transition_spec(source, self.shell_controller.active_tool, destination, active, "cancel")
+                self.last_shell_spec = spec
+                self._shell_executor.execute(spec, _ShellRuntimeAdapter(self))
+                return False
+            spec = shell_transition_spec(source, self.shell_controller.active_tool, destination, active, "continue")
+            self.last_shell_spec = spec
         try:
-            if destination not in {"image","video","pdf","pptx"}:return False
-            source=self.active_content_type
-            if self.active_tool is None and source==destination:return True
-            if self.active_tool is None and self._format_has_active_work(source):
-                if not self._confirm_format_switch(source,destination):
-                    self._render_authoritative_state(); return False
-            if self.active_tool is None:self.destroy_runtime_context(source)
-            self.active_tool=None
-            self.active_content_type=destination
-            self.initialize_clean_context(destination)
-            self._render_authoritative_state()
-            return True
-        finally:MarkerApp._ensure_global_controls_enabled(self)
-
-    def _destroy_context_widgets(self, content_type):
-        """Remove every format-owned widget before another format can render."""
-        if not hasattr(self,"single_tab"):
-            return
-        tabs={"image":(self.single_tab,self.batch_tab), "video":(self.single_tab,self.batch_tab),
-              "pdf":(self.pdf_tab,), "pptx":(self.pptx_tab,)}
-        for tab in tabs.get(content_type, ()):
-            for child in tab.winfo_children(): child.destroy()
-        if content_type in {"image","video"}:
-            for name in ("single_controls","preview_label","welcome_frame","video_controls","open_button","badge_menu"):
-                setattr(self,name,None)
-        elif content_type in {"pdf","pptx"}:
-            setattr(self, f"{content_type}_context_widgets", None)
-            for name in self._document_widget_names: setattr(self,name,None)
-
-    def _create_context_widgets(self, content_type):
-        if not hasattr(self,"single_tab"):
-            return
-        if content_type == "image":
-            self.image_workspace_owner.mount(self.content_host)
-        elif content_type == "video":
-            self.video_workspace_owner.mount(self.content_host)
-        elif content_type == "batch":
-            self._batch_ui()
-        else:
-            tab=self.pdf_tab if content_type=="pdf" else self.pptx_tab
-            context=self._document_context_ui(tab)
-            setattr(self, f"{content_type}_context_widgets", context)
-            self._bind_document_context_widgets(content_type)
-
-    def destroy_runtime_context(self,content_type):
-        self.reset_format_context(content_type)
-        MarkerApp._destroy_context_widgets(self,content_type)
-        if self.active_runtime_context_type==content_type:self.active_runtime_context_type=None
-
-    def initialize_clean_context(self,content_type):
-        # A destination is recreated, rather than resurrected from a hidden tab.
-        MarkerApp._destroy_context_widgets(self,content_type)
-        self.reset_format_context(content_type)
-        self.active_runtime_context_type=content_type
-        MarkerApp._create_context_widgets(self,content_type)
-
-    def _render_authoritative_state(self):
-        """Project authoritative state into widgets; widgets never own it."""
-        if self.active_tool:
-            MarkerApp._set_format_navigation(self,None); self.tools_navigation.set(self.translator.text("tab.badges" if self.active_tool=="badges" else "tab.inspect")); self._configure_secondary_navigation(self.active_tool)
-            if self.active_tool=="inspect":self._render_inspection()
-            return
-        self.tools_navigation.set(""); MarkerApp._set_format_navigation(self,self.active_content_type)
-        self._configure_secondary_navigation("single")
-        if self.active_content_type == "image":
-            self.image_workspace_owner.mount(self.content_host)
-        elif self.active_content_type == "video":
-            self.video_workspace_owner.mount(self.content_host)
-        elif self.active_content_type == "pdf":
-            self._mount_pdf_workspace()
-        else:
-            # PPTX is a peer production workspace, not a placeholder or a
-            # legacy Document Workspace tab. Mount its complete clean route.
-            self._mount_pptx_workspace()
-        self.visible_workspace_type=self.active_content_type
+            self._shell_executor.execute(spec, _ShellRuntimeAdapter(self))
+        except RuntimeError:
+            return False
+        self.render_shell_state(remount=False)
+        return True
 
     def _format_has_active_work(self,format_type):
         if format_type == "image": return self.image_workspace_owner.has_active_work()
@@ -612,11 +559,6 @@ class LegacyMarkerApp(ctk.CTk):
         if format_type=="pdf":return self.pdf_path is not None
         if format_type=="pptx":return self.pptx_path is not None
         return False
-
-    def _set_format_navigation(self,format_type):
-        for kind, button in getattr(self,"content_buttons",{}).items():
-            selected=kind==format_type
-            button.configure(fg_color=("#2474ad","#1f6aa5") if selected else ("#6b6b6b","#454545"))
 
     def _confirm_format_switch(self,source,target):
         result={"continue":False}; dialog=ctk.CTkToplevel(self); self._format_switch_dialog=dialog; dialog.title(self.translator.text("navigation.switch_title")); dialog.transient(self); dialog.resizable(False,False)
@@ -634,7 +576,7 @@ class LegacyMarkerApp(ctk.CTk):
         # workspace and do not show a loss-of-work confirmation.
         self.active_tool=target
         if target=="inspect":self.inspection_path=None; self.inspection_result=None; self.inspection_error=""; self.inspection_unsupported=False
-        self._render_authoritative_state(); return True
+        self.render_shell_state(); return True
 
     def reset_format_context(self,format_type,preserve_visual_settings=True,*,keep_file=False,scope="all"):
         """Reset file/navigation state without touching shared badge/logo styling."""
@@ -1107,8 +1049,9 @@ class LegacyMarkerApp(ctk.CTk):
             self.tabs.set(self.tab_names[key])
     def navigate_home(self):
         if self.active_tool:
-            self.active_tool=None; self.initialize_clean_context(self.active_content_type)
-        self._render_authoritative_state()
+            self.dispatch_shell_event("back")
+            return
+        self.render_shell_state()
     def choose_inspection_file(self):
         patterns=" ".join(f"*{extension}" for extension in sorted(INSPECT_EXTENSIONS | {".pdf",".pptx"}))
         selected=filedialog.askopenfilename(title=self.translator.text("inspect.choose"),filetypes=[(self.translator.text("inspect.supported"),patterns),(self.translator.text("files.all"),"*.*")])
@@ -1131,65 +1074,6 @@ class LegacyMarkerApp(ctk.CTk):
             suffix=self.inspection_path.suffix.lower().lstrip(".").upper() if self.inspection_path else ""; size=human_file_size(self.inspection_path.stat().st_size) if self.inspection_path and self.inspection_path.is_file() else ""; self.inspect_format_var.set(" · ".join(value for value in (suffix,size) if value)); self.inspect_status_var.set(t("inspect.error")); self.inspect_software_var.set(missing); self.inspect_label_var.set(missing); self.inspect_version_var.set(missing); self.inspect_message_var.set(t("inspect.error_message",reason=self.inspection_error))
         else:
             self.inspect_format_var.set(""); self.inspect_status_var.set(t("inspect.ready")); self.inspect_software_var.set(missing); self.inspect_label_var.set(missing); self.inspect_version_var.set(missing); self.inspect_message_var.set(t("inspect.no_ai_warning"))
-    def reset_application(self):
-        """Destroy all runtime state and recreate the canonical fresh start."""
-        custom_folder=self.custom_badge_var.get()
-        MarkerApp._destroy_all_runtime_contexts(self)
-        MarkerApp._create_fresh_runtime_state(self)
-        self.custom_badge_var.set(custom_folder)
-        self.refresh_badges(False); self.apply_translations(); self._render_authoritative_state()
-        self.status_var.set(self.translator.text("status.reset")); self._save()
-        MarkerApp._ensure_global_controls_enabled(self)
-
-    def _destroy_all_runtime_contexts(self):
-        dialog=getattr(self,"_format_switch_dialog",None)
-        if dialog is not None:
-            try:dialog.destroy()
-            except (TclError,AttributeError):pass
-        self._format_switch_dialog=None
-        after_id=getattr(self,"_reset_after_id",None)
-        if after_id:
-            try:self.after_cancel(after_id)
-            except (TclError,AttributeError):pass
-        self._reset_after_id=None; self.cancel_event.clear()
-        # Reset is a hard lifecycle boundary, including hidden format trees.
-        for content_type in ("image","video","pdf","pptx"):
-            MarkerApp._destroy_context_widgets(self,content_type)
-        for renderer_name in ("preview_renderer","pdf_preview_renderer","pptx_preview_renderer"):
-            renderer=getattr(self,renderer_name,None)
-            if renderer is not None:
-                try:renderer.clear()
-                except (AttributeError,TclError,RuntimeError):pass
-
-    def _create_fresh_runtime_state(self):
-        """Create state equivalent to a new application process."""
-        self.active_tool=None; self.active_content_type="image"; self.active_runtime_context_type="image"; self.visible_workspace_type="image"; self.active_media_mode="single"; self.media_sources={"image":[],"video":[]}; self.sources=[]; self.scan=None
-        self.inspection_path=None; self.inspection_result=None; self.inspection_error=""; self.inspection_unsupported=False
-        self.pdf_path=None; self.pdf_info=None; self.pptx_path=None; self.pptx_metrics=None
-        self._pdf_warning_approved=None; self._pdf_signature_approved=None; self._pptx_warning_approved=None
-        self.pdf_preview_state.clear(); self.pptx_preview_state.clear(); self.pptx_preview_photo=None
-        self.preview_photo=None; self.preview_image=None
-        for state in self.document_scope_states.values():state.reset()
-        defaults=MarkerSettings()
-        for name,value in (("badge_source_var","standard"),("badge_var",defaults.badge_name),("position_var",defaults.position),("size_var",defaults.size_percent),("margin_var",defaults.margin),("opacity_var",defaults.opacity),("batch_suffix_var",defaults.batch_filename_suffix),("video_mode_var",defaults.video_mode),("video_duration_var",defaults.video_duration),("logo_enabled_var",False),("logo_position_var",defaults.logo_position),("logo_size_var",defaults.logo_size_percent),("logo_margin_var",defaults.logo_margin),("logo_opacity_var",defaults.logo_opacity),("pdf_badge_enabled_var",True),("pptx_selection_mode_var","all"),("pptx_selected_var",""),("pptx_range_var","1-2")):
-            variable=getattr(self,name,None)
-            if variable is not None:
-                try:variable.set(value)
-                except (TclError,AttributeError):pass
-        for name,value in (("status_var",""),("scan_summary_var",""),("progress_text_var",""),("pdf_file_var",""),("pptx_file_var","")):
-            variable=getattr(self,name,None)
-            if variable is not None:
-                try:variable.set(value)
-                except (TclError,AttributeError):pass
-        progress=getattr(self,"progress",None)
-        if progress is not None:
-            try:progress.set(0)
-            except (TclError,AttributeError):pass
-        MarkerApp._create_context_widgets(self,"image")
-        self._render_authoritative_state()
-        try:self.render_start_view()
-        except (TclError,AttributeError):pass
-
     def _clear_document_states(self):
         for kind in ("pptx","pdf","docx"):
             try:self.reset_format_context(kind)
