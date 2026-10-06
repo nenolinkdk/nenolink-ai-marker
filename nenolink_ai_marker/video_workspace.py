@@ -11,6 +11,7 @@ from .models import MarkerSettings
 from .metadata import marker_metadata
 from .workspace_state import VideoEvent, apply_video_event
 from .save_control import SaveControl
+from .badge_control import BadgeControl, BadgeProjection
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,17 +62,16 @@ class VideoWorkspace:
         app.video_size_var.set(self.state.badge.size); app.video_margin_var.set(self.state.badge.margin); app.video_opacity_var.set(self.state.badge.opacity)
         names = [path.name for path in app.badges.display_badges()]
         displays = [app.badges.display_name(name) for name in names]
-        app.video_badge_menu.configure(values=displays or [app.translator.text("badge.none")])
-        app.video_badge_preview_label.configure(image=None, text=app.translator.text("badge.none"))
+        image = None
         badge = self._badge_path()
         if badge:
             try:
                 with Image.open(badge) as opened: image = opened.convert("RGBA")
                 image.thumbnail((110, 54), Image.Resampling.LANCZOS)
                 app.video_badge_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
-                app.video_badge_preview_label.configure(image=app.video_badge_photo, text="")
+                image = app.video_badge_photo
             except OSError: pass
-        app.video_badge_enable.select() if self.state.badge.enabled else app.video_badge_enable.deselect()
+        self.badge_control.project(BadgeProjection(bool(self.state.badge.enabled), app.badges.display_name(self.state.badge.badge_id), tuple(displays), image, self.state.badge.position, self.state.badge.size, self.state.badge.margin, self.state.badge.opacity))
 
     def _badge_path(self):
         return next((path for path in self.app.badges.display_badges() if path.name == self.state.badge.badge_id), None)
@@ -109,14 +109,15 @@ class VideoWorkspace:
         apply_video_event(self.state, VideoEvent.BADGE_CHANGED, {"badge_id": self.app.badge_display_to_file.get(label, label)})
         self.project(); self.refresh_preview(); self.app._save_image_settings()
 
-    def change_visual(self, *_args):
+    def change_visual(self, enabled=None, *_args):
         apply_video_event(self.state, VideoEvent.VISUAL_CHANGED, {
-            "enabled": bool(self.app.badge_enabled_var.get()), "position": self.app.video_position_display_to_value.get(self.app.video_position_display_var.get(), self.app.video_position_display_var.get()), "size": int(self.app.video_size_var.get()),
+            "enabled": bool(self.app.badge_enabled_var.get()) if enabled is None else bool(enabled), "position": self.app.video_position_display_to_value.get(self.app.video_position_display_var.get(), self.app.video_position_display_var.get()), "size": int(self.app.video_size_var.get()),
             "margin": int(self.app.video_margin_var.get()), "opacity": int(self.app.video_opacity_var.get()),
         })
         self.project(); self.refresh_preview(); self.app._save_image_settings()
 
     def _build_ui(self, workspace):
+        self.badge_control = BadgeControl(workspace, on_enabled_changed=self.change_visual, on_badge_selected=self.change_badge)
         app = self.app
         left = app.AutoHideScrollableFrame(workspace, width=320, fg_color=("gray86", "gray17")) if hasattr(app, "AutoHideScrollableFrame") else ctk.CTkScrollableFrame(workspace, width=320, fg_color=("gray86", "gray17"))
         app.video_controls_host = left; left.grid(row=0, column=0, padx=(4, 8), pady=4, sticky="nsew"); left.grid_columnconfigure(0, weight=1)
@@ -124,12 +125,8 @@ class VideoWorkspace:
         def heading(text, row): ctk.CTkLabel(left, text=text, font=ctk.CTkFont(weight="bold")).grid(row=row, column=0, padx=14, pady=(8, 2), sticky="w")
         heading("FILE", 0); app.video_open_button = ctk.CTkButton(left, text="Choose Video", command=self.choose_video); app.video_open_button.grid(row=1, column=0, padx=14, pady=2, sticky="ew")
         app.video_file_label = ctk.CTkLabel(left, text="No video selected", anchor="w", justify="left", wraplength=280); app.video_file_label.grid(row=2, column=0, padx=14, pady=(2, 6), sticky="ew")
-        heading("AI BADGE", 3); app.video_badge_enable = ctk.CTkCheckBox(left, text="Add AI badge", variable=app.badge_enabled_var, command=self.change_visual); app.video_badge_enable.grid(row=4, column=0, padx=14, pady=2, sticky="w")
-        app.video_badge_label = ctk.CTkLabel(left, text="Selected Badge", anchor="w"); app.video_badge_label.grid(row=5, column=0, padx=14, pady=1, sticky="w")
-        app.video_badge_var = ctk.StringVar(value=app.badge_display_var.get()); app.video_badge_menu = ctk.CTkOptionMenu(left, variable=app.video_badge_var, values=["—"], command=self.change_badge); app.video_badge_menu.grid(row=6, column=0, padx=14, pady=2, sticky="ew")
-        badge_preview = ctk.CTkFrame(left); badge_preview.grid(row=7, column=0, padx=14, pady=3, sticky="ew"); badge_preview.grid_columnconfigure(1, weight=1)
-        app.video_badge_preview_label = ctk.CTkLabel(badge_preview, width=90, height=44); app.video_badge_preview_label.grid(row=0, column=0, padx=5, pady=5)
-        app.video_badge_name_label = ctk.CTkLabel(badge_preview, textvariable=app.badge_name_var, font=ctk.CTkFont(weight="bold"), anchor="w", wraplength=155); app.video_badge_name_label.grid(row=0, column=1, padx=(3, 5), pady=5, sticky="ew")
+        heading("AI BADGE", 3); self.badge_control.frame.grid(row=4, column=0, padx=14, pady=2, sticky="ew")
+        app.video_badge_enable = self.badge_control.enabled_widget; app.video_badge_menu = self.badge_control.selector_widget; app.video_badge_var = self.badge_control.selector_var; app.video_badge_preview_label = self.badge_control.graphic_widget; app.video_badge_name_label = self.badge_control.graphic_widget
         app.video_position_var = ctk.StringVar(value="bottom-right"); app.video_position_display_var = ctk.StringVar(value="Bottom right"); app.video_position_display_to_value = {"Top left":"top-left", "Top right":"top-right", "Bottom left":"bottom-left", "Bottom right":"bottom-right", "Center":"center"}
         app.video_position_label = ctk.CTkLabel(left, text="Badge Position"); app.video_position_label.grid(row=8, column=0, padx=14, pady=1, sticky="w"); app.video_position_menu = ctk.CTkOptionMenu(left, variable=app.video_position_display_var, values=list(app.video_position_display_to_value), command=lambda _label: self.change_visual()); app.video_position_menu.grid(row=9, column=0, padx=14, pady=2, sticky="ew")
         app.video_size_var = ctk.IntVar(value=20); app.video_margin_var = ctk.IntVar(value=20); app.video_opacity_var = ctk.IntVar(value=100)

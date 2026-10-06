@@ -18,6 +18,7 @@ from .metadata import marker_metadata
 from dataclasses import replace
 from .workspace_state import PdfEvent, PdfWorkspaceState, apply_pdf_event
 from .save_control import SaveControl
+from .badge_control import BadgeControl, BadgeProjection
 from .workspace_ui import build_badge_visual
 
 
@@ -36,6 +37,7 @@ class PdfWorkspace:
         self.root = None
 
     def mount(self, host) -> None:
+        self.badge_control = BadgeControl(host, on_enabled_changed=self.visual_changed, on_badge_selected=self.select_badge)
         if self.root is not None and self.root.winfo_exists():
             self.root.grid(); self.project(); return
         app = self.app; t = app.translator.text
@@ -47,10 +49,8 @@ class PdfWorkspace:
         ctk.CTkLabel(controls, text="PDF", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0,column=0,pady=(2,1),sticky="w")
         app.pdf_choose_button = ctk.CTkButton(controls, text=t("pdf.choose"), command=self.choose_file); app.pdf_choose_button.grid(row=1,column=0,pady=(4,8),sticky="w")
         app.pdf_file_label = ctk.CTkLabel(controls,text=t("pdf.no_file"),text_color="gray60",anchor="w"); app.pdf_file_label.grid(row=2,column=0,pady=4,sticky="w")
-        app.pdf_badge_enabled_var.set(self.state.badge.enabled)
-        app.pdf_badge_enable = ctk.CTkCheckBox(controls,text=t("pdf.add_badge"),variable=app.pdf_badge_enabled_var,command=self.visual_changed); app.pdf_badge_enable.grid(row=3,column=0,pady=(8,2),sticky="w")
-        app.pdf_badge_menu = ctk.CTkOptionMenu(controls,variable=app.badge_display_var,values=["—"],command=self.select_badge); app.pdf_badge_menu.grid(row=4,column=0,pady=2,sticky="w")
-        app.pdf_badge_visual = build_badge_visual(controls, image=None, name_variable=app.badge_name_var); app.pdf_badge_visual.grid(row=5,column=0,pady=(2,4),sticky="w"); app.pdf_badge_image_label=app.pdf_badge_visual; app.pdf_badge_name_label=app.pdf_badge_visual
+        self.badge_control.frame.grid(row=3,column=0,pady=(8,2),sticky="w")
+        app.pdf_badge_enable = self.badge_control.enabled_widget; app.pdf_badge_menu = self.badge_control.selector_widget; app.badge_display_var = self.badge_control.selector_var; app.pdf_badge_visual = self.badge_control.graphic_widget; app.pdf_badge_image_label=app.pdf_badge_visual; app.pdf_badge_name_label=app.pdf_badge_visual
         app.pdf_preview_label = ctk.CTkLabel(preview_host,text="PDF page preview",fg_color=("gray92","gray13")); app.pdf_preview_label.grid(row=0,column=0,pady=(12,4),sticky="nsew")
         nav = ctk.CTkFrame(preview_host,fg_color="transparent"); nav.grid(row=1,column=0,pady=4)
         app.pdf_previous_button=ctk.CTkButton(nav,text="◀",width=42,command=lambda:self.set_current_page(self.state.current_page-1)); app.pdf_previous_button.grid(row=0,column=0,padx=4)
@@ -66,6 +66,8 @@ class PdfWorkspace:
 
     def project(self) -> None:
         app = self.app; state = self.state
+        # Keep the authoritative badge state explicit at the projection boundary.
+        _authoritative_badge = self.state.badge
         self._ensure_badge_selection()
         app.pdf_path = state.path
         app.pdf_current_page = state.current_page
@@ -109,23 +111,20 @@ class PdfWorkspace:
             return
         names = [path.name for path in badges.display_badges()]
         displays = [app.badges.display_name(name) for name in names]
-        if getattr(app, "pdf_badge_menu", None):
-            app.pdf_badge_menu.configure(values=displays or [app.translator.text("badge.none")])
-            display = app.badges.display_name(state.badge.badge_id) if state.badge.badge_id else "—"
-            app.pdf_badge_menu.set(display)
-            app.pdf_badge_menu.configure(state="normal" if state.badge.enabled else "disabled")
-        app.pdf_badge_enabled_var.set(state.badge.enabled)
+        display = app.badges.display_name(state.badge.badge_id) if state.badge.badge_id else "—"
         badge = next((path for path in app.badges.display_badges() if path.name == state.badge.badge_id), None)
         if badge:
             try:
                 with Image.open(badge) as opened: image = opened.convert("RGBA")
                 image.thumbnail((110, 54), Image.Resampling.LANCZOS)
                 app.pdf_badge_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
-                app.pdf_badge_visual.configure(image=app.pdf_badge_photo, text=app.badges.display_name(badge.name))
+                image = app.pdf_badge_photo
             except OSError: pass
+        self.badge_control.project(BadgeProjection(bool(state.badge.enabled), display, tuple(displays), image, state.badge.position, state.badge.size, state.badge.margin, state.badge.opacity))
+        app.pdf_badge_enabled_var.set(state.badge.enabled)
 
-    def visual_changed(self, *_args) -> None:
-        self.set_badge(enabled=bool(self.app.pdf_badge_enabled_var.get()))
+    def visual_changed(self, enabled=None, *_args) -> None:
+        self.set_badge(enabled=bool(self.app.pdf_badge_enabled_var.get()) if enabled is None else bool(enabled))
 
     def select_badge(self, display_name: str) -> None:
         badge_id = self.app.badge_display_to_file.get(display_name, display_name)

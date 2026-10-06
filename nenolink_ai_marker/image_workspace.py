@@ -18,6 +18,7 @@ from .image_output import ImageProcessingRequest
 from .metadata import marker_metadata
 from .workspace_state import ImageEvent, apply_image_event
 from .save_control import SaveControl
+from .badge_control import BadgeControl, BadgeProjection
 
 
 class ImageWorkspace:
@@ -68,7 +69,13 @@ class ImageWorkspace:
             files = self.state.selected_files
             if getattr(self.app, "file_label", None) is not None:
                 self.app.file_label.configure(text=(f"{files[0].name} · {human_file_size(files[0].stat().st_size)}" if files else self.app.translator.text("files.none")))
-            self.app._project_image_visual_state()
+            badge_path = self.app.badges.find(self.state.badge.badge_id) if self.state.badge.badge_id else None
+            image = None
+            if badge_path:
+                try:
+                    with Image.open(badge_path) as opened: image = ctk.CTkImage(light_image=opened.convert("RGBA"), dark_image=opened.convert("RGBA"), size=(110, 54))
+                except OSError: image = None
+            self.badge_control.project(BadgeProjection(bool(self.state.badge.enabled), self.app.badges.display_name(self.state.badge.badge_id), tuple(self.app.badges.display_name(p.name) for p in self.app.badges.display_badges()), image, self.state.badge.position, self.state.badge.size, self.state.badge.margin, self.state.badge.opacity))
             self.app.sources = list(files)
             self.app.media_sources["image"] = list(files)
             self.refresh_preview()
@@ -135,9 +142,9 @@ class ImageWorkspace:
         warning = "\n\n" + app.translator.text("warning.metadata_failed") if metadata_warnings else ""
         (messagebox.showerror if failures else messagebox.showinfo)(app.translator.text("error.completed") if failures else app.translator.text("complete.title"), summary + ("\n\n" + "\n".join(failures[:8]) if failures else "") + warning)
 
-    def badge_changed(self):
+    def badge_changed(self, displayed=None):
         selector = getattr(self.app, "badge_display_var", None)
-        displayed = selector.get() if selector is not None else self.app.badge_var.get()
+        displayed = displayed if displayed is not None else (selector.get() if selector is not None else self.app.badge_var.get())
         badge_id = getattr(self.app, "badge_display_to_file", {}).get(displayed, displayed)
         apply_image_event(self.state, ImageEvent.BADGE_CHANGED, {"badge_id": badge_id})
         self.app._project_image_visual_state()
@@ -166,9 +173,9 @@ class ImageWorkspace:
         self.app._project_image_visual_state()
         self.refresh_preview()
 
-    def visual_changed(self, *_args):
+    def visual_changed(self, enabled=None, *_args):
         apply_image_event(self.state, ImageEvent.VISUAL_CHANGED, {
-            "enabled": bool(self.app.badge_enabled_var.get()),
+            "enabled": bool(self.app.badge_enabled_var.get()) if enabled is None else bool(enabled),
             "position": self.app.position_var.get(), "size": int(self.app.size_var.get()),
             "margin": int(self.app.margin_var.get()), "opacity": int(self.app.opacity_var.get()),
             "logo_enabled": bool(self.app.logo_enabled_var.get()), "logo_path": self.app._logo_path(),
@@ -188,6 +195,7 @@ class ImageWorkspace:
         return label
 
     def _build_ui(self, workspace):
+        self.badge_control = BadgeControl(workspace, on_enabled_changed=self.visual_changed, on_badge_selected=self.badge_changed)
         """Build the existing Image controls; this is the sole UI builder."""
         app = self.app
         workspace.grid_columnconfigure(1, weight=1)
@@ -202,22 +210,9 @@ class ImageWorkspace:
         app.file_label.grid(row=1, column=0, padx=14, pady=3, sticky="ew")
         app.file_size_guidance = ctk.CTkLabel(left, anchor="w", justify="left", wraplength=280, text_color="gray60")
         app.file_size_guidance.grid(row=2, column=0, padx=14, pady=(0, 4), sticky="ew")
-        badge_section = ctk.CTkFrame(left)
-        badge_section.grid(row=3, column=0, padx=14, pady=(4, 4), sticky="ew")
-        badge_section.grid_columnconfigure(0, weight=1)
-        app.badge_enable = ctk.CTkCheckBox(badge_section, variable=app.badge_enabled_var, command=self.visual_changed)
-        app.badge_enable.grid(row=0, column=0, padx=8, pady=(7, 3), sticky="w")
-        app.single_badge_label = ctk.CTkLabel(badge_section, font=ctk.CTkFont(weight="bold"))
-        app.single_badge_label.grid(row=1, column=0, padx=8, pady=(2, 1), sticky="w")
-        app.badge_menu = ctk.CTkOptionMenu(badge_section, variable=app.badge_display_var, values=["—"], command=lambda value: self.badge_changed())
-        app.badge_menu.grid(row=2, column=0, padx=8, pady=2, sticky="ew")
-        badge_preview = ctk.CTkFrame(badge_section)
-        badge_preview.grid(row=3, column=0, padx=8, pady=(3, 7), sticky="ew")
-        badge_preview.grid_columnconfigure(1, weight=1)
-        app.single_badge_preview_label = ctk.CTkLabel(badge_preview, width=90, height=44)
-        app.single_badge_preview_label.grid(row=0, column=0, padx=5, pady=5)
-        app.single_badge_name_label = ctk.CTkLabel(badge_preview, textvariable=app.badge_name_var, font=ctk.CTkFont(weight="bold"), anchor="w", wraplength=155)
-        app.single_badge_name_label.grid(row=0, column=1, padx=(3, 5), pady=5, sticky="ew")
+        self.badge_control.frame.grid(row=3, column=0, padx=14, pady=(4, 4), sticky="ew")
+        app.badge_enable = self.badge_control.enabled_widget; app.badge_menu = self.badge_control.selector_widget
+        app.single_badge_preview_label = self.badge_control.graphic_widget; app.single_badge_name_label = self.badge_control.graphic_widget
         app.position_label = ctk.CTkLabel(left)
         app.position_label.grid(row=4, column=0, padx=14, pady=(5, 1), sticky="w")
         app.position_menu = ctk.CTkOptionMenu(left, variable=app.position_display_var, values=["—"], command=self.position_changed)

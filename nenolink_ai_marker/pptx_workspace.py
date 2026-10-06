@@ -17,6 +17,7 @@ from .diagnostic_receipts import ReceiptLog
 from .document_preview_layout import fit_preview_size
 from .workspace_ui import build_badge_visual
 from .save_control import SaveControl
+from .badge_control import BadgeControl, BadgeProjection
 
 
 class PptxConstructionReceipt:
@@ -87,14 +88,10 @@ class PptxWorkspace:
         self.scope_status = ctk.CTkLabel(controls, text=t("pptx.selected_count", count=0), anchor="w")
         self.scope_status.grid(row=8, column=0, padx=12, pady=(2, 8), sticky="w")
         ctk.CTkLabel(controls, text=t("badge"), font=ctk.CTkFont(weight="bold")).grid(row=9, column=0, padx=12, pady=(4, 2), sticky="w")
-        self.enabled_var = ctk.BooleanVar(value=self.state.badge.enabled)
-        self.badge_enable = ctk.CTkCheckBox(controls, text=t("pptx.badge_enable"), variable=self.enabled_var, command=lambda: self._dispatch(PptxEvent.BADGE_ENABLE, self.enabled_var.get())); self.badge_enable.grid(row=10, column=0, padx=12, pady=2, sticky="w")
-        names = list(getattr(getattr(self.app, "badge_display_to_file", None), "keys", lambda: [])()) or ["AI Assisted"]
-        self.badge_var = ctk.StringVar(value="AI Assisted" if "AI Assisted" in names else names[0])
-        self.badge_menu = ctk.CTkOptionMenu(controls, variable=self.badge_var, values=names, command=lambda v: self._dispatch(PptxEvent.BADGE_SELECT, v), width=190); self.badge_menu.grid(row=11, column=0, padx=12, pady=2, sticky="w")
-        self.badge_visual = build_badge_visual(controls, name_variable=self.badge_var); self.badge_visual.grid(row=12, column=0, columnspan=2, padx=12, pady=(2, 4), sticky="w")
-        self.badge_image = self.badge_visual
-        self.badge_name = self.badge_visual
+        self.badge_control = BadgeControl(controls, on_enabled_changed=lambda value: self._dispatch(PptxEvent.BADGE_ENABLE, value), on_badge_selected=lambda value: self._dispatch(PptxEvent.BADGE_SELECT, value))
+        self.badge_control.frame.grid(row=10, column=0, columnspan=2, padx=12, pady=2, sticky="ew")
+        self.enabled_var = self.badge_control.enabled_var; self.badge_var = self.badge_control.selector_var
+        self.badge_enable = self.badge_control.enabled_widget; self.badge_menu = self.badge_control.selector_widget; self.badge_visual = self.badge_control.graphic_widget; self.badge_image = self.badge_visual; self.badge_name = self.badge_visual
         self.construction_receipt.badge_section_created = True
         self._build_visual_controls(controls)
         # Keep a fixed viewport: rendered slide pixels must never determine
@@ -340,17 +337,19 @@ class PptxWorkspace:
             self.scope_status.configure(text=t("pptx.selected_count", count=len(self.state.active_scope)))
 
     def _project_badge(self):
-        if hasattr(self, "badge_visual"):
+        if hasattr(self, "badge_control"):
             repository = getattr(self.app, "badges", None)
             if repository and (hasattr(repository, "display_badges") or hasattr(repository, "all")):
                 model = project_badge(self.state, repository)
-                self.badge_name.configure(text=model["display_name"])
                 asset = model.get("asset")
+                image = None
                 if asset and asset.exists():
                     with Image.open(asset) as opened: image = opened.convert("RGBA")
                     image.thumbnail((110, 54), Image.Resampling.LANCZOS)
                     self.badge_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
-                    self.badge_visual.configure(image=self.badge_photo, text=model["display_name"])
+                    image = self.badge_photo
+                names = tuple(repository.display_name(path.name) for path in repository.display_badges())
+                self.badge_control.project(BadgeProjection(bool(self.state.badge.enabled), model["display_name"], names, image, self.state.badge.position, self.state.badge.size, self.state.badge.margin, self.state.badge.opacity))
 
     def _project_file(self):
         t = getattr(getattr(self.app, "translator", None), "text", lambda key, **v: key)
