@@ -17,6 +17,7 @@ from .processor import SUPPORTED_EXTENSIONS
 from .image_output import ImageProcessingRequest
 from .metadata import marker_metadata
 from .workspace_state import ImageEvent, apply_image_event
+from .save_control import SaveControl
 
 
 class ImageWorkspace:
@@ -240,7 +241,8 @@ class ImageWorkspace:
         app.logo_opacity_label = ctk.CTkLabel(app.logo_controls); app.logo_opacity_label.grid(row=8, column=0, columnspan=2, padx=8, sticky="w")
         app.logo_opacity_slider = ctk.CTkSlider(app.logo_controls, from_=0, to=100, number_of_steps=100, variable=app.logo_opacity_var, command=self.logo_changed); app.logo_opacity_slider.grid(row=9, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="ew")
         app.logo_images_only = ctk.CTkLabel(app.logo_controls, text_color="gray60"); app.logo_images_only.grid(row=10, column=0, columnspan=2, padx=8, pady=(0, 6), sticky="w")
-        app.process_button = ctk.CTkButton(left, command=self.save); app.process_button.grid(row=13, column=0, padx=14, pady=(2, 10), sticky="ew")
+        app.process_save_control = SaveControl(left, command=self.save)
+        app.process_button = app.process_save_control.button; app.process_button.grid(row=13, column=0, padx=14, pady=(2, 10), sticky="ew")
         right = ctk.CTkFrame(workspace); right.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right.grid_columnconfigure(0, weight=1); right.grid_rowconfigure(0, weight=1)
         app.preview_label = ctk.CTkLabel(right)
         app.welcome_frame = ctk.CTkFrame(right, fg_color="transparent"); app.welcome_frame.grid(row=0, column=0, padx=18, pady=14, sticky="nsew"); app.welcome_frame.grid_columnconfigure(0, weight=1); app.welcome_frame.grid_rowconfigure(4, weight=1)

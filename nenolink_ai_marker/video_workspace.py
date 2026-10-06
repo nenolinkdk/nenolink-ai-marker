@@ -10,6 +10,7 @@ from .batch import extract_video_frame, find_ffmpeg
 from .models import MarkerSettings
 from .metadata import marker_metadata
 from .workspace_state import VideoEvent, apply_video_event
+from .save_control import SaveControl
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,7 +137,7 @@ class VideoWorkspace:
         heading("VIDEO OPTIONS", 16); app.video_mode_var = ctk.StringVar(value="permanent"); app.video_mode_display_var = ctk.StringVar(); app.video_mode_display_to_value = {"Permanent":"permanent", "Beginning":"beginning", "End":"end"}
         app.video_mode_label = ctk.CTkLabel(left, text="Video badge mode"); app.video_mode_label.grid(row=17, column=0, padx=14, pady=1, sticky="w"); app.video_mode_menu = ctk.CTkOptionMenu(left, variable=app.video_mode_display_var, values=list(app.video_mode_display_to_value), command=self.change_mode); app.video_mode_menu.grid(row=18, column=0, padx=14, pady=2, sticky="ew")
         app.video_duration_var = ctk.IntVar(value=5); app.video_duration_label = ctk.CTkLabel(left, text="Duration"); app.video_duration_entry = ctk.CTkEntry(left, textvariable=app.video_duration_var); app.video_seconds_label = ctk.CTkLabel(left, text="seconds"); app.video_duration_label.grid(row=19, column=0, padx=14, pady=1, sticky="w"); app.video_duration_entry.grid(row=20, column=0, padx=14, pady=2, sticky="ew"); app.video_duration_entry.bind("<FocusOut>", lambda _event: self.change_duration())
-        heading("OUTPUT", 21); app.video_process_button = ctk.CTkButton(left, text="Save Marked Video...", command=self.save); app.video_process_button.grid(row=22, column=0, padx=14, pady=(2, 10), sticky="ew")
+        heading("OUTPUT", 21); app.video_save_control = SaveControl(left, label="Save Marked Video...", command=self.save); app.video_process_button = app.video_save_control.button; app.video_process_button.grid(row=22, column=0, padx=14, pady=(2, 10), sticky="ew")
         app.video_preview_label = ctk.CTkLabel(right, text="Video preview"); app.video_preview_label.grid(row=0, column=0, padx=20, pady=20)
 
     def refresh_preview(self):

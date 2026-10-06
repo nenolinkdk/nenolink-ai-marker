@@ -16,6 +16,7 @@ from .pptx_state import (PptxWorkspaceState, PptxEvent, PptxEventReceipt, apply_
 from .diagnostic_receipts import ReceiptLog
 from .document_preview_layout import fit_preview_size
 from .workspace_ui import build_badge_visual
+from .save_control import SaveControl
 
 
 class PptxConstructionReceipt:
@@ -67,7 +68,7 @@ class PptxWorkspace:
         self.heading_label = ctk.CTkLabel(controls, text=t("content.powerpoint"), font=ctk.CTkFont(size=24, weight="bold")); self.heading_label.grid(row=0, column=0, padx=12, pady=(10, 8), sticky="w")
         self.file_heading = ctk.CTkLabel(controls, text=t("pptx.file_heading"), font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=1, column=0, padx=12, pady=(4, 2), sticky="w")
         self.choose_button = ctk.CTkButton(controls, text=t("pptx.choose"), command=self._choose_file, width=160); self.choose_button.grid(row=2, column=0, padx=(12, 4), pady=2, sticky="w")
-        self.save_button = ctk.CTkButton(controls, text="Save", command=self._save_as, width=58); self.save_button.grid(row=2, column=1, padx=(4, 12), pady=2, sticky="w")
+        self.save_control = SaveControl(controls, label="Save", command=self._save_as, width=58); self.save_button = self.save_control.button; self.save_button.grid(row=2, column=1, padx=(4, 12), pady=2, sticky="w")
         controls.grid_columnconfigure(0, weight=0, minsize=180); controls.grid_columnconfigure(1, weight=0, minsize=180)
         self.file_label = ctk.CTkLabel(controls, text=t("pptx.no_file"), anchor="w"); self.file_label.grid(row=3, column=0, columnspan=2, padx=12, pady=(2, 5), sticky="w")
         self.construction_receipt.file_section_created = True

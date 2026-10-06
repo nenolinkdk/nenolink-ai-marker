@@ -17,6 +17,7 @@ from .document_processing import ItemSelection, ProcessingRequest, settings_for_
 from .metadata import marker_metadata
 from dataclasses import replace
 from .workspace_state import PdfEvent, PdfWorkspaceState, apply_pdf_event
+from .save_control import SaveControl
 from .workspace_ui import build_badge_visual
 
 
@@ -55,7 +56,7 @@ class PdfWorkspace:
         app.pdf_previous_button=ctk.CTkButton(nav,text="◀",width=42,command=lambda:self.set_current_page(self.state.current_page-1)); app.pdf_previous_button.grid(row=0,column=0,padx=4)
         app.pdf_page_status=ctk.CTkLabel(nav,text="—",width=120); app.pdf_page_status.grid(row=0,column=1,padx=4)
         app.pdf_next_button=ctk.CTkButton(nav,text="▶",width=42,command=lambda:self.set_current_page(self.state.current_page+1)); app.pdf_next_button.grid(row=0,column=2,padx=4)
-        app.pdf_process_button=ctk.CTkButton(controls,text="Save",command=self.save,width=58); app.pdf_process_button.grid(row=6,column=0,pady=(8,4),sticky="w")
+        app.pdf_save_control=SaveControl(controls,label="Save",command=self.save,width=58); app.pdf_process_button=app.pdf_save_control.button; app.pdf_process_button.grid(row=6,column=0,pady=(8,4),sticky="w")
         self.project()
 
     def unmount(self) -> None:
