@@ -47,8 +47,8 @@ class PdfWorkspace:
         app.pdf_choose_button = ctk.CTkButton(controls, text=t("pdf.choose"), command=self.choose_file); app.pdf_choose_button.grid(row=1,column=0,pady=(4,8),sticky="w")
         app.pdf_file_label = ctk.CTkLabel(controls,text=t("pdf.no_file"),text_color="gray60",anchor="w"); app.pdf_file_label.grid(row=2,column=0,pady=4,sticky="w")
         app.pdf_badge_enabled_var.set(self.state.badge.enabled)
-        app.pdf_badge_enable = ctk.CTkCheckBox(controls,text=t("pdf.add_badge"),variable=app.pdf_badge_enabled_var,command=app.pdf_visual_changed); app.pdf_badge_enable.grid(row=3,column=0,pady=(8,2),sticky="w")
-        app.pdf_badge_menu = ctk.CTkOptionMenu(controls,variable=app.badge_display_var,values=["—"],command=app.select_pdf_badge_display); app.pdf_badge_menu.grid(row=4,column=0,pady=2,sticky="w")
+        app.pdf_badge_enable = ctk.CTkCheckBox(controls,text=t("pdf.add_badge"),variable=app.pdf_badge_enabled_var,command=self.visual_changed); app.pdf_badge_enable.grid(row=3,column=0,pady=(8,2),sticky="w")
+        app.pdf_badge_menu = ctk.CTkOptionMenu(controls,variable=app.badge_display_var,values=["—"],command=self.select_badge); app.pdf_badge_menu.grid(row=4,column=0,pady=2,sticky="w")
         app.pdf_badge_visual = build_badge_visual(controls, image=None, name_variable=app.badge_name_var); app.pdf_badge_visual.grid(row=5,column=0,pady=(2,4),sticky="w"); app.pdf_badge_image_label=app.pdf_badge_visual; app.pdf_badge_name_label=app.pdf_badge_visual
         app.pdf_preview_label = ctk.CTkLabel(preview_host,text="PDF page preview",fg_color=("gray92","gray13")); app.pdf_preview_label.grid(row=0,column=0,pady=(12,4),sticky="nsew")
         nav = ctk.CTkFrame(preview_host,fg_color="transparent"); nav.grid(row=1,column=0,pady=4)
@@ -84,7 +84,7 @@ class PdfWorkspace:
         else:
             if getattr(app, "pdf_preview_label", None) is not None: app.pdf_preview_label.configure(image=None, text="PDF page preview")
             self.preview_photo = None; app.pdf_preview_photo = None
-        if getattr(app, "_project_pdf_badge_selection", None): app._project_pdf_badge_selection()
+        self._project_badge_controls()
 
     def _ensure_badge_selection(self) -> None:
         """Seed a valid default badge through the PDF event boundary."""
@@ -92,16 +92,43 @@ class PdfWorkspace:
         if state.badge.badge_id:
             return
         app = self.app
-        candidate = ""
-        badge_var = getattr(app, "badge_var", None)
-        if badge_var is not None:
-            candidate = str(badge_var.get() or "")
         badges = getattr(app, "badges", None)
-        if badges is None or not badges.find(candidate):
+        preferred = getattr(getattr(app, "_saved_settings", None), "badge_name", "")
+        candidate = preferred if badges is not None and badges.find(preferred) else ""
+        if not candidate:
             paths = tuple(badges.display_badges()) if badges is not None else ()
             candidate = paths[0].name if paths else ""
         if candidate:
             apply_pdf_event(state, PdfEvent.BADGE_CHANGED, {"badge_id": candidate})
+
+    def _project_badge_controls(self) -> None:
+        app = self.app; state = self.state
+        badges = getattr(app, "badges", None)
+        if badges is None:
+            return
+        names = [path.name for path in badges.display_badges()]
+        displays = [app.badges.display_name(name) for name in names]
+        if getattr(app, "pdf_badge_menu", None):
+            app.pdf_badge_menu.configure(values=displays or [app.translator.text("badge.none")])
+            display = app.badges.display_name(state.badge.badge_id) if state.badge.badge_id else "—"
+            app.pdf_badge_menu.set(display)
+            app.pdf_badge_menu.configure(state="normal" if state.badge.enabled else "disabled")
+        app.pdf_badge_enabled_var.set(state.badge.enabled)
+        badge = next((path for path in app.badges.display_badges() if path.name == state.badge.badge_id), None)
+        if badge:
+            try:
+                with Image.open(badge) as opened: image = opened.convert("RGBA")
+                image.thumbnail((110, 54), Image.Resampling.LANCZOS)
+                app.pdf_badge_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
+                app.pdf_badge_visual.configure(image=app.pdf_badge_photo, text=app.badges.display_name(badge.name))
+            except OSError: pass
+
+    def visual_changed(self, *_args) -> None:
+        self.set_badge(enabled=bool(self.app.pdf_badge_enabled_var.get()))
+
+    def select_badge(self, display_name: str) -> None:
+        badge_id = self.app.badge_display_to_file.get(display_name, display_name)
+        self.set_badge(badge_id=badge_id, enabled=bool(self.app.pdf_badge_enabled_var.get()))
 
     def accept_file(self, path, info) -> None:
         apply_pdf_event(self.state, PdfEvent.FILE_SELECTED, {"path": path, "page_count": info.metrics.item_count})
@@ -242,7 +269,7 @@ class PdfWorkspace:
         app.pdf_info = info
         app.pdf_file_label.configure(text=f"{path.name}\n{info.metrics.size_bytes} · {info.metrics.item_count} pages")
         self.project()
-        app._project_pdf_badge_selection()
+
         self.refresh_preview()
         diagnostic = getattr(app, "_pdf_runtime_diagnostic", None)
         if callable(diagnostic): diagnostic("pdf_choose_file_projected", {"owner_id": id(self), "state_path": str(self.state.path) if self.state.path else None})

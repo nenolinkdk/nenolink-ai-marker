@@ -1205,7 +1205,7 @@ class LegacyMarkerApp(ctk.CTk):
         self.update_badge_preview(); self.update_gallery_selection()
         if self.active_content_type == "image": self.image_workspace_owner.refresh_preview()
         elif self.active_content_type == "video": self.video_workspace_owner.refresh_preview()
-        elif self.active_content_type == "pdf":self.render_pdf_preview()
+        elif self.active_content_type == "pdf":self.pdf_workspace_owner.refresh_preview()
         elif self.active_content_type == "pptx":
             self._project_pptx_badge_visual()
             self._update_pptx_preview()
@@ -1785,132 +1785,6 @@ class MarkerApp(ctk.CTk):
         if not self.pptx_metrics: return
         self.pptx_current_slide = max(1, min(self.pptx_metrics.item_count, self.pptx_current_slide + delta)); self._update_pptx_preview()
 
-    def pdf_visual_changed(self, *_args) -> None:
-        """Rerender only the current page; PDF scope and navigation stay intact."""
-        self.pdf_workspace_owner.set_badge(enabled=bool(self.pdf_badge_enabled_var.get()))
-        return
-        if getattr(self, "pdf_badge_menu", None):
-            self.pdf_badge_menu.configure(state="normal" if self.pdf_badge_enabled_var.get() else "disabled")
-        self._update_logo_controls()
-        self.render_pdf_preview()
-
-    def select_pdf_badge_display(self, display_name: str) -> None:
-        """Apply a validated shared badge selection to PDF state only."""
-        filename = self.badge_display_to_file.get(display_name)
-        if not filename or not self.badges.find(filename):
-            return
-        self.pdf_workspace_owner.set_badge(badge_id=filename, enabled=bool(self.pdf_badge_enabled_var.get()))
-
-    def _project_pdf_badge_visual(self) -> None:
-        """Project the selected common badge graphic and human name into PDF UI."""
-        badge_id = self.pdf_state.badge.badge_id or self.badge_var.get()
-        badge = self.badges.find(badge_id) if badge_id else None
-        if not badge:
-            if getattr(self, "pdf_badge_image_label", None): self.pdf_badge_image_label.configure(image=None, text="")
-            self.pdf_badge_photo = None
-            return
-        with Image.open(badge) as opened:
-            image = opened.convert("RGBA")
-        image.thumbnail((110, 54), Image.Resampling.LANCZOS)
-        self.pdf_badge_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
-        display_name = self.badges.display_name(badge.name)
-        self.badge_name_var.set(display_name)
-        if getattr(self, "pdf_badge_visual", None):
-            self.pdf_badge_visual.configure(image=self.pdf_badge_photo, text=display_name)
-        self._pdf_runtime_diagnostic("pdf_badge_visual_projected", {"badge_id": badge_id, "display_name": display_name, "asset_found": True, "image_retained": self.pdf_badge_photo is not None})
-
-    def _project_pdf_badge_selection(self) -> None:
-        """Project the authoritative/default badge into the PDF selector."""
-        filename = self.pdf_state.badge.badge_id or self.badge_var.get()
-        display_name = self.badges.display_name(filename) if filename and self.badges.find(filename) else ""
-        if display_name:
-            self.pdf_state.badge.badge_id = filename
-            self.badge_var.set(filename); self.badge_display_var.set(display_name)
-            if getattr(self, "pdf_badge_menu", None):
-                self.pdf_badge_menu.configure(values=list(self.badge_display_to_file) or [self.translator.text("badge.none")])
-                self.pdf_badge_menu.set(display_name)
-            if getattr(self, "pdf_badge_name_label", None): self.pdf_badge_name_label.configure(text=display_name)
-            self._project_pdf_badge_visual()
-        else:
-            self._pdf_runtime_diagnostic("pdf_badge_selection_projected", {"badge_id": filename, "display_name": display_name, "asset_found": False})
-
-    def change_pdf_badge_position(self, display_name: str) -> None:
-        """Validate and project a PDF badge-position event without remounting."""
-        value = self.position_display_to_value.get(display_name)
-        if not value:
-            return
-        self.pdf_workspace_owner.set_badge(position=value)
-
-    def change_pdf_badge_size(self, value) -> None:
-        """Normalize the shared 1–100% size range into PDF badge state."""
-        try:
-            normalized = max(1, min(100, int(round(float(value)))))
-        except (TypeError, ValueError):
-            return
-        self.pdf_workspace_owner.set_badge(size=normalized)
-
-    def change_pdf_badge_margin(self, value) -> None:
-        try:
-            normalized = max(0, min(250, int(round(float(value)))))
-        except (TypeError, ValueError):
-            return
-        self.pdf_workspace_owner.set_badge(margin=normalized)
-
-    def change_pdf_badge_opacity(self, value) -> None:
-        try:
-            normalized = max(0, min(100, int(round(float(value)))))
-        except (TypeError, ValueError):
-            return
-        self.pdf_workspace_owner.set_badge(opacity=normalized)
-
-    def change_pdf_logo_enabled(self) -> None:
-        self.pdf_workspace_owner.set_logo(enabled=bool(self.logo_enabled_var.get()))
-
-    def change_pdf_logo_position(self, display_name: str) -> None:
-        value = self.position_display_to_value.get(display_name)
-        if not value:
-            return
-        self.pdf_workspace_owner.set_logo(position=value)
-
-    def change_pdf_logo_size(self, value) -> None:
-        try: normalized = max(1, min(100, int(round(float(value)))) )
-        except (TypeError, ValueError): return
-        self.pdf_workspace_owner.set_logo(size=normalized)
-
-    def change_pdf_logo_margin(self, value) -> None:
-        try: normalized = max(0, min(250, int(round(float(value)))) )
-        except (TypeError, ValueError): return
-        self.pdf_workspace_owner.set_logo(margin=normalized)
-
-    def change_pdf_logo_opacity(self, value) -> None:
-        try: normalized = max(0, min(100, int(round(float(value)))) )
-        except (TypeError, ValueError): return
-        self.pdf_workspace_owner.set_logo(opacity=normalized)
-
-    def _sync_pdf_state(self) -> None:
-        # Compatibility entry point retained for preview/output until B3/B4.
-        self.pdf_workspace_owner.project()
-
-    def choose_pdf_phase2(self) -> None:
-        selected = filedialog.askopenfilename(title="Choose PDF", filetypes=[("PDF (*.pdf)", "*.pdf")])
-        if not selected: return
-        path = Path(selected)
-        try:
-            info = self.pdf_processor.inspect(path)
-        except PasswordProtectedPdfError:
-            messagebox.showerror("PDF", "Encrypted or password-protected PDFs are not supported."); return
-        except (OSError, ValueError, AttributeError) as error:
-            messagebox.showerror("PDF", f"Could not read PDF: {error}"); return
-        self.pdf_preview_photo = None
-        self.pdf_workspace_owner.accept_file(path, info)
-        size = human_file_size(info.metrics.size_bytes)
-        signed = "\nWarning: existing digital signatures may be invalidated when modified." if info.signed else ""
-        self.pdf_file_label.configure(text=f"{path.name}\n{size} · {info.metrics.item_count} pages{signed}")
-        self.status_var.set(f"PDF loaded: {path.name}")
-        self._sync_pdf_state()
-        self._project_pdf_badge_selection()
-        self.render_pdf_preview()
-
     def _confirm_pdf_signature(self) -> bool:
         """Confirm the non-fatal signature warning before future PDF writes."""
         if not self.pdf_info or not getattr(self.pdf_info, "signed", False):
@@ -1929,100 +1803,6 @@ class MarkerApp(ctk.CTk):
         if assessment.requires_warning:
             return messagebox.askokcancel(self.translator.text("document.warning_title"), self.translator.text("document.pdf_warning"))
         return True
-
-    def _update_pdf_scope_controls(self) -> None:
-        if not getattr(self, "pdf_scope_menu", None): return
-        editable = self.pdf_scope_mode in {"selected", "range"}
-        self.pdf_scope_entry.configure(state="normal" if editable else "disabled")
-        self.pdf_scope_update.configure(state="normal" if editable else "disabled")
-
-    def change_pdf_scope_mode(self, label: str) -> None:
-        mode = {"All": "all", "First": "first", "Selected": "selected", "Range": "range"}.get(label, "all")
-        if mode == "all" and self.pdf_info: self.pdf_workspace_owner.set_scope(mode, tuple(range(1, self.pdf_info.metrics.item_count + 1))); self.render_pdf_preview()
-        elif mode == "first" and self.pdf_info: self.pdf_workspace_owner.set_scope(mode, (1,)); self.render_pdf_preview()
-        else:
-            self.pdf_workspace_owner.set_scope_mode(mode)
-        self._update_pdf_scope_controls()
-
-    def update_pdf_scope(self) -> None:
-        if not self.pdf_info or self.pdf_scope_mode not in {"selected", "range"}: return
-        text = self.pdf_scope_entry.get().strip()
-        try:
-            values = []
-            parts = [part.strip() for part in text.split(",") if part.strip()]
-            if not parts: raise ValueError("Enter at least one page.")
-            for part in parts:
-                if self.pdf_scope_mode == "selected":
-                    bounds = part.split("-")
-                    if len(bounds) == 1: values.append(int(bounds[0].strip()))
-                    elif len(bounds) == 2:
-                        start, end = (int(value.strip()) for value in bounds)
-                        if start > end: raise ValueError("Range start must not exceed end.")
-                        values.extend(range(start, end + 1))
-                    else: raise ValueError("Invalid page selection.")
-                else:
-                    bounds = part.split("-")
-                    if len(bounds) != 2: raise ValueError("Ranges must use start-end syntax.")
-                    start, end = (int(value.strip()) for value in bounds)
-                    if start > end: raise ValueError("Range start must not exceed end.")
-                    values.extend(range(start, end + 1))
-            values = sorted(set(values))
-            if any(value < 1 or value > self.pdf_info.metrics.item_count for value in values): raise ValueError("Page is outside the PDF.")
-            self.pdf_workspace_owner.set_scope(self.pdf_scope_mode, tuple(values), text)
-            self.pdf_scope_message.configure(text=""); self.render_pdf_preview()
-        except (TypeError, ValueError):
-            self.pdf_scope_message.configure(text="Invalid page selection. The previous scope was preserved.")
-
-    def render_pdf_preview(self) -> None:
-        """Compatibility entry point; active PDF preview is workspace-owned."""
-        self.pdf_workspace_owner.refresh_preview()
-        return
-        # Legacy implementation retained below only for later cleanup.
-        if not self.pdf_path or not self.pdf_info or not getattr(self, "pdf_preview_label", None): return
-        try:
-            scope = getattr(self, "pdf_active_scope", tuple(range(1, self.pdf_info.metrics.item_count + 1)))
-            marked = self.pdf_current_page in set(scope)
-            badge_enabled = self.pdf_badge_enabled_var.get() if hasattr(self, "pdf_badge_enabled_var") else True
-            logo_enabled = self.logo_enabled_var.get() if hasattr(self, "logo_enabled_var") else False
-            badge = self.badges.find(self.badge_var.get()) if marked and hasattr(self, "badges") and hasattr(self, "badge_var") and badge_enabled else None
-            logo = self._logo_path() if marked and logo_enabled and hasattr(self, "_logo_path") else None
-            # Fit the independently rendered PDF page to the actual preview
-            # host, reserving space for navigation and keeping aspect ratio in
-            # PdfPreviewRenderer.  This is a projection-only layout decision.
-            host_width = max(1, self.pdf_preview_host.winfo_width())
-            host_height = max(1, self.pdf_preview_host.winfo_height())
-            self.pdf_preview_host.update_idletasks()
-            host_width = max(1, self.pdf_preview_host.winfo_width())
-            host_height = max(1, self.pdf_preview_host.winfo_height())
-            try:
-                page = PdfProcessor._reader(self.pdf_path).pages[self.pdf_current_page - 1]
-                aspect = float(page.mediabox.width) / max(1.0, float(page.mediabox.height))
-            except (OSError, ValueError, IndexError):
-                aspect = 1.0
-            from .document_preview_layout import fit_preview_size
-            max_size = fit_preview_size(host_width, host_height, aspect, padding=16,
-                                        navigation_height=48, target_fraction=0.8)
-            usable = (max(1, host_width - 32), max(1, host_height - 32 - 48))
-            target80 = (round(usable[0] * 0.8), round(usable[1] * 0.8))
-            try:
-                result = self.pdf_preview_renderer.render(self.pdf_path, self.pdf_current_page, badge, self.settings(), logo, max_size=max_size)
-            except TypeError:
-                result = self.pdf_preview_renderer.render(self.pdf_path, self.pdf_current_page, badge, self.settings())
-            self.pdf_current_page = result.page_number
-            self._sync_pdf_state()
-            self.pdf_preview_photo = ctk.CTkImage(light_image=result.image, dark_image=result.image, size=result.image.size)
-            self.pdf_preview_label.configure(image=self.pdf_preview_photo, text="")
-            self._boot(f"PDF_HOST={host_width}x{host_height} PDF_USABLE={usable[0]}x{usable[1]} PDF_TARGET80={target80[0]}x{target80[1]} PDF_FIT={max_size[0]}x{max_size[1]} PDF_RENDER={result.image.width}x{result.image.height} PDF_CTKIMAGE={result.image.width}x{result.image.height} PDF_LABEL={self.pdf_preview_label.winfo_width()}x{self.pdf_preview_label.winfo_height()}")
-            self.pdf_page_status.configure(text=f"{self.pdf_current_page} / {self.pdf_info.metrics.item_count}")
-            self.pdf_previous_button.configure(state="normal" if self.pdf_current_page > 1 else "disabled")
-            self.pdf_next_button.configure(state="normal" if self.pdf_current_page < self.pdf_info.metrics.item_count else "disabled")
-        except (OSError, ValueError) as error:
-            self.pdf_preview_label.configure(image=None, text=f"Could not render PDF page: {error}")
-
-    def change_pdf_page(self, delta: int) -> None:
-        if not self.pdf_info: return
-        self.pdf_workspace_owner.set_current_page(self.pdf_workspace_owner.state.current_page + delta)
-        self.render_pdf_preview()
 
     def _mount_image_workspace(self) -> None:
         """Temporary shell entry adapter; ImageWorkspace owns lifecycle."""
@@ -2221,7 +2001,7 @@ class MarkerApp(ctk.CTk):
         elif self.active_content_type == "video":
             self.video_workspace_owner.change_visual(*_args)
         elif self.active_content_type == "pdf":
-            self.render_pdf_preview()
+            self.pdf_workspace_owner.refresh_preview()
         elif self.active_content_type == "pptx":
             self._update_pptx_preview()
         self._save()
