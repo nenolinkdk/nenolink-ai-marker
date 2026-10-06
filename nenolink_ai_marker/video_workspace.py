@@ -118,7 +118,7 @@ class VideoWorkspace:
 
     def change_visual(self, enabled=None, *_args):
         apply_video_event(self.state, VideoEvent.VISUAL_CHANGED, {
-            "enabled": bool(self.app.badge_enabled_var.get()) if enabled is None else bool(enabled), "position": self.app.video_position_display_to_value.get(self.app.video_position_display_var.get(), self.app.video_position_display_var.get()), "size": int(self.app.video_size_var.get()),
+            "enabled": bool(self.state.badge.enabled) if enabled is None else bool(enabled), "position": self.app.video_position_display_to_value.get(self.app.video_position_display_var.get(), self.app.video_position_display_var.get()), "size": int(self.app.video_size_var.get()),
             "margin": int(self.app.video_margin_var.get()), "opacity": int(self.app.video_opacity_var.get()),
         })
         self.project(); self.refresh_preview(); self.app._save_image_settings()
