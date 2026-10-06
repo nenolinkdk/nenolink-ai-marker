@@ -69,6 +69,12 @@ class ImageWorkspaceState(WorkspaceRuntimeState):
     preview_image: Any = None
     selected_files: tuple[Path, ...] = ()
 
+    def __post_init__(self) -> None:
+        # Clean Image state is valid before the first projection: an enabled
+        # badge always has a concrete repository identity.
+        if self.badge.enabled and not self.badge.badge_id:
+            self.badge.badge_id = "ai-assisted.png"
+
     def set_session(self, files: tuple[Path, ...] | list[Path]) -> None:
         self.selected_files = tuple(Path(value) for value in files)
         self.path = self.selected_files[0] if self.selected_files else None
@@ -140,6 +146,10 @@ def apply_image_event(state: ImageWorkspaceState, event: ImageEvent | str, paylo
 class VideoWorkspaceState(WorkspaceRuntimeState):
     mode: str = "permanent"
     duration: int = 5
+
+    def __post_init__(self) -> None:
+        if self.badge.enabled and not self.badge.badge_id:
+            self.badge.badge_id = "ai-assisted.png"
 
 
 class VideoEvent(str, Enum):
