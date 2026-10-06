@@ -130,11 +130,11 @@ class PdfWorkspace:
         app.pdf_badge_enabled_var.set(state.badge.enabled)
 
     def visual_changed(self, enabled=None, *_args) -> None:
-        self.set_badge(enabled=bool(self.app.pdf_badge_enabled_var.get()) if enabled is None else bool(enabled))
+        self.set_badge(enabled=bool(self.state.badge.enabled) if enabled is None else bool(enabled))
 
     def select_badge(self, display_name: str) -> None:
         badge_id = self.app.badge_display_to_file.get(display_name, display_name)
-        self.set_badge(badge_id=badge_id, enabled=bool(self.app.pdf_badge_enabled_var.get()))
+        self.set_badge(badge_id=badge_id, enabled=bool(self.state.badge.enabled))
 
     def accept_file(self, path, info) -> None:
         apply_pdf_event(self.state, PdfEvent.FILE_SELECTED, {"path": path, "page_count": info.metrics.item_count})
