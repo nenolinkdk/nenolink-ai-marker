@@ -37,7 +37,6 @@ class PdfWorkspace:
         self.root = None
 
     def mount(self, host) -> None:
-        self.badge_control = BadgeControl(host, on_enabled_changed=self.visual_changed, on_badge_selected=self.select_badge)
         if self.root is not None and self.root.winfo_exists():
             self.root.grid(); self.project(); return
         app = self.app; t = app.translator.text
@@ -45,6 +44,7 @@ class PdfWorkspace:
         self.root.grid_columnconfigure(0, weight=0, minsize=320); self.root.grid_columnconfigure(1, weight=1); self.root.grid_rowconfigure(0, weight=1)
         controls = ctk.CTkScrollableFrame(self.root, width=320, fg_color=("gray86", "gray17")); controls.grid(row=0, column=0, padx=(4,8), pady=4, sticky="nsew")
         preview_host = ctk.CTkFrame(self.root); preview_host.grid(row=0, column=1, padx=(8,4), pady=4, sticky="nsew"); preview_host.grid_columnconfigure(0, weight=1); preview_host.grid_rowconfigure(0, weight=1)
+        self.badge_control = BadgeControl(controls, on_enabled_changed=self.visual_changed, on_badge_selected=self.select_badge)
         app.pdf_workspace = controls; app.pdf_workspace_root = self.root; app.pdf_controls_host = controls; app.pdf_preview_host = preview_host
         ctk.CTkLabel(controls, text="PDF", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0,column=0,pady=(2,1),sticky="w")
         app.pdf_choose_button = ctk.CTkButton(controls, text=t("pdf.choose"), command=self.choose_file); app.pdf_choose_button.grid(row=1,column=0,pady=(4,8),sticky="w")
