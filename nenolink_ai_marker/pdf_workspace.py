@@ -113,14 +113,7 @@ class PdfWorkspace:
         displays = [app.badges.display_name(name) for name in names]
         display = app.badges.display_name(state.badge.badge_id) if state.badge.badge_id else "—"
         badge = next((path for path in app.badges.display_badges() if path.name == state.badge.badge_id), None)
-        if badge:
-            try:
-                with Image.open(badge) as opened: image = opened.convert("RGBA")
-                image.thumbnail((110, 54), Image.Resampling.LANCZOS)
-                app.pdf_badge_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
-                image = app.pdf_badge_photo
-            except OSError: pass
-        self.badge_control.project(BadgeProjection(bool(state.badge.enabled), display, tuple(displays), image, state.badge.position, state.badge.size, state.badge.margin, state.badge.opacity, app.translator.text("pdf.add_badge")))
+        self.badge_control.project(BadgeProjection(bool(state.badge.enabled), display, tuple(displays), badge, state.badge.position, state.badge.size, state.badge.margin, state.badge.opacity, app.translator.text("pdf.add_badge")))
         app.pdf_badge_enabled_var.set(state.badge.enabled)
 
     def visual_changed(self, enabled=None, *_args) -> None:

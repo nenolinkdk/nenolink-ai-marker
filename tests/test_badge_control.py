@@ -15,7 +15,7 @@ class _Ctk:
 def test_badge_control_projects_and_forwards_callbacks(monkeypatch):
     monkeypatch.setattr(module, 'ctk', _Ctk); seen=[]
     control=BadgeControl(object(), on_enabled_changed=lambda v: seen.append(('enabled',v)), on_badge_selected=lambda v: seen.append(('badge',v)))
-    control.project(BadgeProjection(True,'AI',('AI','No AI'),image='photo'))
+    control.project(BadgeProjection(True,'AI',('AI','No AI'),asset_path=None))
     control._on_enabled_changed(True); control._on_badge_selected('No AI')
     assert control.enabled_var.get() is True and control.selector_var.get() == 'AI'
     assert seen == [('enabled',True),('badge','No AI')]

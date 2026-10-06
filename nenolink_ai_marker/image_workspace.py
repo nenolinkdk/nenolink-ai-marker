@@ -69,12 +69,7 @@ class ImageWorkspace:
             if getattr(self.app, "file_label", None) is not None:
                 self.app.file_label.configure(text=(f"{files[0].name} · {human_file_size(files[0].stat().st_size)}" if files else self.app.translator.text("files.none")))
             badge_path = self.app.badges.find(self.state.badge.badge_id) if self.state.badge.badge_id else None
-            image = None
-            if badge_path:
-                try:
-                    with Image.open(badge_path) as opened: image = ctk.CTkImage(light_image=opened.convert("RGBA"), dark_image=opened.convert("RGBA"), size=(110, 54))
-                except OSError: image = None
-            self.badge_control.project(BadgeProjection(bool(self.state.badge.enabled), self.app.badges.display_name(self.state.badge.badge_id), tuple(self.app.badges.display_name(p.name) for p in self.app.badges.display_badges()), image, self.state.badge.position, self.state.badge.size, self.state.badge.margin, self.state.badge.opacity, self.app.translator.text("pdf.add_badge")))
+            self.badge_control.project(BadgeProjection(bool(self.state.badge.enabled), self.app.badges.display_name(self.state.badge.badge_id), tuple(self.app.badges.display_name(p.name) for p in self.app.badges.display_badges()), badge_path, self.state.badge.position, self.state.badge.size, self.state.badge.margin, self.state.badge.opacity, self.app.translator.text("pdf.add_badge")))
             self.app.sources = list(files)
             self.app.media_sources["image"] = list(files)
             self.refresh_preview()

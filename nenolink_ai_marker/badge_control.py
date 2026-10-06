@@ -6,13 +6,14 @@ reads application state or selects a transition.
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable, Optional
 import customtkinter as ctk
+from PIL import Image
 
 @dataclass(frozen=True)
 class BadgeProjection:
     enabled: bool = False
     selected: str = ""
     choices: tuple[str, ...] = ()
-    image: Any = None
+    asset_path: Any = None
     position: Optional[str] = None
     size: Optional[float] = None
     margin: Optional[float] = None
@@ -42,6 +43,7 @@ class BadgeControl:
         self.enabled_widget = ctk.CTkCheckBox(self.frame, variable=self.enabled_var, command=self._enabled)
         self.selector_widget = ctk.CTkOptionMenu(self.frame, variable=self.selector_var, values=["—"], command=self._selected)
         self.graphic_widget = ctk.CTkLabel(self.frame, text="")
+        self._presentation_image = None
         self.enabled_widget.grid(row=0, column=0, sticky="w")
         self.selector_widget.grid(row=1, column=0, sticky="ew")
         self.graphic_widget.grid(row=2, column=0, sticky="w")
@@ -51,11 +53,20 @@ class BadgeControl:
     def _selected(self, value):
         if self._on_badge_selected: self._on_badge_selected(value)
     def project(self, projection: BadgeProjection) -> None:
+        self._presentation_image = None
+        if projection.asset_path:
+            try:
+                with Image.open(projection.asset_path) as opened:
+                    source = opened.convert("RGBA")
+                source.thumbnail((110, 54), Image.Resampling.LANCZOS)
+                self._presentation_image = ctk.CTkImage(light_image=source, dark_image=source, size=source.size)
+            except (OSError, ValueError):
+                self._presentation_image = None
         self.enabled_var.set(projection.enabled)
         self.enabled_widget.configure(text=projection.enabled_label)
         self.selector_widget.configure(values=list(projection.choices))
         self.selector_var.set(projection.selected)
-        self.graphic_widget.configure(image=projection.image, text=projection.selected if projection.image is None else "")
+        self.graphic_widget.configure(image=self._presentation_image, text=projection.selected if self._presentation_image is None else "")
     def set_enabled(self, enabled: bool) -> None: self.enabled_var.set(enabled)
     def set_choices(self, choices: Iterable[str]) -> None: self.selector_widget.configure(values=list(choices))
     def set_selected(self, selected: str) -> None: self.selector_var.set(selected)

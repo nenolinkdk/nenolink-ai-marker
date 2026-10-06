@@ -62,16 +62,8 @@ class VideoWorkspace:
         app.video_size_var.set(self.state.badge.size); app.video_margin_var.set(self.state.badge.margin); app.video_opacity_var.set(self.state.badge.opacity)
         names = [path.name for path in app.badges.display_badges()]
         displays = [app.badges.display_name(name) for name in names]
-        image = None
         badge = self._badge_path()
-        if badge:
-            try:
-                with Image.open(badge) as opened: image = opened.convert("RGBA")
-                image.thumbnail((110, 54), Image.Resampling.LANCZOS)
-                app.video_badge_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
-                image = app.video_badge_photo
-            except OSError: pass
-        self.badge_control.project(BadgeProjection(bool(self.state.badge.enabled), app.badges.display_name(self.state.badge.badge_id), tuple(displays), image, self.state.badge.position, self.state.badge.size, self.state.badge.margin, self.state.badge.opacity, app.translator.text("pdf.add_badge")))
+        self.badge_control.project(BadgeProjection(bool(self.state.badge.enabled), app.badges.display_name(self.state.badge.badge_id), tuple(displays), badge, self.state.badge.position, self.state.badge.size, self.state.badge.margin, self.state.badge.opacity, app.translator.text("pdf.add_badge")))
 
     def _badge_path(self):
         return next((path for path in self.app.badges.display_badges() if path.name == self.state.badge.badge_id), None)
