@@ -120,7 +120,7 @@ class PdfWorkspace:
                 app.pdf_badge_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
                 image = app.pdf_badge_photo
             except OSError: pass
-        self.badge_control.project(BadgeProjection(bool(state.badge.enabled), display, tuple(displays), image, state.badge.position, state.badge.size, state.badge.margin, state.badge.opacity))
+        self.badge_control.project(BadgeProjection(bool(state.badge.enabled), display, tuple(displays), image, state.badge.position, state.badge.size, state.badge.margin, state.badge.opacity, app.translator.text("pdf.add_badge")))
         app.pdf_badge_enabled_var.set(state.badge.enabled)
 
     def visual_changed(self, enabled=None, *_args) -> None:

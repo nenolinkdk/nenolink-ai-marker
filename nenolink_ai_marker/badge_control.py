@@ -17,6 +17,7 @@ class BadgeProjection:
     size: Optional[float] = None
     margin: Optional[float] = None
     opacity: Optional[float] = None
+    enabled_label: str = ""
 
 class BadgeControl:
     """A presentation-only badge control with injected callbacks."""
@@ -51,6 +52,7 @@ class BadgeControl:
         if self._on_badge_selected: self._on_badge_selected(value)
     def project(self, projection: BadgeProjection) -> None:
         self.enabled_var.set(projection.enabled)
+        self.enabled_widget.configure(text=projection.enabled_label)
         self.selector_widget.configure(values=list(projection.choices))
         self.selector_var.set(projection.selected)
         self.graphic_widget.configure(image=projection.image, text=projection.selected if projection.image is None else "")

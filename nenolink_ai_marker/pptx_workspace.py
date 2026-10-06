@@ -349,7 +349,7 @@ class PptxWorkspace:
                     self.badge_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
                     image = self.badge_photo
                 names = tuple(repository.display_name(path.name) for path in repository.display_badges())
-                self.badge_control.project(BadgeProjection(bool(self.state.badge.enabled), model["display_name"], names, image, self.state.badge.position, self.state.badge.size, self.state.badge.margin, self.state.badge.opacity))
+                self.badge_control.project(BadgeProjection(bool(self.state.badge.enabled), model["display_name"], names, image, self.state.badge.position, self.state.badge.size, self.state.badge.margin, self.state.badge.opacity, self.app.translator.text("pptx.badge_enable")))
 
     def _project_file(self):
         t = getattr(getattr(self.app, "translator", None), "text", lambda key, **v: key)
