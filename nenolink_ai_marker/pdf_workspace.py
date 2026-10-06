@@ -22,6 +22,7 @@ from .badge_control import BadgeControl, BadgeProjection
 from .workspace_ui import build_badge_visual
 from .source_control import SourceControl
 from .logo_control import LogoControl, LogoProjection
+from .preview_shell import PreviewShell
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,7 +64,7 @@ class PdfWorkspace:
         self.presentation_generation += 1
         self.root.grid_columnconfigure(0, weight=0, minsize=320); self.root.grid_columnconfigure(1, weight=1); self.root.grid_rowconfigure(0, weight=1)
         controls = ctk.CTkScrollableFrame(self.root, width=320, fg_color=("gray86", "gray17")); controls.grid(row=0, column=0, padx=(4,8), pady=4, sticky="nsew")
-        preview_host = ctk.CTkFrame(self.root); preview_host.grid(row=0, column=1, padx=(8,4), pady=4, sticky="nsew"); preview_host.grid_columnconfigure(0, weight=1); preview_host.grid_rowconfigure(0, weight=1)
+        self.preview_shell = PreviewShell(self.root); self.preview_shell.frame.grid(row=0, column=1, padx=(8,4), pady=4, sticky="nsew"); preview_host = self.preview_shell.viewport
         self.badge_control = BadgeControl(controls, on_enabled_changed=self.visual_changed, on_badge_selected=self.select_badge)
         self.logo_control = LogoControl(controls, on_enabled=lambda value: self.set_logo(enabled=value), on_choose=self.choose_logo, on_size=lambda value: self.set_logo(size=value), on_margin=lambda value: self.set_logo(margin=value), on_opacity=lambda value: self.set_logo(opacity=value))
         self.logo_control.frame.grid(row=4, column=0, pady=(8, 2), sticky="ew")

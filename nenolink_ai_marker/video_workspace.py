@@ -14,6 +14,7 @@ from .save_control import SaveControl
 from .badge_control import BadgeControl, BadgeProjection
 from .source_control import SourceControl
 from .logo_control import LogoControl, LogoProjection
+from .preview_shell import PreviewShell
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,7 +162,7 @@ class VideoWorkspace:
         app = self.app
         left = app.AutoHideScrollableFrame(workspace, width=320, fg_color=("gray86", "gray17")) if hasattr(app, "AutoHideScrollableFrame") else ctk.CTkScrollableFrame(workspace, width=320, fg_color=("gray86", "gray17"))
         app.video_controls_host = left; left.grid(row=0, column=0, padx=(4, 8), pady=4, sticky="nsew"); left.grid_columnconfigure(0, weight=1)
-        right = ctk.CTkFrame(workspace); app.video_preview_host = right; right.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right.grid_columnconfigure(0, weight=1); right.grid_rowconfigure(0, weight=1)
+        self.preview_shell = PreviewShell(workspace); self.preview_shell.frame.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right = self.preview_shell.viewport; app.video_preview_host = right
         def heading(text, row): ctk.CTkLabel(left, text=text, font=ctk.CTkFont(weight="bold")).grid(row=row, column=0, padx=14, pady=(8, 2), sticky="w")
         heading("FILE", 0); self.source_control = SourceControl(left, choose_command=self.choose_video, choose_label="Choose Video", width=280); self.source_control.frame.grid(row=1, column=0, padx=14, pady=2, sticky="ew"); app.video_open_button = self.source_control.choose_button; app.video_file_label = self.source_control.filename_label
         heading("AI BADGE", 3)

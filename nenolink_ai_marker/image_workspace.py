@@ -21,6 +21,7 @@ from .save_control import SaveControl
 from .badge_control import BadgeControl, BadgeProjection
 from .source_control import SourceControl
 from .logo_control import LogoControl, LogoProjection
+from .preview_shell import PreviewShell
 
 
 class ImageWorkspace:
@@ -261,7 +262,7 @@ class ImageWorkspace:
         """
         app.process_save_control = SaveControl(left, command=self.save)
         app.process_button = app.process_save_control.button; app.process_button.grid(row=13, column=0, padx=14, pady=(2, 10), sticky="ew")
-        right = ctk.CTkFrame(workspace); right.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right.grid_columnconfigure(0, weight=1); right.grid_rowconfigure(0, weight=1)
+        self.preview_shell = PreviewShell(workspace); self.preview_shell.frame.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right = self.preview_shell.viewport
         app.preview_label = ctk.CTkLabel(right)
         app.welcome_frame = ctk.CTkFrame(right, fg_color="transparent"); app.welcome_frame.grid(row=0, column=0, padx=18, pady=14, sticky="nsew"); app.welcome_frame.grid_columnconfigure(0, weight=1); app.welcome_frame.grid_rowconfigure(4, weight=1)
         app.welcome_title = ctk.CTkLabel(app.welcome_frame, font=ctk.CTkFont(size=28, weight="bold")); app.welcome_title.grid(row=0, column=0, padx=12, pady=(12, 4))

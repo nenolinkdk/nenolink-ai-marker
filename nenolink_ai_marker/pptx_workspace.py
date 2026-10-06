@@ -20,6 +20,7 @@ from .save_control import SaveControl
 from .badge_control import BadgeControl, BadgeProjection
 from .source_control import SourceControl
 from .logo_control import LogoControl, LogoProjection
+from .preview_shell import PreviewShell
 
 
 class PptxConstructionReceipt:
@@ -82,7 +83,7 @@ class PptxWorkspace:
         self.construction_receipt.workspace_created = True
         controls = ctk.CTkScrollableFrame(self.root, width=360, fg_color=("gray92", "gray17")); controls.grid(row=0, column=0, padx=8, pady=8, sticky="nsew")
         controls.bind("<MouseWheel>", lambda event: controls._parent_canvas.yview_scroll(-int(event.delta / 120), "units"))
-        preview = ctk.CTkFrame(self.root, fg_color="transparent"); preview.grid(row=0, column=1, padx=8, pady=8, sticky="nsew")
+        self.preview_shell = PreviewShell(self.root); self.preview_shell.frame.grid(row=0, column=1, padx=8, pady=8, sticky="nsew"); preview = self.preview_shell.viewport
         self.preview_host = preview
         t = getattr(getattr(self.app, "translator", None), "text", lambda key: key)
         self.heading_label = ctk.CTkLabel(controls, text=t("content.powerpoint"), font=ctk.CTkFont(size=24, weight="bold")); self.heading_label.grid(row=0, column=0, padx=12, pady=(10, 8), sticky="w")
