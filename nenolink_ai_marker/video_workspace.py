@@ -19,7 +19,8 @@ from .source_control import SourceControl
 class VideoProcessingRequest:
     source: Path
     destination: Path
-    badge: Path
+    badge: Path | None
+    logo: Path | None
     settings: MarkerSettings
 
 
@@ -42,6 +43,7 @@ class VideoWorkspace:
         self.root = None
         self.badge_control = None
         self.source_control = None
+        self.logo_controls = None
         self.preview_photo = None
         for name in ("video_workspace", "video_file_label", "video_preview_label", "video_badge_enable", "video_badge_menu", "video_badge_var", "video_badge_preview_label", "video_badge_name_label", "video_process_button", "video_save_control"):
             if hasattr(self.app, name):
@@ -83,6 +85,11 @@ class VideoWorkspace:
         displays = [app.badges.display_name(name) for name in names]
         badge = self._badge_path()
         self.badge_control.project(BadgeProjection(bool(self.state.badge.enabled), app.badges.display_name(self.state.badge.badge_id), tuple(displays), badge, self.state.badge.position, self.state.badge.size, self.state.badge.margin, self.state.badge.opacity, app.translator.text("pdf.add_badge")))
+        if getattr(self, "logo_enabled_var", None) is not None:
+            self.logo_enabled_var.set(self.state.logo.enabled)
+            self.logo_mode_var.set(self.state.logo.mode)
+            self.logo_size_var.set(self.state.logo.size); self.logo_margin_var.set(self.state.logo.margin); self.logo_opacity_var.set(self.state.logo.opacity)
+            self.logo_file_label.configure(text=self.state.logo.path.name if self.state.logo.path else "No logo selected")
 
     def _badge_path(self):
         return next((path for path in self.app.badges.display_badges() if path.name == self.state.badge.badge_id), None)
@@ -127,6 +134,24 @@ class VideoWorkspace:
         })
         self.project(); self.refresh_preview(); self.app._save_image_settings()
 
+    def choose_logo(self):
+        from tkinter import filedialog
+        selected = filedialog.askopenfilename(title="Choose logo", filetypes=[("Images", "*.png *.jpg *.jpeg *.webp"), ("All files", "*.*")])
+        if selected:
+            apply_video_event(self.state, VideoEvent.LOGO_FILE_CHANGED, {"path": selected, "enabled": True})
+            self.project(); self.refresh_preview()
+
+    def change_logo(self, *_args):
+        apply_video_event(self.state, VideoEvent.LOGO_ENABLED_CHANGED, {"enabled": bool(self.logo_enabled_var.get())})
+        apply_video_event(self.state, VideoEvent.LOGO_SIZE_CHANGED, {"size": int(self.logo_size_var.get())})
+        apply_video_event(self.state, VideoEvent.LOGO_MARGIN_CHANGED, {"margin": int(self.logo_margin_var.get())})
+        apply_video_event(self.state, VideoEvent.LOGO_OPACITY_CHANGED, {"opacity": int(self.logo_opacity_var.get())})
+        self.project(); self.refresh_preview()
+
+    def change_logo_mode(self, mode):
+        apply_video_event(self.state, VideoEvent.LOGO_MODE_CHANGED, {"mode": mode.lower()})
+        self.project(); self.refresh_preview()
+
     def _build_ui(self, workspace):
         self.badge_control = BadgeControl(workspace, on_enabled_changed=self.change_visual, on_badge_selected=self.change_badge)
         app = self.app
@@ -143,6 +168,17 @@ class VideoWorkspace:
         app.video_position_label = ctk.CTkLabel(app.video_badge_group, text="Badge Position"); app.video_position_label.grid(row=1, column=0, padx=8, pady=1, sticky="w"); app.video_position_menu = ctk.CTkOptionMenu(app.video_badge_group, variable=app.video_position_display_var, values=list(app.video_position_display_to_value), command=lambda _label: self.change_visual()); app.video_position_menu.grid(row=2, column=0, padx=8, pady=2, sticky="ew")
         app.video_size_var = ctk.IntVar(value=20); app.video_margin_var = ctk.IntVar(value=20); app.video_opacity_var = ctk.IntVar(value=100)
         app.video_size_label = app._video_slider(app.video_badge_group, app.video_size_var, 1, 100, 3, "Badge Size", self.change_visual); app.video_margin_label = app._video_slider(app.video_badge_group, app.video_margin_var, 0, 250, 5, "Badge Margin", self.change_visual); app.video_opacity_label = app._video_slider(app.video_badge_group, app.video_opacity_var, 0, 100, 7, "Badge Opacity", self.change_visual)
+        heading("OWN LOGO", 9)
+        self.logo_controls = ctk.CTkFrame(left, fg_color="transparent"); self.logo_controls.grid(row=10, column=0, padx=14, pady=2, sticky="ew")
+        self.logo_enabled_var = ctk.BooleanVar(value=False); ctk.CTkCheckBox(self.logo_controls, text="Add own logo", variable=self.logo_enabled_var, command=self.change_logo).grid(row=0, column=0, sticky="w")
+        ctk.CTkButton(self.logo_controls, text="Choose logo", command=self.choose_logo, width=140).grid(row=1, column=0, sticky="w")
+        self.logo_file_label = ctk.CTkLabel(self.logo_controls, text="No logo selected", anchor="w"); self.logo_file_label.grid(row=2, column=0, sticky="ew")
+        self.logo_mode_var = ctk.StringVar(value="entire"); ctk.CTkOptionMenu(self.logo_controls, variable=self.logo_mode_var, values=["Front", "Entire", "Back"], command=self.change_logo_mode, width=140).grid(row=3, column=0, sticky="w")
+        ctk.CTkLabel(self.logo_controls, text="Position: Top left").grid(row=4, column=0, sticky="w")
+        self.logo_size_var = ctk.IntVar(value=15); self.logo_margin_var = ctk.IntVar(value=20); self.logo_opacity_var = ctk.IntVar(value=100)
+        app._video_slider(self.logo_controls, self.logo_size_var, 1, 100, 5, "Logo Size", self.change_logo)
+        app._video_slider(self.logo_controls, self.logo_margin_var, 0, 250, 7, "Logo Margin", self.change_logo)
+        app._video_slider(self.logo_controls, self.logo_opacity_var, 0, 100, 9, "Logo Opacity", self.change_logo)
         heading("VIDEO OPTIONS", 16); app.video_mode_var = ctk.StringVar(value="permanent"); app.video_mode_display_var = ctk.StringVar(); app.video_mode_display_to_value = {"Permanent":"permanent", "Beginning":"beginning", "End":"end"}
         app.video_mode_label = ctk.CTkLabel(left, text="Video badge mode"); app.video_mode_label.grid(row=17, column=0, padx=14, pady=1, sticky="w"); app.video_mode_menu = ctk.CTkOptionMenu(left, variable=app.video_mode_display_var, values=list(app.video_mode_display_to_value), command=self.change_mode); app.video_mode_menu.grid(row=18, column=0, padx=14, pady=2, sticky="ew")
         app.video_duration_var = ctk.IntVar(value=5); app.video_duration_label = ctk.CTkLabel(left, text="Duration"); app.video_duration_entry = ctk.CTkEntry(left, textvariable=app.video_duration_var); app.video_seconds_label = ctk.CTkLabel(left, text="seconds"); app.video_duration_label.grid(row=19, column=0, padx=14, pady=1, sticky="w"); app.video_duration_entry.grid(row=20, column=0, padx=14, pady=2, sticky="ew"); app.video_duration_entry.bind("<FocusOut>", lambda _event: self.change_duration())
@@ -162,13 +198,14 @@ class VideoWorkspace:
             frame = extract_video_frame(ffmpeg, path)
             frame.thumbnail((720, 600), Image.Resampling.LANCZOS)
             badge = self._badge_path() if self.state.badge.enabled else None
+            logo = self.state.logo.path if self.state.logo.enabled and self.state.logo.path else None
             if badge:
                 with Image.open(badge) as opened:
                     frame = app.processor.compose(frame, opened.convert("RGBA"), MarkerSettings(
                         badge_name=badge.name, position=self.state.badge.position,
                         size_percent=self.state.badge.size, margin=self.state.badge.margin,
                         opacity=self.state.badge.opacity,
-                    ))
+                    ), Image.open(logo).convert("RGBA") if logo else None)
             self.preview_photo = ctk.CTkImage(light_image=frame, dark_image=frame, size=frame.size)
             label.configure(image=self.preview_photo, text="")
             label.image = self.preview_photo
@@ -191,14 +228,15 @@ class VideoWorkspace:
         if destination.resolve() == source.resolve():
             messagebox.showwarning(app.translator.text("warning.title"), app.translator.text("warning.nothing_to_save")); return
         badge = self._badge_path() if self.state.badge.enabled else None
-        if badge is None:
+        logo = self.state.logo.path if self.state.logo.enabled and self.state.logo.path else None
+        if badge is None and logo is None:
             messagebox.showwarning(app.translator.text("warning.title"), app.translator.text("warning.nothing_to_save")); return
-        settings = MarkerSettings(badge_name=badge.name, position=self.state.badge.position, size_percent=self.state.badge.size, margin=self.state.badge.margin, opacity=self.state.badge.opacity, video_mode=self.state.mode, video_duration=self.state.duration)
-        request = VideoProcessingRequest(source, destination, badge, settings)
+        settings = MarkerSettings(badge_name=badge.name if badge else "", position=self.state.badge.position, size_percent=self.state.badge.size, margin=self.state.badge.margin, opacity=self.state.badge.opacity, video_mode=self.state.mode, video_duration=self.state.duration, logo_mode=self.state.logo.mode, logo_enabled=bool(logo), logo_path=str(logo or ""), logo_position="top-left", logo_size_percent=self.state.logo.size, logo_margin=self.state.logo.margin, logo_opacity=self.state.logo.opacity)
+        request = VideoProcessingRequest(source, destination, badge, logo, settings)
         try:
             if not find_ffmpeg(): raise ValueError(app.translator.text("error.video_component_missing"))
             from .batch import BatchProcessor
-            BatchProcessor(app.processor).process_video(request.source, request.badge, request.destination, request.settings, marker_metadata(request.badge.name, app.badges.display_name(request.badge.name)))
+            BatchProcessor(app.processor).process_video(request.source, request.badge, request.destination, request.settings, marker_metadata(request.badge.name if request.badge else "", app.badges.display_name(request.badge.name) if request.badge else ""), logo=request.logo)
             app.status_var.set(app.translator.text("video.saved_name", name=destination.name))
         except (OSError, ValueError) as error:
             messagebox.showerror(app.translator.text("error.title"), str(error))

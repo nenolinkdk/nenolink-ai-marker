@@ -24,6 +24,12 @@ def test_every_video_table_transition_executes(spec):
         VideoEvent.DURATION_CHANGED: {"duration": 8},
         VideoEvent.BADGE_CHANGED: {"badge_id": "AI Translation"},
         VideoEvent.VISUAL_CHANGED: {"size": 35, "margin": 22},
+        VideoEvent.LOGO_FILE_CHANGED: {"path": Path("logo.png")},
+        VideoEvent.LOGO_ENABLED_CHANGED: {"enabled": True},
+        VideoEvent.LOGO_MODE_CHANGED: {"mode": "front"},
+        VideoEvent.LOGO_SIZE_CHANGED: {"size": 30},
+        VideoEvent.LOGO_MARGIN_CHANGED: {"margin": 12},
+        VideoEvent.LOGO_OPACITY_CHANGED: {"opacity": 80},
         VideoEvent.CLEAR_RUNTIME: {},
     }[spec.event]
     assert apply_video_event(state, spec.event, payload) is state

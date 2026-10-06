@@ -31,6 +31,7 @@ class MarkerSettings:
     skip_processed: bool = True
     video_mode: str = "permanent"
     video_duration: int = 5
+    logo_mode: str = "entire"
     batch_filename_suffix: str = "_ai"
     logo_enabled: bool = False
     logo_path: str = ""
@@ -68,6 +69,9 @@ class MarkerSettings:
         if self.video_mode not in {"permanent", "beginning", "end"}:
             self.video_mode = "permanent"
         self.video_duration = max(1, int(self.video_duration))
+        self.logo_mode = str(self.logo_mode or "entire").lower()
+        if self.logo_mode not in {"front", "entire", "back"}:
+            self.logo_mode = "entire"
         self.batch_filename_suffix = validated_filename_suffix(self.batch_filename_suffix)
         self.logo_enabled = bool(self.logo_enabled)
         self.logo_path = str(self.logo_path or "")

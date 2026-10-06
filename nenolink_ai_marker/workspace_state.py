@@ -42,6 +42,7 @@ class LogoVisualState:
     enabled: bool = False
     path: Path | None = None
     position: str = "top-left"
+    mode: str = "entire"
     size: int = 15
     margin: int = 20
     opacity: int = 100
@@ -158,6 +159,12 @@ class VideoEvent(str, Enum):
     DURATION_CHANGED = "duration_changed"
     BADGE_CHANGED = "badge_changed"
     VISUAL_CHANGED = "visual_changed"
+    LOGO_FILE_CHANGED = "logo_file_changed"
+    LOGO_ENABLED_CHANGED = "logo_enabled_changed"
+    LOGO_MODE_CHANGED = "logo_mode_changed"
+    LOGO_SIZE_CHANGED = "logo_size_changed"
+    LOGO_MARGIN_CHANGED = "logo_margin_changed"
+    LOGO_OPACITY_CHANGED = "logo_opacity_changed"
     CLEAR_RUNTIME = "clear_runtime"
 
 
@@ -174,6 +181,12 @@ VIDEO_TRANSITION_TABLE: tuple[VideoTransition, ...] = (
     VideoTransition(VideoEvent.DURATION_CHANGED, ("duration",), ("path", "mode", "badge", "logo")),
     VideoTransition(VideoEvent.BADGE_CHANGED, ("badge",), ("path", "mode", "duration", "logo")),
     VideoTransition(VideoEvent.VISUAL_CHANGED, ("badge",), ("path", "mode", "duration", "logo")),
+    VideoTransition(VideoEvent.LOGO_FILE_CHANGED, ("logo",), ("path", "mode", "duration", "badge")),
+    VideoTransition(VideoEvent.LOGO_ENABLED_CHANGED, ("logo",), ("path", "mode", "duration", "badge")),
+    VideoTransition(VideoEvent.LOGO_MODE_CHANGED, ("logo",), ("path", "mode", "duration", "badge")),
+    VideoTransition(VideoEvent.LOGO_SIZE_CHANGED, ("logo",), ("path", "mode", "duration", "badge")),
+    VideoTransition(VideoEvent.LOGO_MARGIN_CHANGED, ("logo",), ("path", "mode", "duration", "badge")),
+    VideoTransition(VideoEvent.LOGO_OPACITY_CHANGED, ("logo",), ("path", "mode", "duration", "badge")),
     VideoTransition(VideoEvent.CLEAR_RUNTIME, ("path", "output_status"), ("mode", "duration", "badge", "logo")),
 )
 
@@ -201,6 +214,16 @@ def apply_video_event(state: VideoWorkspaceState, event: VideoEvent | str, paylo
         for key in ("enabled", "position", "size", "margin", "opacity"):
             if key in payload:
                 setattr(state.badge, key, payload[key])
+    elif event in {VideoEvent.LOGO_FILE_CHANGED, VideoEvent.LOGO_ENABLED_CHANGED,
+                   VideoEvent.LOGO_MODE_CHANGED, VideoEvent.LOGO_SIZE_CHANGED,
+                   VideoEvent.LOGO_MARGIN_CHANGED, VideoEvent.LOGO_OPACITY_CHANGED}:
+        if "path" in payload: state.logo.path = Path(payload["path"]) if payload["path"] else None
+        if "enabled" in payload: state.logo.enabled = bool(payload["enabled"])
+        if event is VideoEvent.LOGO_MODE_CHANGED and "mode" in payload: state.logo.mode = str(payload["mode"])
+        state.logo.position = "top-left"
+        if "size" in payload: state.logo.size = int(payload["size"])
+        if "margin" in payload: state.logo.margin = int(payload["margin"])
+        if "opacity" in payload: state.logo.opacity = int(payload["opacity"])
     elif event is VideoEvent.CLEAR_RUNTIME:
         state.clear_runtime_state()
     return state
