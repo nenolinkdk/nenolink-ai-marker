@@ -45,9 +45,15 @@ class BadgeControl:
         self.graphic_widget = ctk.CTkLabel(self.frame, text="")
         self._presentation_image = None
         self._presentation_asset_path = None
-        self.enabled_widget.grid(row=0, column=0, sticky="w")
-        self.selector_widget.grid(row=1, column=0, sticky="ew")
-        self.graphic_widget.grid(row=2, column=0, sticky="w")
+        heading_font = ctk.CTkFont(weight="bold") if hasattr(ctk, "CTkFont") else None
+        heading_kwargs = {"text": "AI BADGE"}
+        if heading_font is not None:
+            heading_kwargs["font"] = heading_font
+        self.heading_widget = ctk.CTkLabel(self.frame, **heading_kwargs)
+        self.heading_widget.grid(row=0, column=0, sticky="w")
+        self.enabled_widget.grid(row=1, column=0, sticky="w")
+        self.selector_widget.grid(row=2, column=0, sticky="ew")
+        self.graphic_widget.grid(row=3, column=0, sticky="w")
 
     def _enabled(self):
         if self._on_enabled_changed: self._on_enabled_changed(bool(self.enabled_var.get()))

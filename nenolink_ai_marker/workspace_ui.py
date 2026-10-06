@@ -6,6 +6,21 @@ These values describe layout only; they intentionally own no workspace state.
 from dataclasses import dataclass
 
 
+class Section:
+    """Stateless section container used only for presentation structure."""
+    def __init__(self, parent, *, title: str = "", padding=(0, 0), gap: int = 4):
+        import customtkinter as ctk
+        self.frame = ctk.CTkFrame(parent, fg_color="transparent")
+        self.frame.grid_columnconfigure(0, weight=1)
+        self.heading = ctk.CTkLabel(self.frame, text=title,
+                                    font=ctk.CTkFont(weight="bold"))
+        if title:
+            self.heading.grid(row=0, column=0, padx=padding[0], pady=(padding[1], gap), sticky="w")
+
+    def set_title(self, title: str) -> None:
+        self.heading.configure(text=title)
+
+
 @dataclass(frozen=True)
 class WorkspaceLayoutTokens:
     section_gap: int = 4
@@ -43,9 +58,8 @@ def build_badge_section(parent, *, enabled_var, badge_var, badge_values,
     adapters that emit the supplied workspace events.
     """
     import customtkinter as ctk
-    frame = ctk.CTkFrame(parent, fg_color="transparent")
-    frame.grid_columnconfigure(0, weight=1)
-    ctk.CTkLabel(frame, text="AI BADGE", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, sticky="w")
+    section = Section(parent, title="AI BADGE")
+    frame = section.frame
     ctk.CTkCheckBox(frame, text="Add AI badge", variable=enabled_var,
                     command=on_enabled).grid(row=1, column=0, sticky="w")
     menu = ctk.CTkOptionMenu(frame, variable=badge_var, values=list(badge_values),
