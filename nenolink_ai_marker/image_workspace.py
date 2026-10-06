@@ -121,11 +121,22 @@ class ImageWorkspace:
         app = self.app
         badge = app.badges.find(self.state.badge.badge_id) if self.state.badge.enabled else None
         logo = self.state.logo.path if self.state.logo.enabled else None
-        request = ImageProcessingRequest(tuple(self.state.selected_files), badge, logo, app.settings())
+        settings = replace(app.settings(), badge_name=self.state.badge.badge_id,
+                           position=self.state.badge.position,
+                           size_percent=self.state.badge.size,
+                           margin=self.state.badge.margin,
+                           opacity=self.state.badge.opacity,
+                           logo_enabled=self.state.logo.enabled,
+                           logo_path=str(self.state.logo.path or ""),
+                           logo_position=self.state.logo.position,
+                           logo_size_percent=self.state.logo.size,
+                           logo_margin=self.state.logo.margin,
+                           logo_opacity=self.state.logo.opacity)
+        request = ImageProcessingRequest(tuple(self.state.selected_files), badge, logo, settings)
         if not request.sources or (request.badge is None and request.logo is None):
             messagebox.showwarning(app.translator.text("warning.title"), app.translator.text("warning.nothing_to_save"))
             return
-        metadata = marker_metadata(self.state.badge.badge_id, app.badge_name_var.get()) if badge else None
+        metadata = marker_metadata(self.state.badge.badge_id, app.badges.display_name(self.state.badge.badge_id)) if badge else None
         saved, failures, metadata_warnings = [], [], []
         for source in request.sources:
             suggested = source.with_name(f"{source.stem}_ai{source.suffix}")
@@ -218,7 +229,7 @@ class ImageWorkspace:
         self.badge_control.frame.grid(row=0, column=0, sticky="ew")
         app.badge_enable = self.badge_control.enabled_widget; app.badge_menu = self.badge_control.selector_widget
         app.single_badge_preview_label = self.badge_control.graphic_widget; app.single_badge_name_label = self.badge_control.graphic_widget
-        app.position_label = ctk.CTkLabel(left)
+        app.position_label = ctk.CTkLabel(app.image_badge_group)
         app.position_label.grid(row=1, column=0, padx=8, pady=(5, 1), sticky="w")
         app.position_menu = ctk.CTkOptionMenu(app.image_badge_group, variable=app.position_display_var, values=["—"], command=self.position_changed)
         app.position_menu.grid(row=2, column=0, padx=8, pady=2, sticky="ew")

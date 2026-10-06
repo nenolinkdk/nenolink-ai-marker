@@ -1852,7 +1852,7 @@ class MarkerApp(ctk.CTk):
         self.position_menu.configure(values=list(self.position_display_to_value)); self.position_display_var.set(next((label for label, value in self.position_display_to_value.items() if value == self.position_var.get()), t("position.bottom_right")))
         self.logo_position_display_to_value = dict(self.position_display_to_value); self.logo_position_menu.configure(values=list(self.logo_position_display_to_value)); self.logo_position_display_var.set(next((label for label, value in self.logo_position_display_to_value.items() if value == self.logo_position_var.get()), t("position.top_left")))
         self.position_label.configure(text="3. " + t("position")); self._update_image_slider_labels()
-        self.logo_heading.configure(text=t("logo.title")); self.logo_enable.configure(text=t("logo.enable")); self.logo_choose.configure(text=t("logo.choose")); self.logo_position_label.configure(text=t("logo.position")); self.logo_images_only.configure(text=t("logo.images_only")); self._update_logo_labels(); self._update_logo_controls(); self._update_badge_controls()
+        self.logo_heading.configure(text=t("logo.title")); self.logo_enable.configure(text=t("logo.enable")); self.logo_choose.configure(text=t("logo.choose")); self.logo_position_label.configure(text=t("logo.position")); self.logo_images_only.configure(text=t("logo.images_only")); self._update_logo_labels(); self._update_logo_controls()
         self.welcome_title.configure(text=t("welcome.title")); self.welcome_tagline.configure(text=t("welcome.tagline")); self.welcome_description1.configure(text=t("welcome.description1")); self.welcome_description2.configure(text=t("welcome.description2"))
 
     def change_image_language(self, name: str) -> None:
@@ -1916,7 +1916,8 @@ class MarkerApp(ctk.CTk):
         self.badges = self.badge_sources.repository(self.badge_source_var.get(), self.custom_badge_var.get())
         names = [path.name for path in self.badges.display_badges()]
         displays = [self.badges.display_name(name) for name in names]; self.badge_display_to_file = dict(zip(displays, names))
-        if getattr(self, "badge_menu", None): self.badge_menu.configure(values=displays or [self.translator.text("badge.none")])
+        if self.active_content_type == "image" and getattr(self, "image_workspace_owner", None) is not None:
+            self.image_workspace_owner.project()
         self.badge_var.set(choose_badge_selection(self.badge_source_var.get(), names, self.badge_var.get()))
         self.badge_display_var.set(self.badges.display_name(self.badge_var.get()))
 
