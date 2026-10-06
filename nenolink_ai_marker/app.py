@@ -2036,7 +2036,6 @@ class MarkerApp(ctk.CTk):
         if getattr(self, "badge_menu", None): self.badge_menu.configure(values=displays or [self.translator.text("badge.none")])
         self.badge_var.set(choose_badge_selection(self.badge_source_var.get(), names, self.badge_var.get()))
         self.badge_display_var.set(self.badges.display_name(self.badge_var.get()))
-        if getattr(self, "single_badge_preview_label", None): self.update_image_badge_preview()
 
     def _project_image_visual_state(self) -> None:
         """Project authoritative Image visuals into legacy adapters."""

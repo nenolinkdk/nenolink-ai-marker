@@ -65,7 +65,6 @@ class ImageWorkspace:
     def project(self):
         """Project authoritative state through the existing app adapters."""
         if self.root is not None and self.root.winfo_exists():
-            self.app.refresh_image_badges()
             files = self.state.selected_files
             if getattr(self.app, "file_label", None) is not None:
                 self.app.file_label.configure(text=(f"{files[0].name} · {human_file_size(files[0].stat().st_size)}" if files else self.app.translator.text("files.none")))
