@@ -22,6 +22,7 @@ from .badge_control import BadgeControl, BadgeProjection
 from .source_control import SourceControl
 from .logo_control import LogoControl, LogoProjection
 from .preview_shell import PreviewShell
+from .paths import welcome_image_path
 
 
 class ImageWorkspace:
