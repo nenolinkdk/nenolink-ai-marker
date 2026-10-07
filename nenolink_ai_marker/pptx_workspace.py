@@ -21,6 +21,7 @@ from .badge_control import BadgeControl, BadgeProjection
 from .source_control import SourceControl
 from .logo_control import LogoControl, LogoProjection
 from .preview_shell import PreviewShell
+from .document_controls import PhysicalNavigationControl, DocumentScopeControl
 
 
 class PptxConstructionReceipt:
@@ -94,19 +95,10 @@ class PptxWorkspace:
         self.file_label = self.source_control.filename_label; self.file_metadata_label = self.source_control.metadata_label
         self.construction_receipt.file_section_created = True
         self.slides_heading = ctk.CTkLabel(controls, text=t("pptx.slides_heading"), font=ctk.CTkFont(weight="bold")); self.slides_heading.grid(row=4, column=0, padx=12, pady=(4, 2), sticky="w")
-        self.scope_var = ctk.StringVar(value=t("pptx.scope.all"))
-        self._scope_display = {"all": t("pptx.scope.all"), "first": t("pptx.scope.first"), "selected": t("pptx.scope.selected"), "range": t("pptx.scope.range")}
-        self._scope_value = {v: k for k, v in self._scope_display.items()}
-        self.scope_menu = ctk.CTkOptionMenu(controls, variable=self.scope_var, values=list(self._scope_display.values()), command=self._scope_mode, width=190)
-        self.scope_menu.grid(row=5, column=0, padx=12, pady=2, sticky="w")
-        self.scope_input_var = ctk.StringVar(value="")
-        self.scope_input = ctk.CTkEntry(controls, textvariable=self.scope_input_var, width=190, placeholder_text=t("pptx.selected_hint"))
-        self.scope_input.grid(row=6, column=0, padx=12, pady=2, sticky="w")
-        self.scope_input.bind("<KeyRelease>", lambda _event: self._scope_text_changed())
-        self.scope_update = ctk.CTkButton(controls, text=t("pptx.update"), command=self._scope_update, width=90)
-        self.scope_update.grid(row=7, column=0, padx=12, pady=2, sticky="w")
-        self.scope_status = ctk.CTkLabel(controls, text=t("pptx.selected_count", count=0), anchor="w")
-        self.scope_status.grid(row=8, column=0, padx=12, pady=(2, 8), sticky="w")
+        self.scope_control = DocumentScopeControl(controls, on_mode=self._scope_mode, on_text=lambda text: self._scope_text_changed(), on_update=self._scope_update, values=(t("pptx.scope.all"), t("pptx.scope.first"), t("pptx.scope.selected"), t("pptx.scope.range")), placeholder=t("pptx.selected_hint"))
+        self.scope_control.frame.grid(row=5, column=0, padx=12, pady=2, sticky="w")
+        self.scope_var = self.scope_control.mode_var; self.scope_menu = self.scope_control.menu; self.scope_input_var = self.scope_control.input_var; self.scope_input = self.scope_control.input; self.scope_update = self.scope_control.update; self.scope_status = self.scope_control.status
+        self._scope_display = {"all": t("pptx.scope.all"), "first": t("pptx.scope.first"), "selected": t("pptx.scope.selected"), "range": t("pptx.scope.range")}; self._scope_value = {v: k for k, v in self._scope_display.items()}
         ctk.CTkLabel(controls, text=t("badge"), font=ctk.CTkFont(weight="bold")).grid(row=9, column=0, padx=12, pady=(4, 2), sticky="w")
         self.badge_control = BadgeControl(controls, on_enabled_changed=lambda value: self._dispatch(PptxEvent.BADGE_ENABLE, value), on_badge_selected=lambda value: self._dispatch(PptxEvent.BADGE_SELECT, value))
         self.logo_control = LogoControl(controls, on_enabled=lambda value: self._dispatch(PptxEvent.LOGO_ENABLE, value), on_choose=self._choose_logo, on_mode=None, on_size=lambda value: self._slider_event("logo", "size", value), on_margin=lambda value: self._slider_event("logo", "margin", value), on_opacity=lambda value: self._slider_event("logo", "opacity", value))
@@ -123,11 +115,8 @@ class PptxWorkspace:
         self.preview_label = ctk.CTkLabel(self.preview_viewport, text=t("pptx.preview_hint"), fg_color="transparent", width=740, height=430, anchor="center")
         self.preview_label.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
         self.preview_viewport.grid_columnconfigure(0, weight=1); self.preview_viewport.grid_rowconfigure(0, weight=1)
-        self.navigation = ctk.CTkFrame(preview, fg_color="transparent"); self.navigation.grid(row=1, column=0, pady=(0, 6))
-        self.navigation.grid_columnconfigure(0, weight=1); self.navigation.grid_columnconfigure(2, weight=1)
-        self.previous_button = ctk.CTkButton(self.navigation, text="‹", width=34, command=lambda: self._change_slide(-1)); self.previous_button.grid(row=0, column=0, padx=4)
-        self.slide_status = ctk.CTkLabel(self.navigation, text="—", width=90); self.slide_status.grid(row=0, column=1, padx=4)
-        self.next_button = ctk.CTkButton(self.navigation, text="›", width=34, command=lambda: self._change_slide(1)); self.next_button.grid(row=0, column=2, padx=4)
+        self.navigation_control = PhysicalNavigationControl(preview, on_previous=lambda: self._change_slide(-1), on_next=lambda: self._change_slide(1)); self.navigation_control.frame.grid(row=1, column=0, pady=(0, 6))
+        self.navigation = self.navigation_control.frame; self.previous_button = self.navigation_control.previous; self.slide_status = self.navigation_control.status; self.next_button = self.navigation_control.next
         self.construction_receipt.preview_host_created = True
         preview.grid_columnconfigure(0, weight=1); preview.grid_rowconfigure(0, weight=1)
         self.state_token_reached = True

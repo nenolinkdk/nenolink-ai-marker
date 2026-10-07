@@ -23,6 +23,7 @@ from .workspace_ui import build_badge_visual
 from .source_control import SourceControl
 from .logo_control import LogoControl, LogoProjection
 from .preview_shell import PreviewShell
+from .document_controls import PhysicalNavigationControl, DocumentScopeControl
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,16 +69,16 @@ class PdfWorkspace:
         self.badge_control = BadgeControl(controls, on_enabled_changed=self.visual_changed, on_badge_selected=self.select_badge)
         self.logo_control = LogoControl(controls, on_enabled=lambda value: self.set_logo(enabled=value), on_choose=self.choose_logo, on_size=lambda value: self.set_logo(size=value), on_margin=lambda value: self.set_logo(margin=value), on_opacity=lambda value: self.set_logo(opacity=value))
         self.logo_control.frame.grid(row=4, column=0, pady=(8, 2), sticky="ew")
+        self.scope_control = DocumentScopeControl(controls, on_mode=self.set_scope_mode, on_text=lambda text: apply_pdf_event(self.state, PdfEvent.SCOPE_TEXT_CHANGED, {"text": text}), on_update=lambda: self.project(), values=("All", "First", "Selected", "Range"), placeholder="pages")
+        self.scope_control.frame.grid(row=5, column=0, pady=(4, 2), sticky="ew")
         app.pdf_workspace = controls; app.pdf_workspace_root = self.root; app.pdf_controls_host = controls; app.pdf_preview_host = preview_host
         ctk.CTkLabel(controls, text="PDF", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0,column=0,pady=(2,1),sticky="w")
         self.source_control = SourceControl(controls, choose_command=self.choose_file, choose_label=t("pdf.choose"), width=280); self.source_control.frame.grid(row=1,column=0,pady=(4,8),sticky="ew"); app.pdf_choose_button = self.source_control.choose_button; app.pdf_file_label = self.source_control.filename_label
         self.badge_control.frame.grid(row=3,column=0,pady=(8,2),sticky="w")
         app.pdf_badge_enable = self.badge_control.enabled_widget; app.pdf_badge_menu = self.badge_control.selector_widget; app.badge_display_var = self.badge_control.selector_var; app.pdf_badge_visual = self.badge_control.graphic_widget; app.pdf_badge_image_label=app.pdf_badge_visual; app.pdf_badge_name_label=app.pdf_badge_visual
         app.pdf_preview_label = ctk.CTkLabel(preview_host,text="PDF page preview",fg_color=("gray92","gray13")); app.pdf_preview_label.grid(row=0,column=0,pady=(12,4),sticky="nsew")
-        nav = ctk.CTkFrame(preview_host,fg_color="transparent"); nav.grid(row=1,column=0,pady=4)
-        app.pdf_previous_button=ctk.CTkButton(nav,text="◀",width=42,command=lambda:self.set_current_page(self.state.current_page-1)); app.pdf_previous_button.grid(row=0,column=0,padx=4)
-        app.pdf_page_status=ctk.CTkLabel(nav,text="—",width=120); app.pdf_page_status.grid(row=0,column=1,padx=4)
-        app.pdf_next_button=ctk.CTkButton(nav,text="▶",width=42,command=lambda:self.set_current_page(self.state.current_page+1)); app.pdf_next_button.grid(row=0,column=2,padx=4)
+        self.navigation_control = PhysicalNavigationControl(preview_host, on_previous=lambda:self.set_current_page(self.state.current_page-1), on_next=lambda:self.set_current_page(self.state.current_page+1)); self.navigation_control.frame.grid(row=1,column=0,pady=4)
+        app.pdf_previous_button=self.navigation_control.previous; app.pdf_page_status=self.navigation_control.status; app.pdf_next_button=self.navigation_control.next
         app.pdf_save_control=SaveControl(controls,label="Save",command=self.save,width=58); app.pdf_process_button=app.pdf_save_control.button; app.pdf_process_button.grid(row=6,column=0,pady=(8,4),sticky="w")
 
     def unmount(self) -> None:
@@ -103,6 +104,8 @@ class PdfWorkspace:
             self.source_control.project(filename=(state.path.name if state.path else ""), empty_text=app.translator.text("pdf.no_file"))
         if getattr(self, "logo_control", None) is not None:
             self.logo_control.project(LogoProjection(enabled=state.logo.enabled, filename=state.logo.path.name if state.logo.path else "", position=state.logo.position, size=state.logo.size, margin=state.logo.margin, opacity=state.logo.opacity))
+        if getattr(self, "scope_control", None) is not None:
+            self.scope_control.project(mode=state.scope_mode.title(), draft=state.scope_input, status=str(len(state.active_scope)))
         if getattr(app, "pdf_page_status", None) is not None:
             app.pdf_page_status.configure(text=(f"{state.current_page} / {state.page_count}" if state.path else "—"))
         if state.path and getattr(app, "pdf_info", None) is not None:
