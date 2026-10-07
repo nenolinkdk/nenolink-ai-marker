@@ -18,7 +18,9 @@ def test_pptx_scope_and_physical_slide_are_independent():
 def test_pptx_save_route_is_workspace_owned():
     source = inspect.getsource(PptxWorkspace._save_as)
     assert "self.state.path" in source
-    assert "process_pptx_from_workspace" in source
+    assert "asksaveasfilename" in source
+    assert "pptx_processor.process" in source
+    assert "process_pptx_from_workspace" not in source
     assert "pptx_selection_mode_var.get()" not in source
     assert "pptx_selected_var.get()" not in source
     assert "pptx_range_var.get()" not in source

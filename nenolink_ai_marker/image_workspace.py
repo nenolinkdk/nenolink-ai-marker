@@ -271,7 +271,7 @@ class ImageWorkspace:
         self.source_control.frame.grid(row=1, column=0, padx=14, pady=(2, 4), sticky="ew")
         app.open_button = self.source_control.choose_button; app.file_label = self.source_control.filename_label; app.file_size_guidance = self.source_control.metadata_label
         app.image_badge_group = ctk.CTkFrame(left, fg_color="transparent")
-        app.image_badge_group.grid(row=3, column=0, padx=14, pady=(4, 4), sticky="ew")
+        app.image_badge_group.grid(row=2, column=0, padx=14, pady=(4, 4), sticky="ew")
         app.image_badge_group.grid_columnconfigure(0, weight=1)
         self.badge_control.frame.grid(row=0, column=0, sticky="ew")
         app.badge_enable = self.badge_control.enabled_widget; app.badge_menu = self.badge_control.selector_widget
@@ -285,7 +285,7 @@ class ImageWorkspace:
         app.margin_label = self._slider(app.image_badge_group, app.margin_var, 0, 250, 5)
         app.opacity_label = self._slider(app.image_badge_group, app.opacity_var, 0, 100, 7)
         self.logo_control = LogoControl(left, on_enabled=lambda value: self.logo_changed(enabled=value), on_choose=self.choose_logo, on_size=lambda value: self.logo_changed(size=value), on_margin=lambda value: self.logo_changed(margin=value), on_opacity=lambda value: self.logo_changed(opacity=value))
-        self.logo_control.frame.grid(row=12, column=0, padx=14, pady=(5, 8), sticky="ew")
+        self.logo_control.frame.grid(row=3, column=0, padx=14, pady=(5, 8), sticky="ew")
         app.logo_controls = self.logo_control.frame
         app.logo_heading = self.logo_control.heading; app.logo_enable = self.logo_control.enabled_widget; app.logo_choose = self.logo_control.choose_button; app.logo_filename = self.logo_control.filename_label; app.logo_position_label = self.logo_control.position_label; app.logo_size_slider = self.logo_control.size_widget; app.logo_margin_slider = self.logo_control.margin_widget; app.logo_opacity_slider = self.logo_control.opacity_widget
         """
@@ -304,7 +304,7 @@ class ImageWorkspace:
         app.logo_images_only = self.logo_control.position_label
         """
         app.process_save_control = SaveControl(left, command=self.save)
-        app.process_button = app.process_save_control.button; app.process_button.grid(row=13, column=0, padx=14, pady=(2, 10), sticky="ew")
+        app.process_button = app.process_save_control.button; app.process_button.grid(row=4, column=0, padx=14, pady=(2, 10), sticky="ew")
         self.preview_shell = PreviewShell(workspace); self.preview_shell.frame.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right = self.preview_shell.viewport
         self.preview_label = ctk.CTkLabel(right)
         self.welcome_frame = ctk.CTkFrame(right, fg_color="transparent"); self.welcome_frame.grid(row=0, column=0, padx=18, pady=14, sticky="nsew"); self.welcome_frame.grid_columnconfigure(0, weight=1); self.welcome_frame.grid_rowconfigure(4, weight=1)

@@ -145,7 +145,7 @@ def test_real_output_paths_are_workspace_state_bound():
         "image": "ImageProcessingRequest(tuple(self.state.selected_files)",
         "video": "source = self.state.path",
         "pdf": "self.state.path",
-        "pptx": "handler(self.state)",
+            "pptx": "self.state.path",
     }
     corpus = "\n".join((ROOT / "nenolink_ai_marker" / name).read_text(encoding="utf-8") for name in ("image_workspace.py", "video_workspace.py", "pdf_workspace.py", "pptx_workspace.py", "app.py"))
     assert all(fragment in corpus for fragment in sources.values())
