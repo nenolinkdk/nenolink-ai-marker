@@ -169,6 +169,19 @@ class ShellController:
         """Compatibility view name; content state remains authoritative."""
         return self.active_content_type
 
+    def commit_content(self, destination: str) -> None:
+        """Commit executor-owned content state without resolving a transition."""
+        if destination not in DESTINATIONS:
+            raise ValueError(f"Unknown shell destination: {destination}")
+        self.active_content_type = destination
+        self.active_tool = None
+
+    def commit_tool(self, tool: str) -> None:
+        """Commit executor-owned overlay state without a second FSM."""
+        if tool not in {"badges", "inspect"}:
+            raise ValueError(f"Unknown shell tool: {tool}")
+        self.active_tool = tool
+
     def dispatch(self, event: str) -> ShellTransition:
         previous = self.active_tool or self.active_content_type
         if event == "reset":

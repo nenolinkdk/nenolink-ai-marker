@@ -100,7 +100,7 @@ class _ShellRuntimeAdapter:
         # Commit the destination in the authoritative Shell FSM before any
         # destination mount/projection can observe or render it.
         if self.app.shell_controller.active_content_type != destination:
-            self.app.shell_controller.dispatch(destination)
+            self.app.shell_controller.commit_content(destination)
         workspace.mount(self.app.content_host)
         self.mount_result = "success"
     def project_destination(self, destination):
@@ -109,7 +109,7 @@ class _ShellRuntimeAdapter:
         self.app.mounted_view = destination.upper()
     def mount_tool(self, tool):
         self.app._mount_tool(tool)
-        self.app.shell_controller.dispatch(tool)
+        self.app.shell_controller.commit_tool(tool)
         self.tool_result = "success"
         self.app.mounted_view = tool.upper()
     def unmount_tool(self): self.app._unmount_tool()
