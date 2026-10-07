@@ -5,9 +5,7 @@ from nenolink_ai_marker.image_workspace import ImageWorkspace
 
 
 def test_image_translation_does_not_overwrite_badge_control_graphic():
-    source = inspect.getsource(MarkerApp.apply_image_translations)
-    assert "_update_badge_controls" not in source
-    assert "single_badge_preview_label" not in source
+    assert "apply_image_translations" not in inspect.getsource(MarkerApp)
 
 
 def test_image_badge_projection_is_workspace_owned():

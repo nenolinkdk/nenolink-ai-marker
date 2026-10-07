@@ -75,7 +75,7 @@ class ImageWorkspace:
 
     def project(self):
         """Project authoritative state through the current Image presentation."""
-        if self.root is not None and self.root.winfo_exists():
+        if getattr(self, "root", None) is not None and self.root.winfo_exists():
             self.apply_translations()
             files = self.state.selected_files
             if getattr(self.app, "file_label", None) is not None:
@@ -123,7 +123,7 @@ class ImageWorkspace:
         if any(is_above_recommended_size(path) for path in candidates) and not messagebox.askokcancel(app.translator.text("warning.large_title"), app.translator.text("warning.large_file")):
             return
         apply_image_event(self.state, ImageEvent.FILE_SELECTED, {"files": tuple(candidates)})
-        self.project()
+        if getattr(self, "root", None) is not None: self.project()
 
     def refresh_preview(self):
         """Project ImageWorkspaceState through the existing renderer."""
@@ -132,12 +132,12 @@ class ImageWorkspace:
         if not files:
             self.state.preview_image = None
             app.preview_photo = app.preview_image = None
-            app._show_welcome()
+            self._show_welcome()
             return
         badge = app.badges.find(self.state.badge.badge_id) if self.state.badge.enabled else None
         logo = self.state.logo.path if self.state.logo.enabled else None
         settings = replace(app.settings(), position=self.state.badge.position, size_percent=self.state.badge.size, margin=self.state.badge.margin, opacity=self.state.badge.opacity, logo_enabled=self.state.logo.enabled, logo_position=self.state.logo.position, logo_size_percent=self.state.logo.size, logo_margin=self.state.logo.margin, logo_opacity=self.state.logo.opacity)
-        app._show_preview()
+        self._show_preview()
         try:
             image = app.preview_renderer.render(files[0], badge, settings, logo)
             self.state.preview_image = image.copy()
@@ -191,13 +191,14 @@ class ImageWorkspace:
         displayed = displayed if displayed is not None else (selector.get() if selector is not None else self.app.badge_var.get())
         badge_id = getattr(self.app, "badge_display_to_file", {}).get(displayed, displayed)
         apply_image_event(self.state, ImageEvent.BADGE_CHANGED, {"badge_id": badge_id})
-        self.app._project_image_visual_state()
+        if getattr(self, "root", None) is not None: self.project()
         self.refresh_preview()
 
     def position_changed(self, label):
         value = getattr(self.app, "position_display_to_value", {}).get(label, label)
         apply_image_event(self.state, ImageEvent.VISUAL_CHANGED, {"position": value})
-        self.project(); self.refresh_preview()
+        if getattr(self, "root", None) is not None: self.project()
+        self.refresh_preview()
 
     def choose_logo(self):
         selected = filedialog.askopenfilename(title=self.app.translator.text("logo.choose"), filetypes=[("Images", "*.png *.jpg *.jpeg *.webp")])
@@ -214,7 +215,7 @@ class ImageWorkspace:
             "position": changes.get("position", self.app.logo_position_var.get()), "size": int(self.app.logo_size_var.get()),
             "margin": int(self.app.logo_margin_var.get()), "opacity": int(self.app.logo_opacity_var.get()),
         })
-        self.app._project_image_visual_state()
+        if getattr(self, "root", None) is not None: self.project()
         self.refresh_preview()
 
     def visual_changed(self, enabled=None, *_args):
@@ -226,7 +227,7 @@ class ImageWorkspace:
             "logo_position": self.app.logo_position_var.get(), "logo_size": int(self.app.logo_size_var.get()),
             "logo_margin": int(self.app.logo_margin_var.get()), "logo_opacity": int(self.app.logo_opacity_var.get()),
         })
-        self.app._project_image_visual_state()
+        if getattr(self, "root", None) is not None: self.project()
         self.refresh_preview()
 
     def _slider(self, parent, variable, start, end, row):
@@ -237,6 +238,18 @@ class ImageWorkspace:
                       variable=variable, command=self.visual_changed).grid(
                           row=row + 1, column=0, padx=14, pady=(1, 3), sticky="ew")
         return label
+
+    def _show_welcome(self):
+        self.preview_label.grid_remove(); self.welcome_frame.grid(row=0, column=0, padx=18, pady=14, sticky="nsew"); self._resize_welcome()
+
+    def _show_preview(self):
+        self.welcome_frame.grid_remove(); self.preview_label.grid(row=0, column=0, padx=12, pady=12, sticky="nsew")
+
+    def _resize_welcome(self, event=None):
+        if self.welcome_image is None: return
+        width = max(240, (event.width if event else self.welcome_frame.winfo_width()) - 48); height = max(135, (event.height if event else self.welcome_frame.winfo_height()) - 210)
+        ratio = min(width / self.welcome_image.width, height / self.welcome_image.height); size = (max(1, int(self.welcome_image.width * ratio)), max(1, int(self.welcome_image.height * ratio)))
+        self.welcome_photo = ctk.CTkImage(light_image=self.welcome_image, dark_image=self.welcome_image, size=size); self.welcome_illustration.configure(image=self.welcome_photo, text="")
 
     def _build_ui(self, workspace):
         self.badge_control = BadgeControl(workspace, on_enabled_changed=self.visual_changed, on_badge_selected=self.badge_changed)
@@ -294,4 +307,10 @@ class ImageWorkspace:
         app.welcome_description1 = ctk.CTkLabel(app.welcome_frame, wraplength=720, justify="center"); app.welcome_description1.grid(row=2, column=0, padx=18, pady=2)
         app.welcome_description2 = ctk.CTkLabel(app.welcome_frame, wraplength=720, justify="center"); app.welcome_description2.grid(row=3, column=0, padx=18, pady=(2, 10))
         app.welcome_illustration = ctk.CTkLabel(app.welcome_frame, anchor="center"); app.welcome_illustration.grid(row=4, column=0, padx=12, pady=(4, 12), sticky="nsew")
-        app._load_image_welcome(); app.welcome_frame.bind("<Configure>", app._resize_image_welcome)
+        self._load_welcome(); app.welcome_frame.bind("<Configure>", self._resize_welcome)
+
+    def _load_welcome(self):
+        try:
+            with Image.open(welcome_image_path()) as opened: self.welcome_image = opened.convert("RGBA")
+        except OSError:
+            self.welcome_illustration.configure(text="◇")
