@@ -99,9 +99,7 @@ class PptxWorkspace:
         self.scope_control.frame.grid(row=5, column=0, padx=12, pady=2, sticky="w")
         self.scope_var = self.scope_control.mode_var; self.scope_menu = self.scope_control.menu; self.scope_input_var = self.scope_control.input_var; self.scope_input = self.scope_control.input; self.scope_update = self.scope_control.update; self.scope_status = self.scope_control.status
         self._scope_display = {"all": t("pptx.scope.all"), "first": t("pptx.scope.first"), "selected": t("pptx.scope.selected"), "range": t("pptx.scope.range")}; self._scope_value = {v: k for k, v in self._scope_display.items()}
-        ctk.CTkLabel(controls, text=t("badge"), font=ctk.CTkFont(weight="bold")).grid(row=9, column=0, padx=12, pady=(4, 2), sticky="w")
         self.badge_control = BadgeControl(controls, on_enabled_changed=lambda value: self._dispatch(PptxEvent.BADGE_ENABLE, value), on_badge_selected=lambda value: self._dispatch(PptxEvent.BADGE_SELECT, value))
-        self.logo_control = LogoControl(controls, on_enabled=lambda value: self._dispatch(PptxEvent.LOGO_ENABLE, value), on_choose=self._choose_logo, on_mode=None, on_size=lambda value: self._slider_event("logo", "size", value), on_margin=lambda value: self._slider_event("logo", "margin", value), on_opacity=lambda value: self._slider_event("logo", "opacity", value))
         self.badge_control.frame.grid(row=10, column=0, columnspan=2, padx=12, pady=2, sticky="ew")
         self.enabled_var = self.badge_control.enabled_var; self.badge_var = self.badge_control.selector_var
         self.badge_enable = self.badge_control.enabled_widget; self.badge_menu = self.badge_control.selector_widget; self.badge_visual = self.badge_control.graphic_widget; self.badge_image = self.badge_visual; self.badge_name = self.badge_visual

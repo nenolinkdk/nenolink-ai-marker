@@ -99,6 +99,10 @@ class ImageWorkspace:
             self.source_control.metadata_label.configure(text=t("files.size_guidance"))
         if self.badge_control is not None:
             self.badge_control.enabled_widget.configure(text=t("pdf.add_badge"))
+        for name, key in (("size_label", "size.value"), ("margin_label", "margin.value"), ("opacity_label", "opacity.value")):
+            widget = getattr(self.app, name, None)
+            if widget is not None:
+                widget.configure(text=t(key, value=getattr(self.state.badge, name.removesuffix("_label"), "")))
         if getattr(self, "position_menu", None) is not None:
             mapping = {t("position.top_left"): "top-left", t("position.top_right"): "top-right", t("position.bottom_left"): "bottom-left", t("position.bottom_right"): "bottom-right", t("position.center"): "center"}
             self.position_display_to_value = mapping
@@ -262,8 +266,9 @@ class ImageWorkspace:
         app.image_controls = left
         left.grid(row=0, column=0, padx=(4, 8), pady=4, sticky="nsew")
         left.grid_columnconfigure(0, weight=1)
+        self.file_heading = ctk.CTkLabel(left, text="FILE", font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=0, column=0, padx=14, pady=(6, 1), sticky="w")
         self.source_control = SourceControl(left, choose_command=self.choose_files, choose_label="Choose file", width=280)
-        self.source_control.frame.grid(row=0, column=0, padx=14, pady=(10, 4), sticky="ew")
+        self.source_control.frame.grid(row=1, column=0, padx=14, pady=(2, 4), sticky="ew")
         app.open_button = self.source_control.choose_button; app.file_label = self.source_control.filename_label; app.file_size_guidance = self.source_control.metadata_label
         app.image_badge_group = ctk.CTkFrame(left, fg_color="transparent")
         app.image_badge_group.grid(row=3, column=0, padx=14, pady=(4, 4), sticky="ew")

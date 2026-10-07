@@ -72,7 +72,7 @@ class PdfWorkspace:
         self.scope_control = DocumentScopeControl(controls, on_mode=self.set_scope_mode, on_text=lambda text: apply_pdf_event(self.state, PdfEvent.SCOPE_TEXT_CHANGED, {"text": text}), on_update=lambda: self.project(), values=("All", "First", "Selected", "Range"), placeholder="pages")
         self.scope_control.frame.grid(row=5, column=0, pady=(4, 2), sticky="ew")
         app.pdf_workspace = controls; app.pdf_workspace_root = self.root; app.pdf_controls_host = controls; app.pdf_preview_host = preview_host
-        ctk.CTkLabel(controls, text="PDF", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0,column=0,pady=(2,1),sticky="w")
+        ctk.CTkLabel(controls, text="FILE", font=ctk.CTkFont(weight="bold")).grid(row=0,column=0,pady=(2,1),sticky="w")
         self.source_control = SourceControl(controls, choose_command=self.choose_file, choose_label=t("pdf.choose"), width=280); self.source_control.frame.grid(row=1,column=0,pady=(4,8),sticky="ew"); app.pdf_choose_button = self.source_control.choose_button; app.pdf_file_label = self.source_control.filename_label
         self.badge_control.frame.grid(row=3,column=0,pady=(8,2),sticky="w")
         app.pdf_badge_enable = self.badge_control.enabled_widget; app.pdf_badge_menu = self.badge_control.selector_widget; app.badge_display_var = self.badge_control.selector_var; app.pdf_badge_visual = self.badge_control.graphic_widget; app.pdf_badge_image_label=app.pdf_badge_visual; app.pdf_badge_name_label=app.pdf_badge_visual
