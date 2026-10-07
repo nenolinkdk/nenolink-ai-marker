@@ -144,9 +144,9 @@ class ImageWorkspace:
             self.state.preview_image = image.copy()
             app.preview_image = self.state.preview_image
             app.preview_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
-            app.preview_label.configure(image=app.preview_photo, text=""); app.preview_label.image = app.preview_photo
+            self.preview_label.configure(image=app.preview_photo, text=""); self.preview_label.image = app.preview_photo
         except (OSError, ValueError) as error:
-            app.preview_label.configure(image=None, text=app.translator.text("error.preview", error=error))
+            self.preview_label.configure(image=None, text=app.translator.text("error.preview", error=error))
 
     def save(self):
         """Save from authoritative workspace state through the existing processor."""
@@ -301,14 +301,14 @@ class ImageWorkspace:
         app.process_save_control = SaveControl(left, command=self.save)
         app.process_button = app.process_save_control.button; app.process_button.grid(row=13, column=0, padx=14, pady=(2, 10), sticky="ew")
         self.preview_shell = PreviewShell(workspace); self.preview_shell.frame.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right = self.preview_shell.viewport
-        app.preview_label = ctk.CTkLabel(right)
-        app.welcome_frame = ctk.CTkFrame(right, fg_color="transparent"); app.welcome_frame.grid(row=0, column=0, padx=18, pady=14, sticky="nsew"); app.welcome_frame.grid_columnconfigure(0, weight=1); app.welcome_frame.grid_rowconfigure(4, weight=1)
-        app.welcome_title = ctk.CTkLabel(app.welcome_frame, font=ctk.CTkFont(size=28, weight="bold")); app.welcome_title.grid(row=0, column=0, padx=12, pady=(12, 4))
-        app.welcome_tagline = ctk.CTkLabel(app.welcome_frame, font=ctk.CTkFont(size=18, weight="bold"), text_color=("#2469a0", "#65b6ef")); app.welcome_tagline.grid(row=1, column=0, padx=12, pady=(0, 10))
-        app.welcome_description1 = ctk.CTkLabel(app.welcome_frame, wraplength=720, justify="center"); app.welcome_description1.grid(row=2, column=0, padx=18, pady=2)
-        app.welcome_description2 = ctk.CTkLabel(app.welcome_frame, wraplength=720, justify="center"); app.welcome_description2.grid(row=3, column=0, padx=18, pady=(2, 10))
-        app.welcome_illustration = ctk.CTkLabel(app.welcome_frame, anchor="center"); app.welcome_illustration.grid(row=4, column=0, padx=12, pady=(4, 12), sticky="nsew")
-        self._load_welcome(); app.welcome_frame.bind("<Configure>", self._resize_welcome)
+        self.preview_label = ctk.CTkLabel(right)
+        self.welcome_frame = ctk.CTkFrame(right, fg_color="transparent"); self.welcome_frame.grid(row=0, column=0, padx=18, pady=14, sticky="nsew"); self.welcome_frame.grid_columnconfigure(0, weight=1); self.welcome_frame.grid_rowconfigure(4, weight=1)
+        self.welcome_title = ctk.CTkLabel(self.welcome_frame, font=ctk.CTkFont(size=28, weight="bold")); self.welcome_title.grid(row=0, column=0, padx=12, pady=(12, 4))
+        self.welcome_tagline = ctk.CTkLabel(self.welcome_frame, font=ctk.CTkFont(size=18, weight="bold"), text_color=("#2469a0", "#65b6ef")); self.welcome_tagline.grid(row=1, column=0, padx=12, pady=(0, 10))
+        self.welcome_description1 = ctk.CTkLabel(self.welcome_frame, wraplength=720, justify="center"); self.welcome_description1.grid(row=2, column=0, padx=18, pady=2)
+        self.welcome_description2 = ctk.CTkLabel(self.welcome_frame, wraplength=720, justify="center"); self.welcome_description2.grid(row=3, column=0, padx=18, pady=(2, 10))
+        self.welcome_illustration = ctk.CTkLabel(self.welcome_frame, anchor="center"); self.welcome_illustration.grid(row=4, column=0, padx=12, pady=(4, 12), sticky="nsew")
+        self._load_welcome(); self.welcome_frame.bind("<Configure>", self._resize_welcome)
 
     def _load_welcome(self):
         try:
