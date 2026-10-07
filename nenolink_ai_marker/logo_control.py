@@ -28,7 +28,7 @@ class LogoControl:
         self.frame.grid_columnconfigure(0, weight=1)
 
     def project(self, projection: LogoProjection) -> None:
-        self.enabled_var.set(projection.enabled); self.mode_var.set(projection.mode)
+        self.enabled_var.set(projection.enabled); self.mode_var.set(str(projection.mode).title())
         self.mode_widget.configure(values=list(projection.modes or ("Front", "Entire", "Back")))
         self.mode_widget.configure(state="normal" if projection.modes else "disabled")
         self.position_label.configure(text=f"Position: {projection.position.replace('-', ' ').title()}")

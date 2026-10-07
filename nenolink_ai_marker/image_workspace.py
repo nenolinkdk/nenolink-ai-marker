@@ -294,7 +294,7 @@ class ImageWorkspace:
         self.logo_control.frame.grid(row=0, column=0, sticky="ew")
         app.logo_controls = self.logo_control.frame
         app.logo_heading = self.logo_control.heading; app.logo_enable = self.logo_control.enabled_widget; app.logo_choose = self.logo_control.choose_button; app.logo_filename = self.logo_control.filename_label; app.logo_position_label = self.logo_control.position_label; app.logo_size_slider = self.logo_control.size_widget; app.logo_margin_slider = self.logo_control.margin_widget; app.logo_opacity_slider = self.logo_control.opacity_widget
-        app.process_save_control = SaveControl(file_section, label="Save As...", command=self.save)
+        app.process_save_control = SaveControl(file_section, label="Save", command=self.save)
         app.process_button = app.process_save_control.button; app.process_button.grid(row=1, column=1, padx=(4, 2), pady=(2, 2), sticky="ew")
         self.preview_shell = PreviewShell(workspace); self.preview_shell.frame.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right = self.preview_shell.viewport
         self.preview_label = ctk.CTkLabel(right)

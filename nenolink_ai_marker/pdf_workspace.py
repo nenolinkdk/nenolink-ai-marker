@@ -91,7 +91,7 @@ class PdfWorkspace:
         self._preview_resize_job = None
         preview_host.bind("<Configure>", self._schedule_preview_refresh, add="+")
         app.pdf_previous_button=self.navigation_control.previous; app.pdf_page_status=self.navigation_control.status; app.pdf_next_button=self.navigation_control.next
-        app.pdf_save_control=SaveControl(file_section,label="Save As...",command=self.save,width=160); app.pdf_process_button=app.pdf_save_control.button; app.pdf_process_button.grid(row=1,column=1,padx=(4,2),pady=2,sticky="ew")
+        app.pdf_save_control=SaveControl(file_section,label="Save",command=self.save,width=160); app.pdf_process_button=app.pdf_save_control.button; app.pdf_process_button.grid(row=1,column=1,padx=(4,2),pady=2,sticky="ew")
 
     def unmount(self) -> None:
         self._dispose_view()
@@ -117,7 +117,7 @@ class PdfWorkspace:
         if getattr(self, "logo_control", None) is not None:
             self.logo_control.project(LogoProjection(enabled=state.logo.enabled, filename=state.logo.path.name if state.logo.path else "", position=state.logo.position, size=state.logo.size, margin=state.logo.margin, opacity=state.logo.opacity))
         if getattr(self, "scope_control", None) is not None:
-            self.scope_control.project(mode=state.scope_mode.title(), draft=state.scope_input, status=str(len(state.active_scope)))
+            self.scope_control.project(mode=state.scope_mode.title(), draft=state.scope_input, status=str(len(state.active_scope)) if state.path else "")
         if getattr(app, "pdf_page_status", None) is not None:
             app.pdf_page_status.configure(text=(f"{state.current_page} / {state.page_count}" if state.path else "—"))
         if state.path and getattr(app, "pdf_info", None) is not None:
@@ -229,7 +229,7 @@ class PdfWorkspace:
             app.pdf_previous_button.configure(state="normal" if state.current_page > 1 else "disabled")
             app.pdf_next_button.configure(state="normal" if state.current_page < state.page_count else "disabled")
             self.geometry_receipt = geometry
-            app._boot(f"PDF_HOST={width}x{height} PDF_FIT={max_size[0]}x{max_size[1]} PDF_RENDER={result.image.width}x{result.image.height} PDF_MEASURED={geometry.measured_fraction:.4f} PDF_LIMIT={geometry.limiting_dimension}")
+            app._boot(f"PDF_HOST={geometry.actual_available_width}x{geometry.actual_available_height} PDF_EFFECTIVE={geometry.effective_width}x{geometry.effective_height} PDF_MAX={geometry.canonical_max_width}x{geometry.canonical_max_height} PDF_FIT={max_size[0]}x{max_size[1]} PDF_RENDER={result.image.width}x{result.image.height} PDF_MEASURED={geometry.measured_fraction:.4f} PDF_LIMIT={geometry.limiting_dimension}")
             self.receipts.record({"layer": "pdf", "event": "PDF_PREVIEW_GEOMETRY", "viewport": [width, height], "rendered": [result.image.width, result.image.height], "measured_fraction": geometry.measured_fraction, "limiting_dimension": geometry.limiting_dimension}) if hasattr(self, "receipts") else None
         except (OSError, ValueError) as error:
             app.pdf_preview_label.configure(image=None, text=f"Could not render PDF page: {error}")

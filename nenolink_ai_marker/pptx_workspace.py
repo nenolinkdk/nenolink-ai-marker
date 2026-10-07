@@ -95,11 +95,11 @@ class PptxWorkspace:
         self.preview_host = preview
         t = getattr(getattr(self.app, "translator", None), "text", lambda key: key)
         file_section = ctk.CTkFrame(controls, fg_color="transparent"); self.control_panel.add_section("FILE", file_section)
-        self.heading_label = ctk.CTkLabel(file_section, text=t("content.powerpoint"), font=ctk.CTkFont(size=24, weight="bold")); self.heading_label.grid(row=0, column=0, padx=2, pady=(2, 2), sticky="w")
+        self.heading_label = None
         file_section.grid_columnconfigure(0, weight=1); file_section.grid_columnconfigure(1, weight=1)
-        self.file_heading = ctk.CTkLabel(file_section, text=t("pptx.file_heading"), font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=1, column=0, columnspan=2, padx=2, pady=(2, 1), sticky="w")
-        self.source_control = SourceControl(file_section, choose_command=self._choose_file, choose_label=t("pptx.choose"), width=280, compact=True); self.source_control.frame.grid(row=2, column=0, padx=(2,4), pady=2, sticky="ew"); self.choose_button = self.source_control.choose_button
-        self.save_control = SaveControl(file_section, label="Save As...", command=self._save_as, width=160); self.save_button = self.save_control.button; self.save_button.grid(row=2, column=1, padx=(4,2), pady=2, sticky="ew")
+        self.file_heading = ctk.CTkLabel(file_section, text=t("pptx.file_heading"), font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=0, column=0, columnspan=2, padx=2, pady=(2, 1), sticky="w")
+        self.source_control = SourceControl(file_section, choose_command=self._choose_file, choose_label=t("pptx.choose"), width=280, compact=True); self.source_control.frame.grid(row=1, column=0, padx=(2,4), pady=2, sticky="ew"); self.choose_button = self.source_control.choose_button
+        self.save_control = SaveControl(file_section, label="Save", command=self._save_as, width=160); self.save_button = self.save_control.button; self.save_button.grid(row=1, column=1, padx=(4,2), pady=2, sticky="ew")
         self.file_label = self.source_control.filename_label; self.file_metadata_label = self.source_control.metadata_label
         self.construction_receipt.file_section_created = True
         slides_section = ctk.CTkFrame(controls, fg_color="transparent"); self.control_panel.add_section("SLIDES", slides_section)
@@ -251,7 +251,7 @@ class PptxWorkspace:
             target80 = (round(usable[0] * 0.8), round(usable[1] * 0.8))
             boot = getattr(self.app, "_boot", None)
             if callable(boot):
-                boot(f"PPTX_HOST={host_width}x{host_height} PPTX_USABLE={usable[0]}x{usable[1]} PPTX_TARGET80={target80[0]}x{target80[1]} PPTX_FIT={available_width}x{available_height} PPTX_RENDER={result.image.width}x{result.image.height} PPTX_CTKIMAGE={result.image.width}x{result.image.height} PPTX_LABEL={self.preview_label.winfo_width()}x{self.preview_label.winfo_height()}")
+                boot(f"PPTX_HOST={geometry.actual_available_width}x{geometry.actual_available_height} PPTX_EFFECTIVE={geometry.effective_width}x{geometry.effective_height} PPTX_MAX={geometry.canonical_max_width}x{geometry.canonical_max_height} PPTX_FIT={available_width}x{available_height} PPTX_RENDER={result.image.width}x{result.image.height} PPTX_MEASURED={geometry.measured_fraction:.4f} PPTX_LIMIT={geometry.limiting_dimension}")
             self.receipts.record({"layer": "pptx", "event": "PPTX_PREVIEW_GEOMETRY_STABLE", "slide_bbox": result.image.size})
             self.geometry_receipt = geometry
             self.receipts.record({"layer": "pptx", "event": "PPTX_PREVIEW_GEOMETRY", "viewport": [geometry.viewport_width, geometry.viewport_height], "rendered": [result.image.width, result.image.height], "measured_fraction": geometry.measured_fraction, "limiting_dimension": geometry.limiting_dimension})

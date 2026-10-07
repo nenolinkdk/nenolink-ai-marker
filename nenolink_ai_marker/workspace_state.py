@@ -145,7 +145,7 @@ def apply_image_event(state: ImageWorkspaceState, event: ImageEvent | str, paylo
 
 @dataclass
 class VideoWorkspaceState(WorkspaceRuntimeState):
-    mode: str = "permanent"
+    mode: str = "beginning"
     duration: int = 5
 
     def __post_init__(self) -> None:

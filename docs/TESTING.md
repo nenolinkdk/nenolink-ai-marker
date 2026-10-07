@@ -45,6 +45,12 @@ Earlier checkpoints used selected test scopes. The release process explicitly
 distinguishes those scopes from the full repository suite above, so a selected
 checkpoint must not be described as “all tests”.
 
+Presentation normalization checks also cover compact FILE actions, shared
+Badge/Logo geometry, Video's first-five-seconds default, blank unloaded
+document status, and bounded PDF/PPTX preview fitting. The earlier unbounded
+viewport interpretation from 4D16B failed Windows visual acceptance and is no
+longer the runtime sizing model.
+
 Production formats are Images, Video, PDF and PowerPoint/Slides. DOCX is not a
 v1.0.3 production format.
 

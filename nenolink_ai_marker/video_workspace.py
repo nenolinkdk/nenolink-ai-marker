@@ -81,6 +81,7 @@ class VideoWorkspace:
     def _project_controls(self):
         app = self.app
         app.video_mode_var.set(self.state.mode)
+        app.video_mode_display_var.set(next((label for label, value in app.video_mode_display_to_value.items() if value == self.state.mode), "First 5 seconds"))
         app.video_duration_var.set(max(1, int(self.state.duration)))
         app.video_badge_var.set(app.badges.display_name(self.state.badge.badge_id))
         app.video_position_var.set(self.state.badge.position)
@@ -183,10 +184,10 @@ class VideoWorkspace:
         self.logo_control.frame.grid(row=0, column=0, sticky="ew")
         self.logo_enabled_var = self.logo_control.enabled_var; self.logo_mode_var = self.logo_control.mode_var; self.logo_file_label = self.logo_control.filename_label; self.logo_size_var = ctk.IntVar(value=15); self.logo_margin_var = ctk.IntVar(value=20); self.logo_opacity_var = ctk.IntVar(value=100)
         options_section = ctk.CTkFrame(left, fg_color="transparent"); self.control_panel.add_section("VIDEO_OPTIONS", options_section)
-        ctk.CTkLabel(options_section, text="VIDEO OPTIONS", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=2, pady=(2, 1), sticky="w"); app.video_mode_var = ctk.StringVar(value="permanent"); app.video_mode_display_var = ctk.StringVar(); app.video_mode_display_to_value = {"Permanent":"permanent", "Beginning":"beginning", "End":"end"}
+        ctk.CTkLabel(options_section, text="VIDEO OPTIONS", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=2, pady=(2, 1), sticky="w"); app.video_mode_var = ctk.StringVar(value="beginning"); app.video_mode_display_var = ctk.StringVar(value="First 5 seconds"); app.video_mode_display_to_value = {"First 5 seconds":"beginning", "Entire":"permanent", "End":"end"}
         app.video_mode_label = ctk.CTkLabel(options_section, text="Video badge mode"); app.video_mode_label.grid(row=1, column=0, padx=2, pady=1, sticky="w"); app.video_mode_menu = ctk.CTkOptionMenu(options_section, variable=app.video_mode_display_var, values=list(app.video_mode_display_to_value), command=self.change_mode); app.video_mode_menu.grid(row=2, column=0, padx=2, pady=2, sticky="ew")
         app.video_duration_var = ctk.IntVar(value=5); app.video_duration_label = ctk.CTkLabel(options_section, text="Duration"); app.video_duration_entry = ctk.CTkEntry(options_section, textvariable=app.video_duration_var); app.video_seconds_label = ctk.CTkLabel(options_section, text="seconds"); app.video_duration_label.grid(row=3, column=0, padx=2, pady=1, sticky="w"); app.video_duration_entry.grid(row=4, column=0, padx=2, pady=2, sticky="ew"); app.video_duration_entry.bind("<FocusOut>", lambda _event: self.change_duration())
-        app.video_save_control = SaveControl(file_section, label="Save As...", command=self.save); app.video_process_button = app.video_save_control.button; app.video_process_button.grid(row=1, column=1, padx=(4,2), pady=2, sticky="ew")
+        app.video_save_control = SaveControl(file_section, label="Save", command=self.save); app.video_process_button = app.video_save_control.button; app.video_process_button.grid(row=1, column=1, padx=(4,2), pady=2, sticky="ew")
         app.video_preview_label = ctk.CTkLabel(right, text="Video preview"); app.video_preview_label.grid(row=0, column=0, padx=20, pady=20)
 
     def refresh_preview(self):
