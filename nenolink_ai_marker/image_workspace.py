@@ -22,6 +22,7 @@ from .badge_control import BadgeControl, BadgeProjection
 from .source_control import SourceControl
 from .logo_control import LogoControl, LogoProjection
 from .preview_shell import PreviewShell
+from .workspace_control_panel import WorkspaceControlPanel
 from .paths import welcome_image_path
 
 
@@ -237,9 +238,9 @@ class ImageWorkspace:
 
     def _slider(self, parent, variable, start, end, row):
         app = self.app
-        label = ctk.CTkLabel(parent)
+        label = ctk.CTkLabel(parent, width=110)
         label.grid(row=row, column=0, padx=14, pady=(4, 0), sticky="w")
-        ctk.CTkSlider(parent, from_=start, to=end, number_of_steps=end-start,
+        ctk.CTkSlider(parent, from_=start, to=end, number_of_steps=end-start, width=240,
                       variable=variable, command=self.visual_changed).grid(
                           row=row + 1, column=0, padx=14, pady=(1, 3), sticky="ew")
         return label
@@ -257,22 +258,25 @@ class ImageWorkspace:
         self.welcome_photo = ctk.CTkImage(light_image=self.welcome_image, dark_image=self.welcome_image, size=size); self.welcome_illustration.configure(image=self.welcome_photo, text="")
 
     def _build_ui(self, workspace):
-        self.badge_control = BadgeControl(workspace, on_enabled_changed=self.visual_changed, on_badge_selected=self.badge_changed)
         """Build the existing Image controls; this is the sole UI builder."""
         app = self.app
         workspace.grid_columnconfigure(1, weight=1)
         workspace.grid_rowconfigure(0, weight=1)
-        left = self.scrollable_frame_cls(workspace, width=320, fg_color=("gray86", "gray17"))
+        self.control_panel = WorkspaceControlPanel(workspace, width=320, scrollable_frame_cls=self.scrollable_frame_cls)
+        for section in ("FILE", "AI_BADGE", "OWN_LOGO"):
+            self.control_panel.declare_section(section)
+        left = self.control_panel.frame
         app.image_controls = left
         left.grid(row=0, column=0, padx=(4, 8), pady=4, sticky="nsew")
         left.grid_columnconfigure(0, weight=1)
-        self.file_heading = ctk.CTkLabel(left, text="FILE", font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=0, column=0, padx=14, pady=(6, 1), sticky="w")
-        self.source_control = SourceControl(left, choose_command=self.choose_files, choose_label="Choose file", width=280)
-        self.source_control.frame.grid(row=1, column=0, padx=14, pady=(2, 4), sticky="ew")
+        file_section = ctk.CTkFrame(left, fg_color="transparent"); self.control_panel.add_section("FILE", file_section)
+        self.file_heading = ctk.CTkLabel(file_section, text="FILE", font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=0, column=0, padx=2, pady=(2, 1), sticky="w")
+        self.source_control = SourceControl(file_section, choose_command=self.choose_files, choose_label="Choose file", width=280)
+        self.source_control.frame.grid(row=1, column=0, padx=2, pady=(2, 2), sticky="ew")
         app.open_button = self.source_control.choose_button; app.file_label = self.source_control.filename_label; app.file_size_guidance = self.source_control.metadata_label
-        app.image_badge_group = ctk.CTkFrame(left, fg_color="transparent")
-        app.image_badge_group.grid(row=2, column=0, padx=14, pady=(4, 4), sticky="ew")
+        app.image_badge_group = ctk.CTkFrame(left, fg_color="transparent"); self.control_panel.add_section("AI_BADGE", app.image_badge_group)
         app.image_badge_group.grid_columnconfigure(0, weight=1)
+        self.badge_control = BadgeControl(app.image_badge_group, on_enabled_changed=self.visual_changed, on_badge_selected=self.badge_changed)
         self.badge_control.frame.grid(row=0, column=0, sticky="ew")
         app.badge_enable = self.badge_control.enabled_widget; app.badge_menu = self.badge_control.selector_widget
         app.single_badge_preview_label = self.badge_control.graphic_widget; app.single_badge_name_label = self.badge_control.graphic_widget
@@ -284,27 +288,13 @@ class ImageWorkspace:
         app.size_label = self._slider(app.image_badge_group, app.size_var, 1, 100, 3)
         app.margin_label = self._slider(app.image_badge_group, app.margin_var, 0, 250, 5)
         app.opacity_label = self._slider(app.image_badge_group, app.opacity_var, 0, 100, 7)
-        self.logo_control = LogoControl(left, on_enabled=lambda value: self.logo_changed(enabled=value), on_choose=self.choose_logo, on_size=lambda value: self.logo_changed(size=value), on_margin=lambda value: self.logo_changed(margin=value), on_opacity=lambda value: self.logo_changed(opacity=value))
-        self.logo_control.frame.grid(row=3, column=0, padx=14, pady=(5, 8), sticky="ew")
+        logo_section = ctk.CTkFrame(left, fg_color="transparent"); self.control_panel.add_section("OWN_LOGO", logo_section)
+        self.logo_control = LogoControl(logo_section, on_enabled=lambda value: self.logo_changed(enabled=value), on_choose=self.choose_logo, on_size=lambda value: self.logo_changed(size=value), on_margin=lambda value: self.logo_changed(margin=value), on_opacity=lambda value: self.logo_changed(opacity=value))
+        self.logo_control.frame.grid(row=0, column=0, sticky="ew")
         app.logo_controls = self.logo_control.frame
         app.logo_heading = self.logo_control.heading; app.logo_enable = self.logo_control.enabled_widget; app.logo_choose = self.logo_control.choose_button; app.logo_filename = self.logo_control.filename_label; app.logo_position_label = self.logo_control.position_label; app.logo_size_slider = self.logo_control.size_widget; app.logo_margin_slider = self.logo_control.margin_widget; app.logo_opacity_slider = self.logo_control.opacity_widget
-        """
-        app.logo_heading = ctk.CTkLabel(app.logo_controls, font=ctk.CTkFont(weight="bold")); app.logo_heading.grid(row=0, column=0, columnspan=2, padx=8, pady=(6, 2), sticky="w")
-        app.logo_enable = ctk.CTkCheckBox(app.logo_controls, variable=app.logo_enabled_var, command=self.logo_changed); app.logo_enable.grid(row=1, column=0, columnspan=2, padx=8, pady=3, sticky="w")
-        app.logo_choose = ctk.CTkButton(app.logo_controls, command=self.choose_logo, height=28); app.logo_choose.grid(row=2, column=0, padx=8, pady=3, sticky="w")
-        app.logo_filename = ctk.CTkLabel(app.logo_controls, textvariable=app.logo_filename_var, anchor="w", wraplength=155); app.logo_filename.grid(row=2, column=1, padx=(2, 8), pady=3, sticky="ew")
-        app.logo_position_label = ctk.CTkLabel(app.logo_controls); app.logo_position_label.grid(row=3, column=0, padx=8, pady=2, sticky="w")
-        app.logo_position_menu = ctk.CTkOptionMenu(app.logo_controls, variable=app.logo_position_display_var, values=["—"], command=self.logo_position_changed, height=28); app.logo_position_menu.grid(row=3, column=1, padx=8, pady=2, sticky="ew")
-        app.logo_size_label = ctk.CTkLabel(app.logo_controls); app.logo_size_label.grid(row=4, column=0, columnspan=2, padx=8, sticky="w")
-        app.logo_size_slider = ctk.CTkSlider(app.logo_controls, from_=1, to=100, number_of_steps=99, variable=app.logo_size_var, command=self.logo_changed); app.logo_size_slider.grid(row=5, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="ew")
-        app.logo_margin_label = ctk.CTkLabel(app.logo_controls); app.logo_margin_label.grid(row=6, column=0, columnspan=2, padx=8, sticky="w")
-        app.logo_margin_slider = ctk.CTkSlider(app.logo_controls, from_=0, to=250, number_of_steps=250, variable=app.logo_margin_var, command=self.logo_changed); app.logo_margin_slider.grid(row=7, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="ew")
-        app.logo_opacity_label = ctk.CTkLabel(app.logo_controls); app.logo_opacity_label.grid(row=8, column=0, columnspan=2, padx=8, sticky="w")
-        app.logo_opacity_slider = ctk.CTkSlider(app.logo_controls, from_=0, to=100, number_of_steps=100, variable=app.logo_opacity_var, command=self.logo_changed); app.logo_opacity_slider.grid(row=9, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="ew")
-        app.logo_images_only = self.logo_control.position_label
-        """
-        app.process_save_control = SaveControl(left, command=self.save)
-        app.process_button = app.process_save_control.button; app.process_button.grid(row=4, column=0, padx=14, pady=(2, 10), sticky="ew")
+        app.process_save_control = SaveControl(file_section, label="Save As...", command=self.save)
+        app.process_button = app.process_save_control.button; app.process_button.grid(row=2, column=0, padx=2, pady=(4, 2), sticky="ew")
         self.preview_shell = PreviewShell(workspace); self.preview_shell.frame.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right = self.preview_shell.viewport
         self.preview_label = ctk.CTkLabel(right)
         self.welcome_frame = ctk.CTkFrame(right, fg_color="transparent"); self.welcome_frame.grid(row=0, column=0, padx=18, pady=14, sticky="nsew"); self.welcome_frame.grid_columnconfigure(0, weight=1); self.welcome_frame.grid_rowconfigure(4, weight=1)

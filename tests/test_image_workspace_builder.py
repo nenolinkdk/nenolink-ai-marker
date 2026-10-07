@@ -9,7 +9,8 @@ WORKSPACE = (ROOT / "nenolink_ai_marker" / "image_workspace.py").read_text(encod
 def test_image_workspace_owns_the_widget_builder():
     assert "class ImageWorkspace" in WORKSPACE
     assert "def _build_ui(self, workspace)" in WORKSPACE
-    assert "CTkFrame" in WORKSPACE and "CTkButton" in WORKSPACE
+    assert "WorkspaceControlPanel" in WORKSPACE
+    assert "SourceControl" in WORKSPACE and "SaveControl" in WORKSPACE
 
 
 def test_markerapp_has_no_duplicate_image_builder():

@@ -22,6 +22,7 @@ from .source_control import SourceControl
 from .logo_control import LogoControl, LogoProjection
 from .preview_shell import PreviewShell
 from .document_controls import PhysicalNavigationControl, DocumentScopeControl
+from .workspace_control_panel import WorkspaceControlPanel
 from .document_processing import ItemSelection, ProcessingRequest, settings_for_documents
 from .metadata import marker_metadata
 from dataclasses import replace
@@ -85,29 +86,35 @@ class PptxWorkspace:
         self.construction_receipt = PptxConstructionReceipt()
         self.construction_receipt.authoritative_state_created = True
         self.construction_receipt.workspace_created = True
-        controls = ctk.CTkScrollableFrame(self.root, width=360, fg_color=("gray92", "gray17")); controls.grid(row=0, column=0, padx=8, pady=8, sticky="nsew")
+        self.control_panel = WorkspaceControlPanel(self.root, width=360)
+        for section in ("FILE", "SLIDES", "AI_BADGE", "OWN_LOGO"):
+            self.control_panel.declare_section(section)
+        controls = self.control_panel.frame; controls.grid(row=0, column=0, padx=8, pady=8, sticky="nsew")
         controls.bind("<MouseWheel>", lambda event: controls._parent_canvas.yview_scroll(-int(event.delta / 120), "units"))
         self.preview_shell = PreviewShell(self.root); self.preview_shell.frame.grid(row=0, column=1, padx=8, pady=8, sticky="nsew"); preview = self.preview_shell.viewport
         self.preview_host = preview
         t = getattr(getattr(self.app, "translator", None), "text", lambda key: key)
-        self.heading_label = ctk.CTkLabel(controls, text=t("content.powerpoint"), font=ctk.CTkFont(size=24, weight="bold")); self.heading_label.grid(row=0, column=0, padx=12, pady=(10, 8), sticky="w")
-        self.file_heading = ctk.CTkLabel(controls, text=t("pptx.file_heading"), font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=1, column=0, padx=12, pady=(4, 2), sticky="w")
-        self.source_control = SourceControl(controls, choose_command=self._choose_file, choose_label=t("pptx.choose"), width=180); self.source_control.frame.grid(row=2, column=0, padx=(12, 4), pady=2, sticky="ew"); self.choose_button = self.source_control.choose_button
-        self.save_control = SaveControl(controls, label="Save", command=self._save_as, width=58); self.save_button = self.save_control.button; self.save_button.grid(row=2, column=1, padx=(4, 12), pady=2, sticky="w")
-        controls.grid_columnconfigure(0, weight=0, minsize=180); controls.grid_columnconfigure(1, weight=0, minsize=180)
+        file_section = ctk.CTkFrame(controls, fg_color="transparent"); self.control_panel.add_section("FILE", file_section)
+        self.heading_label = ctk.CTkLabel(file_section, text=t("content.powerpoint"), font=ctk.CTkFont(size=24, weight="bold")); self.heading_label.grid(row=0, column=0, padx=2, pady=(2, 2), sticky="w")
+        self.file_heading = ctk.CTkLabel(file_section, text=t("pptx.file_heading"), font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=1, column=0, padx=2, pady=(2, 1), sticky="w")
+        self.source_control = SourceControl(file_section, choose_command=self._choose_file, choose_label=t("pptx.choose"), width=280); self.source_control.frame.grid(row=2, column=0, padx=2, pady=2, sticky="ew"); self.choose_button = self.source_control.choose_button
+        self.save_control = SaveControl(file_section, label="Save As...", command=self._save_as, width=280); self.save_button = self.save_control.button; self.save_button.grid(row=3, column=0, padx=2, pady=(4,2), sticky="ew")
         self.file_label = self.source_control.filename_label; self.file_metadata_label = self.source_control.metadata_label
         self.construction_receipt.file_section_created = True
-        self.slides_heading = ctk.CTkLabel(controls, text=t("pptx.slides_heading"), font=ctk.CTkFont(weight="bold")); self.slides_heading.grid(row=4, column=0, padx=12, pady=(4, 2), sticky="w")
-        self.scope_control = DocumentScopeControl(controls, on_mode=self._scope_mode, on_text=lambda text: self._scope_text_changed(), on_update=self._scope_update, values=(t("pptx.scope.all"), t("pptx.scope.first"), t("pptx.scope.selected"), t("pptx.scope.range")), placeholder=t("pptx.selected_hint"))
-        self.scope_control.frame.grid(row=4, column=0, padx=12, pady=2, sticky="w")
+        slides_section = ctk.CTkFrame(controls, fg_color="transparent"); self.control_panel.add_section("SLIDES", slides_section)
+        self.slides_heading = ctk.CTkLabel(slides_section, text=t("pptx.slides_heading"), font=ctk.CTkFont(weight="bold")); self.slides_heading.grid(row=0, column=0, padx=2, pady=(2, 1), sticky="w")
+        self.scope_control = DocumentScopeControl(slides_section, on_mode=self._scope_mode, on_text=lambda text: self._scope_text_changed(), on_update=self._scope_update, values=(t("pptx.scope.all"), t("pptx.scope.first"), t("pptx.scope.selected"), t("pptx.scope.range")), placeholder=t("pptx.selected_hint"))
+        self.scope_control.frame.grid(row=1, column=0, padx=2, pady=2, sticky="ew")
         self.scope_var = self.scope_control.mode_var; self.scope_menu = self.scope_control.menu; self.scope_input_var = self.scope_control.input_var; self.scope_input = self.scope_control.input; self.scope_update = self.scope_control.update; self.scope_status = self.scope_control.status
         self._scope_display = {"all": t("pptx.scope.all"), "first": t("pptx.scope.first"), "selected": t("pptx.scope.selected"), "range": t("pptx.scope.range")}; self._scope_value = {v: k for k, v in self._scope_display.items()}
-        self.badge_control = BadgeControl(controls, on_enabled_changed=lambda value: self._dispatch(PptxEvent.BADGE_ENABLE, value), on_badge_selected=lambda value: self._dispatch(PptxEvent.BADGE_SELECT, value))
-        self.badge_control.frame.grid(row=5, column=0, columnspan=2, padx=12, pady=2, sticky="ew")
+        badge_section = ctk.CTkFrame(controls, fg_color="transparent"); self.control_panel.add_section("AI_BADGE", badge_section)
+        self.badge_control = BadgeControl(badge_section, on_enabled_changed=lambda value: self._dispatch(PptxEvent.BADGE_ENABLE, value), on_badge_selected=lambda value: self._dispatch(PptxEvent.BADGE_SELECT, value))
+        self.badge_control.frame.grid(row=0, column=0, sticky="ew")
         self.enabled_var = self.badge_control.enabled_var; self.badge_var = self.badge_control.selector_var
         self.badge_enable = self.badge_control.enabled_widget; self.badge_menu = self.badge_control.selector_widget; self.badge_visual = self.badge_control.graphic_widget; self.badge_image = self.badge_visual; self.badge_name = self.badge_visual
         self.construction_receipt.badge_section_created = True
-        self._build_visual_controls(controls)
+        logo_section = ctk.CTkFrame(controls, fg_color="transparent"); self.control_panel.add_section("OWN_LOGO", logo_section)
+        self._build_visual_controls(badge_section, logo_section)
         # Keep a fixed viewport: rendered slide pixels must never determine
         # workspace geometry or displace the compact navigation row.
         self.preview_viewport = ctk.CTkFrame(preview, fg_color=("gray92", "gray13"))
@@ -128,8 +135,8 @@ class PptxWorkspace:
         self.receipts.record({"layer": "pptx", "event": "PPTX_FILE_ACTIONS_READY", "choose": True, "save": True, "same_row": True})
         self.mounted = True
 
-    def _build_visual_controls(self, controls):
-        row = 8
+    def _build_visual_controls(self, controls, logo_host=None):
+        row = 1
         t = getattr(getattr(self.app, "translator", None), "text", lambda key: key)
         self.badge_position_label = ctk.CTkLabel(controls, text=t("position")); self.badge_position_label.grid(row=row, column=0, padx=12, pady=1, sticky="w")
         positions = ["top-left", "top-right", "bottom-left", "bottom-right", "center"]
@@ -139,8 +146,9 @@ class PptxWorkspace:
         self._slider(controls, row+2, "size.value", "badge", "size", 1, 100, self.state.badge.size)
         self._slider(controls, row+3, "margin.value", "badge", "margin", 0, 250, self.state.badge.margin)
         self._slider(controls, row+4, "opacity.value", "badge", "opacity", 0, 100, self.state.badge.opacity)
-        self.logo_control = LogoControl(controls, on_enabled=lambda value: self._dispatch(PptxEvent.LOGO_ENABLE, value), on_choose=self._choose_logo, on_size=lambda value: self._dispatch(PptxEvent.LOGO_SIZE, round(value)), on_margin=lambda value: self._dispatch(PptxEvent.LOGO_MARGIN, round(value)), on_opacity=lambda value: self._dispatch(PptxEvent.LOGO_OPACITY, round(value)))
-        self.logo_control.frame.grid(row=row+5, column=0, columnspan=2, padx=12, pady=(6,2), sticky="ew")
+        logo_host = logo_host or controls
+        self.logo_control = LogoControl(logo_host, on_enabled=lambda value: self._dispatch(PptxEvent.LOGO_ENABLE, value), on_choose=self._choose_logo, on_size=lambda value: self._dispatch(PptxEvent.LOGO_SIZE, round(value)), on_margin=lambda value: self._dispatch(PptxEvent.LOGO_MARGIN, round(value)), on_opacity=lambda value: self._dispatch(PptxEvent.LOGO_OPACITY, round(value)))
+        self.logo_control.frame.grid(row=0, column=0, sticky="ew")
         self.logo_enabled_var = self.logo_control.enabled_var; self.logo_choose_button = self.logo_control.choose_button; self.logo_label = self.logo_control.filename_label; self.logo_position_var = ctk.StringVar(value="Top left")
 
     def _slider(self, host, row, label, group, field, low, high, value):
