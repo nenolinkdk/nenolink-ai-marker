@@ -1733,18 +1733,9 @@ class MarkerApp(ctk.CTk):
         self.welcome_frame.grid_remove(); self.preview_label.grid(row=0, column=0, padx=12, pady=12, sticky="nsew")
 
     def apply_image_translations(self) -> None:
-        t = self.translator.text
-        self.title(f"Nenolink AI Marker {__version__}")
-        self.reset_button.configure(text=t("button.reset")); self.guide_button.configure(text=t("button.user_guide"))
-        self.open_button.configure(text="1. " + t("button.open_media")); self.process_button.configure(text=t("button.process"))
-        self.file_label.configure(text=t("files.none") if not self.sources else t("files.selected", count=len(self.sources), name=self.sources[0].name)); self.file_size_guidance.configure(text=t("files.size_guidance"))
-        self.badge_enable.configure(text=t("pdf.add_badge"))
-        self.position_display_to_value = {t("position.top_left"): "top-left", t("position.top_right"): "top-right", t("position.bottom_left"): "bottom-left", t("position.bottom_right"): "bottom-right", t("position.center"): "center"}
-        self.position_menu.configure(values=list(self.position_display_to_value)); self.position_display_var.set(next((label for label, value in self.position_display_to_value.items() if value == self.position_var.get()), t("position.bottom_right")))
-        self.logo_position_display_to_value = dict(self.position_display_to_value); self.logo_position_menu.configure(values=list(self.logo_position_display_to_value)); self.logo_position_display_var.set(next((label for label, value in self.logo_position_display_to_value.items() if value == self.logo_position_var.get()), t("position.top_left")))
-        self.position_label.configure(text="3. " + t("position")); self._update_image_slider_labels()
-        self.logo_heading.configure(text=t("logo.title")); self.logo_enable.configure(text=t("logo.enable")); self.logo_choose.configure(text=t("logo.choose")); self.logo_position_label.configure(text=t("logo.position")); self.logo_images_only.configure(text=t("logo.images_only")); self._update_logo_labels(); self._update_logo_controls()
-        self.welcome_title.configure(text=t("welcome.title")); self.welcome_tagline.configure(text=t("welcome.tagline")); self.welcome_description1.configure(text=t("welcome.description1")); self.welcome_description2.configure(text=t("welcome.description2"))
+        workspace = getattr(self, "image_workspace_owner", None)
+        if workspace is not None:
+            workspace.apply_translations()
 
     def change_image_language(self, name: str) -> None:
         # One application-wide locale owner; changing locale is not a content

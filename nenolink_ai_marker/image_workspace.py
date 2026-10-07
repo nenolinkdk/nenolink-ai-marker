@@ -74,9 +74,9 @@ class ImageWorkspace:
         return self.dispatch(ImageEvent.CLEAR_RUNTIME)
 
     def project(self):
-        """Project authoritative state through the existing app adapters."""
+        """Project authoritative state through the current Image presentation."""
         if self.root is not None and self.root.winfo_exists():
-            self.app.apply_image_translations()
+            self.apply_translations()
             files = self.state.selected_files
             if getattr(self.app, "file_label", None) is not None:
                 self.app.file_label.configure(text=(f"{files[0].name} · {human_file_size(files[0].stat().st_size)}" if files else self.app.translator.text("files.none")))
@@ -89,6 +89,29 @@ class ImageWorkspace:
             self.app.sources = list(files)
             self.app.media_sources["image"] = list(files)
             self.refresh_preview()
+
+    def apply_translations(self):
+        """Project locale presentation onto the current Image view only."""
+        t = self.app.translator.text
+        if self.source_control is not None:
+            self.source_control.choose_button.configure(text="1. " + t("button.open_media"))
+            self.source_control.metadata_label.configure(text=t("files.size_guidance"))
+        if self.badge_control is not None:
+            self.badge_control.enabled_widget.configure(text=t("pdf.add_badge"))
+        if getattr(self, "position_menu", None) is not None:
+            mapping = {t("position.top_left"): "top-left", t("position.top_right"): "top-right", t("position.bottom_left"): "bottom-left", t("position.bottom_right"): "bottom-right", t("position.center"): "center"}
+            self.position_display_to_value = mapping
+            self.app.position_display_to_value = mapping
+            self.position_menu.configure(values=list(mapping))
+        if self.logo_control is not None:
+            self.logo_control.heading.configure(text=t("logo.title"))
+            self.logo_control.enabled_widget.configure(text=t("logo.enable"))
+            self.logo_control.choose_button.configure(text=t("logo.choose"))
+            self.logo_control.position_label.configure(text=t("logo.position"))
+        for name, key in (("position_label", "position"), ("welcome_title", "welcome.title"), ("welcome_tagline", "welcome.tagline"), ("welcome_description1", "welcome.description1"), ("welcome_description2", "welcome.description2")):
+            widget = getattr(self, name, None)
+            if widget is not None:
+                widget.configure(text=t(key))
 
     def choose_files(self):
         """Own the Image file event; dialog and status are injected services."""
@@ -236,8 +259,9 @@ class ImageWorkspace:
         app.single_badge_preview_label = self.badge_control.graphic_widget; app.single_badge_name_label = self.badge_control.graphic_widget
         app.position_label = ctk.CTkLabel(app.image_badge_group)
         app.position_label.grid(row=1, column=0, padx=8, pady=(5, 1), sticky="w")
-        app.position_menu = ctk.CTkOptionMenu(app.image_badge_group, variable=app.position_display_var, values=["—"], command=self.position_changed)
-        app.position_menu.grid(row=2, column=0, padx=8, pady=2, sticky="ew")
+        self.position_label = app.position_label
+        self.position_menu = ctk.CTkOptionMenu(app.image_badge_group, variable=app.position_display_var, values=["—"], command=self.position_changed)
+        self.position_menu.grid(row=2, column=0, padx=8, pady=2, sticky="ew")
         app.size_label = self._slider(app.image_badge_group, app.size_var, 1, 100, 3)
         app.margin_label = self._slider(app.image_badge_group, app.margin_var, 0, 250, 5)
         app.opacity_label = self._slider(app.image_badge_group, app.opacity_var, 0, 100, 7)
