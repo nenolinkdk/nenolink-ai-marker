@@ -23,7 +23,7 @@ def test_pptx_fit_rectangle_has_one_idempotent_owner():
     workspace.preview_viewport = _Widget(760, 470)
     first = workspace._preview_fit_rect()
     second = workspace._preview_fit_rect()
-    assert first == second == (592, 360)
+    assert first == second == (608, 342)
 
 
 def test_tools_are_overlays_and_do_not_confirm_or_destroy_active_content(monkeypatch):

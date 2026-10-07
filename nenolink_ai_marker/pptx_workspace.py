@@ -14,7 +14,7 @@ from .models import MarkerSettings
 from .pptx_state import (PptxWorkspaceState, PptxEvent, PptxEventReceipt, apply_pptx_event,
                           apply_pptx_scope_event, choose_file_success, project_file, project_badge)
 from .diagnostic_receipts import ReceiptLog
-from .document_preview_layout import fit_preview_size
+from .document_preview_layout import fit_preview_geometry
 from .workspace_ui import build_badge_visual
 from .save_control import SaveControl
 from .badge_control import BadgeControl, BadgeProjection
@@ -185,14 +185,18 @@ class PptxWorkspace:
         self.receipts.record({"layer": "pptx", "event": "PREVIEW_NAVIGATION", "current_slide": self.state.current_slide, "active_scope": self.state.active_scope})
         self._render_preview()
 
-    def _preview_fit_rect(self) -> tuple[int, int]:
-        """Single owner of PPTX preview geometry and fit padding."""
+    def _preview_geometry(self):
         viewport_width = max(1, self.preview_viewport.winfo_width())
         viewport_height = max(1, self.preview_viewport.winfo_height())
-        # Return the available interior rectangle; the renderer then fits the
-        # actual slide aspect ratio inside it.  The helper keeps this calculation
-        # deterministic while avoiding source-slide-driven widget geometry.
-        return fit_preview_size(viewport_width, viewport_height, 740 / 450, padding=10, target_fraction=0.8)
+        app = self.__dict__.get("app")
+        renderer = getattr(app, "pptx_preview_renderer", None)
+        source_width, source_height = renderer.slide_dimensions(self.state.path) if renderer and self.state.path else (16.0, 9.0)
+        return fit_preview_geometry(viewport_width, viewport_height, source_width, source_height, target_fraction=0.8)
+
+    def _preview_fit_rect(self) -> tuple[int, int]:
+        """Compatibility result for callers; geometry remains viewport-measured."""
+        geometry = self._preview_geometry()
+        return geometry.rendered_width, geometry.rendered_height
 
     def _schedule_preview_refresh(self, _event=None):
         if self._preview_resize_job is not None:
@@ -231,12 +235,12 @@ class PptxWorkspace:
             badge = project_badge(self.state, repository).get("asset") if self.state.badge.enabled and self.state.current_slide in self.state.active_scope else None
             settings = MarkerSettings(badge_name=self.state.badge.badge_id, position=self.state.badge.position, size_percent=self.state.badge.size, margin=self.state.badge.margin, opacity=self.state.badge.opacity, logo_enabled=self.state.logo.enabled, logo_position=self.state.logo.position, logo_size_percent=self.state.logo.size, logo_margin=self.state.logo.margin, logo_opacity=self.state.logo.opacity)
             # Use the fixed viewport's interior, not the source slide's size.
-            available_width, available_height = self._preview_fit_rect()
             if hasattr(self.preview_viewport, "update_idletasks"):
                 self.preview_viewport.update_idletasks()
             host_width = max(1, self.preview_viewport.winfo_width())
             host_height = max(1, self.preview_viewport.winfo_height())
-            available_width, available_height = self._preview_fit_rect()
+            geometry = self._preview_geometry()
+            available_width, available_height = geometry.rendered_width, geometry.rendered_height
             result = renderer.render(self.state.path, self.state.current_slide, badge, settings, self.state.logo.path if self.state.logo.enabled else None, max_size=(available_width, available_height))
             self.preview_photo = ctk.CTkImage(result.image, size=result.image.size)
             self.preview_label.configure(image=self.preview_photo, text="")
@@ -249,7 +253,8 @@ class PptxWorkspace:
             if callable(boot):
                 boot(f"PPTX_HOST={host_width}x{host_height} PPTX_USABLE={usable[0]}x{usable[1]} PPTX_TARGET80={target80[0]}x{target80[1]} PPTX_FIT={available_width}x{available_height} PPTX_RENDER={result.image.width}x{result.image.height} PPTX_CTKIMAGE={result.image.width}x{result.image.height} PPTX_LABEL={self.preview_label.winfo_width()}x{self.preview_label.winfo_height()}")
             self.receipts.record({"layer": "pptx", "event": "PPTX_PREVIEW_GEOMETRY_STABLE", "slide_bbox": result.image.size})
-            self.receipts.record({"layer": "pptx", "event": "PPTX_PREVIEW_FIT_RECT", "fit_rect": [available_width, available_height]})
+            self.geometry_receipt = geometry
+            self.receipts.record({"layer": "pptx", "event": "PPTX_PREVIEW_GEOMETRY", "viewport": [geometry.viewport_width, geometry.viewport_height], "rendered": [result.image.width, result.image.height], "measured_fraction": geometry.measured_fraction, "limiting_dimension": geometry.limiting_dimension})
             self.receipts.record({"layer": "pptx", "event": "PPTX_COMPACT_NAV_READY", "counter": True})
         except Exception as error:
             t = getattr(getattr(self.app, "translator", None), "text", lambda key, **v: key)

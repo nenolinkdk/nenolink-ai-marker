@@ -2,6 +2,36 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True, slots=True)
+class PreviewGeometryReceipt:
+    viewport_width: int
+    viewport_height: int
+    source_width: float
+    source_height: float
+    target_fraction: float
+    rendered_width: int
+    rendered_height: int
+    limiting_dimension: str
+    measured_fraction: float
+
+
+def fit_preview_geometry(viewport_width: int, viewport_height: int, source_width: float,
+                         source_height: float, *, target_fraction: float = 0.8) -> PreviewGeometryReceipt:
+    """Fit a source into the measured black viewport and return a receipt."""
+    vw = max(1, int(viewport_width)); vh = max(1, int(viewport_height))
+    sw = max(1.0, float(source_width)); sh = max(1.0, float(source_height))
+    fraction = min(1.0, max(0.01, float(target_fraction)))
+    target_w = vw * fraction; target_h = vh * fraction
+    width_scale = target_w / sw; height_scale = target_h / sh
+    scale = min(width_scale, height_scale)
+    rendered_w = max(1, round(sw * scale)); rendered_h = max(1, round(sh * scale))
+    limiting = "width" if width_scale <= height_scale else "height"
+    measured = rendered_w / vw if limiting == "width" else rendered_h / vh
+    return PreviewGeometryReceipt(vw, vh, sw, sh, fraction, rendered_w, rendered_h, limiting, measured)
+
 
 def fit_preview_size(viewport_width: int, viewport_height: int, aspect_ratio: float,
                      *, padding: int = 20, navigation_height: int = 0,

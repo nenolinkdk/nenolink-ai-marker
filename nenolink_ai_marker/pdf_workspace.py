@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from tkinter import filedialog, messagebox
 import customtkinter as ctk
 from .pdf_processor import PdfProcessor
-from .document_preview_layout import fit_preview_size
+from .document_preview_layout import fit_preview_geometry
 from .document_processing import ItemSelection, ProcessingRequest, settings_for_documents
 from .metadata import marker_metadata
 from dataclasses import replace
@@ -209,15 +209,17 @@ class PdfWorkspace:
             marked = current in set(state.active_scope)
             badge = app.badges.find(state.badge.badge_id) if marked and state.badge.enabled else None
             logo = state.logo.path if marked and state.logo.enabled else None
-            host = app.pdf_preview_host
+            host = app.pdf_preview_label
             host.update_idletasks()
             width = max(1, host.winfo_width()); height = max(1, host.winfo_height())
             try:
                 page = PdfProcessor._reader(state.path).pages[current - 1]
-                aspect = float(page.mediabox.width) / max(1.0, float(page.mediabox.height))
+                source_width = float(page.mediabox.width); source_height = float(page.mediabox.height)
+                aspect = source_width / max(1.0, source_height)
             except (OSError, ValueError, IndexError):
-                aspect = 1.0
-            max_size = fit_preview_size(width, height, aspect, padding=16, navigation_height=48, target_fraction=0.8)
+                source_width, source_height, aspect = 1.0, 1.0, 1.0
+            geometry = fit_preview_geometry(width, height, source_width, source_height, target_fraction=0.8)
+            max_size = (geometry.rendered_width, geometry.rendered_height)
             result = app.pdf_preview_renderer.render(state.path, current, badge, app.settings(), logo, max_size=max_size)
             state.current_page = result.page_number
             self.preview_photo = ctk.CTkImage(light_image=result.image, dark_image=result.image, size=result.image.size)
@@ -226,7 +228,9 @@ class PdfWorkspace:
             app.pdf_page_status.configure(text=f"{state.current_page} / {state.page_count}")
             app.pdf_previous_button.configure(state="normal" if state.current_page > 1 else "disabled")
             app.pdf_next_button.configure(state="normal" if state.current_page < state.page_count else "disabled")
-            app._boot(f"PDF_HOST={width}x{height} PDF_FIT={max_size[0]}x{max_size[1]} PDF_RENDER={result.image.width}x{result.image.height} PDF_CTKIMAGE={result.image.width}x{result.image.height} PDF_LABEL={app.pdf_preview_label.winfo_width()}x{app.pdf_preview_label.winfo_height()}")
+            self.geometry_receipt = geometry
+            app._boot(f"PDF_HOST={width}x{height} PDF_FIT={max_size[0]}x{max_size[1]} PDF_RENDER={result.image.width}x{result.image.height} PDF_MEASURED={geometry.measured_fraction:.4f} PDF_LIMIT={geometry.limiting_dimension}")
+            self.receipts.record({"layer": "pdf", "event": "PDF_PREVIEW_GEOMETRY", "viewport": [width, height], "rendered": [result.image.width, result.image.height], "measured_fraction": geometry.measured_fraction, "limiting_dimension": geometry.limiting_dimension}) if hasattr(self, "receipts") else None
         except (OSError, ValueError) as error:
             app.pdf_preview_label.configure(image=None, text=f"Could not render PDF page: {error}")
 

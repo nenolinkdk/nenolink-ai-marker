@@ -33,6 +33,12 @@ class PptxPreviewRenderer:
     def clear(self) -> None:
         self._cache_key = self._cache_value = None
 
+    def slide_dimensions(self, source: Path) -> tuple[float, float]:
+        with ZipFile(source, "r") as archive:
+            presentation = ET.fromstring(archive.read("ppt/presentation.xml"))
+            width, height = PptxProcessor._slide_size(presentation)
+        return float(width), float(height)
+
     def render(
         self,
         source: Path,
