@@ -8,11 +8,25 @@ from nenolink_ai_marker.pdf_workspace import PdfWorkspace
 from nenolink_ai_marker.pptx_workspace import PptxWorkspace
 import pytest
 from tests.test_common_workspace_routing_gate import _app
-from nenolink_ai_marker.app import MarkerApp
+from nenolink_ai_marker.app import LegacyMarkerApp, MarkerApp
 
 
 ROOT = Path(__file__).parents[1]
 APP = (ROOT / "nenolink_ai_marker" / "app.py").read_text(encoding="utf-8")
+
+
+def test_proven_dead_document_ui_methods_tripwire_when_invoked():
+    obsolete = (
+        ("_document_context_ui", (None,)),
+        ("choose_pdf", ()),
+        ("update_pdf_preview", ()),
+        ("choose_pptx", ()),
+        ("update_pptx_preview", ()),
+    )
+    instance = LegacyMarkerApp.__new__(LegacyMarkerApp)
+    for name, args in obsolete:
+        with pytest.raises(RuntimeError, match=rf"LEGACY UI PATH EXECUTED: MarkerApp\.{name}"):
+            getattr(LegacyMarkerApp, name)(instance, *args)
 
 
 def test_active_production_controls_bind_to_workspace_callbacks():
@@ -114,7 +128,7 @@ def test_callback_coverage_ledger_has_no_uncovered_active_controls():
     expected = {
         "choose_files", "choose_video", "choose_file", "_choose_file",
         "save", "_save_as", "change_badge", "badge_changed",
-        "set_scope", "set_current_page", "change_document_preview_page",
+            "set_scope", "set_current_page",
     }
     corpus = "\n".join((ROOT / "nenolink_ai_marker" / name).read_text(encoding="utf-8") for name in ("app.py", "image_workspace.py", "video_workspace.py", "pdf_workspace.py", "pptx_workspace.py"))
     assert all(f"def {name}" in corpus or f"command=self.{name}" in corpus for name in expected)

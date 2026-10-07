@@ -269,6 +269,7 @@ class LegacyMarkerApp(ctk.CTk):
         self.active_media_mode=key
 
     def _document_context_ui(self, tab) -> SimpleNamespace:
+        raise RuntimeError("LEGACY UI PATH EXECUTED: MarkerApp._document_context_ui")
         """Build one direct PDF or PowerPoint presentation context.
 
         The returned widgets are deliberately independent for each format;
@@ -339,14 +340,6 @@ class LegacyMarkerApp(ctk.CTk):
         "pptx_previous_button","pptx_slide_status","pptx_next_button","pptx_metadata_note",
         "pptx_process_button",
     )
-
-    def _bind_document_context_widgets(self, format_type: str) -> None:
-        """Bind generic document actions to the visible, direct context."""
-        context=self.pdf_context_widgets if format_type=="pdf" else self.pptx_context_widgets
-        if context is None:
-            return
-        for name,value in vars(context).items():
-            setattr(self,name,value)
 
     def _load_welcome_image(self,diagnostic):
         path=welcome_image_path()
@@ -505,7 +498,6 @@ class LegacyMarkerApp(ctk.CTk):
         for key,check in self.batch_checks: check.configure(text=t(key))
         self.scan_button.configure(text=t("button.scan_folder")); self.start_batch_button.configure(text=t("button.start_batch")); self.cancel_batch_button.configure(text=t("button.cancel_batch"))
         self.inspect_title.configure(text=t("inspect.title")); self.inspect_intro.configure(text=t("inspect.intro")); self.inspect_choose_button.configure(text=t("inspect.choose")); self.inspect_selected_heading.configure(text=t("inspect.selected")); self.inspect_file_label.configure(text=t("inspect.file")); self.inspect_format_label.configure(text=t("inspect.format_size")); self.inspect_metadata_heading.configure(text=t("inspect.metadata")); self.inspect_status_label.configure(text=t("inspect.status")); self.inspect_software_label.configure(text=t("inspect.software")); self.inspect_ai_label.configure(text=t("inspect.ai_label")); self.inspect_marker_version_label.configure(text=t("inspect.marker_version")); self._render_inspection()
-        self._synchronize_document_widgets()
 
     def change_language(self,name):
         self.translator.set_language(LANGUAGES.get(name,"en")); self.apply_translations()
@@ -628,40 +620,6 @@ class LegacyMarkerApp(ctk.CTk):
         state=self.document_scope_states[format_type]
         state.mode=self.pptx_selection_mode_var.get(); state.selected=self.pptx_selected_var.get(); state.ranges=self.pptx_range_var.get()
 
-    def _reset_document_scope(self,format_type,mode):
-        """Internal reset: preserve the file and visuals, rebuild preview safely."""
-        if not hasattr(self,"document_scope_states"):self.document_scope_states={"pdf":DocumentScopeState(),"pptx":DocumentScopeState()}
-        state=self.document_scope_states[format_type]
-        if mode in {"selected","range"}:
-            state.begin_edit(mode); MarkerApp._sync_document_scope_controls(self,format_type); self._update_pptx_selection_fields(); self.pptx_scope_validation_label.configure(text=""); return
-        state.mode=mode; MarkerApp._sync_document_scope_controls(self,format_type)
-        total=self.pdf_info.metrics.item_count if format_type=="pdf" and self.pdf_info else self.pptx_metrics.item_count if format_type=="pptx" and self.pptx_metrics else 0
-        try:scope=state.normalize(total) if total else ()
-        except ValueError:scope=()
-        if format_type=="pdf":
-            self.pdf_preview_state.initialize(total,scope[0] if scope else 1); self.pdf_preview_renderer=PdfPreviewRenderer(self.processor)
-        else:
-            self.pptx_preview_state.initialize(total,scope[0] if scope else 1); self.pptx_preview_renderer.clear()
-        display=next((label for label,value in self.pptx_selection_display_to_value.items() if value==mode),None)
-        if display and hasattr(self,"pptx_selection_display_var"):self.pptx_selection_display_var.set(display)
-        self.pptx_scope_validation_label.configure(text="")
-        self._update_pptx_selection_fields()
-        if not scope and total:
-            self.pptx_preview_photo=None; key="pdf.selected_hint" if format_type=="pdf" else "pptx.selected_hint"
-            self.pptx_preview_label.configure(image=None,text=self.translator.text(key)); self.pptx_slide_status.configure(text=""); self.pptx_previous_button.configure(state="disabled"); self.pptx_next_button.configure(state="disabled")
-            MarkerApp._ensure_global_controls_enabled(self)
-            return
-        try:MarkerApp._rebuild_document_preview(self,format_type)
-        finally:MarkerApp._ensure_global_controls_enabled(self)
-
-    def _rebuild_document_preview(self,format_type):
-        try:
-            if format_type=="pdf":self.update_pdf_preview()
-            else:self.update_pptx_preview()
-        except Exception:
-            self.pptx_preview_photo=None; key="pdf.preview_unavailable" if format_type=="pdf" else "pptx.preview_unavailable"
-            self.pptx_preview_label.configure(image=None,text=self.translator.text(key)); self.pptx_slide_status.configure(text=""); self.pptx_previous_button.configure(state="disabled"); self.pptx_next_button.configure(state="disabled")
-
     def _ensure_global_controls_enabled(self):
         for name in ("language_menu","reset_button","guide_button","media_navigation","document_navigation","tools_navigation"):
             control=getattr(self,name,None)
@@ -669,70 +627,13 @@ class LegacyMarkerApp(ctk.CTk):
             try:control.configure(state="normal")
             except (TclError,AttributeError):pass
 
-    def _render_active_document(self):
-        if self.active_content_type not in {"pdf","pptx"}:return
-        self._bind_document_context_widgets(self.active_content_type)
-        if not hasattr(self,"document_format_label"):return
-        label=next((display for display,kind in self.content_display_to_kind.items() if kind==self.active_content_type),self.active_content_type.upper())
-        self.document_format_label.configure(text=label)
-        self._synchronize_document_widgets()
-
-    def _synchronize_document_widgets(self):
-        """Render every shared document widget solely from active_content_type."""
-        if self.active_content_type not in {"pdf","pptx"} or not hasattr(self,"pptx_choose_button"):return
-        t=self.translator.text; is_pdf=self.active_content_type=="pdf"
-        self.pptx_file_label.configure(textvariable=self.pdf_file_var if is_pdf else self.pptx_file_var)
-        self.pptx_choose_button.configure(text=t("pdf.choose") if is_pdf else t("pptx.choose"))
-        self.pptx_badge_label.configure(text=t("badge")); self.pdf_badge_enable.configure(text=t("pdf.add_badge"))
-        value=lambda name, default: getattr(getattr(self,name,None),"get",lambda:default)()
-        for name, text in (("pptx_position_label",t("position")),("pptx_size_label",t("size.value",value=value("size_var",0))),("pptx_opacity_label",t("opacity.value",value=value("opacity_var",0))),("pptx_margin_label",t("margin.value",value=value("margin_var",0))),("pptx_logo_enable",t("logo.enable")),("pptx_logo_choose",t("logo.choose")),("pptx_logo_size_label",t("logo.size",value=value("logo_size_var",0))),("pptx_logo_margin_label",t("logo.margin",value=value("logo_margin_var",0))),("pptx_logo_opacity_label",t("logo.opacity",value=value("logo_opacity_var",0)))):
-            widget=getattr(self,name,None)
-            if widget:widget.configure(text=text)
-        if getattr(self,"pptx_badge_menu",None):self.pptx_badge_menu.configure(values=list(getattr(self,"badge_display_to_file",{})) or [t("badge.none")])
-        if getattr(self,"pptx_position_menu",None):self.pptx_position_menu.configure(values=list(self.position_display_to_value)); self.pptx_logo_position_menu.configure(values=list(self.logo_position_display_to_value))
-        if is_pdf:self.pptx_badge_label.grid_remove(); self.pdf_badge_enable.grid()
-        else:self.pptx_badge_label.grid(); self.pdf_badge_enable.grid_remove()
-        self.pptx_badge_menu.configure(state="normal" if not is_pdf or self.pdf_badge_enabled_var.get() else "disabled")
-        scope_prefix="pdf.scope" if is_pdf else "pptx.scope"
-        self._sync_document_scope_controls(self.active_content_type)
-        self.pptx_scope_label.configure(text=t(scope_prefix))
-        self.pptx_selection_display_to_value={t(scope_prefix+".first"):"first",t(scope_prefix+".selected"):"selected",t(scope_prefix+".range"):"range",t(scope_prefix+".all"):"all"}
-        self.pptx_selection_menu.configure(values=list(self.pptx_selection_display_to_value))
-        self.pptx_selection_display_var.set(next((display for display,value in self.pptx_selection_display_to_value.items() if value==self.pptx_selection_mode_var.get()),t(scope_prefix+".all")))
-        self.pptx_selected_label.configure(text=t("pdf.selected_hint") if is_pdf else t("pptx.selected_hint")); self.pptx_range_label.configure(text=t("pdf.range_hint") if is_pdf else t("pptx.range_hint"))
-        for name in ("pptx_selected_update_button","pptx_range_update_button"):
-            widget=getattr(self,name,None)
-            if widget:widget.configure(text=t("document.scope_update"))
-        self.pptx_metadata_note.configure(text=t("pdf.metadata_note") if is_pdf else t("pptx.metadata_note")); self.pptx_process_button.configure(text=t("pdf.process") if is_pdf else t("pptx.process"))
-        if is_pdf:self.pptx_language_label.grid_remove(); self.pptx_language_menu.grid_remove()
-        else:self.pptx_language_label.grid(); self.pptx_language_menu.grid()
-        self._set_active_document_summary(); self._update_pptx_selection_fields(); self._update_pptx_logo_controls(); self.update_pptx_preview()
-
     def _validate_content_invariant(self):
         if self.visible_workspace_type!=self.active_content_type or self.active_runtime_context_type!=self.active_content_type:raise RuntimeError("Visible workspace/runtime context does not match active content type.")
         if self.active_content_type=="pdf" and (self.pptx_path is not None or self.pptx_metrics is not None or self.pptx_preview_state.count):raise RuntimeError("PPTX runtime leaked into PDF state.")
         if self.active_content_type=="pptx" and (self.pdf_path is not None or self.pdf_info is not None or self.pdf_preview_state.count):raise RuntimeError("PDF runtime leaked into PPTX state.")
 
-    def choose_active_document(self):
-        if self.active_content_type=="pdf":self.choose_pdf()
-        else:self.choose_pptx()
-
-    def process_active_document(self):
-        if self.active_content_type=="pdf":self.process_pdf()
-        else:self.pptx_workspace_state._save_as()
-
-    def change_document_preview_page(self,delta):
-        if self.active_content_type=="pdf":self.change_pdf_preview_page(delta)
-        else:self.change_pptx_preview_slide(delta)
-
-    def _set_active_document_summary(self):
-        if self.active_content_type=="pdf":
-            if self.pdf_path and self.pdf_info:self.pdf_file_var.set(f"{self.pdf_path.name}\n{self.translator.text('document.summary.pages',size=human_file_size(self.pdf_info.metrics.size_bytes),count=self.pdf_info.metrics.item_count)}")
-            else:self.pdf_file_var.set(self.translator.text("pdf.no_file"))
-        else:
-            self.pptx_file_var.set(self.pptx_path.name if self.pptx_path else self.translator.text("pptx.no_file")); self._set_pptx_file_summary()
-
     def choose_pdf(self):
+        raise RuntimeError("LEGACY UI PATH EXECUTED: MarkerApp.choose_pdf")
         selected=filedialog.askopenfilename(title=self.translator.text("pdf.choose"),filetypes=[("PDF (*.pdf)","*.pdf"),(self.translator.text("files.all"),"*.*")])
         if not selected:return
         self.reset_format_context("pdf")
@@ -771,6 +672,7 @@ class LegacyMarkerApp(ctk.CTk):
         return preview.current in state.active_scope
 
     def update_pdf_preview(self):
+        raise RuntimeError("LEGACY UI PATH EXECUTED: MarkerApp.update_pdf_preview")
         t=self.translator.text
         if not self.pdf_path or not self.pdf_info:
             self.pptx_preview_photo=None; self.pptx_preview_label.configure(image=None,text=t("pdf.preview_hint")); self.pptx_slide_status.configure(text=""); self.pptx_previous_button.configure(state="disabled"); self.pptx_next_button.configure(state="disabled"); return
@@ -781,19 +683,6 @@ class LegacyMarkerApp(ctk.CTk):
         try:
             result=self.pdf_preview_renderer.render(self.pdf_path,self.pdf_preview_state.current,badge,preview_settings,logo); self.pdf_preview_state.current=result.page_number; self.pptx_preview_photo=ctk.CTkImage(result.image,size=result.image.size); self.pptx_preview_label.configure(image=self.pptx_preview_photo,text=""); self.pptx_slide_status.configure(text=t("pdf.page_status",current=result.page_number,count=result.page_count)); self.pptx_previous_button.configure(state="normal" if self.pdf_preview_state.can_previous else "disabled"); self.pptx_next_button.configure(state="normal" if self.pdf_preview_state.can_next else "disabled")
         except (OSError,ValueError):self.pptx_preview_photo=None; self.pptx_preview_label.configure(image=None,text=t("pdf.preview_unavailable")); self.pptx_slide_status.configure(text="")
-
-    def process_pdf(self):
-        if not self.pdf_path or not self.pdf_info:messagebox.showwarning(self.translator.text("warning.title"),self.translator.text("pdf.choose_first")); return
-        if not self._confirm_pdf_limits() or not self._confirm_pdf_signature():return
-        badge=self.badges.find(self.badge_var.get()) if self.pdf_badge_enabled_var.get() else None; logo_path=self._logo_path() if self.logo_enabled_var.get() else None
-        if not badge and not logo_path:messagebox.showwarning(self.translator.text("warning.title"),self.translator.text("pdf.overlay_required")); return
-        selected=filedialog.asksaveasfilename(title=self.translator.text("pdf.save_as"),initialdir=str(self.pdf_path.parent),initialfile=f"{self.pdf_path.stem}_ai.pdf",defaultextension=".pdf",filetypes=[("PDF (*.pdf)","*.pdf")],confirmoverwrite=True)
-        if not selected:return
-        try:
-            if Path(selected).suffix.lower()!=".pdf":raise ValueError(self.translator.text("pdf.extension_error"))
-            selection=ItemSelection("selected",self.document_scope_states["pdf"].active_scope); disclosure,logo=settings_for_documents(self.settings(),label=self.badge_name_var.get() or self.badges.display_name(badge.name if badge else self.badge_var.get())); result=self.pdf_processor.process(ProcessingRequest(self.pdf_path,Path(selected),disclosure,badge_path=badge,logo=logo),selection)
-        except (OSError,ValueError) as error:messagebox.showerror(self.translator.text("error.title"),self.translator.text("pdf.error",error=error)); return
-        text=self.translator.text("pdf.saved",name=result.destination.name,count=len(result.selected_pages)); self.status_var.set(text); messagebox.showinfo(self.translator.text("complete.title"),text)
 
     def choose_docx(self):
         selected=filedialog.askopenfilename(title=self.translator.text("docx.choose"),filetypes=[("Word (*.docx)","*.docx"),(self.translator.text("files.all"),"*.*")])
@@ -841,6 +730,7 @@ class LegacyMarkerApp(ctk.CTk):
         text=self.translator.text("docx.saved",name=result.destination.name); self.status_var.set(text); messagebox.showinfo(self.translator.text("complete.title"),text)
 
     def choose_pptx(self):
+        raise RuntimeError("LEGACY UI PATH EXECUTED: MarkerApp.choose_pptx")
         selected=filedialog.askopenfilename(title=self.translator.text("pptx.choose"),filetypes=[("PowerPoint (*.pptx)","*.pptx"),(self.translator.text("files.all"),"*.*")])
         if selected:
             self.reset_format_context("pptx")
@@ -915,6 +805,7 @@ class LegacyMarkerApp(ctk.CTk):
             self.update_pptx_preview()
 
     def update_pptx_preview(self):
+        raise RuntimeError("LEGACY UI PATH EXECUTED: MarkerApp.update_pptx_preview")
         if not hasattr(self,"pptx_preview_label"):return
         if self.active_content_type=="pdf":self.update_pdf_preview(); return
         t=self.translator.text
