@@ -47,3 +47,10 @@ checkpoint must not be described as “all tests”.
 
 Production formats are Images, Video, PDF and PowerPoint/Slides. DOCX is not a
 v1.0.3 production format.
+
+The production UI uses one Shell FSM plus four independent workspace FSMs.
+`WorkspaceControlPanel` composes natural-height sections; SourceControl,
+SaveControl, BadgeControl and LogoControl are stateless. Headless tests do
+not prove Windows/Tk geometry or packaged runtime behavior. The four-workspace
+panel hard cutover is complete; PDF/PPTX 80% preview-fit runtime acceptance
+remains a separate checkpoint.

@@ -22,7 +22,7 @@ from .source_control import SourceControl
 from .logo_control import LogoControl, LogoProjection
 from .preview_shell import PreviewShell
 from .document_controls import PhysicalNavigationControl, DocumentScopeControl
-from .workspace_control_panel import WorkspaceControlPanel
+from .workspace_control_panel import WorkspaceControlPanel, PARAM_LABEL_WIDTH, PARAM_CONTROL_WIDTH
 from .document_processing import ItemSelection, ProcessingRequest, settings_for_documents
 from .metadata import marker_metadata
 from dataclasses import replace
@@ -96,9 +96,10 @@ class PptxWorkspace:
         t = getattr(getattr(self.app, "translator", None), "text", lambda key: key)
         file_section = ctk.CTkFrame(controls, fg_color="transparent"); self.control_panel.add_section("FILE", file_section)
         self.heading_label = ctk.CTkLabel(file_section, text=t("content.powerpoint"), font=ctk.CTkFont(size=24, weight="bold")); self.heading_label.grid(row=0, column=0, padx=2, pady=(2, 2), sticky="w")
-        self.file_heading = ctk.CTkLabel(file_section, text=t("pptx.file_heading"), font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=1, column=0, padx=2, pady=(2, 1), sticky="w")
-        self.source_control = SourceControl(file_section, choose_command=self._choose_file, choose_label=t("pptx.choose"), width=280); self.source_control.frame.grid(row=2, column=0, padx=2, pady=2, sticky="ew"); self.choose_button = self.source_control.choose_button
-        self.save_control = SaveControl(file_section, label="Save As...", command=self._save_as, width=280); self.save_button = self.save_control.button; self.save_button.grid(row=3, column=0, padx=2, pady=(4,2), sticky="ew")
+        file_section.grid_columnconfigure(0, weight=1); file_section.grid_columnconfigure(1, weight=1)
+        self.file_heading = ctk.CTkLabel(file_section, text=t("pptx.file_heading"), font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=1, column=0, columnspan=2, padx=2, pady=(2, 1), sticky="w")
+        self.source_control = SourceControl(file_section, choose_command=self._choose_file, choose_label=t("pptx.choose"), width=280, compact=True); self.source_control.frame.grid(row=2, column=0, padx=(2,4), pady=2, sticky="ew"); self.choose_button = self.source_control.choose_button
+        self.save_control = SaveControl(file_section, label="Save As...", command=self._save_as, width=160); self.save_button = self.save_control.button; self.save_button.grid(row=2, column=1, padx=(4,2), pady=2, sticky="ew")
         self.file_label = self.source_control.filename_label; self.file_metadata_label = self.source_control.metadata_label
         self.construction_receipt.file_section_created = True
         slides_section = ctk.CTkFrame(controls, fg_color="transparent"); self.control_panel.add_section("SLIDES", slides_section)
@@ -158,9 +159,9 @@ class PptxWorkspace:
         translator = getattr(getattr(self.app, "translator", None), "text", lambda key, **v: key)
         templates = {"size.value": "size.value", "margin.value": "margin.value", "opacity.value": "opacity.value", "logo.size": "logo.size", "logo.margin": "logo.margin", "logo.opacity": "logo.opacity"}
         key = templates.get(label, label)
-        value_label = ctk.CTkLabel(row_host, text=translator(key, value=value), anchor="w", width=110); value_label.grid(row=0, column=0, padx=(0, 6), sticky="w")
+        value_label = ctk.CTkLabel(row_host, text=translator(key, value=value), anchor="w", width=PARAM_LABEL_WIDTH); value_label.grid(row=0, column=0, padx=(0, 6), sticky="w")
         setattr(self, f"{group}_{field}_label", value_label); setattr(self, f"{group}_{field}_label_key", key)
-        slider = ctk.CTkSlider(row_host, from_=low, to=high, variable=var, command=lambda v: self._slider_event(group, field, v), width=180)
+        slider = ctk.CTkSlider(row_host, from_=low, to=high, variable=var, command=lambda v: self._slider_event(group, field, v), width=PARAM_CONTROL_WIDTH)
         slider.grid(row=0, column=1, padx=0, sticky="ew")
         setattr(self, f"{group}_{field}_row", row_host)
 

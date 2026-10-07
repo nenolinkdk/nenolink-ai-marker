@@ -22,7 +22,7 @@ from .badge_control import BadgeControl, BadgeProjection
 from .source_control import SourceControl
 from .logo_control import LogoControl, LogoProjection
 from .preview_shell import PreviewShell
-from .workspace_control_panel import WorkspaceControlPanel
+from .workspace_control_panel import WorkspaceControlPanel, PARAM_LABEL_WIDTH, PARAM_CONTROL_WIDTH
 from .paths import welcome_image_path
 
 
@@ -238,9 +238,9 @@ class ImageWorkspace:
 
     def _slider(self, parent, variable, start, end, row):
         app = self.app
-        label = ctk.CTkLabel(parent, width=110)
+        label = ctk.CTkLabel(parent, width=PARAM_LABEL_WIDTH)
         label.grid(row=row, column=0, padx=14, pady=(4, 0), sticky="w")
-        ctk.CTkSlider(parent, from_=start, to=end, number_of_steps=end-start, width=240,
+        ctk.CTkSlider(parent, from_=start, to=end, number_of_steps=end-start, width=PARAM_CONTROL_WIDTH,
                       variable=variable, command=self.visual_changed).grid(
                           row=row + 1, column=0, padx=14, pady=(1, 3), sticky="ew")
         return label
@@ -270,9 +270,10 @@ class ImageWorkspace:
         left.grid(row=0, column=0, padx=(4, 8), pady=4, sticky="nsew")
         left.grid_columnconfigure(0, weight=1)
         file_section = ctk.CTkFrame(left, fg_color="transparent"); self.control_panel.add_section("FILE", file_section)
-        self.file_heading = ctk.CTkLabel(file_section, text="FILE", font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=0, column=0, padx=2, pady=(2, 1), sticky="w")
-        self.source_control = SourceControl(file_section, choose_command=self.choose_files, choose_label="Choose file", width=280)
-        self.source_control.frame.grid(row=1, column=0, padx=2, pady=(2, 2), sticky="ew")
+        file_section.grid_columnconfigure(0, weight=1); file_section.grid_columnconfigure(1, weight=1)
+        self.file_heading = ctk.CTkLabel(file_section, text="FILE", font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=0, column=0, columnspan=2, padx=2, pady=(2, 1), sticky="w")
+        self.source_control = SourceControl(file_section, choose_command=self.choose_files, choose_label="Choose file", width=280, compact=True)
+        self.source_control.frame.grid(row=1, column=0, padx=(2, 4), pady=(2, 2), sticky="ew")
         app.open_button = self.source_control.choose_button; app.file_label = self.source_control.filename_label; app.file_size_guidance = self.source_control.metadata_label
         app.image_badge_group = ctk.CTkFrame(left, fg_color="transparent"); self.control_panel.add_section("AI_BADGE", app.image_badge_group)
         app.image_badge_group.grid_columnconfigure(0, weight=1)
@@ -294,7 +295,7 @@ class ImageWorkspace:
         app.logo_controls = self.logo_control.frame
         app.logo_heading = self.logo_control.heading; app.logo_enable = self.logo_control.enabled_widget; app.logo_choose = self.logo_control.choose_button; app.logo_filename = self.logo_control.filename_label; app.logo_position_label = self.logo_control.position_label; app.logo_size_slider = self.logo_control.size_widget; app.logo_margin_slider = self.logo_control.margin_widget; app.logo_opacity_slider = self.logo_control.opacity_widget
         app.process_save_control = SaveControl(file_section, label="Save As...", command=self.save)
-        app.process_button = app.process_save_control.button; app.process_button.grid(row=2, column=0, padx=2, pady=(4, 2), sticky="ew")
+        app.process_button = app.process_save_control.button; app.process_button.grid(row=1, column=1, padx=(4, 2), pady=(2, 2), sticky="ew")
         self.preview_shell = PreviewShell(workspace); self.preview_shell.frame.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right = self.preview_shell.viewport
         self.preview_label = ctk.CTkLabel(right)
         self.welcome_frame = ctk.CTkFrame(right, fg_color="transparent"); self.welcome_frame.grid(row=0, column=0, padx=18, pady=14, sticky="nsew"); self.welcome_frame.grid_columnconfigure(0, weight=1); self.welcome_frame.grid_rowconfigure(4, weight=1)

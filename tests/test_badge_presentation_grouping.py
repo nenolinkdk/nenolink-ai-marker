@@ -45,3 +45,16 @@ def test_all_workspace_panels_use_canonical_section_order():
         source = (ROOT / filename).read_text(encoding="utf-8")
         assert "WorkspaceControlPanel" in source
         assert any(token in source for token in tokens)
+
+
+def test_shared_compact_file_and_parameter_geometry_contract():
+    source = (ROOT / "source_control.py").read_text(encoding="utf-8")
+    panel = (ROOT / "workspace_control_panel.py").read_text(encoding="utf-8")
+    assert "compact: bool = False" in source
+    assert "columnspan=columns" in source
+    assert "PARAM_LABEL_WIDTH = 110" in panel
+    assert "PARAM_CONTROL_WIDTH = 205" in panel
+    for filename in ("image_workspace.py", "video_workspace.py", "pdf_workspace.py", "pptx_workspace.py"):
+        workspace = (ROOT / filename).read_text(encoding="utf-8")
+        assert "compact=True" in workspace
+        assert "SaveControl(file_section" in workspace

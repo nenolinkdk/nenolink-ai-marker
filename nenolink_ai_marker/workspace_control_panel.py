@@ -4,6 +4,10 @@ from __future__ import annotations
 from typing import Any
 import customtkinter as ctk
 
+PARAM_LABEL_WIDTH = 110
+PARAM_CONTROL_WIDTH = 205
+PARAM_PADX = 8
+
 
 class WorkspaceControlPanel:
     """Owns only compact section placement; workspaces own all semantics."""

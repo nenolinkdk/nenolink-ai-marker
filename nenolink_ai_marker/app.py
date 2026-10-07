@@ -48,6 +48,7 @@ from .shortcut import ShortcutError, create_desktop_shortcut
 from .ui_state import DocumentPreviewState, DocumentScopeState, pptx_item_selection, show_welcome
 from .update_check import UpdateCheckError, check_for_update, is_approved_update_url, should_check_automatically
 from .shell_controller import DESTINATIONS, ShellController, placeholder_for, shell_transition_spec, ShellTransitionExecutor
+from .workspace_control_panel import PARAM_LABEL_WIDTH, PARAM_CONTROL_WIDTH
 
 def _runtime_boot_logger():
     """Return a flushed application logger for packaged runtime diagnostics."""
@@ -572,8 +573,8 @@ class MarkerApp(ctk.CTk):
 
 
     def _video_slider(self, parent, variable, start, end, row, label, command=None):
-        output = ctk.CTkLabel(parent, text=label); output.grid(row=row, column=0, padx=14, pady=(4, 0), sticky="w")
-        ctk.CTkSlider(parent, from_=start, to=end, number_of_steps=end-start, variable=variable, command=command or self.video_workspace_owner.change_visual).grid(row=row+1, column=0, padx=14, pady=(1, 3), sticky="ew")
+        output = ctk.CTkLabel(parent, text=label, width=PARAM_LABEL_WIDTH); output.grid(row=row, column=0, padx=8, pady=(4, 0), sticky="w")
+        ctk.CTkSlider(parent, from_=start, to=end, number_of_steps=end-start, width=PARAM_CONTROL_WIDTH, variable=variable, command=command or self.video_workspace_owner.change_visual).grid(row=row+1, column=0, padx=8, pady=(1, 3), sticky="ew")
         return output
 
     def _mount_tool(self, tool: str) -> None:

@@ -1,6 +1,7 @@
 """Stateless Own Logo presentation control."""
 from typing import Any, Callable, Iterable
 import customtkinter as ctk
+from .workspace_control_panel import PARAM_LABEL_WIDTH, PARAM_CONTROL_WIDTH, PARAM_PADX
 
 
 class LogoProjection:
@@ -20,10 +21,10 @@ class LogoControl:
         self.choose_button = ctk.CTkButton(self.frame, text="Choose logo", command=on_choose, width=140); self.choose_button.grid(row=2, column=0, sticky="w")
         self.filename_label = ctk.CTkLabel(self.frame, text="No logo selected", anchor="w"); self.filename_label.grid(row=3, column=0, sticky="ew")
         self.mode_widget = ctk.CTkOptionMenu(self.frame, variable=self.mode_var, values=["Front", "Entire", "Back"], command=on_mode or (lambda _value: None), width=140); self.mode_widget.grid(row=4, column=0, sticky="w")
-        self.position_label = ctk.CTkLabel(self.frame, text="Position: Top left"); self.position_label.grid(row=5, column=0, sticky="w")
-        self.size_widget = ctk.CTkSlider(self.frame, from_=1, to=100, command=on_size or (lambda _value: None)); self.size_widget.grid(row=6, column=0, sticky="ew")
-        self.margin_widget = ctk.CTkSlider(self.frame, from_=0, to=250, command=on_margin or (lambda _value: None)); self.margin_widget.grid(row=7, column=0, sticky="ew")
-        self.opacity_widget = ctk.CTkSlider(self.frame, from_=0, to=100, command=on_opacity or (lambda _value: None)); self.opacity_widget.grid(row=8, column=0, sticky="ew")
+        self.position_label = ctk.CTkLabel(self.frame, text="Position: Top left", width=PARAM_LABEL_WIDTH); self.position_label.grid(row=5, column=0, padx=PARAM_PADX, sticky="w")
+        self.size_widget = ctk.CTkSlider(self.frame, from_=1, to=100, width=PARAM_CONTROL_WIDTH, command=on_size or (lambda _value: None)); self.size_widget.grid(row=6, column=0, padx=PARAM_PADX, sticky="ew")
+        self.margin_widget = ctk.CTkSlider(self.frame, from_=0, to=250, width=PARAM_CONTROL_WIDTH, command=on_margin or (lambda _value: None)); self.margin_widget.grid(row=7, column=0, padx=PARAM_PADX, sticky="ew")
+        self.opacity_widget = ctk.CTkSlider(self.frame, from_=0, to=100, width=PARAM_CONTROL_WIDTH, command=on_opacity or (lambda _value: None)); self.opacity_widget.grid(row=8, column=0, padx=PARAM_PADX, sticky="ew")
         self.frame.grid_columnconfigure(0, weight=1)
 
     def project(self, projection: LogoProjection) -> None:

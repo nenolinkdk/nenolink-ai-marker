@@ -415,3 +415,13 @@ Verified deterministic counts are Image 5/5/5/0/0, Video 6/6/6/0/0, PDF
 untested). Shell uses its executable transition and receipt proof suite. All
 five state-table gates are source-verified; packaged Windows runtime and
 physical geometry remain a separate acceptance gate.
+
+## Current presentation ownership
+
+The active graph is `Shell FSM → workspace-local FSM → WorkspaceControlPanel
+and stateless controls → preview/output`. Image is the canonical panel
+composition; Video adds VIDEO OPTIONS, and PDF/PPTX add document scope and
+physical navigation. Each workspace retains one authoritative state owner.
+Presentation components do not own transitions or processing policy. Direct
+legacy workspace presentation paths have been removed. PDF/PPTX preview-fit
+behavior remains a separate Windows acceptance gate.

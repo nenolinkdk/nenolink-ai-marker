@@ -72,8 +72,9 @@ class PdfWorkspace:
         self.preview_shell = PreviewShell(self.root); self.preview_shell.frame.grid(row=0, column=1, padx=(8,4), pady=4, sticky="nsew"); preview_host = self.preview_shell.viewport
         app.pdf_workspace = controls; app.pdf_workspace_root = self.root; app.pdf_controls_host = controls; app.pdf_preview_host = preview_host
         file_section = ctk.CTkFrame(controls, fg_color="transparent"); self.control_panel.add_section("FILE", file_section)
-        ctk.CTkLabel(file_section, text="FILE", font=ctk.CTkFont(weight="bold")).grid(row=0,column=0,padx=2,pady=(2,1),sticky="w")
-        self.source_control = SourceControl(file_section, choose_command=self.choose_file, choose_label=t("pdf.choose"), width=280); self.source_control.frame.grid(row=1,column=0,padx=2,pady=(2,2),sticky="ew"); app.pdf_choose_button = self.source_control.choose_button; app.pdf_file_label = self.source_control.filename_label
+        file_section.grid_columnconfigure(0, weight=1); file_section.grid_columnconfigure(1, weight=1)
+        ctk.CTkLabel(file_section, text="FILE", font=ctk.CTkFont(weight="bold")).grid(row=0,column=0,columnspan=2,padx=2,pady=(2,1),sticky="w")
+        self.source_control = SourceControl(file_section, choose_command=self.choose_file, choose_label=t("pdf.choose"), width=280, compact=True); self.source_control.frame.grid(row=1,column=0,padx=(2,4),pady=(2,2),sticky="ew"); app.pdf_choose_button = self.source_control.choose_button; app.pdf_file_label = self.source_control.filename_label
         pages_section = ctk.CTkFrame(controls, fg_color="transparent"); self.control_panel.add_section("PAGES", pages_section)
         ctk.CTkLabel(pages_section, text="PAGES", font=ctk.CTkFont(weight="bold")).grid(row=0,column=0,padx=2,pady=(2,1),sticky="w")
         self.scope_control = DocumentScopeControl(pages_section, on_mode=self.set_scope_mode, on_text=lambda text: apply_pdf_event(self.state, PdfEvent.SCOPE_TEXT_CHANGED, {"text": text}), on_update=lambda: self.project(), values=("All", "First", "Selected", "Range"), placeholder="pages")
@@ -90,7 +91,7 @@ class PdfWorkspace:
         self._preview_resize_job = None
         preview_host.bind("<Configure>", self._schedule_preview_refresh, add="+")
         app.pdf_previous_button=self.navigation_control.previous; app.pdf_page_status=self.navigation_control.status; app.pdf_next_button=self.navigation_control.next
-        app.pdf_save_control=SaveControl(file_section,label="Save As...",command=self.save,width=280); app.pdf_process_button=app.pdf_save_control.button; app.pdf_process_button.grid(row=2,column=0,padx=2,pady=(4,2),sticky="ew")
+        app.pdf_save_control=SaveControl(file_section,label="Save As...",command=self.save,width=160); app.pdf_process_button=app.pdf_save_control.button; app.pdf_process_button.grid(row=1,column=1,padx=(4,2),pady=2,sticky="ew")
 
     def unmount(self) -> None:
         self._dispose_view()

@@ -133,3 +133,13 @@ separate final gate and must never be inferred from headless tests.
 
 See [WORKSPACE-STATE-AUDIT.md](WORKSPACE-STATE-AUDIT.md) for the current
 implementation status.
+
+## 4D16 presentation boundary
+
+The Shell FSM and four independent local workspace FSMs remain the semantic
+authority. `WorkspaceControlPanel` is a stateless composition owner for the
+left control column; Image is the canonical panel reference. SourceControl,
+SaveControl, BadgeControl and LogoControl are shared stateless presentation
+controls with zero semantic authority. PDF/PPTX scope controls remain local
+to their document workspaces. Windows runtime acceptance is separate from
+headless tests; PDF/PPTX preview-fit acceptance remains a separate gate.
