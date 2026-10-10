@@ -116,7 +116,50 @@ DEFAULT_ENGLISH = {
     "welcome.tagline": "Make AI use visible. Build trust.",
     "welcome.description1": "Clearly show when and how artificial intelligence has been used in images and videos.",
     "welcome.description2": "Choose a badge, place it on your content, and help make AI use more transparent.",
+    "section.file": "FILE", "section.pages": "PAGES", "section.slides": "SLIDES",
+    "section.ai_badge": "AI BADGE", "section.own_logo": "OWN LOGO",
+    "section.video_options": "VIDEO OPTIONS", "section.preview": "PREVIEW",
+    "button.save": "Save", "logo.no_file": "No logo selected",
+    "logo.position_value": "Position: {position}",
+    "dialog.open_logo": "Choose Logo", "files.supported_images": "Images",
+    "files.supported_pdf": "PDF (*.pdf)", "files.supported_pptx": "PowerPoint (*.pptx)",
+    "video.preview": "Video preview", "video.badge_mode": "Video badge mode",
+    "pptx.file_read_error": "Could not read PowerPoint file",
+    "pptx.choose_before_save": "Choose a PowerPoint file before saving.",
+    "dialog.save_as_generic": "Save As…",
+    "error.choose_different_output": "Choose a different output file.",
+    "logo.mode.front": "Front", "logo.mode.entire": "Entire", "logo.mode.back": "Back",
 }
+
+# This is deliberately a conservative, explicit inventory.  It covers every
+# shipped UI surface, including defensive strings that are only reached after
+# an error.  Supported locale files must contain all of these keys: English is
+# a last-resort recovery language, never the normal source for a locale.
+PRODUCTION_UI_KEYS = frozenset(DEFAULT_ENGLISH) | frozenset({
+    # Keys already shipped in locale JSON but not in the emergency map.
+    "content.tools_group", "navigation.cancel", "navigation.continue",
+    "navigation.switch_message", "navigation.switch_title",
+    "inspect.document_unsupported", "document.summary.docx",
+    "document.docx_warning", "document.docx_hard", "docx.choose",
+    "docx.no_file", "docx.selected", "docx.whole_document",
+    "docx.add_badge", "docx.process", "docx.preview_hint",
+    "docx.preview_unavailable", "docx.preview_approximate",
+    "docx.metadata_note", "docx.overlay_required", "docx.error",
+    "docx.choose_first", "docx.save_as", "docx.extension_error",
+    "docx.saved", "docx.scope", "docx.scope.first", "docx.scope.all",
+    "pptx.badge_enable", "pptx.file_heading", "pptx.logo_none",
+    "pptx.preview_error", "pptx.selected_count", "pptx.slides_heading",
+    "pptx.update",
+    # Current shared-control and four-workspace presentation keys.
+    "section.file", "section.pages", "section.slides", "section.ai_badge",
+    "section.own_logo", "section.video_options", "section.preview",
+    "button.save", "logo.no_file", "logo.position_value",
+    "dialog.open_logo", "files.supported_images", "files.supported_pdf",
+    "files.supported_pptx", "video.preview", "video.badge_mode",
+    "pptx.file_read_error", "pptx.choose_before_save",
+    "dialog.save_as_generic", "error.choose_different_output",
+    "logo.mode.front", "logo.mode.entire", "logo.mode.back",
+})
 
 
 class Translator:

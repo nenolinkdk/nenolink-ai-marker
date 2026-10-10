@@ -16,7 +16,8 @@ def test_pptx_navigation_route_mounts_canonical_workspace():
 def test_pptx_empty_workspace_contract_is_complete():
     source = inspect.getsource(__import__('nenolink_ai_marker.pptx_workspace', fromlist=['PptxWorkspace']))
     assert 'class PptxWorkspace' in source
-    assert 'content.powerpoint' in source
+    assert 'section.slides' in source
+    assert 'pptx.choose' in source
     assert 'self.mounted = True' in source
 
 

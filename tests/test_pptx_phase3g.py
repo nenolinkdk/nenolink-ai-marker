@@ -33,4 +33,4 @@ def test_apply_language_is_projection_only_for_minimal_workspace():
     workspace.choose_button = Widget(); workspace.save_button = Widget(); workspace.preview_label = Widget()
     workspace.apply_language(SimpleNamespace(text=lambda key, **values: key))
     assert workspace.choose_button.values["text"] == "pptx.choose"
-    assert workspace.save_button.values["text"] == "Save"
+    assert workspace.save_button.values["text"] == "button.save"

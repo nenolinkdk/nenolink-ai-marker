@@ -34,11 +34,15 @@ def test_tools_are_overlays_and_do_not_confirm_or_destroy_active_content(monkeyp
 def test_pptx_language_projection_does_not_remount_or_clear_state():
     workspace = PptxWorkspace.__new__(PptxWorkspace)
     workspace.state = SimpleNamespace(loaded=True)
+    workspace.file_heading = _Widget()
+    workspace.slides_heading = _Widget()
     workspace.choose_button = _Widget()
     workspace.save_button = _Widget()
     workspace.preview_label = _Widget()
-    translator = SimpleNamespace(text=lambda key: {"pptx.choose": "Vælg PowerPoint", "pptx.preview_hint": "Forhåndsvisning"}[key])
+    workspace.preview_shell = SimpleNamespace(heading=_Widget())
+    translations = {"pptx.choose": "Vælg PowerPoint", "pptx.preview_hint": "Forhåndsvisning", "section.file": "FIL", "section.slides": "SLIDES", "section.preview": "FORHÅNDSVISNING", "button.save": "Gem"}
+    translator = SimpleNamespace(text=lambda key: translations.get(key, key))
     workspace.apply_language(translator)
     assert workspace.choose_button.values["text"] == "Vælg PowerPoint"
-    assert workspace.save_button.values["text"] == "Save"
+    assert workspace.save_button.values["text"] == "Gem"
     assert workspace.preview_label.values["text"] == ""

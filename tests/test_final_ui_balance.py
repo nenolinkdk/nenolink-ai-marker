@@ -29,7 +29,9 @@ def test_pdf_pptx_scope_and_physical_navigation_are_separate_components():
 
 def test_video_temporal_logo_contract_remains_explicit():
     source = read("video_workspace.py")
-    assert "FRONT" in source or '"Front"' in source
-    assert "ENTIRE" in source or '"Entire"' in source
-    assert "BACK" in source or '"Back"' in source
+    # Presentation labels are localized; the semantic Video logo modes remain
+    # explicit at the workspace boundary.
+    assert '"front"' in source and '"logo.mode.front"' in source
+    assert '"entire"' in source and '"logo.mode.entire"' in source
+    assert '"back"' in source and '"logo.mode.back"' in source
     assert "top-left" in source

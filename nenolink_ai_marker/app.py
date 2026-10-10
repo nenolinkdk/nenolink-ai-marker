@@ -686,8 +686,10 @@ class MarkerApp(ctk.CTk):
         # One application-wide locale owner; changing locale is not a content
         # transition and must not rebuild the active workspace.
         self.translator.set_language(LANGUAGES.get(name, "en"))
-        if getattr(self, "image_workspace_owner", None) is not None:
-            self.image_workspace_owner.apply_translations()
+        for workspace in (getattr(self, "image_workspace_owner", None), getattr(self, "video_workspace_owner", None), getattr(self, "pdf_workspace_owner", None)):
+            apply = getattr(workspace, "apply_translations", None)
+            if callable(apply):
+                apply()
         t = self.translator.text
         for kind, key in (("image", "content.images"), ("video", "content.video"), ("pdf", "content.pdf"), ("pptx", "content.powerpoint")):
             button = getattr(self, "content_buttons", {}).get(kind)
@@ -695,7 +697,7 @@ class MarkerApp(ctk.CTk):
         if getattr(self, "reset_button", None) is not None: self.reset_button.configure(text=t("button.reset"))
         if getattr(self, "guide_button", None) is not None: self.guide_button.configure(text=t("button.user_guide"))
         workspace = getattr(self, "pptx_workspace_state", None)
-        if self.active_content_type == "pptx" and workspace is not None:
+        if workspace is not None and getattr(workspace, "mounted", False):
             workspace.apply_language(self.translator)
         self._save()
 

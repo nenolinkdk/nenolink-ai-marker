@@ -60,3 +60,15 @@ SaveControl, BadgeControl and LogoControl are stateless. Headless tests do
 not prove Windows/Tk geometry or packaged runtime behavior. The four-workspace
 panel hard cutover is complete; PDF/PPTX 80% preview-fit runtime acceptance
 remains a separate checkpoint.
+
+# Localization release gate
+
+The supported production languages are English, Danish, German, French,
+Spanish, Italian, Portuguese, Dutch, Swedish, Norwegian, Polish and Czech.
+`nenolink_ai_marker.i18n.PRODUCTION_UI_KEYS` is the authoritative inventory
+for normal visible UI templates. The parameterized 4D17B localization tests
+require every supported locale to provide each key with a non-blank value;
+English is only a defensive recovery fallback, not a normal production source.
+Dynamic page, slide, selection, warning and status text must be emitted from
+localized templates. Changing language is presentation-only and must not alter
+any workspace state, scope, physical document position, or output settings.

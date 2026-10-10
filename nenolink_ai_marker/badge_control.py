@@ -19,6 +19,7 @@ class BadgeProjection:
     margin: Optional[float] = None
     opacity: Optional[float] = None
     enabled_label: str = ""
+    heading_label: str = "AI BADGE"
 
 class BadgeControl:
     """A presentation-only badge control with injected callbacks."""
@@ -29,7 +30,8 @@ class BadgeControl:
                  on_margin_changed: Callable[[float], Any] | None = None,
                  on_opacity_changed: Callable[[float], Any] | None = None,
                  show_position: bool = True, show_size: bool = True,
-                 show_margin: bool = True, show_opacity: bool = True) -> None:
+                 show_margin: bool = True, show_opacity: bool = True,
+                 heading_label: str = "AI BADGE") -> None:
         self._on_enabled_changed = on_enabled_changed
         self._on_badge_selected = on_badge_selected
         self._on_position_changed = on_position_changed
@@ -46,7 +48,7 @@ class BadgeControl:
         self._presentation_image = None
         self._presentation_asset_path = None
         heading_font = ctk.CTkFont(weight="bold") if hasattr(ctk, "CTkFont") else None
-        heading_kwargs = {"text": "AI BADGE"}
+        heading_kwargs = {"text": heading_label}
         if heading_font is not None:
             heading_kwargs["font"] = heading_font
         self.heading_widget = ctk.CTkLabel(self.frame, **heading_kwargs)
@@ -73,6 +75,7 @@ class BadgeControl:
             except (OSError, ValueError):
                 self._presentation_image = None
         self.enabled_var.set(projection.enabled)
+        self.heading_widget.configure(text=projection.heading_label)
         self.enabled_widget.configure(text=projection.enabled_label)
         self.selector_widget.configure(values=list(projection.choices))
         self.selector_var.set(projection.selected)

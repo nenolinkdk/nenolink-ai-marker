@@ -13,24 +13,31 @@ class LogoProjection:
 
 class LogoControl:
     """Presentation-only logo controls; all policy is injected by the workspace."""
-    def __init__(self, parent: Any, *, on_enabled: Callable[[bool], Any], on_choose: Callable[[], Any], on_mode: Callable[[str], Any] | None = None, on_size: Callable[[float], Any] | None = None, on_margin: Callable[[float], Any] | None = None, on_opacity: Callable[[float], Any] | None = None):
+    def __init__(self, parent: Any, *, on_enabled: Callable[[bool], Any], on_choose: Callable[[], Any], on_mode: Callable[[str], Any] | None = None, on_size: Callable[[float], Any] | None = None, on_margin: Callable[[float], Any] | None = None, on_opacity: Callable[[float], Any] | None = None, labels=None):
+        labels = labels or {}
         self.frame = ctk.CTkFrame(parent, fg_color="transparent")
         self.enabled_var = ctk.BooleanVar(value=False); self.mode_var = ctk.StringVar(value="entire")
-        self.heading = ctk.CTkLabel(self.frame, text="OWN LOGO", font=ctk.CTkFont(weight="bold")); self.heading.grid(row=0, column=0, sticky="w")
-        self.enabled_widget = ctk.CTkCheckBox(self.frame, text="Add own logo", variable=self.enabled_var, command=lambda: on_enabled(bool(self.enabled_var.get()))); self.enabled_widget.grid(row=1, column=0, sticky="w")
-        self.choose_button = ctk.CTkButton(self.frame, text="Choose logo", command=on_choose, width=140); self.choose_button.grid(row=2, column=0, sticky="w")
-        self.filename_label = ctk.CTkLabel(self.frame, text="No logo selected", anchor="w"); self.filename_label.grid(row=3, column=0, sticky="ew")
-        self.mode_widget = ctk.CTkOptionMenu(self.frame, variable=self.mode_var, values=["Front", "Entire", "Back"], command=on_mode or (lambda _value: None), width=140); self.mode_widget.grid(row=4, column=0, sticky="w")
-        self.position_label = ctk.CTkLabel(self.frame, text="Position: Top left", width=PARAM_LABEL_WIDTH); self.position_label.grid(row=5, column=0, padx=PARAM_PADX, sticky="w")
+        self.heading = ctk.CTkLabel(self.frame, text=labels.get("heading", "OWN LOGO"), font=ctk.CTkFont(weight="bold")); self.heading.grid(row=0, column=0, sticky="w")
+        self.enabled_widget = ctk.CTkCheckBox(self.frame, text=labels.get("enabled", "Add own logo"), variable=self.enabled_var, command=lambda: on_enabled(bool(self.enabled_var.get()))); self.enabled_widget.grid(row=1, column=0, sticky="w")
+        self.choose_button = ctk.CTkButton(self.frame, text=labels.get("choose", "Choose Logo"), command=on_choose, width=140); self.choose_button.grid(row=2, column=0, sticky="w")
+        self.filename_label = ctk.CTkLabel(self.frame, text=labels.get("none", "No logo selected"), anchor="w"); self.filename_label.grid(row=3, column=0, sticky="ew")
+        self.mode_widget = ctk.CTkOptionMenu(self.frame, variable=self.mode_var, values=[labels.get("mode.front", "Front"), labels.get("mode.entire", "Entire"), labels.get("mode.back", "Back")], command=on_mode or (lambda _value: None), width=140); self.mode_widget.grid(row=4, column=0, sticky="w")
+        self.position_label = ctk.CTkLabel(self.frame, text=labels.get("position", "Position: {position}").format(position=labels.get("position.top-left", "Top left")), width=PARAM_LABEL_WIDTH); self.position_label.grid(row=5, column=0, padx=PARAM_PADX, sticky="w")
         self.size_widget = ctk.CTkSlider(self.frame, from_=1, to=100, width=PARAM_CONTROL_WIDTH, command=on_size or (lambda _value: None)); self.size_widget.grid(row=6, column=0, padx=PARAM_PADX, sticky="ew")
         self.margin_widget = ctk.CTkSlider(self.frame, from_=0, to=250, width=PARAM_CONTROL_WIDTH, command=on_margin or (lambda _value: None)); self.margin_widget.grid(row=7, column=0, padx=PARAM_PADX, sticky="ew")
         self.opacity_widget = ctk.CTkSlider(self.frame, from_=0, to=100, width=PARAM_CONTROL_WIDTH, command=on_opacity or (lambda _value: None)); self.opacity_widget.grid(row=8, column=0, padx=PARAM_PADX, sticky="ew")
         self.frame.grid_columnconfigure(0, weight=1)
 
     def project(self, projection: LogoProjection) -> None:
-        self.enabled_var.set(projection.enabled); self.mode_var.set(str(projection.mode).title())
-        self.mode_widget.configure(values=list(projection.modes or ("Front", "Entire", "Back")))
+        labels = projection.labels
+        self.enabled_var.set(projection.enabled)
+        self.mode_var.set(labels.get(f"mode.{projection.mode}", str(projection.mode).title()))
+        self.mode_widget.configure(values=list(projection.modes or (labels.get("mode.front", "Front"), labels.get("mode.entire", "Entire"), labels.get("mode.back", "Back"))))
         self.mode_widget.configure(state="normal" if projection.modes else "disabled")
-        self.position_label.configure(text=f"Position: {projection.position.replace('-', ' ').title()}")
-        self.filename_label.configure(text=projection.filename or "No logo selected")
+        self.heading.configure(text=labels.get("heading", "OWN LOGO"))
+        self.enabled_widget.configure(text=labels.get("enabled", "Add own logo"))
+        self.choose_button.configure(text=labels.get("choose", "Choose Logo"))
+        position = labels.get(f"position.{projection.position}", projection.position.replace('-', ' ').title())
+        self.position_label.configure(text=labels.get("position", "Position: {position}").format(position=position))
+        self.filename_label.configure(text=projection.filename or labels.get("none", "No logo selected"))
         self.size_widget.set(projection.size); self.margin_widget.set(projection.margin); self.opacity_widget.set(projection.opacity)

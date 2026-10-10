@@ -69,35 +69,38 @@ class PdfWorkspace:
         for section in ("FILE", "PAGES", "AI_BADGE", "OWN_LOGO"):
             self.control_panel.declare_section(section)
         controls = self.control_panel.frame; controls.grid(row=0, column=0, padx=(4,8), pady=4, sticky="nsew")
-        self.preview_shell = PreviewShell(self.root); self.preview_shell.frame.grid(row=0, column=1, padx=(8,4), pady=4, sticky="nsew"); preview_host = self.preview_shell.viewport
+        self.preview_shell = PreviewShell(self.root, title=t("section.preview")); self.preview_shell.frame.grid(row=0, column=1, padx=(8,4), pady=4, sticky="nsew"); preview_host = self.preview_shell.viewport
         app.pdf_workspace = controls; app.pdf_workspace_root = self.root; app.pdf_controls_host = controls; app.pdf_preview_host = preview_host
         file_section = ctk.CTkFrame(controls, fg_color="transparent"); self.control_panel.add_section("FILE", file_section)
         file_section.grid_columnconfigure(0, weight=1); file_section.grid_columnconfigure(1, weight=1)
-        ctk.CTkLabel(file_section, text="FILE", font=ctk.CTkFont(weight="bold")).grid(row=0,column=0,columnspan=2,padx=2,pady=(2,1),sticky="w")
-        self.source_control = SourceControl(file_section, choose_command=self.choose_file, choose_label=t("pdf.choose"), width=280, compact=True); self.source_control.frame.grid(row=1,column=0,padx=(2,4),pady=(2,2),sticky="ew"); app.pdf_choose_button = self.source_control.choose_button; app.pdf_file_label = self.source_control.filename_label
+        self.file_heading = ctk.CTkLabel(file_section, text=t("section.file"), font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=0,column=0,columnspan=2,padx=2,pady=(2,1),sticky="w")
+        self.source_control = SourceControl(file_section, choose_command=self.choose_file, choose_label=t("pdf.choose"), empty_label=t("pdf.no_file"), width=280, compact=True); self.source_control.frame.grid(row=1,column=0,padx=(2,4),pady=(2,2),sticky="ew"); app.pdf_choose_button = self.source_control.choose_button; app.pdf_file_label = self.source_control.filename_label
         pages_section = ctk.CTkFrame(controls, fg_color="transparent"); self.control_panel.add_section("PAGES", pages_section)
-        ctk.CTkLabel(pages_section, text="PAGES", font=ctk.CTkFont(weight="bold")).grid(row=0,column=0,padx=2,pady=(2,1),sticky="w")
-        self.scope_control = DocumentScopeControl(pages_section, on_mode=self.set_scope_mode, on_text=lambda text: apply_pdf_event(self.state, PdfEvent.SCOPE_TEXT_CHANGED, {"text": text}), on_update=lambda: self.project(), values=("All", "First", "Selected", "Range"), placeholder="pages")
+        self.pages_heading = ctk.CTkLabel(pages_section, text=t("section.pages"), font=ctk.CTkFont(weight="bold")); self.pages_heading.grid(row=0,column=0,padx=2,pady=(2,1),sticky="w")
+        self.scope_control = DocumentScopeControl(pages_section, on_mode=self.set_scope_mode, on_text=lambda text: apply_pdf_event(self.state, PdfEvent.SCOPE_TEXT_CHANGED, {"text": text}), on_update=lambda: self.project(), values=(t("pdf.scope.all"), t("pdf.scope.first"), t("pdf.scope.selected"), t("pdf.scope.range")), placeholder=t("pdf.selected_hint"), update_label=t("document.scope_update"))
+        self._scope_display = {"all": t("pdf.scope.all"), "first": t("pdf.scope.first"), "selected": t("pdf.scope.selected"), "range": t("pdf.scope.range")}
+        self._scope_value = {label: value for value, label in self._scope_display.items()}
         self.scope_control.frame.grid(row=1, column=0, padx=2, pady=2, sticky="ew")
         badge_section = ctk.CTkFrame(controls, fg_color="transparent"); self.control_panel.add_section("AI_BADGE", badge_section)
-        self.badge_control = BadgeControl(badge_section, on_enabled_changed=self.visual_changed, on_badge_selected=self.select_badge)
+        self.badge_control = BadgeControl(badge_section, on_enabled_changed=self.visual_changed, on_badge_selected=self.select_badge, heading_label=t("section.ai_badge"))
         self.badge_control.frame.grid(row=0, column=0, sticky="ew")
         app.pdf_badge_enable = self.badge_control.enabled_widget; app.pdf_badge_menu = self.badge_control.selector_widget; app.badge_display_var = self.badge_control.selector_var; app.pdf_badge_visual = self.badge_control.graphic_widget; app.pdf_badge_image_label=app.pdf_badge_visual; app.pdf_badge_name_label=app.pdf_badge_visual
         logo_section = ctk.CTkFrame(controls, fg_color="transparent"); self.control_panel.add_section("OWN_LOGO", logo_section)
-        self.logo_control = LogoControl(logo_section, on_enabled=lambda value: self.set_logo(enabled=value), on_choose=self.choose_logo, on_size=lambda value: self.set_logo(size=value), on_margin=lambda value: self.set_logo(margin=value), on_opacity=lambda value: self.set_logo(opacity=value))
+        self.logo_control = LogoControl(logo_section, on_enabled=lambda value: self.set_logo(enabled=value), on_choose=self.choose_logo, on_size=lambda value: self.set_logo(size=value), on_margin=lambda value: self.set_logo(margin=value), on_opacity=lambda value: self.set_logo(opacity=value), labels=self._logo_labels())
         self.logo_control.frame.grid(row=0, column=0, sticky="ew")
-        app.pdf_preview_label = ctk.CTkLabel(preview_host,text="PDF page preview",fg_color=("gray92","gray13")); app.pdf_preview_label.grid(row=0,column=0,pady=(12,4),sticky="nsew")
-        self.navigation_control = PhysicalNavigationControl(preview_host, on_previous=lambda:self.set_current_page(self.state.current_page-1), on_next=lambda:self.set_current_page(self.state.current_page+1)); self.navigation_control.frame.grid(row=1,column=0,pady=4)
+        app.pdf_preview_label = ctk.CTkLabel(preview_host,text=t("pdf.preview_hint"),fg_color=("gray92","gray13")); app.pdf_preview_label.grid(row=0,column=0,pady=(12,4),sticky="nsew")
+        self.navigation_control = PhysicalNavigationControl(preview_host, on_previous=lambda:self.set_current_page(self.state.current_page-1), on_next=lambda:self.set_current_page(self.state.current_page+1), status_template=t("pdf.page_status")); self.navigation_control.frame.grid(row=1,column=0,pady=4)
         self._preview_resize_job = None
         preview_host.bind("<Configure>", self._schedule_preview_refresh, add="+")
         app.pdf_previous_button=self.navigation_control.previous; app.pdf_page_status=self.navigation_control.status; app.pdf_next_button=self.navigation_control.next
-        app.pdf_save_control=SaveControl(file_section,label="Save",command=self.save,width=160); app.pdf_process_button=app.pdf_save_control.button; app.pdf_process_button.grid(row=1,column=1,padx=(4,2),pady=2,sticky="ew")
+        app.pdf_save_control=SaveControl(file_section,label=t("button.save"),command=self.save,width=160); app.pdf_process_button=app.pdf_save_control.button; app.pdf_process_button.grid(row=1,column=1,padx=(4,2),pady=2,sticky="ew")
 
     def unmount(self) -> None:
         self._dispose_view()
 
     def project(self) -> None:
         app = self.app; state = self.state
+        self.apply_translations()
         # Keep the authoritative badge state explicit at the projection boundary.
         _authoritative_badge = self.state.badge
         self._ensure_badge_selection()
@@ -115,15 +118,15 @@ class PdfWorkspace:
         if getattr(self, "source_control", None) is not None:
             self.source_control.project(filename=(state.path.name if state.path else ""), empty_text=app.translator.text("pdf.no_file"))
         if getattr(self, "logo_control", None) is not None:
-            self.logo_control.project(LogoProjection(enabled=state.logo.enabled, filename=state.logo.path.name if state.logo.path else "", position=state.logo.position, size=state.logo.size, margin=state.logo.margin, opacity=state.logo.opacity))
+            self.logo_control.project(LogoProjection(enabled=state.logo.enabled, filename=state.logo.path.name if state.logo.path else "", position=state.logo.position, size=state.logo.size, margin=state.logo.margin, opacity=state.logo.opacity, labels=self._logo_labels()))
         if getattr(self, "scope_control", None) is not None:
-            self.scope_control.project(mode=state.scope_mode.title(), draft=state.scope_input, status=str(len(state.active_scope)) if state.path else "")
-        if getattr(app, "pdf_page_status", None) is not None:
-            app.pdf_page_status.configure(text=(f"{state.current_page} / {state.page_count}" if state.path else "—"))
+            self.scope_control.project(mode=self._scope_display.get(state.scope_mode, state.scope_mode), draft=state.scope_input, status=str(len(state.active_scope)) if state.path else "")
+        if getattr(self, "navigation_control", None) is not None:
+            self.navigation_control.project(current=state.current_page, total=state.page_count if state.path else 0)
         if state.path and getattr(app, "pdf_info", None) is not None:
             self.refresh_preview()
         else:
-            if getattr(app, "pdf_preview_label", None) is not None: app.pdf_preview_label.configure(image=None, text="PDF page preview")
+            if getattr(app, "pdf_preview_label", None) is not None: app.pdf_preview_label.configure(image=None, text=app.translator.text("pdf.preview_hint"))
             self.preview_photo = None; app.pdf_preview_photo = None
         self._project_badge_controls()
 
@@ -142,6 +145,29 @@ class PdfWorkspace:
         if candidate:
             apply_pdf_event(state, PdfEvent.BADGE_CHANGED, {"badge_id": candidate})
 
+    def _logo_labels(self):
+        t = self.app.translator.text
+        return {"heading": t("section.own_logo"), "enabled": t("logo.enable"),
+                "choose": t("logo.choose"), "none": t("logo.no_file"),
+                "position": t("logo.position_value"),
+                "mode.front": t("logo.mode.front"), "mode.entire": t("logo.mode.entire"), "mode.back": t("logo.mode.back"),
+                **{f"position.{name}": t("position." + name.replace("-", "_")) for name in ("top-left", "top-right", "bottom-left", "bottom-right", "center")}}
+
+    def apply_translations(self) -> None:
+        """Refresh presentation language without changing PDF state."""
+        if self.root is None:
+            return
+        t = self.app.translator.text
+        self.file_heading.configure(text=t("section.file")); self.pages_heading.configure(text=t("section.pages"))
+        self.source_control.set_label(t("pdf.choose")); self.app.pdf_save_control.set_label(t("button.save"))
+        self.preview_shell.heading.configure(text=t("section.preview"))
+        self._scope_display = {"all": t("pdf.scope.all"), "first": t("pdf.scope.first"), "selected": t("pdf.scope.selected"), "range": t("pdf.scope.range")}
+        self._scope_value = {label: value for value, label in self._scope_display.items()}
+        self.scope_control.menu.configure(values=list(self._scope_display.values()))
+        self.scope_control.input.configure(placeholder_text=t("pdf.selected_hint")); self.scope_control.update.configure(text=t("document.scope_update"))
+        self.navigation_control.set_status_template(t("pdf.page_status"))
+        self.badge_control.heading_widget.configure(text=t("section.ai_badge")); self.badge_control.enabled_widget.configure(text=t("pdf.add_badge"))
+
     def _project_badge_controls(self) -> None:
         app = self.app; state = self.state
         badges = getattr(app, "badges", None)
@@ -151,7 +177,7 @@ class PdfWorkspace:
         displays = [app.badges.display_name(name) for name in names]
         display = app.badges.display_name(state.badge.badge_id) if state.badge.badge_id else "—"
         badge = next((path for path in app.badges.display_badges() if path.name == state.badge.badge_id), None)
-        self.badge_control.project(BadgeProjection(bool(state.badge.enabled), display, tuple(displays), badge, state.badge.position, state.badge.size, state.badge.margin, state.badge.opacity, app.translator.text("pdf.add_badge")))
+        self.badge_control.project(BadgeProjection(bool(state.badge.enabled), display, tuple(displays), badge, state.badge.position, state.badge.size, state.badge.margin, state.badge.opacity, app.translator.text("pdf.add_badge"), app.translator.text("section.ai_badge")))
         app.pdf_badge_enabled_var.set(state.badge.enabled)
 
     def visual_changed(self, enabled=None, *_args) -> None:
@@ -176,7 +202,7 @@ class PdfWorkspace:
 
     def choose_logo(self) -> None:
         from tkinter import filedialog
-        selected = filedialog.askopenfilename(title="Choose logo", filetypes=[("Images", "*.png *.jpg *.jpeg *.webp"), ("All files", "*.*")])
+        selected = filedialog.askopenfilename(title=self.app.translator.text("dialog.open_logo"), filetypes=[(self.app.translator.text("files.supported_images"), "*.png *.jpg *.jpeg *.webp"), (self.app.translator.text("files.all"), "*.*")])
         if selected:
             self.set_logo(path=Path(selected), enabled=True)
 
@@ -193,7 +219,7 @@ class PdfWorkspace:
         self.project()
 
     def set_scope_mode(self, mode: str) -> None:
-        apply_pdf_event(self.state, PdfEvent.SCOPE_MODE, {"mode": mode})
+        apply_pdf_event(self.state, PdfEvent.SCOPE_MODE, {"mode": self._scope_value.get(mode, mode)})
         self.project()
 
     def refresh_preview(self) -> None:
@@ -225,14 +251,12 @@ class PdfWorkspace:
             self.preview_photo = ctk.CTkImage(light_image=result.image, dark_image=result.image, size=result.image.size)
             app.pdf_preview_label.configure(image=self.preview_photo, text="")
             app.pdf_preview_photo = self.preview_photo
-            app.pdf_page_status.configure(text=f"{state.current_page} / {state.page_count}")
-            app.pdf_previous_button.configure(state="normal" if state.current_page > 1 else "disabled")
-            app.pdf_next_button.configure(state="normal" if state.current_page < state.page_count else "disabled")
+            self.navigation_control.project(current=state.current_page, total=state.page_count)
             self.geometry_receipt = geometry
             app._boot(f"PDF_HOST={geometry.actual_available_width}x{geometry.actual_available_height} PDF_EFFECTIVE={geometry.effective_width}x{geometry.effective_height} PDF_MAX={geometry.canonical_max_width}x{geometry.canonical_max_height} PDF_FIT={max_size[0]}x{max_size[1]} PDF_RENDER={result.image.width}x{result.image.height} PDF_MEASURED={geometry.measured_fraction:.4f} PDF_LIMIT={geometry.limiting_dimension}")
             self.receipts.record({"layer": "pdf", "event": "PDF_PREVIEW_GEOMETRY", "viewport": [width, height], "rendered": [result.image.width, result.image.height], "measured_fraction": geometry.measured_fraction, "limiting_dimension": geometry.limiting_dimension}) if hasattr(self, "receipts") else None
         except (OSError, ValueError) as error:
-            app.pdf_preview_label.configure(image=None, text=f"Could not render PDF page: {error}")
+            app.pdf_preview_label.configure(image=None, text=app.translator.text("pdf.error", error=error))
 
     def _schedule_preview_refresh(self, _event=None):
         app = self.app
@@ -259,7 +283,7 @@ class PdfWorkspace:
             messagebox.showwarning(app.translator.text("warning.title"), app.translator.text("pdf.choose_first")); return
         if not app._confirm_pdf_limits_phase6() or not app._confirm_pdf_signature(): return
         destination_name = f"{state.path.stem}_ai.pdf"
-        selected = filedialog.asksaveasfilename(title=app.translator.text("pdf.save_as"), initialdir=str(state.path.parent), initialfile=destination_name, defaultextension=".pdf", filetypes=[("PDF (*.pdf)", "*.pdf")], confirmoverwrite=True)
+        selected = filedialog.asksaveasfilename(title=app.translator.text("pdf.save_as"), initialdir=str(state.path.parent), initialfile=destination_name, defaultextension=".pdf", filetypes=[(app.translator.text("files.supported_pdf"), "*.pdf")], confirmoverwrite=True)
         if not selected: return
         destination = Path(selected)
         if destination.resolve() == state.path.resolve():
@@ -304,7 +328,7 @@ class PdfWorkspace:
 
     def choose_file(self) -> None:
         app = self.app
-        selected = filedialog.askopenfilename(title=app.translator.text("pdf.choose"), filetypes=[("PDF (*.pdf)", "*.pdf"), (app.translator.text("files.all"), "*.*")])
+        selected = filedialog.askopenfilename(title=app.translator.text("pdf.choose"), filetypes=[(app.translator.text("files.supported_pdf"), "*.pdf"), (app.translator.text("files.all"), "*.*")])
         if not selected:
             return
         path = Path(selected)
