@@ -27,6 +27,13 @@
    dependencies or real Badges/Inspect switching. SOURCE/HEAD PASS is not
    PACKAGED RUNTIME PASS.
 
+The Windows startup smoke harness validates packaged resources and detects a
+visible top-level window owned by the launched executable process tree. It
+records the native window title for diagnostics but does not depend on a title
+string. On failure it retains the per-run boot log and diagnostic report; on
+success it removes those temporary files. This smoke check is not a substitute
+for manual packaged Windows acceptance.
+
 ## Manual v1.0.3 acceptance sequence
 
 Run `Images → Video → PDF → PPTX → Badges → Inspect → Badges → return to

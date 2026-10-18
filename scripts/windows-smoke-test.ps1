@@ -7,101 +7,204 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$resolvedExe = (Resolve-Path -LiteralPath $ExePath).Path
-$installRoot = Split-Path -Parent $resolvedExe
-$badgeFiles = @(Get-ChildItem -Path (Join-Path $installRoot "assets\badges") -File -Filter "*.png" -ErrorAction SilentlyContinue)
-$localeFiles = @(Get-ChildItem -Path (Join-Path $installRoot "locales") -File -Filter "*.json" -ErrorAction SilentlyContinue)
-if (-not $EmbeddedResources) {
-    if ($badgeFiles.Count -ne 11) { throw "Packaged badge folder must contain exactly 11 PNG files; found $($badgeFiles.Count)." }
-    if (-not (Test-Path -LiteralPath (Join-Path $installRoot "assets\badges\no-ai.png"))) { throw "Packaged No AI badge is missing." }
-    if (-not (Test-Path -LiteralPath (Join-Path $installRoot "assets\badges\badges.json"))) { throw "Packaged badge metadata is missing." }
-    if (-not (Test-Path -LiteralPath (Join-Path $installRoot "assets\ui\welcome-europe.png"))) { throw "Packaged welcome illustration is missing." }
-    if ($localeFiles.Count -lt 12) { throw "Packaged locale folder contains only $($localeFiles.Count) JSON files." }
-    if (-not (Test-Path -LiteralPath (Join-Path $installRoot "docs\Nenolink-AI-Marker-User-Guide-EN.pdf"))) { throw "Packaged PDF guide is missing." }
-    if (-not (Test-Path -LiteralPath (Join-Path $installRoot "docs\Nenolink-AI-Marker-User-Guide-DA.pdf"))) { throw "Packaged Danish PDF guide is missing." }
-    if (-not (Test-Path -LiteralPath (Join-Path $installRoot "tools\ffmpeg\ffmpeg.exe"))) { throw "Packaged FFmpeg component is missing." }
-    if (-not (Test-Path -LiteralPath (Join-Path $installRoot "THIRD_PARTY_NOTICES\FFMPEG.md"))) { throw "Packaged FFmpeg notice is missing." }
+Import-Module (Join-Path $PSScriptRoot "windows-smoke-harness.psm1") -Force
+
+function Get-SmokeProcessRows {
+    return @(Get-CimInstance -ClassName Win32_Process -ErrorAction Stop |
+        Select-Object ProcessId, ParentProcessId, ExecutablePath, CreationDate)
 }
-$processName = [System.IO.Path]::GetFileNameWithoutExtension($resolvedExe)
-$existingIds = @(Get-Process -Name $processName -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
-$previousRuntimeRoot = $env:NENOLINK_RUNTIME_ROOT
-$previousVerifyReport = $env:NENOLINK_VERIFY_REPORT
-$previousVerifyGuideLanguage = $env:NENOLINK_VERIFY_GUIDE_LANGUAGE
-if ($RuntimeRoot) { $env:NENOLINK_RUNTIME_ROOT = $RuntimeRoot }
-else { Remove-Item Env:NENOLINK_RUNTIME_ROOT -ErrorAction SilentlyContinue }
-$verifyReport = Join-Path $WorkingDirectory "Nenolink-AI-Marker-Smoke-$([Guid]::NewGuid().ToString('N')).json"
-$env:NENOLINK_VERIFY_REPORT = $verifyReport
-$env:NENOLINK_VERIFY_GUIDE_LANGUAGE = "da"
-$process = Start-Process -FilePath $resolvedExe -WorkingDirectory $WorkingDirectory -PassThru
-$env:NENOLINK_RUNTIME_ROOT = $previousRuntimeRoot
-$env:NENOLINK_VERIFY_REPORT = $previousVerifyReport
-$env:NENOLINK_VERIFY_GUIDE_LANGUAGE = $previousVerifyGuideLanguage
-$deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
-$windowFound = $false
-$launchedProcesses = @()
-try {
-    while ([DateTime]::UtcNow -lt $deadline) {
-        Start-Sleep -Milliseconds 250
-        $launchedProcesses = @(Get-Process -Name $processName -ErrorAction SilentlyContinue | Where-Object { $_.Id -notin $existingIds })
-        if (Test-Path -LiteralPath $verifyReport) {
-            $report = Get-Content -LiteralPath $verifyReport -Raw | ConvertFrom-Json
-            # The external FSM owns Badges and Inspect.  They must not be
-            # reachable through the media-only secondary tab controller.
-            foreach ($tab in @("single", "batch")) {
-                if (-not $report.tab_switching.$tab.selected -or -not $report.tab_switching.$tab.visible -or $report.tab_switching.$tab.other_visible) { throw "Packaged tab switching failed for $tab." }
-            }
-            foreach ($tool in @("badges", "inspect")) {
-                if ($report.tab_switching.$tool.selected -or $report.tab_switching.$tool.visible) { throw "Global Tool '$tool' leaked into media secondary navigation." }
-            }
-            if ($report.back_navigation.english_label -ne "← Back" -or $report.back_navigation.danish_label -ne "← Tilbage") { throw "Packaged Back navigation localisation failed." }
-            $expectedFooter = "© Copyright Henrik Nielsen - nenolink.com · v$($report.version) ·"
-            if ($report.version -ne "1.0.3" -or $report.packaged_ui_evidence.footer_text -ne $expectedFooter -or -not $report.packaged_ui_evidence.footer_visible -or -not $report.packaged_ui_evidence.footer_update_visible -or -not $report.packaged_ui_evidence.footer_update_action -or $report.packaged_ui_evidence.footer_update_cursor -ne "hand2" -or $report.packaged_ui_evidence.footer_update_text -eq "update.check") { throw "Packaged footer/version/manual-update verification failed." }
-            if ($report.packaged_ui_evidence.badges_update_button_present) { throw "Obsolete large Badges-tab update button is still present." }
-            if ($report.packaged_ui_evidence.shortcut_text -eq "shortcut.create" -or -not $report.packaged_ui_evidence.shortcut_callable -or $report.packaged_ui_evidence.shortcut_module -ne "nenolink_ai_marker.shortcut") { throw "Packaged desktop-shortcut UI/module verification failed." }
-            $offer=$report.packaged_ui_evidence.first_run_offer
-            if (-not $offer.visible -or -not $offer.persisted -or $offer.title -eq "shortcut.offer_title" -or $offer.message -eq "shortcut.offer_message" -or $offer.create -eq "shortcut.offer_create" -or $offer.not_now -eq "shortcut.offer_not_now") { throw "Packaged first-run desktop-shortcut offer verification failed." }
-            if (-not $report.packaged_ui_evidence.update_notification_present -or $report.packaged_ui_evidence.update_notification_cursor -ne "hand2" -or -not $report.packaged_ui_evidence.approved_update_handler) { throw "Packaged update-notification functionality is missing." }
-            $pptx=$report.packaged_ui_evidence.pptx_workspace
-            if (-not $pptx.visible -or $pptx.badge_count -lt 11 -or -not $pptx.logo_visible -or -not $pptx.metadata_supported -or -not $pptx.process_callable -or ($pptx.selection_modes -join ",") -ne "all,first,range,selected") { throw "Packaged PowerPoint workspace verification failed." }
-            if (-not $report.ffmpeg_found) { throw "Packaged application could not discover bundled FFmpeg." }
-            if ($report.layout_verification) {
-                foreach ($size in @("1280x720", "1366x768", "1920x1080")) { if (-not $report.layout_verification.sizes.$size.process_reachable) { throw "Single File action is inaccessible at $size." } }
-                foreach ($language in @("English", "Dansk", "Deutsch", "Français")) { $check=$report.layout_verification.languages.$language; if (-not $check.process_visible -or -not $check.video_mode_visible -or -not $check.duration_visible) { throw "Video controls are inaccessible in $language." } }
-                if (-not $report.layout_verification.permanent_hides_duration) { throw "Permanent mode did not hide Duration." }
-            }
-            $failedResetChecks = @()
-            if ($report.reset_verification.source -ne "standard") { $failedResetChecks += "badge source" }
-            if ($report.reset_verification.selection -ne "ai-assisted.png") { $failedResetChecks += "badge selection" }
-            if ($report.reset_verification.video_mode -ne "permanent" -or $report.reset_verification.video_duration -ne 5) { $failedResetChecks += "video defaults" }
-            if ($report.reset_verification.batch_suffix -ne "_ai") { $failedResetChecks += "batch suffix" }
-            if (-not $report.reset_verification.folder_retained) { $failedResetChecks += "custom folder retention" }
-            if ($report.reset_verification.sources -ne 0 -or -not $report.reset_verification.scan_cleared) { $failedResetChecks += "media state" }
-            if (-not $report.reset_verification.inspection_cleared) { $failedResetChecks += "Inspect state" }
-            if (-not $report.reset_verification.single_selected) { $failedResetChecks += "Image secondary navigation" }
-            if ($failedResetChecks.Count) { throw "Packaged reset verification failed: $($failedResetChecks -join ', ')." }
-            if ($report.translation_keys_visible -or -not $report.welcome_before_image -or -not $report.welcome_illustration -or $report.badges_found -ne 11 -or -not $report.badge_selector_visible -or $report.gallery_badges -ne 11 -or -not $report.gallery_selection_persisted -or -not $report.badges_tab_is_distinct -or -not $report.friendly_status -or $report.guide_filename -ne "Nenolink-AI-Marker-User-Guide-DA.pdf" -or $report.guide_paths.fr -ne "Nenolink-AI-Marker-User-Guide-EN.pdf" -or $report.danish.welcome_title -ne "Velkommen til Nenolink AI Marker" -or $report.german.welcome_title -ne "Willkommen bei Nenolink AI Marker") { throw "Packaged GUI verification report failed." }
-            $noAi=$report.no_ai_verification
-            if (-not $noAi.packaged_badge -or -not $noAi.written -or -not $noAi.inspected -or -not $noAi.source_unchanged -or -not $noAi.visible_overlay -or $noAi.label -ne "No AI" -or $noAi.version -ne "1.0.3") { throw "Packaged No AI metadata round-trip verification failed." }
-            $windowFound = $true
-            break
-        }
-        if ($launchedProcesses.Count -eq 0 -and $process.HasExited) {
-            throw "Executable exited during startup with code $($process.ExitCode)."
-        }
-        if ($launchedProcesses | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -like "Nenolink AI Marker*" }) { $windowFound = $true; break }
-    }
-    if (-not $windowFound) { throw "No application window appeared within $TimeoutSeconds seconds." }
-    $resourceMode = if ($EmbeddedResources) { "embedded resources" } else { "$($badgeFiles.Count) external badges and $($localeFiles.Count) locales" }
-    Write-Host "Smoke test passed from '$WorkingDirectory': window launched with $resourceMode."
+
+function Test-SmokeProcessIdentity {
+    param([System.Diagnostics.Process]$Process, [string]$ExpectedPath, [datetime]$NotBefore)
+    try {
+        $Process.Refresh()
+        if ($Process.HasExited -or -not $Process.Path) { return $false }
+        $actualPath = ConvertTo-SmokeFullPath $Process.Path
+        $expected = ConvertTo-SmokeFullPath $ExpectedPath
+        return [string]::Equals($actualPath, $expected, [System.StringComparison]::OrdinalIgnoreCase) -and
+            $Process.StartTime -ge $NotBefore.AddSeconds(-2)
+    } catch { return $false }
 }
-finally {
-    if (Test-Path -LiteralPath $verifyReport) { Remove-Item -LiteralPath $verifyReport -Force }
-    $launchedProcesses = @(Get-Process -Name $processName -ErrorAction SilentlyContinue | Where-Object { $_.Id -notin $existingIds })
-    foreach ($launchedProcess in $launchedProcesses) {
-        if ($launchedProcess.MainWindowHandle -ne 0) { $null = $launchedProcess.CloseMainWindow() }
+
+function Stop-SmokeLaunchedProcesses {
+    param(
+        [System.Diagnostics.Process]$RootProcess,
+        [string]$ExpectedPath,
+        [datetime]$RootStartTime,
+        [System.Collections.IDictionary]$ObservedProcesses
+    )
+
+    if (-not $RootProcess) { return }
+    $rootId = [int]$RootProcess.Id
+    $records = @($ObservedProcesses.Values)
+    try {
+        $rows = Get-SmokeProcessRows
+        $records += Select-SmokeOwnedProcesses -RootProcessId $rootId -ExecutablePath $ExpectedPath -RootStartTime $RootStartTime -ProcessRows $rows
+    } catch { }
+
+    $targets = @{}
+    foreach ($record in $records) { $targets[[int]$record.ProcessId] = $record }
+    $targets[$rootId] = [pscustomobject]@{ ProcessId = $rootId; ExecutablePath = $ExpectedPath; CreationDate = $RootStartTime }
+
+    foreach ($id in @($targets.Keys)) {
+        try {
+            $candidate = Get-Process -Id ([int]$id) -ErrorAction Stop
+            if (Test-SmokeProcessIdentity -Process $candidate -ExpectedPath $ExpectedPath -NotBefore $RootStartTime) {
+                $null = $candidate.CloseMainWindow()
+            }
+        } catch { }
     }
     Start-Sleep -Milliseconds 500
-    foreach ($launchedProcess in @(Get-Process -Name $processName -ErrorAction SilentlyContinue | Where-Object { $_.Id -notin $existingIds })) {
-        Stop-Process -Id $launchedProcess.Id -Force -ErrorAction SilentlyContinue
+
+    foreach ($id in @($targets.Keys)) {
+        try {
+            $candidate = Get-Process -Id ([int]$id) -ErrorAction Stop
+            if (Test-SmokeProcessIdentity -Process $candidate -ExpectedPath $ExpectedPath -NotBefore $RootStartTime) {
+                Stop-Process -Id ([int]$id) -Force -ErrorAction Stop
+            }
+        } catch { }
+    }
+}
+
+$resolvedExe = (Resolve-Path -LiteralPath $ExePath -ErrorAction Stop).Path
+$installRoot = Split-Path -Parent $resolvedExe
+$processName = [System.IO.Path]::GetFileNameWithoutExtension($resolvedExe)
+$runId = [Guid]::NewGuid().ToString("N")
+$bootLog = Join-Path $WorkingDirectory "Nenolink-AI-Marker-Smoke-$runId.boot.log"
+$diagnosticReport = Join-Path $WorkingDirectory "Nenolink-AI-Marker-Smoke-$runId.diagnostics.json"
+$previousRuntimeRoot = [Environment]::GetEnvironmentVariable("NENOLINK_RUNTIME_ROOT", "Process")
+$previousBootLog = [Environment]::GetEnvironmentVariable("NENOLINK_BOOT_LOG", "Process")
+$rootProcess = $null
+$rootStartTime = [datetime]::Now
+$observedProcesses = @{}
+$lastObservation = $null
+$history = [System.Collections.Generic.List[object]]::new()
+$succeeded = $false
+$failureStatus = "not-started"
+$failureMessage = $null
+
+try {
+    if (-not $EmbeddedResources) {
+        $badgeFiles = @(Get-ChildItem -Path (Join-Path $installRoot "assets\badges") -File -Filter "*.png" -ErrorAction SilentlyContinue)
+        $localeFiles = @(Get-ChildItem -Path (Join-Path $installRoot "locales") -File -Filter "*.json" -ErrorAction SilentlyContinue)
+        if ($badgeFiles.Count -ne 11) { throw "Package resource check failed: expected 11 badge PNGs, found $($badgeFiles.Count)." }
+        foreach ($relative in @(
+            "assets\badges\no-ai.png", "assets\badges\badges.json",
+            "assets\ui\welcome-europe.png", "docs\Nenolink-AI-Marker-User-Guide-EN.pdf",
+            "docs\Nenolink-AI-Marker-User-Guide-DA.pdf", "tools\ffmpeg\ffmpeg.exe",
+            "THIRD_PARTY_NOTICES\FFMPEG.md"
+        )) {
+            if (-not (Test-Path -LiteralPath (Join-Path $installRoot $relative))) { throw "Package resource check failed: missing $relative." }
+        }
+        if ($localeFiles.Count -lt 12) { throw "Package resource check failed: expected at least 12 locale files, found $($localeFiles.Count)." }
+    }
+
+    if ($RuntimeRoot) { $env:NENOLINK_RUNTIME_ROOT = $RuntimeRoot }
+    else { Remove-Item Env:NENOLINK_RUNTIME_ROOT -ErrorAction SilentlyContinue }
+    $env:NENOLINK_BOOT_LOG = $bootLog
+
+    try {
+        $rootProcess = Start-Process -FilePath $resolvedExe -WorkingDirectory $WorkingDirectory -PassThru -ErrorAction Stop
+        try { $rootStartTime = $rootProcess.StartTime } catch { $rootStartTime = [datetime]::Now }
+    } catch {
+        $failureStatus = "process-start-failed"
+        throw "Could not start '$resolvedExe': $($_.Exception.Message)"
+    }
+
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    $rootExitObservedAt = $null
+    while ([DateTime]::UtcNow -lt $deadline) {
+        $processProbeError = $null
+        $windowProbeError = $null
+        $owned = @()
+        $windows = @()
+        try {
+            $rows = Get-SmokeProcessRows
+            $owned = @(Select-SmokeOwnedProcesses -RootProcessId $rootProcess.Id -ExecutablePath $resolvedExe -RootStartTime $rootStartTime -ProcessRows $rows)
+            foreach ($record in $owned) { $observedProcesses[[int]$record.ProcessId] = $record }
+        } catch { $processProbeError = $_.Exception.Message }
+
+        if ($owned.Count -gt 0) {
+            try { $windows = @(Get-SmokeVisibleTopLevelWindows -ProcessIds ([int[]]@($owned | ForEach-Object { [int]$_.ProcessId }))) }
+            catch { $windowProbeError = $_.Exception.Message }
+        }
+
+        $rootProcess.Refresh()
+        $rootExited = $rootProcess.HasExited
+        $exitCode = $null
+        if ($rootExited) {
+            try { $exitCode = $rootProcess.ExitCode } catch { }
+        }
+        $decision = Get-SmokeStartupDecision -ProcessTreeProbeFailed ($null -ne $processProbeError) -RootProcessExited $rootExited -OwnedProcesses $owned -Windows $windows
+        $now = [DateTime]::UtcNow
+        if ($decision.Status -eq "process-exited-before-gui") {
+            if (-not $rootExitObservedAt) { $rootExitObservedAt = $now }
+            if (($now - $rootExitObservedAt).TotalSeconds -lt 2) { $decision = [pscustomobject]@{ Status = "process-alive-without-visible-window"; Window = $null } }
+        } else { $rootExitObservedAt = $null }
+
+        $lastObservation = [pscustomobject]@{
+            observed_at_utc = $now.ToString("o")
+            status = $decision.Status
+            root_process_id = [int]$rootProcess.Id
+            root_process_exited = $rootExited
+            root_exit_code = $exitCode
+            owned_processes = @($owned | ForEach-Object { [pscustomobject]@{ pid = $_.ProcessId; ppid = $_.ParentProcessId; executable = $_.ExecutablePath } })
+            visible_windows = @($windows | ForEach-Object { [pscustomobject]@{ handle = $_.Handle; pid = $_.ProcessId; title = $_.Title; visible = $_.Visible; top_level = $_.TopLevel } })
+            process_probe_error = $processProbeError
+            window_probe_error = $windowProbeError
+        }
+        if ($history.Count -eq 0 -or ($now - [datetime]$history[$history.Count - 1].observed_at_utc).TotalSeconds -ge 1) {
+            $history.Add($lastObservation)
+            if ($history.Count -gt 25) { $history.RemoveAt(0) }
+        }
+
+        if ($decision.Status -eq "visible-window-detected") {
+            $failureStatus = "visible-window-detected"
+            $succeeded = $true
+            Write-Host "Smoke test passed: visible top-level window owned by PID $($decision.Window.ProcessId), handle $($decision.Window.Handle), title '$($decision.Window.Title)'."
+            break
+        }
+        if ($decision.Status -eq "process-exited-before-gui") {
+            $failureStatus = $decision.Status
+            throw "Process $($rootProcess.Id) exited before a visible GUI window appeared (exit code $exitCode)."
+        }
+        Start-Sleep -Milliseconds 400
+    }
+
+    if (-not $succeeded) {
+        $failureStatus = "timeout-no-visible-window"
+        throw "No visible top-level window owned by the launched executable was detected within $TimeoutSeconds seconds."
+    }
+} catch {
+    $failureMessage = $_.Exception.Message
+    if ($failureStatus -eq "not-started") { $failureStatus = "preflight-failed" }
+    $report = [ordered]@{
+        outcome = "failure"
+        status = $failureStatus
+        executable = $resolvedExe
+        process_name = $processName
+        timeout_seconds = $TimeoutSeconds
+        root_process_id = if ($rootProcess) { [int]$rootProcess.Id } else { $null }
+        root_start_time = $rootStartTime.ToString("o")
+        failure = $failureMessage
+        last_observation = $lastObservation
+        observation_history = @($history.ToArray())
+        boot_log_path = $bootLog
+        diagnostic_report_path = $diagnosticReport
+    }
+    [System.IO.File]::WriteAllText($diagnosticReport, ($report | ConvertTo-Json -Depth 8), [System.Text.UTF8Encoding]::new($false))
+    throw "Windows smoke test $failureStatus`: $failureMessage`nDiagnostics preserved: $diagnosticReport`nBoot log (if emitted): $bootLog"
+} finally {
+    if ($null -eq $previousRuntimeRoot) { Remove-Item Env:NENOLINK_RUNTIME_ROOT -ErrorAction SilentlyContinue }
+    else { $env:NENOLINK_RUNTIME_ROOT = $previousRuntimeRoot }
+    if ($null -eq $previousBootLog) { Remove-Item Env:NENOLINK_BOOT_LOG -ErrorAction SilentlyContinue }
+    else { $env:NENOLINK_BOOT_LOG = $previousBootLog }
+
+    if ($rootProcess) {
+        Stop-SmokeLaunchedProcesses -RootProcess $rootProcess -ExpectedPath $resolvedExe -RootStartTime $rootStartTime -ObservedProcesses $observedProcesses
+    }
+    $artifactResult = Complete-SmokeArtifacts -BootLogPath $bootLog -DiagnosticReportPath $diagnosticReport -Succeeded $succeeded
+    if (-not $succeeded) {
+        Write-Host "Smoke failure artifacts retained. Diagnostics: $($artifactResult.DiagnosticReportPath); boot log: $($artifactResult.BootLogPath)"
     }
 }
