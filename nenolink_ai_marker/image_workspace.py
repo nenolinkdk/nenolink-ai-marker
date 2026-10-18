@@ -22,7 +22,10 @@ from .badge_control import BadgeControl, BadgeProjection
 from .source_control import SourceControl
 from .logo_control import LogoControl, LogoProjection
 from .preview_shell import PreviewShell
-from .workspace_control_panel import WorkspaceControlPanel, PARAM_LABEL_WIDTH, PARAM_CONTROL_WIDTH
+from .workspace_control_panel import (
+    WorkspaceControlPanel, PARAM_LABEL_WIDTH, PARAM_CONTROL_WIDTH, PARAM_PADX,
+    PARAM_LABEL_PADY, PARAM_SLIDER_PADY,
+)
 from .paths import welcome_image_path
 
 
@@ -94,13 +97,34 @@ class ImageWorkspace:
 
     def apply_translations(self):
         """Project locale presentation onto the current Image view only."""
+        root = self.root
+        if root is None or not root.winfo_exists():
+            return
         t = self.app.translator.text
         if self.source_control is not None:
             self.source_control.choose_button.configure(text=t("button.open_media"))
             self.source_control.metadata_label.configure(text=t("files.size_guidance"))
+            files = self.state.selected_files
+            self.source_control.project(
+                filename=files[0].name if files else "",
+                metadata=(human_file_size(files[0].stat().st_size) if files else ""),
+                empty_text=t("files.none"),
+            )
+        save_control = getattr(self.app, "process_save_control", None)
+        if save_control is not None:
+            save_control.set_label(t("button.save"))
+        if getattr(self, "preview_shell", None) is not None:
+            self.preview_shell.heading.configure(text=t("section.preview"))
         if self.badge_control is not None:
-            self.badge_control.heading_widget.configure(text=t("section.ai_badge"))
-            self.badge_control.enabled_widget.configure(text=t("pdf.add_badge"))
+            badge_path = self.app.badges.find(self.state.badge.badge_id) if self.state.badge.badge_id else None
+            self.badge_control.project(BadgeProjection(
+                bool(self.state.badge.enabled),
+                self.app.badges.display_name(self.state.badge.badge_id),
+                tuple(self.app.badges.display_name(p.name) for p in self.app.badges.display_badges()),
+                badge_path, self.state.badge.position, self.state.badge.size,
+                self.state.badge.margin, self.state.badge.opacity,
+                t("pdf.add_badge"), t("section.ai_badge"),
+            ))
         for name, key in (("size_label", "size.value"), ("margin_label", "margin.value"), ("opacity_label", "opacity.value")):
             widget = getattr(self.app, name, None)
             if widget is not None:
@@ -110,6 +134,8 @@ class ImageWorkspace:
             self.position_display_to_value = mapping
             self.app.position_display_to_value = mapping
             self.position_menu.configure(values=list(mapping))
+            selected = next((label for label, value in mapping.items() if value == self.state.badge.position), "")
+            self.position_menu.set(selected)
         if self.logo_control is not None:
             self.logo_control.project(LogoProjection(enabled=self.state.logo.enabled, filename=self.state.logo.path.name if self.state.logo.path else "", position=self.state.logo.position, size=self.state.logo.size, margin=self.state.logo.margin, opacity=self.state.logo.opacity, labels=self._logo_labels()))
         for widget, key in ((getattr(self, "file_heading", None), "section.file"),):
@@ -246,12 +272,11 @@ class ImageWorkspace:
         self.refresh_preview()
 
     def _slider(self, parent, variable, start, end, row):
-        app = self.app
         label = ctk.CTkLabel(parent, width=PARAM_LABEL_WIDTH)
-        label.grid(row=row, column=0, padx=14, pady=(4, 0), sticky="w")
+        label.grid(row=row, column=0, padx=PARAM_PADX, pady=PARAM_LABEL_PADY, sticky="w")
         ctk.CTkSlider(parent, from_=start, to=end, number_of_steps=end-start, width=PARAM_CONTROL_WIDTH,
                       variable=variable, command=self.visual_changed).grid(
-                          row=row + 1, column=0, padx=14, pady=(1, 3), sticky="ew")
+                          row=row + 1, column=0, padx=PARAM_PADX, pady=PARAM_SLIDER_PADY, sticky="ew")
         return label
 
     def _show_welcome(self):

@@ -48,7 +48,10 @@ from .shortcut import ShortcutError, create_desktop_shortcut
 from .ui_state import DocumentPreviewState, DocumentScopeState, pptx_item_selection, show_welcome
 from .update_check import UpdateCheckError, check_for_update, is_approved_update_url, should_check_automatically
 from .shell_controller import DESTINATIONS, ShellController, placeholder_for, shell_transition_spec, ShellTransitionExecutor
-from .workspace_control_panel import PARAM_LABEL_WIDTH, PARAM_CONTROL_WIDTH
+from .workspace_control_panel import (
+    PARAM_LABEL_WIDTH, PARAM_CONTROL_WIDTH, PARAM_PADX,
+    PARAM_LABEL_PADY, PARAM_SLIDER_PADY,
+)
 
 def _runtime_boot_logger():
     """Return a flushed application logger for packaged runtime diagnostics."""
@@ -155,6 +158,10 @@ class MarkerApp(ctk.CTk):
         "image": "Images", "video": "Video", "pdf": "PDF",
         "pptx": "PowerPoint / Slides", "badges": "Badges", "inspect": "Inspect File",
     }
+    _label_keys = {
+        "image": "content.images", "video": "content.video", "pdf": "content.pdf",
+        "pptx": "content.powerpoint", "badges": "tab.badges", "inspect": "tab.inspect",
+    }
 
     def __init__(self) -> None:
         super().__init__()
@@ -198,14 +205,15 @@ class MarkerApp(ctk.CTk):
         header.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(header, text="Nenolink AI Marker", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0, column=0, padx=20, pady=14, sticky="w")
         self.language_var = ctk.StringVar(value=Translator.language_name(self.translator.language))
-        self.language_menu = ctk.CTkOptionMenu(header, values=list(LANGUAGES), variable=self.language_var, command=self.change_image_language, width=150); self.language_menu.grid(row=0, column=1, padx=8)
-        self.reset_button = ctk.CTkButton(header, text="Reset", command=self._reset_button_command, width=100); self.reset_button.grid(row=0, column=2, padx=8)
-        self.guide_button = ctk.CTkButton(header, text="User Guide (PDF)", command=self.open_image_guide, width=170); self.guide_button.grid(row=0, column=3, padx=(8,20))
+        self.language_menu = ctk.CTkOptionMenu(header, values=list(LANGUAGES), variable=self.language_var, command=self.change_language, width=150); self.language_menu.grid(row=0, column=1, padx=8)
+        self.reset_button = ctk.CTkButton(header, text=self.translator.text("button.reset"), command=self._reset_button_command, width=100); self.reset_button.grid(row=0, column=2, padx=8)
+        self.guide_button = ctk.CTkButton(header, text=self.translator.text("button.user_guide"), command=self.open_image_guide, width=170); self.guide_button.grid(row=0, column=3, padx=(8,20))
 
         navigation = ctk.CTkFrame(self, corner_radius=0); navigation.grid(row=1, column=0, sticky="ew")
-        self._shell_group(navigation, "MEDIA", ("image", "video"), 0)
-        self._shell_group(navigation, "DOCUMENTS", ("pdf", "pptx"), 1)
-        self._shell_group(navigation, "TOOLS", ("badges", "inspect"), 2)
+        self.shell_group_labels = {}
+        self._shell_group(navigation, "content.media_group", ("image", "video"), 0)
+        self._shell_group(navigation, "content.documents_group", ("pdf", "pptx"), 1)
+        self._shell_group(navigation, "content.tools_group", ("badges", "inspect"), 2)
 
         self.content_host = ctk.CTkFrame(self); self.content_host.grid(row=2, column=0, padx=16, pady=(8,8), sticky="nsew")
         self.content_host.grid_columnconfigure(0, weight=1); self.content_host.grid_rowconfigure(0, weight=1)
@@ -214,12 +222,13 @@ class MarkerApp(ctk.CTk):
         self.status_label = ctk.CTkLabel(self, textvariable=self.status_var, text_color="gray60", anchor="e")
         self.status_label.grid(row=3, column=0, padx=20, pady=(0,8), sticky="ew")
 
-    def _shell_group(self, parent, title: str, destinations: tuple[str, ...], column: int) -> None:
+    def _shell_group(self, parent, title_key: str, destinations: tuple[str, ...], column: int) -> None:
         group = ctk.CTkFrame(parent, fg_color="transparent"); group.grid(row=0, column=column, padx=(20 if column == 0 else 8, 8), pady=7, sticky="w")
-        ctk.CTkLabel(group, text=title, font=ctk.CTkFont(size=13, weight="bold")).grid(row=0, column=0, sticky="w")
+        heading = ctk.CTkLabel(group, text=self.translator.text(title_key), font=ctk.CTkFont(size=13, weight="bold")); heading.grid(row=0, column=0, sticky="w")
+        self.shell_group_labels[title_key] = heading
         buttons = ctk.CTkFrame(group, fg_color="transparent"); buttons.grid(row=1, column=0, pady=(1,0), sticky="w")
         for index, destination in enumerate(destinations):
-            button = ctk.CTkButton(buttons, text=self._labels[destination], height=28, width=0,
+            button = ctk.CTkButton(buttons, text=self.translator.text(self._label_keys[destination]), height=28, width=0,
                 command=self._shell_button_command(destination))
             button.grid(row=0, column=index, padx=(0 if index == 0 else 4, 0))
             self.content_buttons[destination] = button
@@ -573,8 +582,8 @@ class MarkerApp(ctk.CTk):
 
 
     def _video_slider(self, parent, variable, start, end, row, label, command=None):
-        output = ctk.CTkLabel(parent, text=label, width=PARAM_LABEL_WIDTH); output.grid(row=row, column=0, padx=8, pady=(4, 0), sticky="w")
-        ctk.CTkSlider(parent, from_=start, to=end, number_of_steps=end-start, width=PARAM_CONTROL_WIDTH, variable=variable, command=command or self.video_workspace_owner.change_visual).grid(row=row+1, column=0, padx=8, pady=(1, 3), sticky="ew")
+        output = ctk.CTkLabel(parent, text=label, width=PARAM_LABEL_WIDTH); output.grid(row=row, column=0, padx=PARAM_PADX, pady=PARAM_LABEL_PADY, sticky="w")
+        ctk.CTkSlider(parent, from_=start, to=end, number_of_steps=end-start, width=PARAM_CONTROL_WIDTH, variable=variable, command=command or self.video_workspace_owner.change_visual).grid(row=row+1, column=0, padx=PARAM_PADX, pady=PARAM_SLIDER_PADY, sticky="ew")
         return output
 
     def _mount_tool(self, tool: str) -> None:
@@ -585,7 +594,7 @@ class MarkerApp(ctk.CTk):
                 return
             self._unmount_tool()
         self.tool_workspace = ctk.CTkFrame(self.content_host); self.tool_workspace.grid(row=0, column=0, sticky="nsew"); self.tool_workspace.grid_columnconfigure(0, weight=1); self.tool_workspace.grid_rowconfigure(1, weight=1)
-        ctk.CTkButton(self.tool_workspace, text=self.translator.text("button.back"), command=lambda: self.dispatch_shell_event("back"), width=110).grid(row=0, column=0, padx=16, pady=(10, 4), sticky="w")
+        self.tool_back_button = ctk.CTkButton(self.tool_workspace, text=self.translator.text("button.back"), command=lambda: self.dispatch_shell_event("back"), width=110); self.tool_back_button.grid(row=0, column=0, padx=16, pady=(10, 4), sticky="w")
         if tool == "badges": self._build_badges_tool()
         else: self._build_inspect_tool()
         self._mounted_tool_name = tool
@@ -594,6 +603,8 @@ class MarkerApp(ctk.CTk):
         if self.tool_workspace is not None and self.tool_workspace.winfo_exists(): self.tool_workspace.destroy()
         self.tool_workspace = None
         self._mounted_tool_name = None
+        for name in ("tool_back_button", "tool_badge_source_heading", "tool_badge_standard_radio", "tool_badge_custom_radio", "tool_badge_choose_folder", "tool_badge_refresh", "tool_inspect_heading", "tool_inspect_choose", "tool_inspect_result"):
+            setattr(self, name, None)
 
     def _unmount_image_workspace(self) -> None:
         self.image_workspace_owner.clear_runtime_state()
@@ -609,9 +620,9 @@ class MarkerApp(ctk.CTk):
 
     def _build_badges_tool(self) -> None:
         panel = ctk.CTkFrame(self.tool_workspace); panel.grid(row=1, column=0, padx=16, pady=6, sticky="nsew"); panel.grid_columnconfigure(0, weight=1); panel.grid_rowconfigure(4, weight=1)
-        ctk.CTkLabel(panel, text=self.translator.text("badge.source_label"), font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=12, pady=(8, 2), sticky="w")
-        self.tool_badge_source_var = ctk.StringVar(value=self.badge_source_var.get()); ctk.CTkRadioButton(panel, text=self.translator.text("badge.source_standard"), variable=self.tool_badge_source_var, value="standard", command=self._tool_refresh_badges).grid(row=1, column=0, padx=16, pady=2, sticky="w"); ctk.CTkRadioButton(panel, text=self.translator.text("badge.source_custom"), variable=self.tool_badge_source_var, value="custom", command=self._tool_refresh_badges).grid(row=2, column=0, padx=16, pady=2, sticky="w")
-        row = ctk.CTkFrame(panel, fg_color="transparent"); row.grid(row=3, column=0, padx=16, pady=4, sticky="ew"); row.grid_columnconfigure(0, weight=1); self.tool_badge_folder_var = ctk.StringVar(value=self.custom_badge_var.get()); ctk.CTkEntry(row, textvariable=self.tool_badge_folder_var).grid(row=0, column=0, sticky="ew"); ctk.CTkButton(row, text=self.translator.text("button.choose_badge_folder"), command=self._tool_choose_badge_folder, width=170).grid(row=0, column=1, padx=6); ctk.CTkButton(row, text=self.translator.text("badge.refresh"), command=self._tool_refresh_badges, width=100).grid(row=0, column=2)
+        self.tool_badge_source_heading = ctk.CTkLabel(panel, text=self.translator.text("badge.source_label"), font=ctk.CTkFont(weight="bold")); self.tool_badge_source_heading.grid(row=0, column=0, padx=12, pady=(8, 2), sticky="w")
+        self.tool_badge_source_var = ctk.StringVar(value=self.badge_source_var.get()); self.tool_badge_standard_radio = ctk.CTkRadioButton(panel, text=self.translator.text("badge.source_standard"), variable=self.tool_badge_source_var, value="standard", command=self._tool_refresh_badges); self.tool_badge_standard_radio.grid(row=1, column=0, padx=16, pady=2, sticky="w"); self.tool_badge_custom_radio = ctk.CTkRadioButton(panel, text=self.translator.text("badge.source_custom"), variable=self.tool_badge_source_var, value="custom", command=self._tool_refresh_badges); self.tool_badge_custom_radio.grid(row=2, column=0, padx=16, pady=2, sticky="w")
+        row = ctk.CTkFrame(panel, fg_color="transparent"); row.grid(row=3, column=0, padx=16, pady=4, sticky="ew"); row.grid_columnconfigure(0, weight=1); self.tool_badge_folder_var = ctk.StringVar(value=self.custom_badge_var.get()); ctk.CTkEntry(row, textvariable=self.tool_badge_folder_var).grid(row=0, column=0, sticky="ew"); self.tool_badge_choose_folder = ctk.CTkButton(row, text=self.translator.text("button.choose_badge_folder"), command=self._tool_choose_badge_folder, width=170); self.tool_badge_choose_folder.grid(row=0, column=1, padx=6); self.tool_badge_refresh = ctk.CTkButton(row, text=self.translator.text("badge.refresh"), command=self._tool_refresh_badges, width=100); self.tool_badge_refresh.grid(row=0, column=2)
         self.tool_badge_gallery = ctk.CTkScrollableFrame(panel); self.tool_badge_gallery.grid(row=4, column=0, padx=16, pady=6, sticky="nsew"); self._tool_refresh_badges()
 
     def _tool_choose_badge_folder(self) -> None:
@@ -660,8 +671,9 @@ class MarkerApp(ctk.CTk):
 
     def _build_inspect_tool(self) -> None:
         panel = ctk.CTkFrame(self.tool_workspace); panel.grid(row=1, column=0, padx=16, pady=6, sticky="nsew"); panel.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(panel, text=self.translator.text("inspect.title"), font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, padx=12, pady=(12, 4), sticky="w")
-        ctk.CTkButton(panel, text=self.translator.text("inspect.choose"), command=self._tool_choose_inspection).grid(row=1, column=0, padx=12, pady=6, sticky="w")
+        self.tool_inspect_heading = ctk.CTkLabel(panel, text=self.translator.text("inspect.title"), font=ctk.CTkFont(size=20, weight="bold")); self.tool_inspect_heading.grid(row=0, column=0, padx=12, pady=(12, 4), sticky="w")
+        self.tool_inspect_choose = ctk.CTkButton(panel, text=self.translator.text("inspect.choose"), command=self._tool_choose_inspection); self.tool_inspect_choose.grid(row=1, column=0, padx=12, pady=6, sticky="w")
+        self._tool_inspection_projection = None
         self.tool_inspect_result = ctk.CTkLabel(panel, text=self.translator.text("inspect.none"), justify="left", anchor="w"); self.tool_inspect_result.grid(row=2, column=0, padx=12, pady=8, sticky="ew")
 
     def _tool_choose_inspection(self) -> None:
@@ -669,10 +681,51 @@ class MarkerApp(ctk.CTk):
         if not selected: return
         path = Path(selected)
         if path.suffix.lower() in {".pdf", ".pptx"}:
-            self.tool_inspect_result.configure(text=self.translator.text("inspect.document_unsupported")); return
+            self._tool_inspection_projection = ("unsupported", None); self._project_inspection_result(); return
         try:
-            result = inspect_file(path); label = result.ai_label or self.translator.text("inspect.not_available"); self.tool_inspect_result.configure(text=f"{path.name}\n{self.translator.text('inspect.status')} {self.translator.text('inspect.found') if result.found else self.translator.text('inspect.not_found')}\n{self.translator.text('inspect.ai_label')} {label}")
-        except (OSError, ValueError) as error: self.tool_inspect_result.configure(text=self.translator.text("inspect.error_message", reason=error))
+            result = inspect_file(path); self._tool_inspection_projection = ("result", (path, result)); self._project_inspection_result()
+        except (OSError, ValueError) as error:
+            self._tool_inspection_projection = ("error", str(error)); self._project_inspection_result()
+
+    def _project_inspection_result(self) -> None:
+        if getattr(self, "tool_inspect_result", None) is None:
+            return
+        t = self.translator.text
+        projection = getattr(self, "_tool_inspection_projection", None)
+        if projection is None:
+            text = t("inspect.none")
+        elif projection[0] == "unsupported":
+            text = t("inspect.document_unsupported")
+        elif projection[0] == "error":
+            text = t("inspect.error_message", reason=projection[1])
+        else:
+            path, result = projection[1]
+            label = result.ai_label or t("inspect.not_available")
+            status = t("inspect.found") if result.found else t("inspect.not_found")
+            text = f"{path.name}\n{t('inspect.status')} {status}\n{t('inspect.ai_label')} {label}"
+        self.tool_inspect_result.configure(text=text)
+
+    def _project_tool_language(self) -> None:
+        t = self.translator.text
+        if getattr(self, "tool_back_button", None) is not None:
+            self.tool_back_button.configure(text=t("button.back"))
+        mounted_tool = getattr(self, "_mounted_tool_name", None)
+        if mounted_tool == "badges":
+            for widget, key in (
+                (getattr(self, "tool_badge_source_heading", None), "badge.source_label"),
+                (getattr(self, "tool_badge_standard_radio", None), "badge.source_standard"),
+                (getattr(self, "tool_badge_custom_radio", None), "badge.source_custom"),
+                (getattr(self, "tool_badge_choose_folder", None), "button.choose_badge_folder"),
+                (getattr(self, "tool_badge_refresh", None), "badge.refresh"),
+            ):
+                if widget is not None:
+                    widget.configure(text=t(key))
+        elif mounted_tool == "inspect":
+            if getattr(self, "tool_inspect_heading", None) is not None:
+                self.tool_inspect_heading.configure(text=t("inspect.title"))
+            if getattr(self, "tool_inspect_choose", None) is not None:
+                self.tool_inspect_choose.configure(text=t("inspect.choose"))
+            MarkerApp._project_inspection_result(self)
 
     # --- Image module -----------------------------------------------------------
 
@@ -682,23 +735,51 @@ class MarkerApp(ctk.CTk):
 
 
 
-    def change_image_language(self, name: str) -> None:
-        # One application-wide locale owner; changing locale is not a content
-        # transition and must not rebuild the active workspace.
+    @staticmethod
+    def _workspace_presentation_is_mounted(workspace) -> bool:
+        if workspace is None:
+            return False
+        if hasattr(workspace, "mounted"):
+            return bool(workspace.mounted)
+        root = getattr(workspace, "root", None)
+        if root is None:
+            return False
+        try:
+            return bool(root.winfo_exists())
+        except Exception:
+            return False
+
+    def change_language(self, name: str) -> None:
+        """Change the one Shell-owned locale and reproject visible UI only."""
         self.translator.set_language(LANGUAGES.get(name, "en"))
-        for workspace in (getattr(self, "image_workspace_owner", None), getattr(self, "video_workspace_owner", None), getattr(self, "pdf_workspace_owner", None)):
-            apply = getattr(workspace, "apply_translations", None)
-            if callable(apply):
-                apply()
+        if getattr(self, "language_var", None) is not None:
+            self.language_var.set(Translator.language_name(self.translator.language))
         t = self.translator.text
-        for kind, key in (("image", "content.images"), ("video", "content.video"), ("pdf", "content.pdf"), ("pptx", "content.powerpoint")):
+        for kind, key in MarkerApp._label_keys.items():
             button = getattr(self, "content_buttons", {}).get(kind)
-            if button is not None: button.configure(text=t(key))
-        if getattr(self, "reset_button", None) is not None: self.reset_button.configure(text=t("button.reset"))
-        if getattr(self, "guide_button", None) is not None: self.guide_button.configure(text=t("button.user_guide"))
-        workspace = getattr(self, "pptx_workspace_state", None)
-        if workspace is not None and getattr(workspace, "mounted", False):
-            workspace.apply_language(self.translator)
+            if button is not None:
+                button.configure(text=t(key))
+        for key, heading in getattr(self, "shell_group_labels", {}).items():
+            heading.configure(text=t(key))
+        if getattr(self, "reset_button", None) is not None:
+            self.reset_button.configure(text=t("button.reset"))
+        if getattr(self, "guide_button", None) is not None:
+            self.guide_button.configure(text=t("button.user_guide"))
+
+        # Tool overlays leave the current content presentation mounted but
+        # hidden. Reproject just that workspace and the visible tool; no FSM
+        # transition, remount, or semantic state mutation occurs here.
+        active_content = self.shell_controller.active_content_type
+        workspace = self._workspace_registry.get(active_content)
+        if MarkerApp._workspace_presentation_is_mounted(workspace):
+            apply_language = getattr(workspace, "apply_language", None)
+            if callable(apply_language):
+                apply_language(self.translator)
+            else:
+                apply_translations = getattr(workspace, "apply_translations", None)
+                if callable(apply_translations):
+                    apply_translations()
+        MarkerApp._project_tool_language(self)
         self._save()
 
     def open_image_guide(self) -> None:

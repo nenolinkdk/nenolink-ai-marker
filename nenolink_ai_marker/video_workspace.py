@@ -66,7 +66,6 @@ class VideoWorkspace:
     def project(self):
         if self.root is not None and self.root.winfo_exists():
             self.apply_translations()
-            self._project_controls()
             loaded = self.state.path is not None
             self.app.video_sources = [self.state.path] if loaded else []
             self.app.media_sources["video"] = list(self.app.video_sources)
@@ -114,9 +113,6 @@ class VideoWorkspace:
         t = self.app.translator.text
         if getattr(self, "file_heading", None): self.file_heading.configure(text=t("section.file"))
         if getattr(self, "source_control", None): self.source_control.set_label(t("button.open_media"))
-        if getattr(self, "badge_control", None):
-            self.badge_control.heading_widget.configure(text=t("section.ai_badge"))
-            self.badge_control.enabled_widget.configure(text=t("pdf.add_badge"))
         if getattr(self, "video_position_label", None): self.video_position_label.configure(text=t("position"))
         if getattr(self, "options_heading", None): self.options_heading.configure(text=t("section.video_options"))
         if getattr(self, "video_mode_label", None): self.video_mode_label.configure(text=t("video.badge_mode"))
@@ -124,10 +120,37 @@ class VideoWorkspace:
         if getattr(self, "video_seconds_label", None): self.video_seconds_label.configure(text=t("video.seconds"))
         if getattr(self, "save_control", None): self.save_control.set_label(t("button.save"))
         if getattr(self, "preview_shell", None): self.preview_shell.heading.configure(text=t("section.preview"))
+        loaded = self.state.path is not None
+        if getattr(self, "source_control", None):
+            self.source_control.project(
+                filename=self.state.path.name if loaded else "",
+                empty_text=t("files.none"),
+            )
+        if getattr(self.app, "video_preview_label", None) is not None and not loaded:
+            self.app.video_preview_label.configure(image=None, text=t("video.preview"))
+        position_values = {
+            t("position.top_left"): "top-left", t("position.top_right"): "top-right",
+            t("position.bottom_left"): "bottom-left", t("position.bottom_right"): "bottom-right",
+            t("position.center"): "center",
+        }
+        self.app.video_position_display_to_value = position_values
+        if getattr(self, "video_position_menu", None):
+            self.video_position_menu.configure(values=list(position_values))
+            selected_position = next((label for label, value in position_values.items() if value == self.state.badge.position), "")
+            self.app.video_position_display_var.set(selected_position)
         displays = {t("video.mode.beginning"): "beginning", t("video.mode.permanent"): "permanent", t("video.mode.end"): "end"}
         self.app.video_mode_display_to_value = displays
         self.logo_mode_display_to_value = {t("logo.mode.front"): "front", t("logo.mode.entire"): "entire", t("logo.mode.back"): "back"}
         if getattr(self, "video_mode_menu", None): self.video_mode_menu.configure(values=list(displays))
+        if getattr(self, "badge_control", None):
+            self._project_controls()
+        for widget, key, value in (
+            (getattr(self.app, "video_size_label", None), "size.value", self.state.badge.size),
+            (getattr(self.app, "video_margin_label", None), "margin.value", self.state.badge.margin),
+            (getattr(self.app, "video_opacity_label", None), "opacity.value", self.state.badge.opacity),
+        ):
+            if widget is not None:
+                widget.configure(text=t(key, value=value))
 
     def _badge_path(self):
         return next((path for path in self.app.badges.display_badges() if path.name == self.state.badge.badge_id), None)

@@ -160,13 +160,27 @@ class PdfWorkspace:
         t = self.app.translator.text
         self.file_heading.configure(text=t("section.file")); self.pages_heading.configure(text=t("section.pages"))
         self.source_control.set_label(t("pdf.choose")); self.app.pdf_save_control.set_label(t("button.save"))
+        self.source_control.project(
+            filename=self.state.path.name if self.state.path else "",
+            empty_text=t("pdf.no_file"),
+        )
         self.preview_shell.heading.configure(text=t("section.preview"))
         self._scope_display = {"all": t("pdf.scope.all"), "first": t("pdf.scope.first"), "selected": t("pdf.scope.selected"), "range": t("pdf.scope.range")}
         self._scope_value = {label: value for value, label in self._scope_display.items()}
         self.scope_control.menu.configure(values=list(self._scope_display.values()))
         self.scope_control.input.configure(placeholder_text=t("pdf.selected_hint")); self.scope_control.update.configure(text=t("document.scope_update"))
         self.navigation_control.set_status_template(t("pdf.page_status"))
-        self.badge_control.heading_widget.configure(text=t("section.ai_badge")); self.badge_control.enabled_widget.configure(text=t("pdf.add_badge"))
+        self.navigation_control.project(current=self.state.current_page, total=self.state.page_count if self.state.path else 0)
+        self._project_badge_controls()
+        self.logo_control.project(LogoProjection(
+            enabled=self.state.logo.enabled,
+            filename=self.state.logo.path.name if self.state.logo.path else "",
+            position=self.state.logo.position, size=self.state.logo.size,
+            margin=self.state.logo.margin, opacity=self.state.logo.opacity,
+            labels=self._logo_labels(),
+        ))
+        if self.state.path is None and getattr(self.app, "pdf_preview_label", None) is not None:
+            self.app.pdf_preview_label.configure(image=None, text=t("pdf.preview_hint"))
 
     def _project_badge_controls(self) -> None:
         app = self.app; state = self.state

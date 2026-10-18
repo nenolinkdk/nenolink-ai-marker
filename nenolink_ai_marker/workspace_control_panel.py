@@ -7,6 +7,9 @@ import customtkinter as ctk
 PARAM_LABEL_WIDTH = 110
 PARAM_CONTROL_WIDTH = 205
 PARAM_PADX = 8
+PARAM_LABEL_PADY = (2, 0)
+PARAM_SLIDER_PADY = (1, 3)
+BADGE_PREVIEW_PADY = (4, 0)
 
 
 class WorkspaceControlPanel:
