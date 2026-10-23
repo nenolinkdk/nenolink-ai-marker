@@ -48,6 +48,11 @@ def test_smoke_script_uses_process_owned_window_gate_and_keeps_both_build_modes(
     assert "NENOLINK_BOOT_LOG" in smoke
     assert "Get-SmokeVisibleTopLevelWindows" in smoke
     assert "Select-SmokeOwnedProcesses" in smoke
+    assert "Get-SmokeChildProcessFilter" in smoke
+    assert "-Filter $filter" in smoke
+    assert "Get-CimInstance -ClassName Win32_Process -ErrorAction Stop |" not in smoke
+    assert "interactive_session = $interactiveSession" in smoke
+    assert "root_process_session_id = $rootSessionId" in smoke
     assert "diagnostics.json" in smoke
     assert "-EmbeddedResources" in build
     assert "-ExePath $packagedExe" in build

@@ -5,6 +5,11 @@ function ConvertTo-SmokeFullPath {
     return [System.IO.Path]::GetFullPath($Path).TrimEnd([System.IO.Path]::DirectorySeparatorChar)
 }
 
+function Get-SmokeChildProcessFilter {
+    param([Parameter(Mandatory = $true)][ValidateRange(1, 2147483647)][int]$ParentProcessId)
+    return "ParentProcessId = $ParentProcessId"
+}
+
 function Select-SmokeOwnedProcesses {
     param(
         [Parameter(Mandatory = $true)][int]$RootProcessId,
@@ -161,4 +166,4 @@ function Complete-SmokeArtifacts {
     }
 }
 
-Export-ModuleMember -Function ConvertTo-SmokeFullPath, Select-SmokeOwnedProcesses, Get-SmokeStartupDecision, Get-SmokeVisibleTopLevelWindows, Complete-SmokeArtifacts
+Export-ModuleMember -Function ConvertTo-SmokeFullPath, Get-SmokeChildProcessFilter, Select-SmokeOwnedProcesses, Get-SmokeStartupDecision, Get-SmokeVisibleTopLevelWindows, Complete-SmokeArtifacts

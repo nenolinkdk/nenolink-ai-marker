@@ -8,6 +8,13 @@ function Assert-Equal($Actual, $Expected, [string]$Message) {
 }
 
 $exe = Join-Path $env:TEMP 'NenolinkSmokeHarnessTest\Nenolink-AI-Marker-1.0.3.exe'
+$childFilter = Get-SmokeChildProcessFilter -ParentProcessId 101
+Assert-Equal $childFilter 'ParentProcessId = 101' 'Process discovery must be scoped to the launched process tree'
+$nullParentFilter = $null
+try { Get-SmokeChildProcessFilter -ParentProcessId 0 | Out-Null }
+catch { $nullParentFilter = $_.Exception.Message }
+if (-not $nullParentFilter) { throw 'An invalid parent PID must not produce a process query filter.' }
+
 $now = [datetime]::Now
 $rows = @(
     [pscustomobject]@{ ProcessId = 101; ParentProcessId = 10; ExecutablePath = $exe; CreationDate = $now },
@@ -30,6 +37,12 @@ $earlyExit = Get-SmokeStartupDecision -RootProcessExited $true -OwnedProcesses @
 Assert-Equal $earlyExit.Status 'process-exited-before-gui' 'Early exit classification failed'
 $probeFailure = Get-SmokeStartupDecision -ProcessTreeProbeFailed $true -RootProcessExited $true -OwnedProcesses @() -Windows @()
 Assert-Equal $probeFailure.Status 'process-tree-probe-failed' 'A process query error must not be misreported as an early app exit'
+$rootReceipt = [pscustomobject]@{ ProcessId = 101 }
+$rootWindow = [pscustomobject]@{ Handle = 9005L; ProcessId = 101; Visible = $true; TopLevel = $true; Title = 'Application' }
+$verifiedRootWindow = Get-SmokeStartupDecision -ProcessTreeProbeFailed $true -OwnedProcesses @($rootReceipt) -Windows @($rootWindow)
+Assert-Equal $verifiedRootWindow.Status 'visible-window-detected' 'An actual visible window owned by the exact launched PID may pass despite child-enumeration errors'
+$accessDeniedWithoutWindow = Get-SmokeStartupDecision -ProcessTreeProbeFailed $true -OwnedProcesses @($rootReceipt) -Windows @()
+Assert-Equal $accessDeniedWithoutWindow.Status 'process-tree-probe-failed' 'Access denied without an owned visible window must remain a failure'
 
 $timeout = Get-SmokeStartupDecision -OwnedProcesses $owned -Windows @() -TimedOut $true
 Assert-Equal $timeout.Status 'timeout-no-visible-window' 'Alive-process timeout classification failed'
@@ -62,4 +75,4 @@ try {
     Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Write-Output 'Smoke harness helper checks passed: success, early exit, timeout, unrelated/invisible windows, process ownership and artifact retention.'
+Write-Output 'Smoke harness helper checks passed: scoped process query, verified root window, access-denied failure, early exit, timeout, unrelated/invisible windows, process ownership and artifact retention.'

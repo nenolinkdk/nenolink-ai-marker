@@ -10,8 +10,59 @@ $ErrorActionPreference = "Stop"
 Import-Module (Join-Path $PSScriptRoot "windows-smoke-harness.psm1") -Force
 
 function Get-SmokeProcessRows {
-    return @(Get-CimInstance -ClassName Win32_Process -ErrorAction Stop |
-        Select-Object ProcessId, ParentProcessId, ExecutablePath, CreationDate)
+    param(
+        [int]$RootProcessId,
+        [string]$ExecutablePath,
+        [datetime]$RootStartTime,
+        [bool]$RootProcessAlive
+    )
+
+    # The root PID and image path are known from Start-Process. Seed that
+    # identity directly; do not inspect every system process (protected
+    # processes can make a system-wide CIM query fail with Access Denied).
+    $rows = [System.Collections.Generic.List[object]]::new()
+    $errors = [System.Collections.Generic.List[string]]::new()
+    $expectedPath = ConvertTo-SmokeFullPath $ExecutablePath
+    if ($RootProcessAlive) {
+        $rows.Add([pscustomobject]@{
+            ProcessId = $RootProcessId
+            ParentProcessId = 0
+            ExecutablePath = $expectedPath
+            CreationDate = $RootStartTime
+        })
+    }
+
+    # Query only children of the launched process and verified same-image
+    # descendants. Failures remain diagnostic and never count as GUI success.
+    $pendingParents = [System.Collections.Generic.Queue[int]]::new()
+    $pendingParents.Enqueue($RootProcessId)
+    $queriedParents = [System.Collections.Generic.HashSet[int]]::new()
+    $queriedParents.Add($RootProcessId) | Out-Null
+    while ($pendingParents.Count -gt 0) {
+        $parentId = $pendingParents.Dequeue()
+        $filter = Get-SmokeChildProcessFilter -ParentProcessId $parentId
+        try {
+            $children = @(Get-CimInstance -ClassName Win32_Process -Filter $filter -Property ProcessId, ParentProcessId, ExecutablePath, CreationDate -ErrorAction Stop)
+        } catch {
+            $errors.Add("Parent PID ${parentId}: $($_.Exception.Message)")
+            continue
+        }
+
+        foreach ($child in $children) {
+            $rows.Add($child)
+            if (-not $child.ExecutablePath) { continue }
+            try { $childPath = ConvertTo-SmokeFullPath ([string]$child.ExecutablePath) }
+            catch { continue }
+            if (-not [string]::Equals($childPath, $expectedPath, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+            try { $created = [datetime]$child.CreationDate }
+            catch { continue }
+            if ($created -lt $RootStartTime.AddSeconds(-2)) { continue }
+            $childId = [int]$child.ProcessId
+            if ($queriedParents.Add($childId)) { $pendingParents.Enqueue($childId) }
+        }
+    }
+
+    return [pscustomobject]@{ Rows = @($rows.ToArray()); Errors = @($errors.ToArray()) }
 }
 
 function Test-SmokeProcessIdentity {
@@ -38,8 +89,9 @@ function Stop-SmokeLaunchedProcesses {
     $rootId = [int]$RootProcess.Id
     $records = @($ObservedProcesses.Values)
     try {
-        $rows = Get-SmokeProcessRows
-        $records += Select-SmokeOwnedProcesses -RootProcessId $rootId -ExecutablePath $ExpectedPath -RootStartTime $RootStartTime -ProcessRows $rows
+        $RootProcess.Refresh()
+        $probe = Get-SmokeProcessRows -RootProcessId $rootId -ExecutablePath $ExpectedPath -RootStartTime $RootStartTime -RootProcessAlive (-not $RootProcess.HasExited)
+        $records += Select-SmokeOwnedProcesses -RootProcessId $rootId -ExecutablePath $ExpectedPath -RootStartTime $RootStartTime -ProcessRows $probe.Rows
     } catch { }
 
     $targets = @{}
@@ -74,7 +126,11 @@ $bootLog = Join-Path $WorkingDirectory "Nenolink-AI-Marker-Smoke-$runId.boot.log
 $diagnosticReport = Join-Path $WorkingDirectory "Nenolink-AI-Marker-Smoke-$runId.diagnostics.json"
 $previousRuntimeRoot = [Environment]::GetEnvironmentVariable("NENOLINK_RUNTIME_ROOT", "Process")
 $previousBootLog = [Environment]::GetEnvironmentVariable("NENOLINK_BOOT_LOG", "Process")
+$smokeSession = Get-Process -Id $PID
+$smokeSessionId = [int]$smokeSession.SessionId
+$interactiveSession = [bool][Environment]::UserInteractive
 $rootProcess = $null
+$rootSessionId = $null
 $rootStartTime = [datetime]::Now
 $observedProcesses = @{}
 $lastObservation = $null
@@ -106,6 +162,7 @@ try {
     try {
         $rootProcess = Start-Process -FilePath $resolvedExe -WorkingDirectory $WorkingDirectory -PassThru -ErrorAction Stop
         try { $rootStartTime = $rootProcess.StartTime } catch { $rootStartTime = [datetime]::Now }
+        try { $rootSessionId = [int]$rootProcess.SessionId } catch { }
     } catch {
         $failureStatus = "process-start-failed"
         throw "Could not start '$resolvedExe': $($_.Exception.Message)"
@@ -119,9 +176,11 @@ try {
         $owned = @()
         $windows = @()
         try {
-            $rows = Get-SmokeProcessRows
-            $owned = @(Select-SmokeOwnedProcesses -RootProcessId $rootProcess.Id -ExecutablePath $resolvedExe -RootStartTime $rootStartTime -ProcessRows $rows)
+            $rootProcess.Refresh()
+            $probe = Get-SmokeProcessRows -RootProcessId $rootProcess.Id -ExecutablePath $resolvedExe -RootStartTime $rootStartTime -RootProcessAlive (-not $rootProcess.HasExited)
+            $owned = @(Select-SmokeOwnedProcesses -RootProcessId $rootProcess.Id -ExecutablePath $resolvedExe -RootStartTime $rootStartTime -ProcessRows $probe.Rows)
             foreach ($record in $owned) { $observedProcesses[[int]$record.ProcessId] = $record }
+            if ($probe.Errors.Count -gt 0) { $processProbeError = $probe.Errors -join '; ' }
         } catch { $processProbeError = $_.Exception.Message }
 
         if ($owned.Count -gt 0) {
@@ -146,6 +205,9 @@ try {
             observed_at_utc = $now.ToString("o")
             status = $decision.Status
             root_process_id = [int]$rootProcess.Id
+            smoke_session_id = $smokeSessionId
+            root_process_session_id = $rootSessionId
+            interactive_session = $interactiveSession
             root_process_exited = $rootExited
             root_exit_code = $exitCode
             owned_processes = @($owned | ForEach-Object { [pscustomobject]@{ pid = $_.ProcessId; ppid = $_.ParentProcessId; executable = $_.ExecutablePath } })
@@ -172,6 +234,10 @@ try {
     }
 
     if (-not $succeeded) {
+        if ($lastObservation -and $lastObservation.status -eq "process-tree-probe-failed") {
+            $failureStatus = "process-tree-probe-failed"
+            throw "Process-tree inspection failed; no verified visible window was detected. $($lastObservation.process_probe_error)"
+        }
         $failureStatus = "timeout-no-visible-window"
         throw "No visible top-level window owned by the launched executable was detected within $TimeoutSeconds seconds."
     }
@@ -185,6 +251,9 @@ try {
         process_name = $processName
         timeout_seconds = $TimeoutSeconds
         root_process_id = if ($rootProcess) { [int]$rootProcess.Id } else { $null }
+        smoke_session_id = $smokeSessionId
+        root_process_session_id = $rootSessionId
+        interactive_session = $interactiveSession
         root_start_time = $rootStartTime.ToString("o")
         failure = $failureMessage
         last_observation = $lastObservation
