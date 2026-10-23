@@ -8,12 +8,8 @@ function Assert-Equal($Actual, $Expected, [string]$Message) {
 }
 
 $exe = Join-Path $env:TEMP 'NenolinkSmokeHarnessTest\Nenolink-AI-Marker-1.0.3.exe'
-$childFilter = Get-SmokeChildProcessFilter -ParentProcessId 101
-Assert-Equal $childFilter 'ParentProcessId = 101' 'Process discovery must be scoped to the launched process tree'
-$nullParentFilter = $null
-try { Get-SmokeChildProcessFilter -ParentProcessId 0 | Out-Null }
-catch { $nullParentFilter = $_.Exception.Message }
-if (-not $nullParentFilter) { throw 'An invalid parent PID must not produce a process query filter.' }
+$nativeSnapshot = @(Get-SmokeProcessSnapshot)
+if (-not ($nativeSnapshot | Where-Object { $_.ProcessId -eq $PID })) { throw 'Native process snapshot omitted the current PowerShell PID.' }
 
 $now = [datetime]::Now
 $rows = @(
@@ -75,4 +71,4 @@ try {
     Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Write-Output 'Smoke harness helper checks passed: scoped process query, verified root window, access-denied failure, early exit, timeout, unrelated/invisible windows, process ownership and artifact retention.'
+Write-Output 'Smoke harness helper checks passed: native process snapshot, direct/child window ownership, process-probe failure, early exit, timeout, unrelated/invisible windows, process ownership and artifact retention.'

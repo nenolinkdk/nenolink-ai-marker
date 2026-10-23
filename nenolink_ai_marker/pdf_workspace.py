@@ -1,10 +1,4 @@
-"""PDF workspace lifecycle boundary.
-
-This first migration step deliberately keeps the existing PDF view builder in
-``MarkerApp``.  The workspace owns the lifecycle surface and delegates the
-legacy view construction through a narrow compatibility adapter.  State and
-event ownership move in the following PDF migration checkpoints.
-"""
+"""PDF workspace with local state, controls, projection, and processing boundary."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -19,12 +13,14 @@ from dataclasses import replace
 from .workspace_state import PdfEvent, PdfWorkspaceState, apply_pdf_event
 from .save_control import SaveControl
 from .badge_control import BadgeControl, BadgeProjection
-from .workspace_ui import build_badge_visual
 from .source_control import SourceControl
 from .logo_control import LogoControl, LogoProjection
 from .preview_shell import PreviewShell
 from .document_controls import PhysicalNavigationControl, DocumentScopeControl
-from .workspace_control_panel import WorkspaceControlPanel
+from .workspace_control_panel import (
+    WorkspaceControlPanel, ParameterRow, PARAM_ROW_PADY,
+    PARAM_LABEL_WIDTH, PARAM_DROPDOWN_WIDTH,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,7 +30,7 @@ class PdfProcessingRequest:
 
 
 class PdfWorkspace:
-    """Lifecycle facade around the existing PDF implementation."""
+    """Owns the PDF workspace state and its disposable presentation tree."""
 
     def __init__(self, app, state) -> None:
         self.app = app
@@ -72,9 +68,9 @@ class PdfWorkspace:
         self.preview_shell = PreviewShell(self.root, title=t("section.preview")); self.preview_shell.frame.grid(row=0, column=1, padx=(8,4), pady=4, sticky="nsew"); preview_host = self.preview_shell.viewport
         app.pdf_workspace = controls; app.pdf_workspace_root = self.root; app.pdf_controls_host = controls; app.pdf_preview_host = preview_host
         file_section = ctk.CTkFrame(controls, fg_color="transparent"); self.control_panel.add_section("FILE", file_section)
-        file_section.grid_columnconfigure(0, weight=1); file_section.grid_columnconfigure(1, weight=1)
-        self.file_heading = ctk.CTkLabel(file_section, text=t("section.file"), font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=0,column=0,columnspan=2,padx=2,pady=(2,1),sticky="w")
-        self.source_control = SourceControl(file_section, choose_command=self.choose_file, choose_label=t("pdf.choose"), empty_label=t("pdf.no_file"), width=280, compact=True); self.source_control.frame.grid(row=1,column=0,padx=(2,4),pady=(2,2),sticky="ew"); app.pdf_choose_button = self.source_control.choose_button; app.pdf_file_label = self.source_control.filename_label
+        file_section.grid_columnconfigure(0, weight=1)
+        self.file_heading = ctk.CTkLabel(file_section, text=t("section.file"), font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=0,column=0,padx=2,pady=(2,1),sticky="w")
+        self.source_control = SourceControl(file_section, choose_command=self.choose_file, choose_label=t("pdf.choose"), empty_label=t("pdf.no_file"), width=280, compact=True); self.source_control.frame.grid(row=1,column=0,padx=2,pady=(1,0),sticky="ew"); app.pdf_choose_button = self.source_control.choose_button
         pages_section = ctk.CTkFrame(controls, fg_color="transparent"); self.control_panel.add_section("PAGES", pages_section)
         self.pages_heading = ctk.CTkLabel(pages_section, text=t("section.pages"), font=ctk.CTkFont(weight="bold")); self.pages_heading.grid(row=0,column=0,padx=2,pady=(2,1),sticky="w")
         self.scope_control = DocumentScopeControl(pages_section, on_mode=self.set_scope_mode, on_text=lambda text: apply_pdf_event(self.state, PdfEvent.SCOPE_TEXT_CHANGED, {"text": text}), on_update=lambda: self.project(), values=(t("pdf.scope.all"), t("pdf.scope.first"), t("pdf.scope.selected"), t("pdf.scope.range")), placeholder=t("pdf.selected_hint"), update_label=t("document.scope_update"))
@@ -85,6 +81,18 @@ class PdfWorkspace:
         self.badge_control = BadgeControl(badge_section, on_enabled_changed=self.visual_changed, on_badge_selected=self.select_badge, heading_label=t("section.ai_badge"))
         self.badge_control.frame.grid(row=0, column=0, sticky="ew")
         app.pdf_badge_enable = self.badge_control.enabled_widget; app.pdf_badge_menu = self.badge_control.selector_widget; app.badge_display_var = self.badge_control.selector_var; app.pdf_badge_visual = self.badge_control.graphic_widget; app.pdf_badge_image_label=app.pdf_badge_visual; app.pdf_badge_name_label=app.pdf_badge_visual
+        self.badge_position_label = ctk.CTkLabel(badge_section, text=t("position"), width=PARAM_LABEL_WIDTH); self.badge_position_label.grid(row=1, column=0, padx=8, pady=(2, 0), sticky="w")
+        self._position_display = self._badge_position_display()
+        self._position_value = {label: value for value, label in self._position_display.items()}
+        self.badge_position_var = ctk.StringVar(value=self._position_display.get(self.state.badge.position, ""))
+        self.badge_position_menu = ctk.CTkOptionMenu(badge_section, variable=self.badge_position_var, values=list(self._position_value), command=lambda label: self.set_badge(position=self._position_value.get(label, label)), width=PARAM_DROPDOWN_WIDTH)
+        self.badge_position_menu.grid(row=2, column=0, padx=8, pady=(0, 2), sticky="w")
+        self.badge_parameter_rows = {}
+        for row_index, (field, key, minimum, maximum) in enumerate((("size", "size.value", 1, 100), ("margin", "margin.value", 0, 250), ("opacity", "opacity.value", 0, 100)), start=3):
+            value = getattr(self.state.badge, field)
+            row = ParameterRow(badge_section, text=t(key, value=value), start=minimum, end=maximum, value=value, command=lambda new_value, field=field: self.set_badge(**{field: round(new_value)}))
+            row.frame.grid(row=row_index, column=0, pady=PARAM_ROW_PADY, sticky="ew")
+            self.badge_parameter_rows[field] = row
         logo_section = ctk.CTkFrame(controls, fg_color="transparent"); self.control_panel.add_section("OWN_LOGO", logo_section)
         self.logo_control = LogoControl(logo_section, on_enabled=lambda value: self.set_logo(enabled=value), on_choose=self.choose_logo, on_size=lambda value: self.set_logo(size=value), on_margin=lambda value: self.set_logo(margin=value), on_opacity=lambda value: self.set_logo(opacity=value), labels=self._logo_labels())
         self.logo_control.frame.grid(row=0, column=0, sticky="ew")
@@ -93,7 +101,7 @@ class PdfWorkspace:
         self._preview_resize_job = None
         preview_host.bind("<Configure>", self._schedule_preview_refresh, add="+")
         app.pdf_previous_button=self.navigation_control.previous; app.pdf_page_status=self.navigation_control.status; app.pdf_next_button=self.navigation_control.next
-        app.pdf_save_control=SaveControl(file_section,label=t("button.save"),command=self.save,width=160); app.pdf_process_button=app.pdf_save_control.button; app.pdf_process_button.grid(row=1,column=1,padx=(4,2),pady=2,sticky="ew")
+        app.pdf_save_control=SaveControl(self.source_control.action_row,label=t("dialog.save_as_generic"),command=self.save); self.source_control.place_save_control(app.pdf_save_control); app.pdf_process_button=app.pdf_save_control.button
 
     def unmount(self) -> None:
         self._dispose_view()
@@ -113,10 +121,6 @@ class PdfWorkspace:
         for name, value in (("pdf_badge_enabled_var", state.badge.enabled), ("badge_var", state.badge.badge_id), ("position_var", state.badge.position), ("size_var", state.badge.size), ("margin_var", state.badge.margin), ("opacity_var", state.badge.opacity), ("logo_enabled_var", state.logo.enabled), ("logo_path_var", str(state.logo.path or "")), ("logo_position_var", state.logo.position), ("logo_size_var", state.logo.size), ("logo_margin_var", state.logo.margin), ("logo_opacity_var", state.logo.opacity)):
             variable = getattr(app, name, None)
             if variable is not None: variable.set(value)
-        if getattr(app, "pdf_file_label", None) is not None:
-            app.pdf_file_label.configure(text=(state.path.name if state.path else app.translator.text("pdf.no_file")))
-        if getattr(self, "source_control", None) is not None:
-            self.source_control.project(filename=(state.path.name if state.path else ""), empty_text=app.translator.text("pdf.no_file"))
         if getattr(self, "logo_control", None) is not None:
             self.logo_control.project(LogoProjection(enabled=state.logo.enabled, filename=state.logo.path.name if state.logo.path else "", position=state.logo.position, size=state.logo.size, margin=state.logo.margin, opacity=state.logo.opacity, labels=self._logo_labels()))
         if getattr(self, "scope_control", None) is not None:
@@ -149,7 +153,8 @@ class PdfWorkspace:
         t = self.app.translator.text
         return {"heading": t("section.own_logo"), "enabled": t("logo.enable"),
                 "choose": t("logo.choose"), "none": t("logo.no_file"),
-                "position": t("logo.position_value"),
+                "position": t("logo.position_value"), "size": t("logo.size"),
+                "margin": t("logo.margin"), "opacity": t("logo.opacity"),
                 "mode.front": t("logo.mode.front"), "mode.entire": t("logo.mode.entire"), "mode.back": t("logo.mode.back"),
                 **{f"position.{name}": t("position." + name.replace("-", "_")) for name in ("top-left", "top-right", "bottom-left", "bottom-right", "center")}}
 
@@ -159,11 +164,8 @@ class PdfWorkspace:
             return
         t = self.app.translator.text
         self.file_heading.configure(text=t("section.file")); self.pages_heading.configure(text=t("section.pages"))
-        self.source_control.set_label(t("pdf.choose")); self.app.pdf_save_control.set_label(t("button.save"))
-        self.source_control.project(
-            filename=self.state.path.name if self.state.path else "",
-            empty_text=t("pdf.no_file"),
-        )
+        self.source_control.set_label(t("pdf.choose")); self.app.pdf_save_control.set_label(t("dialog.save_as_generic"))
+        self._project_source()
         self.preview_shell.heading.configure(text=t("section.preview"))
         self._scope_display = {"all": t("pdf.scope.all"), "first": t("pdf.scope.first"), "selected": t("pdf.scope.selected"), "range": t("pdf.scope.range")}
         self._scope_value = {label: value for value, label in self._scope_display.items()}
@@ -171,6 +173,9 @@ class PdfWorkspace:
         self.scope_control.input.configure(placeholder_text=t("pdf.selected_hint")); self.scope_control.update.configure(text=t("document.scope_update"))
         self.navigation_control.set_status_template(t("pdf.page_status"))
         self.navigation_control.project(current=self.state.current_page, total=self.state.page_count if self.state.path else 0)
+        self._position_display = self._badge_position_display()
+        self._position_value = {label: value for value, label in self._position_display.items()}
+        self.badge_position_menu.configure(values=list(self._position_value))
         self._project_badge_controls()
         self.logo_control.project(LogoProjection(
             enabled=self.state.logo.enabled,
@@ -182,6 +187,22 @@ class PdfWorkspace:
         if self.state.path is None and getattr(self.app, "pdf_preview_label", None) is not None:
             self.app.pdf_preview_label.configure(image=None, text=t("pdf.preview_hint"))
 
+    def _project_source(self) -> None:
+        """Project PDF filename and translated metadata through SourceControl."""
+        app = self.app
+        t = app.translator.text
+        info = getattr(app, "pdf_info", None) if self.state.path else None
+        metadata = (
+            t("document.summary.pages", size=info.metrics.size_bytes, count=info.metrics.item_count)
+            if info is not None
+            else ""
+        )
+        self.source_control.project(
+            filename=self.state.path.name if self.state.path else "",
+            metadata=metadata,
+            empty_text=t("pdf.no_file"),
+        )
+
     def _project_badge_controls(self) -> None:
         app = self.app; state = self.state
         badges = getattr(app, "badges", None)
@@ -192,7 +213,22 @@ class PdfWorkspace:
         display = app.badges.display_name(state.badge.badge_id) if state.badge.badge_id else "—"
         badge = next((path for path in app.badges.display_badges() if path.name == state.badge.badge_id), None)
         self.badge_control.project(BadgeProjection(bool(state.badge.enabled), display, tuple(displays), badge, state.badge.position, state.badge.size, state.badge.margin, state.badge.opacity, app.translator.text("pdf.add_badge"), app.translator.text("section.ai_badge")))
+        self.badge_position_label.configure(text=app.translator.text("position"))
+        self.badge_position_var.set(self._position_display.get(state.badge.position, ""))
+        for field, key in (("size", "size.value"), ("margin", "margin.value"), ("opacity", "opacity.value")):
+            row = self.badge_parameter_rows.get(field)
+            if row is not None:
+                value = getattr(state.badge, field)
+                row.project(text=app.translator.text(key, value=value), value=value)
         app.pdf_badge_enabled_var.set(state.badge.enabled)
+
+    def _badge_position_display(self):
+        t = self.app.translator.text
+        return {
+            "top-left": t("position.top_left"), "top-right": t("position.top_right"),
+            "bottom-left": t("position.bottom_left"), "bottom-right": t("position.bottom_right"),
+            "center": t("position.center"),
+        }
 
     def visual_changed(self, enabled=None, *_args) -> None:
         self.set_badge(enabled=bool(self.state.badge.enabled) if enabled is None else bool(enabled))
@@ -352,11 +388,6 @@ class PdfWorkspace:
             messagebox.showerror(app.translator.text("error.title"), app.translator.text("pdf.error", error=error))
             return
         self.accept_file(path, info)
-        app.pdf_info = info
-        app.pdf_file_label.configure(text=f"{path.name}\n{info.metrics.size_bytes} · {info.metrics.item_count} pages")
-        self.project()
-
-        self.refresh_preview()
         diagnostic = getattr(app, "_pdf_runtime_diagnostic", None)
         if callable(diagnostic): diagnostic("pdf_choose_file_projected", {"owner_id": id(self), "state_path": str(self.state.path) if self.state.path else None})
 

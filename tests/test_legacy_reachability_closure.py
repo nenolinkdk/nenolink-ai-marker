@@ -13,7 +13,13 @@ def test_production_registry_has_four_workspace_instances():
         assert token in source
 
 
-def test_workspace_mount_adapters_are_thin_lifecycle_delegates():
+def test_shell_registry_is_the_only_workspace_mount_route():
+    init_source = inspect.getsource(MarkerApp.__init__)
+    route_source = inspect.getsource(MarkerApp.render_shell_state)
+    for kind in ("image", "video", "pdf", "pptx"):
+        assert f'"{kind}": self.' in init_source
+    assert "workspace = self._workspace_registry[destination]" in route_source
+    assert "workspace.mount(self.content_host)" in route_source
+    assert "workspace.project()" in route_source
     for name in ("_mount_image_workspace", "_mount_video_workspace", "_mount_pdf_workspace", "_mount_pptx_workspace"):
-        source = inspect.getsource(getattr(MarkerApp, name))
-        assert ".mount(" in source
+        assert not hasattr(MarkerApp, name)

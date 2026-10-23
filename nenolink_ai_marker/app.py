@@ -33,13 +33,11 @@ from .processor import ImageProcessor, SUPPORTED_EXTENSIONS
 from .preview import ImagePreviewRenderer
 from .pptx_processor import PptxProcessor
 from .pptx_preview import PptxPreviewRenderer
-from .pptx_state import PptxWorkspaceState, PptxEvent, apply_pptx_visual_event
-from .pptx_workspace import PptxWorkspace, PPTX_STATE_TOKEN
+from .pptx_workspace import PptxWorkspace
 from .workspace_state import ImageWorkspaceState, VideoWorkspaceState, PdfWorkspaceState, visual_projection, PdfEvent, apply_pdf_event
 from .image_workspace import ImageWorkspace
 from .video_workspace import VideoWorkspace
 from .pdf_workspace import PdfWorkspace
-from .workspace_ui import WORKSPACE_LAYOUT, build_badge_section, build_logo_section, build_workspace_control_template, build_badge_visual
 from .pdf_processor import PasswordProtectedPdfError, PdfInfo, PdfProcessor
 from .pdf_preview import PdfPreviewRenderer
 from .docx_processor import DocxInfo, DocxProcessor
@@ -48,10 +46,6 @@ from .shortcut import ShortcutError, create_desktop_shortcut
 from .ui_state import DocumentPreviewState, DocumentScopeState, pptx_item_selection, show_welcome
 from .update_check import UpdateCheckError, check_for_update, is_approved_update_url, should_check_automatically
 from .shell_controller import DESTINATIONS, ShellController, placeholder_for, shell_transition_spec, ShellTransitionExecutor
-from .workspace_control_panel import (
-    PARAM_LABEL_WIDTH, PARAM_CONTROL_WIDTH, PARAM_PADX,
-    PARAM_LABEL_PADY, PARAM_SLIDER_PADY,
-)
 
 def _runtime_boot_logger():
     """Return a flushed application logger for packaged runtime diagnostics."""
@@ -470,19 +464,11 @@ class MarkerApp(ctk.CTk):
         self.pdf_badge_enabled_var = ctk.BooleanVar(value=True)
         self.pptx_path = None; self.pptx_metrics = None; self.pptx_processor = PptxProcessor(); self.pptx_preview_renderer = PptxPreviewRenderer(self.processor); self.pptx_current_slide = 0; self.pptx_preview_photo = None
         self.pptx_scope_mode = "all"; self.pptx_active_scope: tuple[int, ...] = (); self.pptx_scope_input = ""
-        self.pptx_state = PptxWorkspaceState()
-        # PPTX visual settings are independent from the media/PDF controls.
-        self.pptx_badge_position_var=ctk.StringVar(value=saved.position); self.pptx_badge_size_var=ctk.IntVar(value=saved.size_percent); self.pptx_badge_margin_var=ctk.IntVar(value=saved.margin); self.pptx_badge_opacity_var=ctk.IntVar(value=saved.opacity)
-        self.pptx_logo_position_var=ctk.StringVar(value=saved.logo_position); self.pptx_logo_size_var=ctk.IntVar(value=saved.logo_size_percent); self.pptx_logo_margin_var=ctk.IntVar(value=saved.logo_margin); self.pptx_logo_opacity_var=ctk.IntVar(value=saved.logo_opacity)
 
     def _clear_content_host(self) -> None:
         for child in self.content_host.winfo_children():
             child.destroy()
         self.image_workspace = self.video_workspace = self.pdf_workspace = self.pptx_workspace = self.tool_workspace = None
-
-    def _mount_pdf_workspace(self) -> None:
-        """Temporary shell entry adapter for the PDF workspace boundary."""
-        self.pdf_workspace_owner.mount(self.content_host)
 
     def _clear_pdf_runtime_compat(self) -> None:
         """B1 compatibility cleanup; removed once PDF state owns file events."""
@@ -492,60 +478,6 @@ class MarkerApp(ctk.CTk):
         self.pdf_scope_mode = "all"
         self.pdf_active_scope = ()
         self.pdf_scope_input = ""
-
-    def _mount_pptx_workspace(self) -> None:
-        """Mount the single minimal authoritative PPTX workspace."""
-        self.pptx_workspace_state.mount(self.content_host)
-        self.pptx_workspace = self.pptx_workspace_state.root
-        if not self.pptx_workspace_state.mounted or self.pptx_workspace is None:
-            raise RuntimeError("PPTX workspace failed to mount")
-
-    def pptx_visual_changed(self, *_args) -> None:
-        self._sync_pptx_visual_state()
-        if getattr(self, "pptx_badge_menu", None): self.pptx_badge_menu.configure(state="normal" if self.pptx_badge_enabled_var.get() else "disabled")
-        self.pptx_workspace_state.project(); self._save()
-
-    def _project_pptx_badge_visual(self) -> None:
-        """Project the common selected badge into the PPTX controls."""
-        badge_id = self.pptx_state.badge.badge_id or self.badge_var.get()
-        badge = self.badges.find(badge_id) if badge_id else None
-        if not badge:
-            self.pptx_badge_photo = None
-            if getattr(self, "pptx_badge_name_label", None): self.pptx_badge_name_label.configure(image=None, text="")
-            return
-        with Image.open(badge) as opened: image = opened.convert("RGBA")
-        image.thumbnail((WORKSPACE_LAYOUT.badge_thumbnail_width, WORKSPACE_LAYOUT.badge_thumbnail_height), Image.Resampling.LANCZOS)
-        self.pptx_badge_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
-        display_name = self.badges.display_name(badge.name)
-        self.badge_name_var.set(display_name); self.pptx_state.badge.badge_id = badge.name
-        self.badge_display_var.set(display_name)
-        if getattr(self, "pptx_badge_name_label", None): self.pptx_badge_name_label.configure(image=self.pptx_badge_photo, text=display_name)
-
-    def _sync_pptx_visual_state(self) -> None:
-        if not hasattr(self, "pptx_state"): return
-        self.pptx_workspace_state.state_token_reached = True
-        events = ((PptxEvent.BADGE_ENABLE, self.pptx_badge_enabled_var.get()), (PptxEvent.BADGE_SELECT, self.badge_var.get()), (PptxEvent.BADGE_POSITION, self.pptx_badge_position_var.get()), (PptxEvent.BADGE_SIZE, self.pptx_badge_size_var.get()), (PptxEvent.BADGE_MARGIN, self.pptx_badge_margin_var.get()), (PptxEvent.BADGE_OPACITY, self.pptx_badge_opacity_var.get()), (PptxEvent.LOGO_ENABLE, self.logo_enabled_var.get()), (PptxEvent.LOGO_CHOOSE, self._logo_path()), (PptxEvent.LOGO_POSITION, self.pptx_logo_position_var.get()), (PptxEvent.LOGO_SIZE, self.pptx_logo_size_var.get()), (PptxEvent.LOGO_MARGIN, self.pptx_logo_margin_var.get()), (PptxEvent.LOGO_OPACITY, self.pptx_logo_opacity_var.get()))
-        for event, value in events:
-            apply_pptx_visual_event(self.pptx_state, event, value)
-
-    def _pptx_visual_projection_settings(self):
-        """Build renderer/output settings from authoritative PPTX state."""
-        self._sync_pptx_visual_state()
-        return replace(self.settings(), position=self.pptx_state.badge.position,
-                       size_percent=self.pptx_state.badge.size,
-                       margin=self.pptx_state.badge.margin,
-                       opacity=self.pptx_state.badge.opacity,
-                       logo_enabled=self.pptx_state.logo.enabled,
-                       logo_path=str(self.pptx_state.logo.path or ""),
-                       logo_position=self.pptx_state.logo.position,
-                       logo_size_percent=self.pptx_state.logo.size,
-                       logo_margin=self.pptx_state.logo.margin,
-                       logo_opacity=self.pptx_state.logo.opacity)
-
-
-
-        # Scope and visuals come only from the supplied workspace state.
-
 
 
 
@@ -567,24 +499,6 @@ class MarkerApp(ctk.CTk):
         if assessment.requires_warning:
             return messagebox.askokcancel(self.translator.text("document.warning_title"), self.translator.text("document.pdf_warning"))
         return True
-
-    def _mount_image_workspace(self) -> None:
-        """Temporary shell entry adapter; ImageWorkspace owns lifecycle."""
-        if getattr(self, "image_workspace_owner", None) is None:
-            self.image_workspace_owner = ImageWorkspace(
-                self, self.image_state, scrollable_frame_cls=AutoHideScrollableFrame
-            )
-        self.image_workspace_owner.mount(self.content_host)
-
-    def _mount_video_workspace(self) -> None:
-        """Temporary registry entry adapter; VideoWorkspace owns the view."""
-        self.video_workspace_owner.mount(self.content_host)
-
-
-    def _video_slider(self, parent, variable, start, end, row, label, command=None):
-        output = ctk.CTkLabel(parent, text=label, width=PARAM_LABEL_WIDTH); output.grid(row=row, column=0, padx=PARAM_PADX, pady=PARAM_LABEL_PADY, sticky="w")
-        ctk.CTkSlider(parent, from_=start, to=end, number_of_steps=end-start, width=PARAM_CONTROL_WIDTH, variable=variable, command=command or self.video_workspace_owner.change_visual).grid(row=row+1, column=0, padx=PARAM_PADX, pady=PARAM_SLIDER_PADY, sticky="ew")
-        return output
 
     def _mount_tool(self, tool: str) -> None:
         mounted_tool = getattr(self, "_mounted_tool_name", None)

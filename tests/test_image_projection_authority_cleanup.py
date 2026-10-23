@@ -16,4 +16,4 @@ def test_image_badge_projection_is_workspace_owned():
 
 def test_image_position_label_is_inside_badge_section():
     source = inspect.getsource(ImageWorkspace._build_ui)
-    assert "app.position_label = ctk.CTkLabel(app.image_badge_group)" in source
+    assert "app.position_label = ctk.CTkLabel(app.image_badge_group, width=PARAM_LABEL_WIDTH)" in source

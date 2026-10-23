@@ -15,7 +15,10 @@ from .badge_control import BadgeControl, BadgeProjection
 from .source_control import SourceControl
 from .logo_control import LogoControl, LogoProjection
 from .preview_shell import PreviewShell
-from .workspace_control_panel import WorkspaceControlPanel
+from .workspace_control_panel import (
+    WorkspaceControlPanel, ParameterRow, PARAM_ROW_PADY,
+    PARAM_LABEL_WIDTH, PARAM_DROPDOWN_WIDTH,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,7 +52,7 @@ class VideoWorkspace:
         self.logo_controls = None
         self.logo_control = None
         self.preview_photo = None
-        for name in ("video_workspace", "video_file_label", "video_preview_label", "video_badge_enable", "video_badge_menu", "video_badge_var", "video_badge_preview_label", "video_badge_name_label", "video_process_button", "video_save_control"):
+        for name in ("video_workspace", "video_preview_label", "video_badge_enable", "video_badge_menu", "video_badge_var", "video_badge_preview_label", "video_badge_name_label", "video_process_button", "video_save_control"):
             if hasattr(self.app, name):
                 setattr(self.app, name, None)
 
@@ -69,9 +72,6 @@ class VideoWorkspace:
             loaded = self.state.path is not None
             self.app.video_sources = [self.state.path] if loaded else []
             self.app.media_sources["video"] = list(self.app.video_sources)
-            self.app.video_file_label.configure(text=self.state.path.name if loaded else self.app.translator.text("files.none"))
-            if getattr(self, "source_control", None) is not None:
-                self.source_control.project(filename=(self.state.path.name if loaded else ""), empty_text=self.app.translator.text("files.none"))
             if loaded:
                 self.refresh_preview()
             else:
@@ -90,6 +90,11 @@ class VideoWorkspace:
         displays = [app.badges.display_name(name) for name in names]
         badge = self._badge_path()
         self.badge_control.project(BadgeProjection(bool(self.state.badge.enabled), app.badges.display_name(self.state.badge.badge_id), tuple(displays), badge, self.state.badge.position, self.state.badge.size, self.state.badge.margin, self.state.badge.opacity, app.translator.text("pdf.add_badge"), app.translator.text("section.ai_badge")))
+        for field, key in (("size", "size.value"), ("margin", "margin.value"), ("opacity", "opacity.value")):
+            row = getattr(self, "badge_parameter_rows", {}).get(field)
+            if row is not None:
+                value = getattr(self.state.badge, field)
+                row.project(text=app.translator.text(key, value=value), value=value)
         if getattr(self, "logo_enabled_var", None) is not None:
             self.logo_enabled_var.set(self.state.logo.enabled)
             self.logo_mode_var.set(self.state.logo.mode)
@@ -102,7 +107,8 @@ class VideoWorkspace:
         t = self.app.translator.text
         return {"heading": t("section.own_logo"), "enabled": t("logo.enable"),
                 "choose": t("logo.choose"), "none": t("logo.no_file"),
-                "position": t("logo.position_value"),
+                "position": t("logo.position_value"), "size": t("logo.size"),
+                "margin": t("logo.margin"), "opacity": t("logo.opacity"),
                 "mode.front": t("logo.mode.front"), "mode.entire": t("logo.mode.entire"), "mode.back": t("logo.mode.back"),
                 **{f"position.{name}": t("position." + name.replace("-", "_")) for name in ("top-left", "top-right", "bottom-left", "bottom-right", "center")}}
 
@@ -112,13 +118,13 @@ class VideoWorkspace:
             return
         t = self.app.translator.text
         if getattr(self, "file_heading", None): self.file_heading.configure(text=t("section.file"))
-        if getattr(self, "source_control", None): self.source_control.set_label(t("button.open_media"))
+        if getattr(self, "source_control", None): self.source_control.set_label(t("video.choose"))
         if getattr(self, "video_position_label", None): self.video_position_label.configure(text=t("position"))
         if getattr(self, "options_heading", None): self.options_heading.configure(text=t("section.video_options"))
         if getattr(self, "video_mode_label", None): self.video_mode_label.configure(text=t("video.badge_mode"))
         if getattr(self, "video_duration_label", None): self.video_duration_label.configure(text=t("video.duration"))
         if getattr(self, "video_seconds_label", None): self.video_seconds_label.configure(text=t("video.seconds"))
-        if getattr(self, "save_control", None): self.save_control.set_label(t("button.save"))
+        if getattr(self, "save_control", None): self.save_control.set_label(t("dialog.save_as_generic"))
         if getattr(self, "preview_shell", None): self.preview_shell.heading.configure(text=t("section.preview"))
         loaded = self.state.path is not None
         if getattr(self, "source_control", None):
@@ -144,13 +150,6 @@ class VideoWorkspace:
         if getattr(self, "video_mode_menu", None): self.video_mode_menu.configure(values=list(displays))
         if getattr(self, "badge_control", None):
             self._project_controls()
-        for widget, key, value in (
-            (getattr(self.app, "video_size_label", None), "size.value", self.state.badge.size),
-            (getattr(self.app, "video_margin_label", None), "margin.value", self.state.badge.margin),
-            (getattr(self.app, "video_opacity_label", None), "opacity.value", self.state.badge.opacity),
-        ):
-            if widget is not None:
-                widget.configure(text=t(key, value=value))
 
     def _badge_path(self):
         return next((path for path in self.app.badges.display_badges() if path.name == self.state.badge.badge_id), None)
@@ -202,11 +201,16 @@ class VideoWorkspace:
             apply_video_event(self.state, VideoEvent.LOGO_FILE_CHANGED, {"path": selected, "enabled": True})
             self.project(); self.refresh_preview()
 
-    def change_logo(self, *_args):
-        apply_video_event(self.state, VideoEvent.LOGO_ENABLED_CHANGED, {"enabled": bool(self.logo_enabled_var.get())})
-        apply_video_event(self.state, VideoEvent.LOGO_SIZE_CHANGED, {"size": int(self.logo_size_var.get())})
-        apply_video_event(self.state, VideoEvent.LOGO_MARGIN_CHANGED, {"margin": int(self.logo_margin_var.get())})
-        apply_video_event(self.state, VideoEvent.LOGO_OPACITY_CHANGED, {"opacity": int(self.logo_opacity_var.get())})
+    def change_logo(self, enabled=None, *, size=None, margin=None, opacity=None):
+        if enabled is not None:
+            apply_video_event(self.state, VideoEvent.LOGO_ENABLED_CHANGED, {"enabled": bool(enabled)})
+        for event, field, value in (
+            (VideoEvent.LOGO_SIZE_CHANGED, "size", size),
+            (VideoEvent.LOGO_MARGIN_CHANGED, "margin", margin),
+            (VideoEvent.LOGO_OPACITY_CHANGED, "opacity", opacity),
+        ):
+            if value is not None:
+                apply_video_event(self.state, event, {field: int(value)})
         self.project(); self.refresh_preview()
 
     def change_logo_mode(self, mode):
@@ -222,26 +226,35 @@ class VideoWorkspace:
         app.video_controls_host = left; left.grid(row=0, column=0, padx=(4, 8), pady=4, sticky="nsew"); left.grid_columnconfigure(0, weight=1)
         self.preview_shell = PreviewShell(workspace); self.preview_shell.frame.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right = self.preview_shell.viewport; app.video_preview_host = right
         file_section = ctk.CTkFrame(left, fg_color="transparent"); self.control_panel.add_section("FILE", file_section)
-        file_section.grid_columnconfigure(0, weight=1); file_section.grid_columnconfigure(1, weight=1)
-        self.file_heading = ctk.CTkLabel(file_section, text=app.translator.text("section.file"), font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=0, column=0, columnspan=2, padx=2, pady=(2, 1), sticky="w")
-        self.source_control = SourceControl(file_section, choose_command=self.choose_video, choose_label=app.translator.text("button.open_media"), empty_label=app.translator.text("files.none"), width=280, compact=True); self.source_control.frame.grid(row=1, column=0, padx=(2,4), pady=2, sticky="ew"); app.video_open_button = self.source_control.choose_button; app.video_file_label = self.source_control.filename_label
+        file_section.grid_columnconfigure(0, weight=1)
+        self.file_heading = ctk.CTkLabel(file_section, text=app.translator.text("section.file"), font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=0, column=0, padx=2, pady=(2, 1), sticky="w")
+        self.source_control = SourceControl(file_section, choose_command=self.choose_video, choose_label=app.translator.text("video.choose"), empty_label=app.translator.text("files.none"), width=280, compact=True); self.source_control.frame.grid(row=1, column=0, padx=2, pady=(1,0), sticky="ew"); app.video_open_button = self.source_control.choose_button
         app.video_badge_group = ctk.CTkFrame(left, fg_color="transparent"); self.control_panel.add_section("AI_BADGE", app.video_badge_group); app.video_badge_group.grid_columnconfigure(0, weight=1)
         self.badge_control = BadgeControl(app.video_badge_group, on_enabled_changed=self.change_visual, on_badge_selected=self.change_badge, heading_label=app.translator.text("section.ai_badge"))
         self.badge_control.frame.grid(row=0, column=0, sticky="ew")
         app.video_badge_enable = self.badge_control.enabled_widget; app.video_badge_menu = self.badge_control.selector_widget; app.video_badge_var = self.badge_control.selector_var; app.video_badge_preview_label = self.badge_control.graphic_widget; app.video_badge_name_label = self.badge_control.graphic_widget
         app.video_position_var = ctk.StringVar(value="bottom-right"); app.video_position_display_var = ctk.StringVar(value=app.translator.text("position.bottom_right")); app.video_position_display_to_value = {app.translator.text("position.top_left"):"top-left", app.translator.text("position.top_right"):"top-right", app.translator.text("position.bottom_left"):"bottom-left", app.translator.text("position.bottom_right"):"bottom-right", app.translator.text("position.center"):"center"}
-        self.video_position_label = ctk.CTkLabel(app.video_badge_group, text=app.translator.text("position")); self.video_position_label.grid(row=1, column=0, padx=8, pady=1, sticky="w"); app.video_position_label=self.video_position_label; app.video_position_menu = ctk.CTkOptionMenu(app.video_badge_group, variable=app.video_position_display_var, values=list(app.video_position_display_to_value), command=lambda _label: self.change_visual()); self.video_position_menu=app.video_position_menu; app.video_position_menu.grid(row=2, column=0, padx=8, pady=2, sticky="ew")
-        app.video_size_var = ctk.IntVar(value=20); app.video_margin_var = ctk.IntVar(value=20); app.video_opacity_var = ctk.IntVar(value=100)
-        app.video_size_label = app._video_slider(app.video_badge_group, app.video_size_var, 1, 100, 3, "Badge Size", self.change_visual); app.video_margin_label = app._video_slider(app.video_badge_group, app.video_margin_var, 0, 250, 5, "Badge Margin", self.change_visual); app.video_opacity_label = app._video_slider(app.video_badge_group, app.video_opacity_var, 0, 100, 7, "Badge Opacity", self.change_visual)
+        self.video_position_label = ctk.CTkLabel(app.video_badge_group, text=app.translator.text("position"), width=PARAM_LABEL_WIDTH); self.video_position_label.grid(row=1, column=0, padx=8, pady=(2, 0), sticky="w"); app.video_position_label=self.video_position_label; app.video_position_menu = ctk.CTkOptionMenu(app.video_badge_group, variable=app.video_position_display_var, values=list(app.video_position_display_to_value), command=lambda _label: self.change_visual(), width=PARAM_DROPDOWN_WIDTH); self.video_position_menu=app.video_position_menu; app.video_position_menu.grid(row=2, column=0, padx=8, pady=(0, 2), sticky="w")
+        app.video_size_var = ctk.IntVar(value=self.state.badge.size); app.video_margin_var = ctk.IntVar(value=self.state.badge.margin); app.video_opacity_var = ctk.IntVar(value=self.state.badge.opacity)
+        self.badge_parameter_rows = {}
+        for index, (field, key, low, high, variable) in enumerate((
+            ("size", "size.value", 1, 100, app.video_size_var),
+            ("margin", "margin.value", 0, 250, app.video_margin_var),
+            ("opacity", "opacity.value", 0, 100, app.video_opacity_var),
+        ), start=3):
+            row = ParameterRow(app.video_badge_group, text=app.translator.text(key, value=getattr(self.state.badge, field)), start=low, end=high, value=getattr(self.state.badge, field), variable=variable, command=self.change_visual)
+            row.frame.grid(row=index, column=0, pady=PARAM_ROW_PADY, sticky="ew")
+            self.badge_parameter_rows[field] = row
+            setattr(app, f"video_{field}_label", row.label)
         logo_section = ctk.CTkFrame(left, fg_color="transparent"); self.control_panel.add_section("OWN_LOGO", logo_section)
-        self.logo_control = LogoControl(logo_section, on_enabled=lambda value: self.change_logo(value), on_choose=self.choose_logo, on_mode=self.change_logo_mode, on_size=lambda value: self.change_logo(), on_margin=lambda value: self.change_logo(), on_opacity=lambda value: self.change_logo(), labels=self._logo_labels())
+        self.logo_control = LogoControl(logo_section, on_enabled=lambda value: self.change_logo(value), on_choose=self.choose_logo, on_mode=self.change_logo_mode, on_size=lambda value: self.change_logo(size=value), on_margin=lambda value: self.change_logo(margin=value), on_opacity=lambda value: self.change_logo(opacity=value), labels=self._logo_labels())
         self.logo_control.frame.grid(row=0, column=0, sticky="ew")
         self.logo_enabled_var = self.logo_control.enabled_var; self.logo_mode_var = self.logo_control.mode_var; self.logo_file_label = self.logo_control.filename_label; self.logo_size_var = ctk.IntVar(value=15); self.logo_margin_var = ctk.IntVar(value=20); self.logo_opacity_var = ctk.IntVar(value=100)
         options_section = ctk.CTkFrame(left, fg_color="transparent"); self.control_panel.add_section("VIDEO_OPTIONS", options_section)
         self.options_heading = ctk.CTkLabel(options_section, text=app.translator.text("section.video_options"), font=ctk.CTkFont(weight="bold")); self.options_heading.grid(row=0, column=0, padx=2, pady=(2, 1), sticky="w"); app.video_mode_var = ctk.StringVar(value="beginning"); app.video_mode_display_var = ctk.StringVar(value=app.translator.text("video.mode.beginning")); app.video_mode_display_to_value = {app.translator.text("video.mode.beginning"):"beginning", app.translator.text("video.mode.permanent"):"permanent", app.translator.text("video.mode.end"):"end"}
         self.video_mode_label = ctk.CTkLabel(options_section, text=app.translator.text("video.badge_mode")); self.video_mode_label.grid(row=1, column=0, padx=2, pady=1, sticky="w"); app.video_mode_label=self.video_mode_label; self.video_mode_menu = ctk.CTkOptionMenu(options_section, variable=app.video_mode_display_var, values=list(app.video_mode_display_to_value), command=self.change_mode); app.video_mode_menu=self.video_mode_menu; self.video_mode_menu.grid(row=2, column=0, padx=2, pady=2, sticky="ew")
         app.video_duration_var = ctk.IntVar(value=5); self.video_duration_label = ctk.CTkLabel(options_section, text=app.translator.text("video.duration")); app.video_duration_label=self.video_duration_label; app.video_duration_entry = ctk.CTkEntry(options_section, textvariable=app.video_duration_var); self.video_seconds_label = ctk.CTkLabel(options_section, text=app.translator.text("video.seconds")); app.video_seconds_label=self.video_seconds_label; self.video_duration_label.grid(row=3, column=0, padx=2, pady=1, sticky="w"); app.video_duration_entry.grid(row=4, column=0, padx=2, pady=2, sticky="ew"); app.video_duration_entry.bind("<FocusOut>", lambda _event: self.change_duration())
-        self.save_control = SaveControl(file_section, label=app.translator.text("button.save"), command=self.save); app.video_save_control = self.save_control; app.video_process_button = self.save_control.button; app.video_process_button.grid(row=1, column=1, padx=(4,2), pady=2, sticky="ew")
+        self.save_control = SaveControl(self.source_control.action_row, label=app.translator.text("dialog.save_as_generic"), command=self.save); self.source_control.place_save_control(self.save_control); app.video_save_control = self.save_control; app.video_process_button = self.save_control.button
         app.video_preview_label = ctk.CTkLabel(right, text=app.translator.text("video.preview")); app.video_preview_label.grid(row=0, column=0, padx=20, pady=20)
         self.apply_translations()
 

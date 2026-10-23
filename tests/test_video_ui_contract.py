@@ -25,6 +25,8 @@ def test_video_table_is_normative_for_all_events():
     assert {x.event for x in VIDEO_TRANSITION_TABLE}==set(VideoEvent)
     for event in VideoEvent: assert video_transition(event).event is event
 def test_video_legacy_mount_not_called_by_registry():
-    assert "def _mount_video_workspace" in APP
-    start=APP.index('"video": self.video_workspace_owner')
-    assert 'self._mount_video_workspace' not in APP[start:start+120]
+    assert '"video": self.video_workspace_owner' in APP
+    assert "workspace = self._workspace_registry[destination]" in APP
+    assert "workspace.mount(self.content_host)" in APP
+    from nenolink_ai_marker.app import MarkerApp
+    assert not hasattr(MarkerApp, "_mount_video_workspace")

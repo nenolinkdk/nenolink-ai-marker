@@ -30,11 +30,11 @@ def test_image_workspace_owns_mount_and_lifecycle_contract():
     assert "def project(self)" in WORKSPACE
     assert "def has_active_work(self)" in WORKSPACE
     assert "def clear_runtime_state(self)" in WORKSPACE
-    mount_start = APP.index("    def _mount_image_workspace")
-    mount_end = APP.index("    def _mount_video_workspace", mount_start)
-    mount = APP[mount_start:mount_end]
-    assert "image_workspace_owner.mount(self.content_host)" in mount
-    assert "CTkFrame" not in mount
+    render_start = APP.index("    def render_shell_state")
+    render = APP[render_start:]
+    assert 'workspace = self._workspace_registry[destination]' in render
+    assert "workspace.mount(self.content_host)" in render
+    assert "workspace.project()" in render
 
 
 def test_image_save_is_workspace_owned():

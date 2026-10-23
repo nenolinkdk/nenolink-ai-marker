@@ -40,9 +40,9 @@ def test_pptx_language_projection_does_not_remount_or_clear_state():
     workspace.save_button = _Widget()
     workspace.preview_label = _Widget()
     workspace.preview_shell = SimpleNamespace(heading=_Widget())
-    translations = {"pptx.choose": "Vælg PowerPoint", "pptx.preview_hint": "Forhåndsvisning", "section.file": "FIL", "section.slides": "SLIDES", "section.preview": "FORHÅNDSVISNING", "button.save": "Gem"}
+    translations = {"pptx.choose": "Vælg PowerPoint", "pptx.preview_hint": "Forhåndsvisning", "section.file": "FIL", "section.slides": "SLIDES", "section.preview": "FORHÅNDSVISNING", "dialog.save_as_generic": "Gem som…"}
     translator = SimpleNamespace(text=lambda key: translations.get(key, key))
     workspace.apply_language(translator)
     assert workspace.choose_button.values["text"] == "Vælg PowerPoint"
-    assert workspace.save_button.values["text"] == "Gem"
+    assert workspace.save_button.values["text"] == "Gem som…"
     assert workspace.preview_label.values["text"] == ""

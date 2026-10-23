@@ -66,7 +66,6 @@ def _app():
     app.pdf_scope_mode = app.pptx_scope_mode = "all"
     app.pdf_active_scope = app.pptx_active_scope = ()
     app.pdf_scope_input = app.pptx_scope_input = ""
-    app.pptx_state = SimpleNamespace(clear=lambda: None)
     return app
 
 

@@ -285,6 +285,7 @@
   "files.supported_images": "Billeder",
   "files.supported_pdf": "PDF (*.pdf)",
   "files.supported_pptx": "PowerPoint (*.pptx)",
+  "video.choose": "Vælg video",
   "video.preview": "Videoforhåndsvisning",
   "video.badge_mode": "Videomærketilstand",
   "pptx.file_read_error": "Kunne ikke læse PowerPoint-filen",

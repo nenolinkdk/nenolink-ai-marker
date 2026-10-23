@@ -23,8 +23,8 @@ from .source_control import SourceControl
 from .logo_control import LogoControl, LogoProjection
 from .preview_shell import PreviewShell
 from .workspace_control_panel import (
-    WorkspaceControlPanel, PARAM_LABEL_WIDTH, PARAM_CONTROL_WIDTH, PARAM_PADX,
-    PARAM_LABEL_PADY, PARAM_SLIDER_PADY,
+    WorkspaceControlPanel, PARAM_ROW_PADY, PARAM_LABEL_WIDTH,
+    PARAM_DROPDOWN_WIDTH, ParameterRow,
 )
 from .paths import welcome_image_path
 
@@ -102,7 +102,7 @@ class ImageWorkspace:
             return
         t = self.app.translator.text
         if self.source_control is not None:
-            self.source_control.choose_button.configure(text=t("button.open_media"))
+            self.source_control.choose_button.configure(text=t("button.open_images"))
             self.source_control.metadata_label.configure(text=t("files.size_guidance"))
             files = self.state.selected_files
             self.source_control.project(
@@ -112,7 +112,7 @@ class ImageWorkspace:
             )
         save_control = getattr(self.app, "process_save_control", None)
         if save_control is not None:
-            save_control.set_label(t("button.save"))
+            save_control.set_label(t("dialog.save_as_generic"))
         if getattr(self, "preview_shell", None) is not None:
             self.preview_shell.heading.configure(text=t("section.preview"))
         if self.badge_control is not None:
@@ -125,10 +125,11 @@ class ImageWorkspace:
                 self.state.badge.margin, self.state.badge.opacity,
                 t("pdf.add_badge"), t("section.ai_badge"),
             ))
-        for name, key in (("size_label", "size.value"), ("margin_label", "margin.value"), ("opacity_label", "opacity.value")):
-            widget = getattr(self.app, name, None)
-            if widget is not None:
-                widget.configure(text=t(key, value=getattr(self.state.badge, name.removesuffix("_label"), "")))
+        for field, key in (("size", "size.value"), ("margin", "margin.value"), ("opacity", "opacity.value")):
+            row = getattr(self, "badge_parameter_rows", {}).get(field)
+            if row is not None:
+                value = getattr(self.state.badge, field)
+                row.project(text=t(key, value=value), value=value)
         if getattr(self, "position_menu", None) is not None:
             mapping = {t("position.top_left"): "top-left", t("position.top_right"): "top-right", t("position.bottom_left"): "bottom-left", t("position.bottom_right"): "bottom-right", t("position.center"): "center"}
             self.position_display_to_value = mapping
@@ -150,7 +151,8 @@ class ImageWorkspace:
         t = self.app.translator.text
         return {"heading": t("section.own_logo"), "enabled": t("logo.enable"),
                 "choose": t("logo.choose"), "none": t("logo.no_file"),
-                "position": t("logo.position_value"),
+                "position": t("logo.position_value"), "size": t("logo.size"),
+                "margin": t("logo.margin"), "opacity": t("logo.opacity"),
                 "mode.front": t("logo.mode.front"), "mode.entire": t("logo.mode.entire"), "mode.back": t("logo.mode.back"),
                 **{f"position.{name}": t("position." + name.replace("-", "_")) for name in ("top-left", "top-right", "bottom-left", "bottom-right", "center")}}
 
@@ -251,11 +253,14 @@ class ImageWorkspace:
         value = getattr(self.app, "logo_position_display_to_value", {}).get(label, label)
         self.logo_changed(position=value)
     def logo_changed(self, *_args, **changes):
-        apply_image_event(self.state, ImageEvent.LOGO_CHANGED, {
-            "enabled": changes.get("enabled", bool(self.app.logo_enabled_var.get())), "path": changes.get("path", self.app._logo_path()),
-            "position": changes.get("position", self.app.logo_position_var.get()), "size": int(self.app.logo_size_var.get()),
-            "margin": int(self.app.logo_margin_var.get()), "opacity": int(self.app.logo_opacity_var.get()),
-        })
+        payload = {}
+        for field in ("enabled", "path", "position", "size", "margin", "opacity"):
+            if field in changes:
+                value = changes[field]
+                if field in {"size", "margin", "opacity"}:
+                    value = int(value)
+                payload[field] = value
+        apply_image_event(self.state, ImageEvent.LOGO_CHANGED, payload)
         if getattr(self, "root", None) is not None: self.project()
         self.refresh_preview()
 
@@ -271,13 +276,16 @@ class ImageWorkspace:
         if getattr(self, "root", None) is not None: self.project()
         self.refresh_preview()
 
-    def _slider(self, parent, variable, start, end, row):
-        label = ctk.CTkLabel(parent, width=PARAM_LABEL_WIDTH)
-        label.grid(row=row, column=0, padx=PARAM_PADX, pady=PARAM_LABEL_PADY, sticky="w")
-        ctk.CTkSlider(parent, from_=start, to=end, number_of_steps=end-start, width=PARAM_CONTROL_WIDTH,
-                      variable=variable, command=self.visual_changed).grid(
-                          row=row + 1, column=0, padx=PARAM_PADX, pady=PARAM_SLIDER_PADY, sticky="ew")
-        return label
+    def _slider(self, parent, variable, start, end, row, label_key):
+        value = int(variable.get())
+        control = ParameterRow(
+            parent, text=self.app.translator.text(label_key, value=value),
+            start=start, end=end, value=value, variable=variable,
+            command=self.visual_changed,
+        )
+        control.frame.grid(row=row, column=0, pady=PARAM_ROW_PADY, sticky="ew")
+        self.badge_parameter_rows[label_key.split(".")[0]] = control
+        return control.label
 
     def _show_welcome(self):
         self.preview_label.grid_remove(); self.welcome_frame.grid(row=0, column=0, padx=18, pady=14, sticky="nsew"); self._resize_welcome()
@@ -304,10 +312,10 @@ class ImageWorkspace:
         left.grid(row=0, column=0, padx=(4, 8), pady=4, sticky="nsew")
         left.grid_columnconfigure(0, weight=1)
         file_section = ctk.CTkFrame(left, fg_color="transparent"); self.control_panel.add_section("FILE", file_section)
-        file_section.grid_columnconfigure(0, weight=1); file_section.grid_columnconfigure(1, weight=1)
-        self.file_heading = ctk.CTkLabel(file_section, text=app.translator.text("section.file"), font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=0, column=0, columnspan=2, padx=2, pady=(2, 1), sticky="w")
-        self.source_control = SourceControl(file_section, choose_command=self.choose_files, choose_label=app.translator.text("button.open_media"), empty_label=app.translator.text("files.none"), width=280, compact=True)
-        self.source_control.frame.grid(row=1, column=0, padx=(2, 4), pady=(2, 2), sticky="ew")
+        file_section.grid_columnconfigure(0, weight=1)
+        self.file_heading = ctk.CTkLabel(file_section, text=app.translator.text("section.file"), font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=0, column=0, padx=2, pady=(2, 1), sticky="w")
+        self.source_control = SourceControl(file_section, choose_command=self.choose_files, choose_label=app.translator.text("button.open_images"), empty_label=app.translator.text("files.none"), width=280, compact=True)
+        self.source_control.frame.grid(row=1, column=0, padx=2, pady=(1, 0), sticky="ew")
         app.open_button = self.source_control.choose_button; app.file_label = self.source_control.filename_label; app.file_size_guidance = self.source_control.metadata_label
         app.image_badge_group = ctk.CTkFrame(left, fg_color="transparent"); self.control_panel.add_section("AI_BADGE", app.image_badge_group)
         app.image_badge_group.grid_columnconfigure(0, weight=1)
@@ -315,21 +323,24 @@ class ImageWorkspace:
         self.badge_control.frame.grid(row=0, column=0, sticky="ew")
         app.badge_enable = self.badge_control.enabled_widget; app.badge_menu = self.badge_control.selector_widget
         app.single_badge_preview_label = self.badge_control.graphic_widget; app.single_badge_name_label = self.badge_control.graphic_widget
-        app.position_label = ctk.CTkLabel(app.image_badge_group)
-        app.position_label.grid(row=1, column=0, padx=8, pady=(5, 1), sticky="w")
+        app.position_label = ctk.CTkLabel(app.image_badge_group, width=PARAM_LABEL_WIDTH)
+        app.position_label.grid(row=1, column=0, padx=8, pady=(2, 0), sticky="w")
         self.position_label = app.position_label
         self.position_menu = ctk.CTkOptionMenu(app.image_badge_group, variable=app.position_display_var, values=["—"], command=self.position_changed)
-        self.position_menu.grid(row=2, column=0, padx=8, pady=2, sticky="ew")
-        app.size_label = self._slider(app.image_badge_group, app.size_var, 1, 100, 3)
-        app.margin_label = self._slider(app.image_badge_group, app.margin_var, 0, 250, 5)
-        app.opacity_label = self._slider(app.image_badge_group, app.opacity_var, 0, 100, 7)
+        self.position_menu.configure(width=PARAM_DROPDOWN_WIDTH)
+        self.position_menu.grid(row=2, column=0, padx=8, pady=(0, 2), sticky="w")
+        self.badge_parameter_rows = {}
+        app.size_label = self._slider(app.image_badge_group, app.size_var, 1, 100, 3, "size.value")
+        app.margin_label = self._slider(app.image_badge_group, app.margin_var, 0, 250, 4, "margin.value")
+        app.opacity_label = self._slider(app.image_badge_group, app.opacity_var, 0, 100, 5, "opacity.value")
         logo_section = ctk.CTkFrame(left, fg_color="transparent"); self.control_panel.add_section("OWN_LOGO", logo_section)
         self.logo_control = LogoControl(logo_section, on_enabled=lambda value: self.logo_changed(enabled=value), on_choose=self.choose_logo, on_size=lambda value: self.logo_changed(size=value), on_margin=lambda value: self.logo_changed(margin=value), on_opacity=lambda value: self.logo_changed(opacity=value), labels=self._logo_labels())
         self.logo_control.frame.grid(row=0, column=0, sticky="ew")
         app.logo_controls = self.logo_control.frame
         app.logo_heading = self.logo_control.heading; app.logo_enable = self.logo_control.enabled_widget; app.logo_choose = self.logo_control.choose_button; app.logo_filename = self.logo_control.filename_label; app.logo_position_label = self.logo_control.position_label; app.logo_size_slider = self.logo_control.size_widget; app.logo_margin_slider = self.logo_control.margin_widget; app.logo_opacity_slider = self.logo_control.opacity_widget
-        app.process_save_control = SaveControl(file_section, label=app.translator.text("button.save"), command=self.save)
-        app.process_button = app.process_save_control.button; app.process_button.grid(row=1, column=1, padx=(4, 2), pady=(2, 2), sticky="ew")
+        app.process_save_control = SaveControl(self.source_control.action_row, label=app.translator.text("dialog.save_as_generic"), command=self.save)
+        self.source_control.place_save_control(app.process_save_control)
+        app.process_button = app.process_save_control.button
         self.preview_shell = PreviewShell(workspace); self.preview_shell.frame.grid(row=0, column=1, padx=(8, 4), pady=4, sticky="nsew"); right = self.preview_shell.viewport
         self.preview_label = ctk.CTkLabel(right)
         self.welcome_frame = ctk.CTkFrame(right, fg_color="transparent"); self.welcome_frame.grid(row=0, column=0, padx=18, pady=14, sticky="nsew"); self.welcome_frame.grid_columnconfigure(0, weight=1); self.welcome_frame.grid_rowconfigure(4, weight=1)

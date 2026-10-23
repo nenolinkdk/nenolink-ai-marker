@@ -2,8 +2,8 @@
 from typing import Any, Callable, Iterable
 import customtkinter as ctk
 from .workspace_control_panel import (
-    PARAM_LABEL_WIDTH, PARAM_CONTROL_WIDTH, PARAM_PADX,
-    PARAM_LABEL_PADY, PARAM_SLIDER_PADY,
+    PARAM_LABEL_WIDTH, PARAM_PADX,
+    PARAM_LABEL_PADY, PARAM_ROW_PADY, ParameterRow,
 )
 
 
@@ -26,9 +26,10 @@ class LogoControl:
         self.filename_label = ctk.CTkLabel(self.frame, text=labels.get("none", "No logo selected"), anchor="w"); self.filename_label.grid(row=3, column=0, sticky="ew")
         self.mode_widget = ctk.CTkOptionMenu(self.frame, variable=self.mode_var, values=[labels.get("mode.front", "Front"), labels.get("mode.entire", "Entire"), labels.get("mode.back", "Back")], command=on_mode or (lambda _value: None), width=140); self.mode_widget.grid(row=4, column=0, sticky="w")
         self.position_label = ctk.CTkLabel(self.frame, text=labels.get("position", "Position: {position}").format(position=labels.get("position.top-left", "Top left")), width=PARAM_LABEL_WIDTH); self.position_label.grid(row=5, column=0, padx=PARAM_PADX, pady=PARAM_LABEL_PADY, sticky="w")
-        self.size_widget = ctk.CTkSlider(self.frame, from_=1, to=100, width=PARAM_CONTROL_WIDTH, command=on_size or (lambda _value: None)); self.size_widget.grid(row=6, column=0, padx=PARAM_PADX, pady=PARAM_SLIDER_PADY, sticky="ew")
-        self.margin_widget = ctk.CTkSlider(self.frame, from_=0, to=250, width=PARAM_CONTROL_WIDTH, command=on_margin or (lambda _value: None)); self.margin_widget.grid(row=7, column=0, padx=PARAM_PADX, pady=PARAM_SLIDER_PADY, sticky="ew")
-        self.opacity_widget = ctk.CTkSlider(self.frame, from_=0, to=100, width=PARAM_CONTROL_WIDTH, command=on_opacity or (lambda _value: None)); self.opacity_widget.grid(row=8, column=0, padx=PARAM_PADX, pady=PARAM_SLIDER_PADY, sticky="ew")
+        self.size_row = ParameterRow(self.frame, text=labels.get("size", "Logo size: {value}%").format(value=15), start=1, end=100, value=15, command=on_size or (lambda _value: None)); self.size_row.frame.grid(row=6, column=0, pady=PARAM_ROW_PADY, sticky="ew")
+        self.margin_row = ParameterRow(self.frame, text=labels.get("margin", "Logo margin: {value} px").format(value=20), start=0, end=250, value=20, command=on_margin or (lambda _value: None)); self.margin_row.frame.grid(row=7, column=0, pady=PARAM_ROW_PADY, sticky="ew")
+        self.opacity_row = ParameterRow(self.frame, text=labels.get("opacity", "Logo opacity: {value}%").format(value=100), start=0, end=100, value=100, command=on_opacity or (lambda _value: None)); self.opacity_row.frame.grid(row=8, column=0, pady=PARAM_ROW_PADY, sticky="ew")
+        self.size_widget = self.size_row.slider; self.margin_widget = self.margin_row.slider; self.opacity_widget = self.opacity_row.slider
         self.frame.grid_columnconfigure(0, weight=1)
 
     def project(self, projection: LogoProjection) -> None:
@@ -43,4 +44,6 @@ class LogoControl:
         position = labels.get(f"position.{projection.position}", projection.position.replace('-', ' ').title())
         self.position_label.configure(text=labels.get("position", "Position: {position}").format(position=position))
         self.filename_label.configure(text=projection.filename or labels.get("none", "No logo selected"))
-        self.size_widget.set(projection.size); self.margin_widget.set(projection.margin); self.opacity_widget.set(projection.opacity)
+        self.size_row.project(text=labels.get("size", "Logo size: {value}%").format(value=projection.size), value=projection.size)
+        self.margin_row.project(text=labels.get("margin", "Logo margin: {value} px").format(value=projection.margin), value=projection.margin)
+        self.opacity_row.project(text=labels.get("opacity", "Logo opacity: {value}%").format(value=projection.opacity), value=projection.opacity)

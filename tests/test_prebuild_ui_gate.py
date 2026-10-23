@@ -8,9 +8,10 @@ def test_pptx_navigation_route_mounts_canonical_workspace():
     source = inspect.getsource(MarkerApp.render_shell_state)
     assert 'destination = self.shell_controller.active_content_type' in source
     assert 'text="PPTX TEST"' not in source
-    mount = inspect.getsource(MarkerApp._mount_pptx_workspace)
-    assert 'self.pptx_workspace_state.mount(self.content_host)' in mount
-    assert 'raise RuntimeError("PPTX workspace failed to mount")' in mount
+    assert 'workspace = self._workspace_registry[destination]' in source
+    assert 'workspace.mount(self.content_host)' in source
+    init_source = inspect.getsource(MarkerApp.__init__)
+    assert '"pptx": self.pptx_workspace_state' in init_source
 
 
 def test_pptx_empty_workspace_contract_is_complete():
@@ -22,6 +23,6 @@ def test_pptx_empty_workspace_contract_is_complete():
 
 
 def test_pptx_minimal_workspace_has_no_legacy_builder_dependency():
-    source = inspect.getsource(MarkerApp._mount_pptx_workspace)
+    source = inspect.getsource(MarkerApp.render_shell_state)
     assert "_mount_pptx_workspace_canonical" not in source
     assert "build_workspace_control_template" not in source

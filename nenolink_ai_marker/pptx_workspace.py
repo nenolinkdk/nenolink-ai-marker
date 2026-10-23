@@ -15,14 +15,16 @@ from .pptx_state import (PptxWorkspaceState, PptxEvent, PptxEventReceipt, apply_
                           apply_pptx_scope_event, choose_file_success, project_file, project_badge)
 from .diagnostic_receipts import ReceiptLog
 from .document_preview_layout import fit_preview_geometry
-from .workspace_ui import build_badge_visual
 from .save_control import SaveControl
 from .badge_control import BadgeControl, BadgeProjection
 from .source_control import SourceControl
 from .logo_control import LogoControl, LogoProjection
 from .preview_shell import PreviewShell
 from .document_controls import PhysicalNavigationControl, DocumentScopeControl
-from .workspace_control_panel import WorkspaceControlPanel, PARAM_LABEL_WIDTH, PARAM_CONTROL_WIDTH
+from .workspace_control_panel import (
+    WorkspaceControlPanel, ParameterRow, PARAM_ROW_PADY,
+    PARAM_LABEL_WIDTH, PARAM_DROPDOWN_WIDTH,
+)
 from .document_processing import ItemSelection, ProcessingRequest, settings_for_documents
 from .metadata import marker_metadata
 from dataclasses import replace
@@ -40,7 +42,6 @@ class PptxConstructionReceipt:
         self.legacy_document_ui_used = False
         self.pdf_ui_used = False
 PPTX_MOUNT_TOKEN = "NENOLINK_PPTX_MOUNT_V103"
-PPTX_STATE_TOKEN = "NENOLINK_PPTX_STATE_V103"
 
 
 class PptxWorkspace:
@@ -68,7 +69,7 @@ class PptxWorkspace:
         self.mounted = False
         self.preview_photo = None
         self.source_control = None
-        for name in ("badge_control", "save_control", "preview_host", "preview_label", "file_label", "choose_button", "save_button", "scope_menu", "scope_input", "scope_status", "previous_button", "next_button", "slide_status"):
+        for name in ("badge_control", "save_control", "preview_host", "preview_label", "choose_button", "save_button", "scope_menu", "scope_input", "scope_status", "previous_button", "next_button", "slide_status"):
             if hasattr(self, name):
                 setattr(self, name, None)
 
@@ -80,27 +81,26 @@ class PptxWorkspace:
         self.presentation_generation += 1
         self.root = ctk.CTkFrame(content_host, fg_color="transparent")
         self.root.grid(row=0, column=0, sticky="nsew")
-        self.root.grid_columnconfigure(0, weight=0, minsize=360)
+        self.root.grid_columnconfigure(0, weight=0, minsize=320)
         self.root.grid_columnconfigure(1, weight=1)
         t = getattr(getattr(self.app, "translator", None), "text", lambda key: key)
         self.mount_token_reached = True
         self.construction_receipt = PptxConstructionReceipt()
         self.construction_receipt.authoritative_state_created = True
         self.construction_receipt.workspace_created = True
-        self.control_panel = WorkspaceControlPanel(self.root, width=360)
+        self.control_panel = WorkspaceControlPanel(self.root, width=320)
         for section in ("FILE", "SLIDES", "AI_BADGE", "OWN_LOGO"):
             self.control_panel.declare_section(section)
-        controls = self.control_panel.frame; controls.grid(row=0, column=0, padx=8, pady=8, sticky="nsew")
+        controls = self.control_panel.frame; controls.grid(row=0, column=0, padx=(4,8), pady=4, sticky="nsew")
         controls.bind("<MouseWheel>", lambda event: controls._parent_canvas.yview_scroll(-int(event.delta / 120), "units"))
-        self.preview_shell = PreviewShell(self.root, title=t("section.preview")); self.preview_shell.frame.grid(row=0, column=1, padx=8, pady=8, sticky="nsew"); preview = self.preview_shell.viewport
+        self.preview_shell = PreviewShell(self.root, title=t("section.preview")); self.preview_shell.frame.grid(row=0, column=1, padx=(8,4), pady=4, sticky="nsew"); preview = self.preview_shell.viewport
         self.preview_host = preview
         file_section = ctk.CTkFrame(controls, fg_color="transparent"); self.control_panel.add_section("FILE", file_section)
         self.heading_label = None
-        file_section.grid_columnconfigure(0, weight=1); file_section.grid_columnconfigure(1, weight=1)
-        self.file_heading = ctk.CTkLabel(file_section, text=t("pptx.file_heading"), font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=0, column=0, columnspan=2, padx=2, pady=(2, 1), sticky="w")
-        self.source_control = SourceControl(file_section, choose_command=self._choose_file, choose_label=t("pptx.choose"), empty_label=t("pptx.no_file"), width=280, compact=True); self.source_control.frame.grid(row=1, column=0, padx=(2,4), pady=2, sticky="ew"); self.choose_button = self.source_control.choose_button
-        self.save_control = SaveControl(file_section, label=t("button.save"), command=self._save_as, width=160); self.save_button = self.save_control.button; self.save_button.grid(row=1, column=1, padx=(4,2), pady=2, sticky="ew")
-        self.file_label = self.source_control.filename_label; self.file_metadata_label = self.source_control.metadata_label
+        file_section.grid_columnconfigure(0, weight=1)
+        self.file_heading = ctk.CTkLabel(file_section, text=t("pptx.file_heading"), font=ctk.CTkFont(weight="bold")); self.file_heading.grid(row=0, column=0, padx=2, pady=(2, 1), sticky="w")
+        self.source_control = SourceControl(file_section, choose_command=self._choose_file, choose_label=t("pptx.choose"), empty_label=t("pptx.no_file"), width=280, compact=True); self.source_control.frame.grid(row=1, column=0, padx=2, pady=(1,0), sticky="ew"); self.choose_button = self.source_control.choose_button
+        self.save_control = SaveControl(self.source_control.action_row, label=t("dialog.save_as_generic"), command=self._save_as); self.save_button = self.save_control.button; self.source_control.place_save_control(self.save_control)
         self.construction_receipt.file_section_created = True
         slides_section = ctk.CTkFrame(controls, fg_color="transparent"); self.control_panel.add_section("SLIDES", slides_section)
         self.slides_heading = ctk.CTkLabel(slides_section, text=t("pptx.slides_heading"), font=ctk.CTkFont(weight="bold")); self.slides_heading.grid(row=0, column=0, padx=2, pady=(2, 1), sticky="w")
@@ -139,11 +139,12 @@ class PptxWorkspace:
     def _build_visual_controls(self, controls, logo_host=None):
         row = 1
         t = getattr(getattr(self.app, "translator", None), "text", lambda key: key)
-        self.badge_position_label = ctk.CTkLabel(controls, text=t("position")); self.badge_position_label.grid(row=row, column=0, padx=12, pady=1, sticky="w")
+        self.badge_position_label = ctk.CTkLabel(controls, text=t("position"), width=PARAM_LABEL_WIDTH); self.badge_position_label.grid(row=row, column=0, padx=8, pady=(2, 0), sticky="w")
         positions = ["top-left", "top-right", "bottom-left", "bottom-right", "center"]
         self._position_display = {p: t("position." + p.replace("-", "_")) for p in positions}; self._position_value = {v: k for k, v in self._position_display.items()}
         self.badge_position_var = ctk.StringVar(value=self._position_display.get(self.state.badge.position, self.state.badge.position))
-        self.badge_position_menu = ctk.CTkOptionMenu(controls, variable=self.badge_position_var, values=list(self._position_display.values()), command=lambda v: self._dispatch(PptxEvent.BADGE_POSITION, self._position_value.get(v, v)), width=190); self.badge_position_menu.grid(row=row+1, column=0, padx=12, pady=1, sticky="w")
+        self.badge_position_menu = ctk.CTkOptionMenu(controls, variable=self.badge_position_var, values=list(self._position_display.values()), command=lambda v: self._dispatch(PptxEvent.BADGE_POSITION, self._position_value.get(v, v)), width=PARAM_DROPDOWN_WIDTH); self.badge_position_menu.grid(row=row+1, column=0, padx=8, pady=(0, 2), sticky="w")
+        self.badge_parameter_rows = {}
         self._slider(controls, row+2, "size.value", "badge", "size", 1, 100, self.state.badge.size)
         self._slider(controls, row+3, "margin.value", "badge", "margin", 0, 250, self.state.badge.margin)
         self._slider(controls, row+4, "opacity.value", "badge", "opacity", 0, 100, self.state.badge.opacity)
@@ -156,22 +157,22 @@ class PptxWorkspace:
         t = getattr(getattr(self.app, "translator", None), "text", lambda key: key)
         return {"heading": t("section.own_logo"), "enabled": t("logo.enable"),
                 "choose": t("logo.choose"), "none": t("logo.no_file"),
-                "position": t("logo.position_value"),
+                "position": t("logo.position_value"), "size": t("logo.size"),
+                "margin": t("logo.margin"), "opacity": t("logo.opacity"),
                 "mode.front": t("logo.mode.front"), "mode.entire": t("logo.mode.entire"), "mode.back": t("logo.mode.back"),
                 **{f"position.{name}": t("position." + name.replace("-", "_")) for name in ("top-left", "top-right", "bottom-left", "bottom-right", "center")}}
 
     def _slider(self, host, row, label, group, field, low, high, value):
-        row_host = ctk.CTkFrame(host, fg_color="transparent"); row_host.grid(row=row, column=0, columnspan=2, padx=12, pady=1, sticky="ew")
-        row_host.grid_columnconfigure(1, weight=1)
         var = ctk.IntVar(value=value); setattr(self, f"{group}_{field}_var", var)
         translator = getattr(getattr(self.app, "translator", None), "text", lambda key, **v: key)
-        templates = {"size.value": "size.value", "margin.value": "margin.value", "opacity.value": "opacity.value", "logo.size": "logo.size", "logo.margin": "logo.margin", "logo.opacity": "logo.opacity"}
-        key = templates.get(label, label)
-        value_label = ctk.CTkLabel(row_host, text=translator(key, value=value), anchor="w", width=PARAM_LABEL_WIDTH); value_label.grid(row=0, column=0, padx=(0, 6), sticky="w")
+        key = label
+        control = ParameterRow(host, text=translator(key, value=value), start=low, end=high, value=value, variable=var, command=lambda v: self._slider_event(group, field, v))
+        control.frame.grid(row=row, column=0, pady=PARAM_ROW_PADY, sticky="ew")
+        value_label = control.label
         setattr(self, f"{group}_{field}_label", value_label); setattr(self, f"{group}_{field}_label_key", key)
-        slider = ctk.CTkSlider(row_host, from_=low, to=high, variable=var, command=lambda v: self._slider_event(group, field, v), width=PARAM_CONTROL_WIDTH)
-        slider.grid(row=0, column=1, padx=0, sticky="ew")
-        setattr(self, f"{group}_{field}_row", row_host)
+        setattr(self, f"{group}_{field}_row", control)
+        if group == "badge":
+            self.badge_parameter_rows[field] = control
 
     def _slider_event(self, group, field, value):
         event = getattr(PptxEvent, f"{group.upper()}_{field.upper()}")
@@ -217,7 +218,7 @@ class PptxWorkspace:
         """Project locale changes without rebuilding or clearing the session."""
         if hasattr(self, "file_heading"): self.file_heading.configure(text=translator.text("section.file"))
         if hasattr(self, "slides_heading"): self.slides_heading.configure(text=translator.text("section.slides"))
-        self.choose_button.configure(text=translator.text("pptx.choose")); self.save_button.configure(text=translator.text("button.save"))
+        self.choose_button.configure(text=translator.text("pptx.choose")); self.save_button.configure(text=translator.text("dialog.save_as_generic"))
         if hasattr(self, "preview_shell"): self.preview_shell.heading.configure(text=translator.text("section.preview"))
         if hasattr(self, "badge_enable"):
             self.badge_enable.configure(text=translator.text("pptx.badge_enable")); self.badge_control.heading_widget.configure(text=translator.text("section.ai_badge")); self.scope_update.configure(text=translator.text("document.scope_update")); self.scope_input.configure(placeholder_text=translator.text("pptx.selected_hint")); self.logo_choose_button.configure(text=translator.text("logo.choose")); self.badge_position_label.configure(text=translator.text("position")); self.logo_label.configure(text=self.logo_label.cget("text") if self.state.logo.path else translator.text("logo.no_file"))
@@ -230,12 +231,12 @@ class PptxWorkspace:
             self.scope_menu.configure(values=list(self._scope_display.values()))
         if hasattr(self, "navigation_control"):
             self.navigation_control.set_status_template(translator.text("pptx.slide_status"))
-        if hasattr(self, "file_label"): self._project_file()
+        if hasattr(self, "source_control"): self._project_file()
         if hasattr(self, "scope_status"): self._project_scope()
         if hasattr(self, "badge_visual"): self._project_badge()
         if hasattr(self, "logo_control"):
             self.logo_control.project(LogoProjection(enabled=self.state.logo.enabled, filename=self.state.logo.path.name if self.state.logo.path else "", position=self.state.logo.position, size=self.state.logo.size, margin=self.state.logo.margin, opacity=self.state.logo.opacity, labels=self._logo_labels()))
-        self.save_button.configure(text=translator.text("button.save"))
+        self.save_button.configure(text=translator.text("dialog.save_as_generic"))
         self.preview_label.configure(text=translator.text("pptx.preview_hint") if not self.state.loaded else "")
 
     def _render_preview(self):
@@ -288,7 +289,8 @@ class PptxWorkspace:
             count = getattr(info, "item_count", 0) or getattr(info, "slide_count", 0)
         except Exception as error:
             self.receipts.record({"layer": "pptx", "event": "FILE_METRICS_FAILED", "result": "error", "exception_type": type(error).__name__, "error": str(error)[:200]})
-            if hasattr(self, "file_label"): self.file_label.configure(text=self.app.translator.text("pptx.file_read_error"))
+            if hasattr(self, "source_control"):
+                self.source_control.project(filename="", empty_text=self.app.translator.text("pptx.file_read_error"))
             count = 0
         if count:
             self.receipts.record({"layer": "pptx", "event": "CHOOSE_FILE_SUCCESS", "owner": "file_reducer", "result": "accepted"})
@@ -418,12 +420,16 @@ class PptxWorkspace:
                 asset = model.get("asset")
                 names = tuple(repository.display_name(path.name) for path in repository.display_badges())
                 self.badge_control.project(BadgeProjection(bool(self.state.badge.enabled), model["display_name"], names, asset, self.state.badge.position, self.state.badge.size, self.state.badge.margin, self.state.badge.opacity, self.app.translator.text("pptx.badge_enable"), self.app.translator.text("section.ai_badge")))
+                self.badge_position_var.set(self._position_display.get(self.state.badge.position, self.state.badge.position))
+                for field, key in (("size", "size.value"), ("margin", "margin.value"), ("opacity", "opacity.value")):
+                    row = self.badge_parameter_rows.get(field)
+                    if row is not None:
+                        value = getattr(self.state.badge, field)
+                        row.project(text=self.app.translator.text(key, value=value), value=value)
 
     def _project_file(self):
         t = getattr(getattr(self.app, "translator", None), "text", lambda key, **v: key)
         model = project_file(self.state, t)
-        if hasattr(self, "file_label"):
-            self.file_label.configure(text=model["status"] if not model["filename"] else f"{model['filename']}\n{model['details']}")
         if hasattr(self, "source_control"):
             self.source_control.project(filename=model["filename"], metadata=model["details"], empty_text=model["status"])
 

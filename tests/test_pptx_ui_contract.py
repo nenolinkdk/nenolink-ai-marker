@@ -7,7 +7,8 @@ def test_pptx_workspace_has_common_sections_and_human_labels():
     assert "class PptxWorkspace" in WS and "def mount(self" in WS
     for token in ("file_heading","slides_heading","badge_enable","logo_choose_button","preview_label"): assert token in WS
 def test_pptx_badge_uses_common_repository_and_projects_graphic():
-    assert "project_badge" in WS and "build_badge_visual" in WS and "_project_badge" in WS
+    assert "project_badge" in WS and "BadgeProjection" in WS and "_project_badge" in WS
+    assert "build_badge_visual" not in WS
 def test_pptx_preview_and_output_share_authoritative_projection():
     assert "def _render_preview" in WS and "def _save_as" in WS
     assert "self.state.badge" in WS and "self.state.logo" in WS
@@ -28,4 +29,26 @@ def test_pptx_callbacks_dispatch_table_events():
 def test_pptx_legacy_routes_are_absent_from_markerapp():
     assert "def _mount_pptx_workspace_canonical" not in APP
     assert "def process_pptx(self)" not in APP
-    assert "self.pptx_workspace_state.mount" in APP
+    assert '"pptx": self.pptx_workspace_state' in APP
+    assert "workspace.mount(self.content_host)" in APP
+    from nenolink_ai_marker.app import MarkerApp
+    assert not hasattr(MarkerApp, "_mount_pptx_workspace")
+
+def test_registered_pptx_workspace_owns_the_only_production_pptx_state():
+    import inspect
+    from nenolink_ai_marker.app import MarkerApp
+    from nenolink_ai_marker.pptx_workspace import PptxWorkspace
+    from nenolink_ai_marker.pptx_state import PptxWorkspaceState
+
+    init_source = inspect.getsource(MarkerApp.__init__)
+    assert "self.pptx_workspace_state = PptxWorkspace(self)" in init_source
+    assert '"pptx": self.pptx_workspace_state' in init_source
+    assert "self.pptx_state =" not in init_source
+    for method in (
+        "pptx_visual_changed", "_project_pptx_badge_visual",
+        "_sync_pptx_visual_state", "_pptx_visual_projection_settings",
+    ):
+        assert not hasattr(MarkerApp, method)
+
+    workspace = PptxWorkspace()
+    assert isinstance(workspace.state, PptxWorkspaceState)

@@ -48,11 +48,16 @@ def test_smoke_script_uses_process_owned_window_gate_and_keeps_both_build_modes(
     assert "NENOLINK_BOOT_LOG" in smoke
     assert "Get-SmokeVisibleTopLevelWindows" in smoke
     assert "Select-SmokeOwnedProcesses" in smoke
-    assert "Get-SmokeChildProcessFilter" in smoke
-    assert "-Filter $filter" in smoke
-    assert "Get-CimInstance -ClassName Win32_Process -ErrorAction Stop |" not in smoke
+    assert "Get-SmokeProcessSnapshot" in smoke
+    assert "Get-CimInstance" not in smoke
+    direct_probe = smoke.index("Get-SmokeVisibleTopLevelWindows -ProcessIds ([int[]]@([int]$rootProcess.Id))")
+    child_probe = smoke.index("Get-SmokeProcessRows -RootProcessId $rootProcess.Id")
+    assert direct_probe < child_probe, "The launched PID must be checked before descendant discovery"
     assert "interactive_session = $interactiveSession" in smoke
     assert "root_process_session_id = $rootSessionId" in smoke
+    assert "startup_seconds=$startupSeconds" in smoke
+    assert "root_pid=$($rootProcess.Id)" in smoke
+    assert "window_pid=$($decision.Window.ProcessId)" in smoke
     assert "diagnostics.json" in smoke
     assert "-EmbeddedResources" in build
     assert "-ExePath $packagedExe" in build
@@ -78,3 +83,28 @@ def test_smoke_script_uses_process_owned_window_gate_and_keeps_both_build_modes(
         check=False,
     )
     assert parsed.returncode == 0, f"PowerShell parse failed:\n{parsed.stdout}\n{parsed.stderr}"
+
+
+def test_native_process_snapshot_contains_current_powershell_process():
+    powershell = shutil.which("powershell.exe") or shutil.which("pwsh.exe")
+    if not powershell:
+        pytest.skip("PowerShell is required to exercise the native process snapshot")
+    module_path = str(MODULE).replace("'", "''")
+    command = (
+        f"$moduleText=[IO.File]::ReadAllText('{module_path}'); "
+        "$moduleText=[regex]::Replace($moduleText,'(?m)^Export-ModuleMember.*$',''); "
+        ". ([scriptblock]::Create($moduleText)); "
+        "$snapshot=@(Get-SmokeProcessSnapshot); "
+        "if(-not ($snapshot | Where-Object { $_.ProcessId -eq $PID })) { "
+        "throw 'Native process snapshot omitted the current PowerShell PID.' }; "
+        "Write-Output ('Native process snapshot returned ' + $snapshot.Count + ' processes.')"
+    )
+    result = subprocess.run(
+        [powershell, "-NoLogo", "-NoProfile", "-Command", command],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+    assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"

@@ -279,6 +279,7 @@
   "files.supported_images": "Afbeeldingen",
   "files.supported_pdf": "PDF (*.pdf)",
   "files.supported_pptx": "PowerPoint (*.pptx)",
+  "video.choose": "Video kiezen",
   "video.preview": "Videovoorbeeld",
   "video.badge_mode": "Videobadge-modus",
   "pptx.file_read_error": "Kan het PowerPoint-bestand niet lezen",

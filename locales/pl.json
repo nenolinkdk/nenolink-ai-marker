@@ -279,6 +279,7 @@
   "files.supported_images": "Obrazy",
   "files.supported_pdf": "PDF (*.pdf)",
   "files.supported_pptx": "PowerPoint (*.pptx)",
+  "video.choose": "Wybierz wideo",
   "video.preview": "Podgląd wideo",
   "video.badge_mode": "Tryb odznaki wideo",
   "pptx.file_read_error": "Nie można odczytać pliku PowerPoint",

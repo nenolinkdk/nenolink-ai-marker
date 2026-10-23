@@ -5,7 +5,9 @@ WORKSPACE = ROOT / "nenolink_ai_marker" / "pdf_workspace.py"
 def _app(): return APP.read_text(encoding="utf-8")
 def _workspace(): return WORKSPACE.read_text(encoding="utf-8")
 def test_pdf_production_route_targets_workspace():
-    assert "self.pdf_workspace_owner.mount(self.content_host)" in _app()
+    assert '"pdf": self.pdf_workspace_owner' in _app()
+    assert "workspace = self._workspace_registry[destination]" in _app()
+    assert "workspace.mount(self.content_host)" in _app()
     assert "def mount(self" in _workspace() and "_build_pdf_workspace_compat" not in _app()
     assert "process_pdf_phase6" not in _app()
 def test_pdf_workspace_mount_owns_single_ui_tree_and_preview():
@@ -14,7 +16,11 @@ def test_pdf_workspace_mount_owns_single_ui_tree_and_preview():
     assert "ctk.CTkLabel(preview_host" in s
 def test_pdf_file_control_does_not_remount_workspace():
     s = _workspace(); assert "command=self.choose_file" in s and "def choose_file" in s
-    assert "_mount_pdf_workspace" not in s
+    from nenolink_ai_marker.app import MarkerApp
+    app_source = _app()
+    assert '"pdf": self.pdf_workspace_owner' in app_source
+    assert "workspace.mount(self.content_host)" in app_source
+    assert not hasattr(MarkerApp, "_mount_pdf_workspace")
 def test_pdf_controls_use_workspace_event_boundary():
     s = _workspace()
     for m in ("set_badge", "set_scope", "set_logo", "save"): assert f"def {m}(" in s

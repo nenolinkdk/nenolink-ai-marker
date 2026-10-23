@@ -279,6 +279,7 @@
   "files.supported_images": "Obrázky",
   "files.supported_pdf": "PDF (*.pdf)",
   "files.supported_pptx": "PowerPoint (*.pptx)",
+  "video.choose": "Vybrat video",
   "video.preview": "Náhled videa",
   "video.badge_mode": "Režim odznaku videa",
   "pptx.file_read_error": "Soubor PowerPoint nelze načíst",

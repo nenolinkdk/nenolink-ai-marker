@@ -285,6 +285,7 @@
   "files.supported_images": "Images",
   "files.supported_pdf": "PDF (*.pdf)",
   "files.supported_pptx": "PowerPoint (*.pptx)",
+  "video.choose": "Choisir une vidéo",
   "video.preview": "Aperçu vidéo",
   "video.badge_mode": "Mode du badge vidéo",
   "pptx.file_read_error": "Impossible de lire le fichier PowerPoint",

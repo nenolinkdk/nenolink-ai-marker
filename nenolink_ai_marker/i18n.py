@@ -124,6 +124,7 @@ DEFAULT_ENGLISH = {
     "dialog.open_logo": "Choose Logo", "files.supported_images": "Images",
     "files.supported_pdf": "PDF (*.pdf)", "files.supported_pptx": "PowerPoint (*.pptx)",
     "video.preview": "Video preview", "video.badge_mode": "Video badge mode",
+    "video.choose": "Choose Video",
     "pptx.file_read_error": "Could not read PowerPoint file",
     "pptx.choose_before_save": "Choose a PowerPoint file before saving.",
     "dialog.save_as_generic": "Save As…",

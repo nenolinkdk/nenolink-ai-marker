@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -14,6 +15,10 @@ from nenolink_ai_marker.workspace_control_panel import (
     BADGE_PREVIEW_PADY,
     PARAM_LABEL_PADY,
     PARAM_SLIDER_PADY,
+    PARAM_CONTROL_WIDTH,
+    PARAM_LABEL_WIDTH,
+    PARAM_ROW_PADY,
+    ParameterRow,
 )
 from nenolink_ai_marker.workspace_state import (
     ImageWorkspaceState,
@@ -166,7 +171,7 @@ def test_constructed_shell_language_menu_uses_global_language_callback():
     assert "command=self.change_language" in source
 
 
-def test_badge_logo_and_image_video_parameter_spacing_share_tokens(monkeypatch):
+def test_badge_logo_and_all_workspace_parameter_spacing_share_tokens(monkeypatch):
     import customtkinter as ctk
 
     for name in ("CTkFrame", "CTkCheckBox", "CTkOptionMenu", "CTkLabel", "CTkButton", "CTkSlider"):
@@ -183,16 +188,31 @@ def test_badge_logo_and_image_video_parameter_spacing_share_tokens(monkeypatch):
     assert all(widget.grid_options["pady"] == PARAM_SLIDER_PADY for widget in (
         logo.size_widget, logo.margin_widget, logo.opacity_widget
     ))
+    assert all(row.frame.grid_options["pady"] == PARAM_ROW_PADY for row in (
+        logo.size_row, logo.margin_row, logo.opacity_row
+    ))
+    assert all(row.label.options["width"] == PARAM_LABEL_WIDTH for row in (
+        logo.size_row, logo.margin_row, logo.opacity_row
+    ))
+    assert all(row.slider.options["width"] == PARAM_CONTROL_WIDTH for row in (
+        logo.size_row, logo.margin_row, logo.opacity_row
+    ))
 
-    image_workspace = SimpleNamespace(visual_changed=lambda *_args: None)
-    image_label = ImageWorkspace._slider(image_workspace, FakeWidget(), FakeVariable(), 1, 100, 3)
-    image_slider = FakeWidget.instances[-1]
-    assert image_label.grid_options["pady"] == PARAM_LABEL_PADY
-    assert image_slider.grid_options["pady"] == PARAM_SLIDER_PADY
+    image_workspace = SimpleNamespace(
+        app=SimpleNamespace(translator=FakeTranslator()),
+        visual_changed=lambda *_args: None,
+        badge_parameter_rows={},
+    )
+    image_label = ImageWorkspace._slider(image_workspace, FakeWidget(), FakeVariable(20), 1, 100, 3, "size.value")
+    image_row = image_workspace.badge_parameter_rows["size"]
+    assert image_row.label is image_label
+    assert image_row.label.grid_options["pady"] == PARAM_LABEL_PADY
+    assert image_row.slider.grid_options["pady"] == PARAM_SLIDER_PADY
+    assert image_row.frame.grid_options["pady"] == PARAM_ROW_PADY
 
-    video_parent = FakeWidget()
-    MarkerApp._video_slider(SimpleNamespace(video_workspace_owner=SimpleNamespace(change_visual=lambda: None)), video_parent, FakeVariable(), 1, 100, 3, "Badge Size", command=lambda: None)
-    video_slider = FakeWidget.instances[-1]
-    video_label = FakeWidget.instances[-2]
-    assert video_label.grid_options["pady"] == PARAM_LABEL_PADY
-    assert video_slider.grid_options["pady"] == PARAM_SLIDER_PADY
+    video_workspace_source = (Path(__file__).parents[1] / "nenolink_ai_marker" / "video_workspace.py").read_text(encoding="utf-8")
+    pptx_workspace_source = (Path(__file__).parents[1] / "nenolink_ai_marker" / "pptx_workspace.py").read_text(encoding="utf-8")
+    pdf_workspace_source = (Path(__file__).parents[1] / "nenolink_ai_marker" / "pdf_workspace.py").read_text(encoding="utf-8")
+    assert "ParameterRow(app.video_badge_group" in video_workspace_source
+    assert "ParameterRow(host" in pptx_workspace_source
+    assert "ParameterRow(badge_section" in pdf_workspace_source
