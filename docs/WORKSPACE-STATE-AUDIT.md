@@ -1,5 +1,11 @@
 # Workspace state audit (v1.0.3)
 
+> **Current implementation note (2026-10-24):** The ownership table and
+> current-contract sections below describe production. Older phase reports,
+> proposed migration sequences and statements that a workspace is still a
+> migration target are retained as historical checkpoint evidence only. If
+> historical text conflicts with this summary, this current summary wins.
+
 > **Historical note:** material below the current architecture section that
 > describes migration targets is retained for traceability and is
 > **HISTORICAL / PRE-MIGRATION**. It must not be read as the current route.
@@ -37,10 +43,10 @@ the shell owns only global lifecycle policy.
 
 | Workspace | Current runtime ownership | Preview | Scope | Output |
 |---|---|---|---|---|
-| Image | `sources`, selected source and shared `MarkerSettings` variables in `MarkerApp` | `preview_image` / `preview_photo` | not applicable | image processor and Save As |
-| Video | selected source, video mode/duration and shared `MarkerSettings` variables | text/status preview (no player) | not applicable | FFmpeg processor and Save As |
-| PDF | `pdf_path`, `pdf_info`, `pdf_preview_state`, `document_scope_states["pdf"]`, PDF badge variables | PDF preview renderer/state | independent validated page scope | `PdfProcessor` and metadata |
-| PPTX | `PptxWorkspaceState` plus projected Tk variables for compatibility | `pptx_preview_state` / renderer | independent validated slide scope | `PptxProcessor` and metadata |
+| Image | `ImageWorkspaceState` | Image renderer and workspace preview resource | not applicable | state-derived `ImageProcessingRequest` and image processor |
+| Video | `VideoWorkspaceState`, including independent badge/logo timing | representative FFmpeg frame (about 1 second) | not applicable | immutable `VideoProcessingRequest` and FFmpeg service, asynchronously |
+| PDF | `PdfWorkspaceState` | PDF renderer and workspace preview resource | validated page scope separate from physical page | state-derived request and `PdfProcessor` |
+| PPTX | `PptxWorkspaceState` | PPTX renderer and workspace preview resource | validated slide scope separate from physical slide; independent logo scope | state-derived request and `PptxProcessor` |
 
 ## Findings (HISTORICAL / PRE-MIGRATION)
 
@@ -190,7 +196,7 @@ workspaces. PPTX is the remaining migration target.
 | Active work | workspace state | workspace state | `PdfWorkspace.has_active_work()` |
 | Clear/reset | workspace lifecycle | workspace lifecycle | `PdfWorkspace.clear_runtime_state()` |
 
-### Current PDF production contract
+### PDF production contract (current)
 
 `Shell → registry["pdf"] → PdfWorkspace → PdfWorkspaceState → projection /
 preview / immutable processing request → UI / PdfPreviewRenderer /
@@ -203,20 +209,17 @@ Selected draft plus Update, Range draft plus Update, invalid-update rollback,
 physical-page/scope independence, out-of-scope overlay behavior, badge/logo
 semantics, Save As/source protection and existing processor behavior.
 
-Remaining MarkerApp surfaces are compatibility-only and one-way:
-`PdfWorkspaceState → compatibility mirror`. They include
-`_mount_pdf_workspace`, `_sync_pdf_state`, `render_pdf_preview`,
-`process_pdf_phase6`, `pdf_path`, `pdf_info`, `pdf_current_page`,
-`pdf_preview_photo`, PDF scope mirrors and PDF Tk mirrors. None is an
-authoritative PDF state owner.
+`PdfWorkspace.save()` is the production Save route. The removed
+`process_pdf_phase6()` and compatibility PDF builder are not production
+routes. Any retained MarkerApp PDF values are downstream compatibility
+projections only; the active PDF state, preview, scope, navigation and request
+remain owned by `PdfWorkspaceState` / `PdfWorkspace`.
 
-PPTX is substantially closer to the target than pre-migration PDF. It already
-has `PptxWorkspace`, `PptxWorkspaceState`, reducer/state direction, independent
-scope and physical slide navigation, workspace preview and existing processors.
-Remaining PPTX work is direct registry/lifecycle cutover, reclassification or
-removal of MarkerApp mirrors, consolidation of preview/output compatibility
-paths and production-route acceptance. This is not a reason to mechanically
-repeat the Image/Video/PDF migration sequence.
+PPTX is also fully migrated: Shell registry → `PptxWorkspace` →
+`PptxWorkspaceState` / `PPTX_TRANSITION_TABLE` → projection, renderer and
+`PptxProcessor`. Its badge scope, physical slide position and independent
+First/All logo scope are PPTX-owned. There is no remaining PPTX migration
+target in the current v1.0.3 architecture.
 
 The packaged Video workspace had retained the pre-migration filename-only placeholder because the active ShellController-owned `MarkerApp` mounted a separate video workspace; the earlier extraction was only wired to the legacy media renderer. The active workspace now resolves the bundled FFmpeg, extracts a representative PNG frame, composites the authoritative `VideoWorkspaceState` badge, and retains the CTkImage reference on the preview widget.
 ## Video structural UI contract

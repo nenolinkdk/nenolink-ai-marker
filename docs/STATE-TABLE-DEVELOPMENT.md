@@ -56,9 +56,8 @@ release command is:
 
 `.venv\\Scripts\\python.exe -m pytest -q tests`
 
-The current recorded baseline is 496 passed with one warning; future test-count
-changes are valid when tests are added or removed, but the required condition
-is zero failures.
+Test counts vary with the checked-out commit. Record the actual count in the
+build report; the release requirement is zero failures.
 ```
 
 The table/specification is required behavior. Receipts, where present, only
@@ -143,3 +142,57 @@ SaveControl, BadgeControl and LogoControl are shared stateless presentation
 controls with zero semantic authority. PDF/PPTX scope controls remain local
 to their document workspaces. Windows runtime acceptance is separate from
 headless tests; PDF/PPTX preview-fit acceptance remains a separate gate.
+
+## Current v1.0.3 workspace and processing contract
+
+The four production formats have separate runtime owners and separate local
+transition tables: `ImageWorkspaceState` / `IMAGE_TRANSITION_TABLE`,
+`VideoWorkspaceState` / `VIDEO_TRANSITION_TABLE`, `PdfWorkspaceState` /
+`PDF_TRANSITION_TABLE`, and `PptxWorkspaceState` / `PPTX_TRANSITION_TABLE`.
+Events are reduced into the owning state and `project()` updates the currently
+mounted presentation. Shared `WorkspaceControlPanel`, `SourceControl`,
+`SaveControl`, `BadgeControl`, `LogoControl`, `ParameterRow`, and `PreviewShell`
+are stateless presentation/composition pieces. PDF and PPTX additionally own
+format-specific document-scope and physical-navigation controls. Shared UI
+components never own workspace values or transition policy.
+
+PDF and PPTX deliberately keep processing scope separate from the physical
+preview page/slide. Scope text is a draft; Update validates it against the
+loaded document. Invalid updates preserve the last valid active scope. Reset
+confirmation clears all four workspace sessions and tool results and returns
+to clean Images; Cancel preserves the current session. Content-to-content
+navigation clears the source workspace according to the Shell transition
+contract, while Badges and Inspect overlays preserve the underlying workspace.
+
+Preview is state-derived, not a second state owner. Video uses a representative
+frame at approximately one second; preview and output consume independent
+badge/logo timing values from `VideoWorkspaceState`. Video output is submitted
+as an immutable `VideoProcessingRequest` to the existing FFmpeg service.
+`VideoWorkspace.save()` starts a worker thread and polls its result on the Tk
+thread; only the UI thread updates widgets. A duplicate-save guard disables
+Save while processing.
+
+Each workspace Save callback builds its output request from authoritative
+workspace state and invokes its existing processor/service. Save As dialogs
+suggest a new `_ai` destination so source files are not overwritten by default.
+PDF retains encrypted-file rejection, digital-signature warnings and document
+hard limits. PDF/PPTX metadata records the selected AI label as a declaration;
+it does not independently verify AI use or file provenance.
+
+Inspect File is a read-only metadata service for JPG/JPEG, PNG, WebP, MP4,
+MOV, MKV, AVI, WebM, PDF, PPTX and DOCX. `Found` means recognized Nenolink
+metadata was read; `Not found` is not evidence that AI was not used. Invalid,
+unsupported, protected and over-limit files produce localized categorized
+errors. DOCX inspection support does not make DOCX a fifth production
+workspace.
+
+Tests cover transition tables/reducers, authoritative projection, constructed
+callbacks, processing requests, Inspect File, Reset and packaging resources.
+Run `.venv\\Scripts\\python.exe -m pytest -q tests`, then compileall and
+`git diff --check`. The canonical Windows packaging path is `build.ps1` with
+`.venv-release` and `Nenolink-AI-Marker.spec`; it includes `docs`, `locales`,
+badge/UI assets and bundled FFmpeg. Packaged smoke gates check packaged and
+standalone resource modes and require a visible window owned by the launched
+process with title `Nenolink AI-marker`. Source/test PASS and smoke PASS are
+distinct from manual Windows acceptance of dialogs, transitions, previews and
+Save output.

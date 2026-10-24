@@ -1,6 +1,11 @@
 from pathlib import Path
 import re
+import html
+import sys
 
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+from nenolink_ai_marker import __version__
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4
@@ -8,14 +13,13 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
 
-ROOT = Path(__file__).resolve().parent.parent
 GUIDES = {
-    "EN": {"source": ROOT/"docs"/"USER_GUIDE_EN.md", "output": ROOT/"docs"/"Nenolink-AI-Marker-User-Guide-EN.pdf", "guide": "User Guide", "version": "Application version: 1.0.1", "language": "Document language: English", "updated": "Updated: 11 September 2026", "publisher": "Publisher: Nenolink", "intro": "A practical guide to visible AI disclosure badges for images and video.", "page": "Page", "font_size": 8.8, "leading": 12.4, "space_after": 5.2},
-    "DA": {"source": ROOT/"docs"/"USER_GUIDE_DA.md", "output": ROOT/"docs"/"Nenolink-AI-Marker-User-Guide-DA.pdf", "guide": "Brugervejledning", "version": "Applikationsversion: 1.0.1", "language": "Dokumentsprog: Dansk", "updated": "Opdateret: 11. september 2026", "publisher": "Udgiver: Nenolink", "intro": "En praktisk vejledning til synlige AI-oplysningsbadges på billeder og video.", "page": "Side", "font_size": 8.7, "leading": 12.1, "space_after": 5.0},
+    "EN": {"source": ROOT/"docs"/"USER_GUIDE_EN.md", "output": ROOT/"docs"/"Nenolink-AI-Marker-User-Guide-EN.pdf", "guide": "User Guide", "version": f"Application version: {__version__}", "language": "Document language: English", "updated": "Updated: 24 October 2026", "publisher": "Publisher: Nenolink", "intro": "A practical guide to visible AI disclosure badges and optional logo overlays for images, video, PDF, and PowerPoint.", "page": "Page", "font_size": 8.8, "leading": 12.4, "space_after": 5.2},
+    "DA": {"source": ROOT/"docs"/"USER_GUIDE_DA.md", "output": ROOT/"docs"/"Nenolink-AI-Marker-User-Guide-DA.pdf", "guide": "Brugervejledning", "version": f"Applikationsversion: {__version__}", "language": "Dokumentsprog: Dansk", "updated": "Opdateret: 24. oktober 2026", "publisher": "Udgiver: Nenolink", "intro": "En praktisk vejledning til synlige AI-oplysningsbadges og valgfri logooverlays på billeder, video, PDF og PowerPoint.", "page": "Side", "font_size": 8.7, "leading": 12.1, "space_after": 5.0},
 }
 
 def inline(text):
-    text=text.replace("&","&amp;")
+    text=html.escape(text)
     text=re.sub(r"\*\*(.+?)\*\*",r"<b>\1</b>",text)
     return re.sub(r"`(.+?)`",r"<font name='Courier'>\1</font>",text)
 
@@ -32,15 +36,36 @@ def build_guide(config):
     intro=ParagraphStyle(name="Intro",parent=centered,fontSize=12,leading=18)
     story=[Spacer(1,42*mm),Paragraph("Nenolink AI Marker",styles["CoverTitle"]),Paragraph(config["guide"],subtitle),Spacer(1,10*mm),Paragraph(config["version"],centered),Paragraph(config["language"],centered),Paragraph(config["updated"],centered),Paragraph(config["publisher"],centered),Paragraph("Denmark",centered),Spacer(1,13*mm),Paragraph(config["intro"],intro),Spacer(1,48*mm),Paragraph("(c) Henrik Nielsen - nenolink.com",centered),PageBreak()]
     started=False
+    paragraph_lines=[]
+
+    def flush_paragraph():
+        if paragraph_lines:
+            story.append(Paragraph(inline(" ".join(paragraph_lines)),styles["Bodyx"]))
+            paragraph_lines.clear()
+
     for raw in config["source"].read_text(encoding="utf-8").splitlines():
         line=raw.strip()
         if line.startswith("## "):started=True
-        if not started or not line:continue
-        if line.startswith("> "):story.append(Paragraph(inline(line[2:]),styles["Notice"]))
-        elif line.startswith("### "):story.append(Paragraph(inline(line[4:]),styles["H2x"]))
-        elif line.startswith("## "):story.append(Paragraph(inline(line[3:]),styles["H1x"]))
-        elif line.startswith("- "):story.append(Paragraph("- "+inline(line[2:]),styles["Bulletx"]))
-        else:story.append(Paragraph(inline(line),styles["Bodyx"]))
+        if not started:continue
+        if not line:
+            flush_paragraph()
+        elif line.startswith("> "):
+            flush_paragraph()
+            story.append(Paragraph(inline(line[2:]),styles["Notice"]))
+        elif line.startswith("### "):
+            flush_paragraph()
+            story.append(Paragraph(inline(line[4:]),styles["H2x"]))
+        elif line.startswith("## "):
+            flush_paragraph()
+            if line in {"## PowerPoint-præsentationer", "## PowerPoint presentations"}:
+                story.append(PageBreak())
+            story.append(Paragraph(inline(line[3:]),styles["H1x"]))
+        elif line.startswith("- "):
+            flush_paragraph()
+            story.append(Paragraph("- "+inline(line[2:]),styles["Bulletx"]))
+        else:
+            paragraph_lines.append(line)
+    flush_paragraph()
     def header_footer(canvas,doc):
         canvas.saveState(); canvas.setStrokeColor(colors.HexColor("#B81424")); canvas.line(18*mm,282*mm,192*mm,282*mm)
         canvas.setFont("Helvetica",8); canvas.setFillColor(colors.HexColor("#666666")); canvas.drawString(18*mm,10*mm,f"Nenolink AI Marker - {config['guide']}"); canvas.drawRightString(192*mm,10*mm,f"{config['page']} {doc.page}"); canvas.restoreState()

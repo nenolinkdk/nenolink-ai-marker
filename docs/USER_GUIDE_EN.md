@@ -2,13 +2,13 @@
 
 Application version: 1.0.3<br>
 Document language: English<br>
-Updated: 11 September 2026<br>
+Updated: 24 October 2026<br>
 Publisher: Nenolink<br>
 Denmark
 
 ## 1. What Nenolink AI Marker does
 
-Nenolink AI Marker adds a visible disclosure badge to images and videos. It supports individual images and repeatable folder batches. Originals are never intentionally overwritten; output names end in `_ai`.
+Nenolink AI Marker adds visible disclosure badges and optional logo overlays to images, videos, PDF files, and PowerPoint presentations. It provides four format-specific workspaces with previews and Save As output. Source files are not overwritten by default; suggested output names end in `_ai`.
 
 The Nenolink badge system is a practical transparency system. Choose wording that accurately describes how AI was involved in the specific content or workflow.
 
@@ -18,13 +18,13 @@ Processing is local on the Windows computer. The application does not upload med
 
 Nenolink AI Marker automatically adds minimal machine-readable metadata to processed files. It identifies Nenolink AI Marker as the software, records the selected AI label, and records the marker version. This metadata complements the visible badge; the visible badge remains the primary human-readable disclosure.
 
-Metadata is not proof of authenticity, is not tamper-proof, and does not guarantee legal or regulatory compliance. Editing software, websites, and social-media platforms may change or remove metadata. Review every processed output before publishing it and retain the original file.
+AI Marker metadata is a declaration made by the person processing the file; it is not independent verification of whether or how AI was used. **Found** means Inspect File recognized the declaration. **Not found** does not prove that AI was not used: metadata may never have been written or may have been removed or changed. Metadata is not proof of authenticity, is not tamper-proof, and does not guarantee legal or regulatory compliance. Review every processed output before publishing it and retain the original file.
 
 ## Inspect File
 
-**Inspect File** reads recognized Nenolink AI Marker metadata from JPEG, PNG, WebP, MP4, and MOV files. Choose a file and the result shows the filename, format, size, status, software, AI label, and marker version. Inspection is read-only and does not modify the selected file.
+**Inspect File** reads recognized Nenolink AI Marker metadata from JPG/JPEG, PNG, and WebP images; MP4, MOV, MKV, AVI, and WebM videos; PDF; PPTX; and DOCX files. Choose a file to see its filename, format, size, and status; when the declaration is found, software, AI label, and marker version are also shown. Inspection is read-only and does not modify the selected file. DOCX can be inspected but is not one of the four production workspaces.
 
-**Found** means recognized Nenolink metadata was found. **Not found** means that recognized metadata was not found; it does not mean AI was not used. Metadata may have been stripped or altered. Inspect File is not an AI detector and does not establish authenticity, provenance, certification, legal compliance, or EU AI Act compliance.
+**Found** means recognized Nenolink metadata was found. **Not found** means only that the declaration was not recognized; it does not mean AI was not used. Inspect File shows localized errors for invalid/unreadable files, unsupported types, encrypted/password-protected PDFs, exceeded document limits, or an unavailable Video/FFmpeg component. Inspect File is not an AI detector and does not establish authenticity, provenance, certification, legal compliance, or EU AI Act compliance.
 
 The visible badge is the human-readable disclosure. Metadata is machine-readable information. Inspect File reads that machine-readable information.
 
@@ -40,7 +40,7 @@ The footer shows the installed version. On the first normal launch for each Wind
 
 ## 3. Language selection
 
-Choose a language in the top bar. English, Danish, German, French, Spanish, Italian, Portuguese, Dutch, Swedish, Norwegian, Polish, and Czech are included. The choice is saved immediately. Missing translated text falls back to English. The product name and badge artwork do not change with the interface language.
+Choose a language in the top bar. English, Danish, German, French, Spanish, Italian, Portuguese, Dutch, Swedish, Norwegian, Polish, and Czech are included. The choice is saved immediately and updates visible UI without changing the workspace file, scope, physical page/slide, badge, or logo selection. Normal production text is translated; English fallback is a defensive recovery only. The product name and badge artwork do not change with the interface language.
 
 ### Update checks
 
@@ -65,100 +65,101 @@ After an image is selected, Single File shows a live, scaled preview containing 
 
 ## 7. Processing a single image
 
-Choose **Single File**, then **Choose Image or Video**. JPG, JPEG, PNG, and WebP images are supported. Adjust placement, size, margin, and opacity and inspect the preview. Click **Save Marked Image...**. The normal Windows Save As dialog proposes `originalname_ai.ext`; you may edit the name and Windows confirms before replacing an existing file. The source is not selected as the default destination and is never silently overwritten. Full-resolution originals are used for output; the preview is only a scaled display.
+Choose **Images**, click **Choose Image**, and select a JPG/JPEG, PNG, or WebP image. Adjust the badge and optional logo position, size, margin, and opacity, then review the preview. **Save As…** is beside the file action. The Windows dialog proposes `originalname_ai.ext`; you may edit the name, and Windows confirms before replacing an existing file. The source is not the default destination and is never silently overwritten. Output is rendered from the full-resolution original; the preview is scaled.
 
 ### Optional own logo for images
 
 **Own Logo** is separate from the selected AI badge. Enable it to add a PNG, JPG/JPEG, or WebP logo to the same image-processing operation, then choose its independent position, size, margin, and opacity. Transparent PNG or WebP is recommended when the logo should not have a rectangular background. The preview shows both overlays, including when they share a corner.
 
-Own Logo is optional branding and currently applies only to single images and image files in Batch Processing. It is never used as the AI Label, its local path is not written to metadata, Inspect File does not detect it, and it is not applied to video. Source files remain unchanged. If a remembered logo disappears, logo processing is disabled while the stored path remains available for correction.
+Own Logo is optional branding and can be used independently of the AI badge in Image, Video, PDF, and PPTX where the format controls are available. It has independent position, size, margin, and opacity settings. Video logo position is fixed at top-left; badge and logo timing are independent. PPTX has a separate **First slide / All slides** logo scope, independent of badge scope. The logo is not the AI Label, its local path is not written to metadata, and Inspect File does not inspect it. Source files remain unchanged. If a remembered logo disappears, logo processing is disabled while the stored path remains available for correction.
 
 ## 8. Processing PDF
 
-Choose **PDF**, open a PDF, and review its filename, size and page count.
-Encrypted/password-protected PDFs are rejected; detected digital signatures
-produce a warning that modification may invalidate them. Physical page preview
-navigation is independent from processing scope. Choose **All**, **First**,
-**Selected**, or **Range**. Selected values use `7,11`; ranges use
-`10-12,20-22`, and both require **Update**. Invalid input preserves the last
-valid scope. The preview arrows always browse every physical page, while the
-AI badge appears only on pages in the active scope. Own Logo may be used alone
-or with a badge; position, size, margin and opacity are supported. For a
-multi-page scope, the accepted behaviour places the logo on the first
-applicable page while the AI badge follows the selected pages. **Save marked
-PDF…** opens Save As and never overwrites the source by default. Existing
-metadata is preserved where possible and Nenolink metadata is a disclosure
-statement, not proof of authorship or provenance. PDF warnings begin above
-100 MB or 300 pages; the hard stop is above 300 MB or 1,000 pages. PDF Inspect
-is not supported yet.
+Choose **PDF**, open a PDF, and review its filename, size, and page count.
+Encrypted/password-protected PDFs are rejected; a detected digital signature
+produces a warning that modification may invalidate it. Physical page preview
+navigation is independent of processing scope. Choose **All pages**, **First
+page**, **Selected pages**, or **Page range**. Selected values use `7,11`;
+ranges use `10-12,20-22`; both require **Update**. Input is a draft until
+Update. Invalid values preserve the last valid scope and show a localized
+error. A localized selected-page count appears below Update. Arrows browse all
+physical pages regardless of scope. Badge and logo are processed on pages in
+the active scope; Own Logo can be used alone or with the badge. Position, size,
+margin, and opacity are supported. **Save As** opens the Windows file dialog
+and does not overwrite the source by default. Existing metadata is preserved
+where possible; Nenolink metadata is a declaration, not independent
+verification of AI use or proof of authorship. PDF warnings begin above 100 MB
+or 300 pages; the hard stop is above 300 MB or 1,000 pages. Inspect File
+supports PDF, but encrypted/password-protected files are rejected. Editing may
+invalidate a digital signature; review the warning before continuing.
 
 ## 9. Processing video
 
-Single File and batch video processing accept MP4, MOV, MKV, AVI, and WebM. Select **Permanent** to show the badge throughout, or **Beginning**/**End** to show it for the chosen duration (5 seconds by default). Position, size, margin, and opacity apply in every mode. **Save Marked Video...** opens the Windows Save As dialog with `originalname_ai.ext` proposed. The Windows package includes the required FFmpeg component; no separate installation or `PATH` configuration is needed, and it runs without a console window. Audio is copied where the output container permits it and video is encoded as H.264. Container/codec combinations vary; review an output before publication. If FFmpeg rejects one batch file, that file is recorded as an error and the batch continues.
+Single File and batch video processing accept MP4, MOV, MKV, AVI, and WebM. For the AI badge choose **First 5 seconds**, **Entire**, or **End**. Beginning/end timing uses the duration field (5 seconds by default). Own Logo can be enabled independently and has its own **Front**, **Entire**, or **Back** timing with the same temporal meaning; its position is fixed at top-left. Badge and logo can use different timing and appear together. Badge position, size, margin, and opacity are projected from Video workspace state into preview and Save. The preview is a representative frame at about one second, not playback. **Save As** opens the Windows dialog; processing runs asynchronously so the window remains responsive and reports completion. The Windows package includes FFmpeg, with no separate installation or `PATH` configuration required. Video is normally encoded as H.264, and audio is copied when supported by the output container. If FFmpeg rejects a batch file, that file is reported as an error and the batch continues.
 
-## 9. Folder batch processing
+## 10. Folder batch processing
 
 Choose **Batch Processing**, select an input folder, configure output, media, suffix, and video options, then click **Scan Folder**. Review image, video, unsupported, oversized, selected-total, and destination counts. Click **Start Batch Processing** only after the scan. Batch uses the suffix automatically (default `_ai`) and does not open one Save As dialog per file. Progress shows the current filename and success, skip, and error totals. **Cancel** stops before the next file; it does not delete completed outputs. A corrupt file does not stop later files.
 
-## 10. Input and output folders
+## 11. Input and output folders
 
 The default output is an editable `AI-marked` subfolder inside the input folder. Alternatively, choose a separate output folder. **Include subfolders** scans recursively. **Preserve folder structure** recreates relative folders under the destination. Existing output files are skipped, never overwritten. Output naming is `originalname_ai.ext`.
 
-## 11. Position, size, margin, and opacity
+## 12. Position, size, margin, and opacity
 
 Position can be top-left, top-right, bottom-left, or bottom-right. Size is a percentage of image width. Margin is measured in source pixels from the chosen edges. Opacity ranges from fully transparent to fully opaque. The app limits extreme settings so the badge remains within the media frame.
 
-**Back** on Batch Processing, Badges, or Inspect File returns to Single File without resetting the selected input, badge, source, logo, or other settings. Top tabs are also navigation only. **Reset** is different: it returns to Single File and the Welcome view, clears the selected input, inspection result, and temporary batch state, selects standard AI Assisted, disables Own Logo, and restores the badge and logo defaults, Permanent video mode, 5 seconds, and `_ai`. Remembered custom badge and logo paths are retained.
+**Back** from Badges or Inspect File returns to the underlying workspace without resetting it. **Reset** is different: confirmation clears all four workspace sessions and tool results, then returns to clean Images with defaults; **Cancel** preserves current state. Switching content also clears the source workspace session, so returning starts clean. Remembered badge/logo paths and general preferences follow the application's existing settings rules.
 
-## 12. Choosing the right standard badge
+## 13. Choosing the right standard badge
 
 The first four badges describe broad disclosure status. The next six describe a media type or workflow. No AI is a separate user declaration. A badge is a concise signal, not a complete provenance record. Keep supporting information when context requires it.
 
-### 13. AI Assisted
+### 24. AI Assisted
 
 Recommended when AI contributed but a person remained substantially involved in planning, selection, editing, or authorship.
 
-### 14. AI Generated
+### 24. AI Generated
 
 Recommended when an AI system primarily generated the content. Human prompting or selection does not by itself make the output non-generated.
 
-### 15. AI Modified
+### 24. AI Modified
 
 Recommended when AI materially changed existing content, such as substantial inpainting, replacement, synthesis, or transformation.
 
-### 16. Human Reviewed
+### 24. Human Reviewed
 
 Recommended as an additional disclosure when a person reviewed AI-related output before publication. Review does not guarantee correctness, safety, legality, or regulatory compliance.
 
-### 17. AI Image
+### 24. AI Image
 
 Recommended for image-specific AI generation or material modification.
 
-### 18. AI Video
+### 24. AI Video
 
 Recommended for video-specific AI generation or material modification.
 
-### 19. AI Audio
+### 24. AI Audio
 
 Recommended for synthetic or materially AI-modified speech, music, sound, or other audio.
 
-### 20. AI Software
+### 24. AI Software
 
 Recommended when AI materially assisted production of software or source code. It is not a security or quality certification.
 
-### 21. AI Translation
+### 24. AI Translation
 
 Recommended when AI translated content between languages. Consider human review for consequential or specialist material.
 
-### 22. AI Localization
+### 24. AI Localization
 
 Recommended when AI helped adapt content to a locale, market, or culture beyond direct translation.
 
-### 23. No AI
+### 24. No AI
 
 No AI is a user-selected declaration. Nenolink AI Marker does not verify that content was created without the use of AI.
 
-## 24. EU AI Act transparency background
+## 25. EU AI Act transparency background
 
 Regulation (EU) 2024/1689, commonly called the EU AI Act, contains transparency obligations for providers and deployers of certain AI systems. Article 50 addresses, among other matters, informing people when they interact with certain AI systems, machine-readable marking of synthetic outputs by providers, and disclosure duties for certain deepfake and public-interest text uses. The exact duties, exceptions, timing, technical standards, and responsible party depend on the facts and applicable law.
 
@@ -166,7 +167,7 @@ Nenolink AI Marker adds a visible badge. A visible badge is not the same as ever
 
 Official source: Regulation (EU) 2024/1689, Article 50, EUR-Lex: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689
 
-## 25. File compatibility and processing limits
+## 26. File compatibility and processing limits
 
 As practical guidance, images up to 50 MB and videos up to 2 GB are recommended. These are recommendations, not guaranteed technical maximums; larger files may still work.
 
@@ -174,7 +175,7 @@ Not every image or video file can necessarily be processed. Compatibility and pr
 
 No fixed maximum file size is defined. A file that works on one computer may fail or take substantially longer on another because practical limits depend partly on the user's computer and available resources. Keep original files and review every processed output before publication or distribution.
 
-## 26. Limitations and user responsibility
+## 27. Limitations and user responsibility
 
 You are responsible for selecting an accurate badge, obtaining rights to source media and badge artwork, reviewing outputs, retaining originals, and meeting applicable contractual, platform, accessibility, privacy, intellectual-property, consumer-protection, and AI rules. Visible overlays can be cropped or removed. The tool does not embed cryptographic provenance and does not verify whether content was made with AI.
 
@@ -203,7 +204,7 @@ Nenolink AI Marker must not be presented as:
 - legal advice; or
 - a guarantee that content has been correctly classified.
 
-## 27. Troubleshooting
+## 28. Troubleshooting
 
 - **No badges found:** Confirm that PNG files are directly inside the folder shown in the message, then click **Refresh Badges**.
 - **Custom folder missing:** Reconnect the drive or choose a replacement folder. Standard badges remain available.
@@ -223,17 +224,20 @@ Nenolink AI Marker - (c) Henrik Nielsen - https://nenolink.com
 
 ## PowerPoint presentations
 
-Open **PowerPoint / Slides**, choose a `.pptx`, and review its filename, size
+Open **PowerPoint / Slides**, choose a `.pptx`, and review its filename, size,
 and slide count. Use **Previous/Next** to browse physical slides. Choose
-**All**, **First**, **Selected**, or **Range** as the processing scope. Selected
-accepts individual numbers and mixed ranges such as `3,7`, `4-8`, or
-`2,4-6,9`; Selected and Range are applied with **Update**. Physical preview
-navigation is independent of the processing scope.
+**All slides**, **First slide**, **Selected slides**, or **Slide range** as the
+badge processing scope. Selected accepts individual numbers and mixed ranges
+such as `3,7`, `4-8`, or `2,4-6,9`; Selected and Range are applied with
+**Update**. Invalid input does not replace the active scope. Physical preview
+navigation is independent of processing scope.
 
 Enable or disable the AI badge and optionally **Own Logo**, then choose badge,
-position, size, margin and opacity. The live preview marks only slides in the
-active scope. For PowerPoint, an enabled logo is applied to every slide in
-that scope (for example Selected `3,7` marks both slides). Use **Save As**;
+position, size, margin, and opacity. The preview shows the badge on the current
+physical slide when it belongs to the badge's active scope. The logo has a
+separate **First slide / All slides** choice, defaulting to **All slides**;
+this choice is independent of badge scope, so the logo can appear on a slide
+outside the badge's selected scope. Use **Save As**;
 the suggested name ends in `_ai.pptx` and the source is never overwritten by
 default. AI Marker metadata is a disclosure statement, not proof of authorship
 or provenance. Files over 100 MB or 150 slides receive a warning; over 300 MB

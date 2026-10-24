@@ -31,8 +31,8 @@ def test_every_locale_has_the_complete_english_key_set():
 
 def test_release_docs_cover_current_workflows():
     expectations = {
-        "docs/USER_GUIDE_EN.md": ("Save Marked Image", "Permanent", "Beginning", "End", "Back", "Reset", "Inspect File", "Own Logo", "live, scaled preview", "Processing is local"),
-        "docs/USER_GUIDE_DA.md": ("Gem mærket billede", "Hele videoen", "I begyndelsen", "I slutningen", "Tilbage", "Nulstil", "Undersøg fil", "Eget logo", "live, skaleret forhåndsvisning", "Behandlingen foregår lokalt"),
+        "docs/USER_GUIDE_EN.md": ("Save As", "Entire", "First 5 seconds", "End", "Back", "Reset", "Inspect File", "Own Logo", "live, scaled preview", "Processing is local"),
+        "docs/USER_GUIDE_DA.md": ("Gem som", "Hele videoen", "Første 5 sekunder", "Slutningen", "Tilbage", "Nulstil", "Undersøg fil", "Eget logo", "live, skaleret forhåndsvisning", "Behandlingen foregår lokalt"),
     }
     for relative, terms in expectations.items():
         text = (ROOT / relative).read_text(encoding="utf-8")

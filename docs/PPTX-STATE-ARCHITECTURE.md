@@ -1,5 +1,22 @@
 # PPTX workspace state
 
+> **Current v1.0.3 status:** This file contains historical phase notes below.
+> The active production implementation is `PptxWorkspace` with one
+> authoritative `PptxWorkspaceState`, `PPTX_TRANSITION_TABLE`, typed
+> `PptxEvent` reducers and state-derived projection, preview and Save request.
+> Items described as future work in early phase notes are now implemented.
+> PPTX uses common stateless presentation controls, while slide scope, physical
+> navigation and independent logo scope remain PPTX-owned. Do not interpret
+> old phase status text as current production status.
+
+The badge scope (`All`, `First`, `Selected`, `Range`) and physical slide
+position are independent. Scope text is a draft until Update validates it
+against the loaded deck; rejected input preserves the active scope and preview.
+Logo scope is separate: `First slide` marks only physical slide 1 and
+`All slides` marks the whole deck; the default is `All slides`. Preview and
+Save apply that logo scope independently from badge scope. The PPTX processor
+is a service and does not own UI or workspace state.
+
 ### Phase 3E lifecycle/geometry invariants
 
 Global Reset is a hard PPTX session boundary: file, scope, physical slide,

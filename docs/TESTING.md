@@ -11,9 +11,8 @@
 
    `.venv\\Scripts\\python.exe -m pytest -q tests`
 
-   The recorded v1.0.3 baseline is 496 passed and one warning. This number may
-   change as tests are added or removed; the release requirement is
-   `FAILED = 0`.
+   Test counts vary with the checked-out commit. Record the actual count in the
+   build report; the release requirement is `FAILED = 0`.
 4. **Compilation/static sanity**:
 
    `.venv\\Scripts\\python.exe -m compileall -q nenolink_ai_marker`
@@ -29,10 +28,13 @@
 
 The Windows startup smoke harness validates packaged resources and detects a
 visible top-level window owned by the launched executable process tree. It
-records the native window title for diagnostics but does not depend on a title
-string. On failure it retains the per-run boot log and diagnostic report; on
-success it removes those temporary files. This smoke check is not a substitute
-for manual packaged Windows acceptance.
+requires the exact title `Nenolink AI-marker`, records the title, window
+handle, PID and startup timing, and distinguishes process exit, probe failure
+and timeout. On failure it retains the per-run boot log and diagnostic report;
+on success it removes temporary artifacts. Both packaged and standalone
+`-EmbeddedResources` smoke gates must pass before the build script creates its
+ZIP. This smoke check is not a substitute for manual packaged Windows
+acceptance.
 
 ## Manual v1.0.3 acceptance sequence
 
@@ -45,6 +47,11 @@ replacement. Returning to content must restore the underlying workspace.
 
 Confirm Global Reset clears Image, Video, PDF, PPTX and tool state. Exercise
 Save/Process for all four production formats.
+
+Inspect File acceptance should cover marked and unmarked image/video/PDF/PPTX
+files, DOCX metadata, invalid inputs, localized errors and the read-only
+contract. `Found` confirms a recognized metadata declaration only; `Not found`
+does not establish that AI was not used.
 
 ## Release lesson
 
@@ -59,7 +66,7 @@ viewport interpretation from 4D16B failed Windows visual acceptance and is no
 longer the runtime sizing model.
 
 Production formats are Images, Video, PDF and PowerPoint/Slides. DOCX is not a
-v1.0.3 production format.
+v1.0.3 production workspace, although Inspect File reads DOCX metadata.
 
 The production UI uses one Shell FSM plus four independent workspace FSMs.
 `WorkspaceControlPanel` composes natural-height sections; SourceControl,
@@ -79,3 +86,15 @@ English is only a defensive recovery fallback, not a normal production source.
 Dynamic page, slide, selection, warning and status text must be emitted from
 localized templates. Changing language is presentation-only and must not alter
 any workspace state, scope, physical document position, or output settings.
+
+# Documentation and user-guide packaging
+
+The Danish and English user guides are maintained in
+`docs/USER_GUIDE_DA.md` and `docs/USER_GUIDE_EN.md`; regenerate their existing
+PDFs with `python scripts/build-user-guide.py`. Tests verify guide source,
+generated PDF content/version, language-specific path selection and inclusion
+of `docs` in both the PyInstaller spec and Windows distribution folder. The
+application selects the Danish or English PDF from the current UI language;
+other interface locales use the English guide. A source-level packaging test
+does not prove the contents of an EXE that has not been rebuilt; guide opening
+inside that packaged build remains a separate Windows acceptance check.

@@ -2,13 +2,13 @@
 
 Applikationsversion: 1.0.3<br>
 Dokumentsprog: Dansk  
-Opdateret: 11. september 2026<br>
+Opdateret: 24. oktober 2026<br>
 Udgiver: Nenolink  
 Danmark
 
 ## 1. Hvad Nenolink AI Marker gør
 
-Nenolink AI Marker tilføjer et synligt oplysningsbadge til billeder og videoer. Programmet understøtter enkelte billeder og gentagelige mappebehandlinger. Originaler overskrives aldrig bevidst; outputnavne slutter med `_ai`.
+Nenolink AI Marker tilføjer synlige oplysningsbadges og valgfri logooverlays til billeder, videoer, PDF-filer og PowerPoint-præsentationer. Programmet har fire arbejdsområder med formatbestemte forhåndsvisninger og Gem som-output. Originalfiler overskrives ikke som standard; foreslåede outputnavne slutter med `_ai`.
 
 Nenolinks badgesystem er et praktisk transparenssystem. Vælg den formulering, der præcist beskriver, hvordan AI indgik i det konkrete indhold eller arbejdsforløb.
 
@@ -18,13 +18,13 @@ Behandlingen foregår lokalt på Windows-computeren. Programmet uploader ikke me
 
 Nenolink AI Marker tilføjer automatisk minimale maskinlæsbare metadata til behandlede filer. De identificerer Nenolink AI Marker som softwaren, registrerer det valgte AI-mærke og markeringsversionen. Metadata supplerer det synlige badge; det synlige badge er fortsat den primære menneskeligt læsbare oplysning.
 
-Metadata er ikke et bevis på ægthed, er ikke manipulationssikre og garanterer ikke juridisk eller lovgivningsmæssig overholdelse. Redigeringssoftware, websites og sociale medieplatforme kan ændre eller fjerne metadata. Kontrollér hvert behandlet output før offentliggørelse, og behold originalfilen.
+AI Marker-metadata er en deklaration fra den person, der behandler filen; det er ikke en uafhængig verificering af, om eller hvordan AI blev brugt. **Fundet** betyder, at Inspect File genkendte deklarationen. **Ikke fundet** beviser ikke, at AI ikke blev brugt: metadata kan aldrig være skrevet eller kan være blevet fjernet eller ændret. Metadata er ikke et bevis på ægthed, er ikke manipulationssikre og garanterer ikke juridisk eller lovgivningsmæssig overholdelse. Kontrollér hvert behandlet output før offentliggørelse, og behold originalfilen.
 
 ## Undersøg fil
 
-**Undersøg fil** læser genkendte Nenolink AI Marker-metadata fra JPEG-, PNG-, WebP-, MP4- og MOV-filer. Vælg en fil, hvorefter resultatet viser filnavn, format, størrelse, status, software, AI-mærke og markeringsversion. Undersøgelsen er skrivebeskyttet og ændrer ikke den valgte fil.
+**Undersøg fil** læser genkendte Nenolink AI Marker-metadata fra JPG/JPEG-, PNG- og WebP-billeder, MP4/MOV/MKV/AVI/WebM-videoer, PDF, PPTX og DOCX. Vælg en fil for at se filnavn, format, størrelse og status; hvis deklarationen findes, vises også software, AI-mærke og markørversion. Undersøgelsen er skrivebeskyttet og ændrer ikke den valgte fil. DOCX kan undersøges, men er ikke et af programmets fire produktionsarbejdsområder.
 
-**Fundet** betyder, at genkendte Nenolink-metadata blev fundet. **Ikke fundet** betyder, at genkendte metadata ikke blev fundet; det betyder ikke, at AI ikke blev anvendt. Metadata kan være blevet fjernet eller ændret. Undersøg fil er ikke en AI-detektor og fastslår ikke ægthed, oprindelse, certificering, juridisk overholdelse eller overholdelse af EU's AI-forordning.
+**Fundet** betyder, at genkendte Nenolink-metadata blev fundet. **Ikke fundet** betyder kun, at deklarationen ikke blev genkendt; det betyder ikke, at AI ikke blev anvendt. Inspect File viser en lokaliseret fejl for en ugyldig/ulæselig fil, en filtype, der ikke understøttes, en adgangskodebeskyttet PDF, overskredne dokumentgrænser eller manglende Video/FFmpeg-komponent. Undersøg fil er ikke en AI-detektor og fastslår ikke ægthed, oprindelse, certificering, juridisk overholdelse eller overholdelse af EU's AI-forordning.
 
 Det synlige badge er den menneskeligt læsbare oplysning. Metadata er maskinlæsbare oplysninger. Undersøg fil læser disse maskinlæsbare oplysninger.
 
@@ -40,7 +40,7 @@ Sidefoden viser den installerede version. Ved den første normale start for hver
 
 ## 3. Sprogvalg
 
-Vælg sprog i topbjælken. Engelsk, dansk, tysk, fransk, spansk, italiensk, portugisisk, nederlandsk, svensk, norsk, polsk og tjekkisk medfølger. Valget gemmes med det samme. Manglende oversættelser falder tilbage til engelsk. Produktnavnet og badgegrafikken ændres ikke med grænsefladens sprog.
+Vælg sprog i topbjælken. Engelsk, dansk, tysk, fransk, spansk, italiensk, portugisisk, nederlandsk, svensk, norsk, polsk og tjekkisk medfølger. Valget gemmes med det samme og opdaterer den synlige grænseflade uden at ændre arbejdsområdets fil, scope, side/slide eller badge-/logovalg. Alle almindelige produkttekster er oversat; engelsk fallback er kun en sikkerhedsreserve. Produktnavnet og badgegrafikken ændres ikke med grænsefladens sprog.
 
 ### Opdateringskontrol
 
@@ -65,99 +65,103 @@ Når et billede er valgt, viser Enkelt fil en live, skaleret forhåndsvisning me
 
 ## 7. Behandling af et enkelt billede
 
-Vælg **Enkelt fil** og derefter **Vælg billede eller video**. JPG-, JPEG-, PNG- og WebP-billeder understøttes. Juster placering, størrelse, margen og opacitet, og kontrollér forhåndsvisningen. Klik på **Gem mærket billede...**. Windows-dialogen Gem som foreslår `originalnavn_ai.ext`; du kan redigere navnet, og Windows beder om bekræftelse, før en eksisterende fil erstattes. Kilden foreslås ikke som standarddestination og overskrives aldrig lydløst. Originalen i fuld opløsning bruges til output; forhåndsvisningen er kun en skaleret visning.
+Vælg **Images**, klik **Åbn billeder**, og vælg et JPG/JPEG-, PNG- eller WebP-billede. Juster badge og eventuelt logo med placering, størrelse, margen og gennemsigtighed, og kontrollér preview. **Gem som…** står ved siden af filvalget. Windows foreslår `originalnavn_ai.ext`; du kan ændre navnet, og Windows beder om bekræftelse før en eksisterende fil erstattes. Kilden vælges ikke som standarddestination og overskrives ikke lydløst. Output gengives fra originalen i fuld opløsning; preview er kun skaleret.
 
 ### Valgfrit eget logo på billeder
 
 **Eget logo** er adskilt fra det valgte AI-badge. Aktivér funktionen for at tilføje et PNG-, JPG/JPEG- eller WebP-logo i samme billedbehandling, og vælg logoets egen placering, størrelse, margen og gennemsigtighed. Transparent PNG eller WebP anbefales, når logoet ikke skal have en firkantet baggrund. Forhåndsvisningen viser begge elementer, også når de bruger samme hjørne.
 
-Eget logo er valgfri branding og gælder i øjeblikket kun enkeltbilleder og billedfiler i Batchbehandling. Logoet bruges aldrig som AI-mærke, den lokale sti skrives ikke i metadata, Undersøg fil registrerer det ikke, og det tilføjes ikke til video. Kildefiler forbliver uændrede. Hvis en gemt logofil forsvinder, deaktiveres logobehandling, mens stien bevares, så den kan rettes.
+Eget logo er valgfri branding. Det kan bruges uafhængigt af AI-badget i Image, Video, PDF og PPTX, når formatets kontroller er tilgængelige. Logoets placering, størrelse, margen og gennemsigtighed er egne indstillinger. I Video er logoets placering fast øverst til venstre; badge og logo har uafhængig timing. I PPTX vælger du særskilt, om logoet skal vises på **Første slide** eller **Alle slides**; dette valg er uafhængigt af badgets sideomfang. Logoet bruges aldrig som AI-mærke, dets lokale sti skrives ikke i metadata, og Inspect File undersøger ikke logoet. Kildefiler forbliver uændrede. Hvis en gemt logofil forsvinder, deaktiveres logobehandling, mens stien bevares, så den kan rettes.
 
 ## 8. Behandling af PDF
 
 Vælg **PDF**, åbn en PDF, og se filnavn, størrelse og sidetal. Krypterede eller
 adgangskodebeskyttede PDF-filer afvises; en registreret digital signatur giver
 en advarsel om, at ændringer kan ugyldiggøre den. Fysisk sidevisning er
-uafhængig af behandlingsomfanget. Vælg **Alle**, **Første**, **Valgte** eller
-**Interval**. Valgte sider skrives `7,11`, intervaller `10-12,20-22`, og begge
-kræver **Opdater**. Ugyldige værdier bevarer det senest gyldige omfang. Pilene
-bladrer altid gennem alle sider, mens AI-mærket kun vises på valgte sider. Eget
-logo kan bruges alene eller sammen med badge; placering, størrelse, margin og
-opacity understøttes. Ved flere valgte sider placeres logoet efter den
-accepterede adfærd på den første relevante side, mens AI-mærket følger de
-valgte sider. **Gem mærket PDF…** åbner Gem som og overskriver ikke kilden som
-standard. Eksisterende metadata bevares så vidt muligt, og Nenolink-metadata
-er en transparenserklæring, ikke bevis på ophav eller AI-proveniens. Advarsel
-vises over 100 MB eller 300 sider; hård grænse er over 300 MB eller 1.000
-sider. PDF-inspektion er endnu ikke understøttet.
+uafhængig af behandlingsomfanget. Vælg **Alle sider**, **Første side**,
+**Valgte sider** eller **Sideinterval**. Valgte sider skrives `7,11`,
+intervaller `10-12,20-22`, og begge kræver **Opdater**. Indtastningen er et
+udkast; kun **Opdater** anvender det. Ugyldige værdier bevarer det senest
+gyldige omfang og viser en lokaliseret fejlbesked. Status under Opdater viser
+det lokaliserede antal valgte sider. Pilene bladrer fysisk gennem alle sider
+uafhængigt af behandlingsomfanget. Badge og logo behandles på siderne i det
+aktive omfang; logo kan bruges alene eller sammen med badge. Placering,
+størrelse, margen og gennemsigtighed understøttes. **Gem som** åbner Windows-
+dialogen og overskriver ikke kilden som standard. Eksisterende metadata
+bevares så vidt muligt, og Nenolink-metadata er en deklaration, ikke
+uafhængig verificering af AI-brug eller bevis på ophav. Advarsel vises over
+100 MB eller 300 sider; hård grænse er over 300 MB eller 1.000 sider. Inspect
+File understøtter PDF, men krypterede/adgangskodebeskyttede filer afvises.
+Ændring kan ugyldiggøre en digital signatur; kontrollér advarslen før du
+fortsætter.
 
 ## 9. Behandling af video
 
-Videobehandling af enkeltfiler og mapper accepterer MP4, MOV, MKV, AVI og WebM. Vælg **Hele videoen** for at vise badget permanent eller **I begyndelsen**/**I slutningen** for at vise det i den valgte varighed (som standard 5 sekunder). Placering, størrelse, margen og opacitet gælder i alle tilstande. **Gem mærket video...** åbner Windows-dialogen Gem som med `originalnavn_ai.ext` foreslået. Windows-pakken indeholder den nødvendige FFmpeg-komponent; separat installation eller `PATH`-konfiguration er ikke nødvendig, og den kører uden konsolvindue. Lyd kopieres, når outputcontaineren tillader det, og video kodes som H.264. Kombinationer af container og codec varierer; kontrollér output før offentliggørelse. Hvis FFmpeg afviser en batchfil, registreres filen som en fejl, og behandlingen fortsætter.
+Videobehandling af enkeltfiler og mapper accepterer MP4, MOV, MKV, AVI og WebM. For AI-badget vælges **Første 5 sekunder**, **Hele videoen** eller **Slutningen**. Første/slutning bruger varighedsfeltet (standard 5 sekunder). Eget logo kan aktiveres uafhængigt og har sine egne valg **Forrest**, **Hele** eller **Bagest** med samme tidsprincip; positionen er fast øverst til venstre. Badge og logo kan derfor have forskellig timing og begge vises samtidig. Placering (badge), størrelse, margen og gennemsigtighed projiceres fra Video-workspacets tilstand til prøvebilledet og Save. Forhåndsvisningen er et repræsentativt frame omkring 1 sekund, ikke videoafspilning. **Gem som** åbner Windows-dialogen; behandlingen kører asynkront, så vinduet forbliver responsivt og viser status ved afslutning. Windows-pakken indeholder FFmpeg; separat installation eller `PATH`-konfiguration er ikke nødvendig. Video kodes normalt som H.264, og lyd kopieres når containeren tillader det. Hvis FFmpeg afviser en batchfil, registreres filen som en fejl, og behandlingen fortsætter.
 
-## 9. Mappebehandling
+## 10. Mappebehandling
 
 Vælg **Batchbehandling**, vælg en inputmappe, konfigurer output, medier, suffiks og videoindstillinger, og klik derefter på **Scan mappe**. Kontrollér antallet af billeder, videoer, ikke-understøttede og store filer, valgte filer samt destinationen. Klik først på **Start batchbehandling**, når scanningen er kontrolleret. Batch bruger automatisk suffikset (som standard `_ai`) og åbner ikke en Gem som-dialog for hver fil. Status viser det aktuelle filnavn samt antal succeser, spring og fejl. **Annuller** stopper før næste fil; allerede færdige output slettes ikke. En beskadiget fil stopper ikke senere filer.
 
-## 10. Input- og outputmapper
+## 11. Input- og outputmapper
 
 Standardoutput er en redigerbar undermappe med navnet `AI-marked` i inputmappen. Du kan i stedet vælge en særskilt outputmappe. **Medtag undermapper** scanner rekursivt. **Bevar mappestruktur** genskaber relative mapper under destinationen. Eksisterende outputfiler springes over og overskrives aldrig. Outputnavngivningen er `originalnavn_ai.ext`.
 
-## 11. Placering, størrelse, margen og opacitet
+## 12. Placering, størrelse, margen og opacitet
 
 Placeringen kan være øverst til venstre, øverst til højre, nederst til venstre eller nederst til højre. Størrelsen er en procentdel af billedets bredde. Margenen måles i kildebilledets pixels fra de valgte kanter. Opaciteten går fra helt gennemsigtig til helt dækkende. Programmet begrænser ekstreme indstillinger, så badget forbliver inden for mediets ramme.
 
-**Tilbage** på Batchbehandling, Badges eller Undersøg fil vender tilbage til Enkelt fil uden at nulstille valgt input, badge, logo, kilde eller andre indstillinger. Topfanerne bruges også kun til navigation. **Nulstil** er anderledes: Funktionen vender tilbage til Enkelt fil og velkomstvisningen, rydder valgt input, undersøgelsesresultat og midlertidig batchstatus, vælger standardbadget AI Assisted, deaktiverer Eget logo og gendanner standardindstillingerne for badge og logo, Hele videoen, 5 sekunder og `_ai`. Gemte stier til brugerdefineret badgemappe og logo bevares.
+**Tilbage** fra Badges eller Undersøg fil vender tilbage til underliggende workspace uden at nulstille det. **Nulstil** er anderledes: bekræftelse rydder de fire workspace-sessioner og tool-resultater og vender tilbage til rene Images med standardværdier; **Annuller** bevarer den aktuelle tilstand. Workspace-skift rydder kildesessionen i det workspace, du forlader, så tilbagevenden starter rent. Gemte badge-/logostier og generelle præferencer følger programmets eksisterende indstillingsregler.
 
-## 12. Valg af det rette standardbadge
+## 13. Valg af det rette standardbadge
 
 De første fire badges beskriver en overordnet oplysningsstatus. De næste seks beskriver en medietype eller arbejdsgang. No AI er en særskilt brugererklæring. Et badge er et kort signal, ikke en fuldstændig dokumentation af oprindelse. Bevar supplerende oplysninger, når sammenhængen kræver det.
 
-### 13. AI Assisted
+### 24. AI Assisted
 
 Anbefales, når AI har bidraget, men en person fortsat har været væsentligt involveret i planlægning, udvælgelse, redigering eller forfatterskab.
 
-### 14. AI Generated
+### 24. AI Generated
 
 Anbefales, når et AI-system hovedsageligt har genereret indholdet. Menneskelig prompting eller udvælgelse betyder ikke i sig selv, at outputtet ikke er AI-genereret.
 
-### 15. AI Modified
+### 24. AI Modified
 
 Anbefales, når AI væsentligt har ændret eksisterende indhold, for eksempel gennem omfattende udfyldning, erstatning, syntese eller transformation.
 
-### 16. Human Reviewed
+### 24. Human Reviewed
 
 Anbefales som en yderligere oplysning, når en person har kontrolleret AI-relateret output før offentliggørelse. En kontrol garanterer ikke korrekthed, sikkerhed, lovlighed eller overholdelse af regler.
 
-### 17. AI Image
+### 24. AI Image
 
 Anbefales ved AI-specifik generering eller væsentlig ændring af billedindhold.
 
-### 18. AI Video
+### 24. AI Video
 
 Anbefales ved AI-specifik generering eller væsentlig ændring af videoindhold.
 
-### 19. AI Audio
+### 24. AI Audio
 
 Anbefales til syntetisk eller væsentligt AI-ændret tale, musik, lyd eller andet lydindhold.
 
-### 20. AI Software
+### 24. AI Software
 
 Anbefales, når AI væsentligt har bidraget til produktion af software eller kildekode. Badget er ikke en sikkerheds- eller kvalitetscertificering.
 
-### 21. AI Translation
+### 24. AI Translation
 
 Anbefales, når AI har oversat indhold mellem sprog. Overvej menneskelig kontrol af betydningsfuldt eller specialiseret materiale.
 
-### 22. AI Localization
+### 24. AI Localization
 
 Anbefales, når AI har bidraget til at tilpasse indhold til et lokalområde, marked eller en kultur ud over direkte oversættelse.
 
-### 23. No AI
+### 24. No AI
 
 No AI er en erklæring valgt af brugeren. Nenolink AI Marker kontrollerer ikke, at indholdet er oprettet uden brug af AI.
 
-## 24. Baggrund om transparens i EU's AI-forordning
+## 25. Baggrund om transparens i EU's AI-forordning
 
 Forordning (EU) 2024/1689, almindeligvis kaldet EU's AI-forordning, indeholder transparensforpligtelser for udbydere og idriftsættere af visse AI-systemer. Artikel 50 omhandler blandt andet information til personer, når de interagerer med visse AI-systemer, maskinlæsbar mærkning af syntetisk output fra udbydere samt oplysningspligt ved visse deepfakes og tekster af offentlig interesse. De præcise pligter, undtagelser, tidspunkter, tekniske standarder og ansvarlige parter afhænger af de konkrete forhold og gældende ret.
 
@@ -165,7 +169,7 @@ Nenolink AI Marker tilføjer et synligt badge. Et synligt badge er ikke det samm
 
 Officiel kilde: Forordning (EU) 2024/1689, artikel 50, EUR-Lex: https://eur-lex.europa.eu/legal-content/DA/TXT/?uri=CELEX:32024R1689
 
-## 25. Filkompatibilitet og behandlingsgrænser
+## 26. Filkompatibilitet og behandlingsgrænser
 
 Som praktisk vejledning anbefales billeder op til 50 MB og videoer op til 2 GB. Det er anbefalinger, ikke garanterede tekniske maksimumgrænser; større filer kan stadig fungere.
 
@@ -173,7 +177,7 @@ Ikke alle billed- eller videofiler kan nødvendigvis behandles. Kompatibilitet o
 
 Der fastsættes ikke en bestemt maksimal filstørrelse. En fil, der virker på én computer, kan fejle eller tage betydeligt længere tid på en anden, fordi de praktiske grænser delvist afhænger af brugerens computer og tilgængelige ressourcer. Bevar originalfiler, og kontrollér hvert behandlet output før offentliggørelse eller distribution.
 
-## 26. Begrænsninger og brugerens ansvar
+## 27. Begrænsninger og brugerens ansvar
 
 Du er ansvarlig for at vælge et korrekt badge, indhente rettigheder til kildemedier og badgegrafik, kontrollere output, bevare originaler og overholde gældende aftaler, platformregler samt krav om tilgængelighed, privatliv, immaterielle rettigheder, forbrugerbeskyttelse og AI. Synlige overlays kan beskæres eller fjernes. Værktøjet indlejrer ikke kryptografisk oprindelsesdokumentation og kontrollerer ikke, om indhold er fremstillet med AI.
 
@@ -202,7 +206,7 @@ Nenolink AI Marker må ikke præsenteres som:
 - juridisk rådgivning; eller
 - en garanti for, at indhold er korrekt klassificeret.
 
-## 27. Fejlfinding
+## 28. Fejlfinding
 
 - **Ingen badges fundet:** Kontrollér, at PNG-filer ligger direkte i den viste mappe, og klik derefter på **Opdater badges**.
 - **Egen mappe mangler:** Tilslut drevet igen, eller vælg en erstatningsmappe. Standardbadges er fortsat tilgængelige.
@@ -223,16 +227,19 @@ Nenolink AI Marker - (c) Henrik Nielsen - https://nenolink.com
 ## PowerPoint-præsentationer
 
 Åbn **PowerPoint / Slides**, vælg en `.pptx`, og kontrollér filnavn, størrelse
-og antal slides. Brug **Forrige/Næste** til fysiske slides. Vælg **Alle**,
-**Første**, **Valgte** eller **Interval** som behandlingsomfang. Valgte
-accepterer enkelt-numre og blandede intervaller som `3,7`, `4-8` eller
-`2,4-6,9`; Valgte og Interval anvendes med **Opdater**. Preview-navigation er
-uafhængig af behandlingsomfanget.
+og antal slides. Brug **Forrige/Næste** til fysiske slides. Vælg **Alle slides**,
+**Første slide**, **Valgte slides** eller **Slideinterval** som badgets
+behandlingsomfang. Valgte accepterer enkelt-numre og blandede intervaller som
+`3,7`, `4-8` eller `2,4-6,9`; Valgte og Interval anvendes med **Opdater**.
+Ugyldigt input ændrer ikke det aktive omfang. Preview-navigation er uafhængig
+af behandlingsomfanget.
 
 Aktivér eller deaktivér AI-badget og eventuelt **Eget logo**, og vælg badge,
-placering, størrelse, margen og opacitet. Live-preview viser kun slides i det
-aktive omfang. I PowerPoint indsættes logoet på hver slide i omfanget (f.eks.
-Valgte `3,7` på begge slides). Brug **Gem som**; standardnavnet ender på
+placering, størrelse, margen og gennemsigtighed. Preview viser badget på den
+fysisk viste slide, når den er i badgets aktive omfang. Logoets eget valg
+**Første slide / Alle slides** er uafhængigt; standarden er **Alle slides**,
+så logo kan vises på en slide uden for badgets valgte omfang. Brug **Gem som**;
+standardnavnet ender på
 `_ai.pptx`, og kilden overskrives ikke som standard. AI Marker-metadata er en
 oplysning om markeringen, ikke bevis på ophav eller proveniens. Filer over 100
 MB eller 150 slides giver en advarsel; over 300 MB eller 500 slides kan ikke
