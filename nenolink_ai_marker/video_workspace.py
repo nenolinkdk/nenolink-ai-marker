@@ -185,7 +185,10 @@ class VideoWorkspace:
         self.project(); self.app._update_video_duration_visibility(); self.app._save_image_settings()
 
     def change_badge(self, label):
-        apply_video_event(self.state, VideoEvent.BADGE_CHANGED, {"badge_id": self.app.badge_display_to_file.get(label, label)})
+        badge_id = self.app.badges.canonical_filename(label)
+        if badge_id is None:
+            return
+        apply_video_event(self.state, VideoEvent.BADGE_CHANGED, {"badge_id": badge_id})
         self.project(); self.refresh_preview(); self.app._save_image_settings()
 
     def change_visual(self, enabled=None, *_args):

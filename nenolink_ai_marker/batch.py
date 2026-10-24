@@ -211,13 +211,14 @@ class BatchProcessor:
         ffmpeg = find_ffmpeg()
         if not ffmpeg:
             raise ValueError("Video processing is unavailable because the required video component could not be found. Reinstall or repair Nenolink AI Marker.")
-        positions = {
-            "top-left": f"{settings.margin}:{settings.margin}",
-            "top-right": f"W-w-{settings.margin}:{settings.margin}",
-            "bottom-left": f"{settings.margin}:H-h-{settings.margin}",
-            "bottom-right": f"W-w-{settings.margin}:H-h-{settings.margin}",
-            "center": "(W-w)/2:(H-h)/2",
-        }
+        def position(name: str, margin: int) -> str:
+            return {
+                "top-left": f"{margin}:{margin}",
+                "top-right": f"W-w-{margin}:{margin}",
+                "bottom-left": f"{margin}:H-h-{margin}",
+                "bottom-right": f"W-w-{margin}:H-h-{margin}",
+                "center": "(W-w)/2:(H-h)/2",
+            }[name]
         target.parent.mkdir(parents=True, exist_ok=True)
         overlay = badge or logo
         if overlay is None:
@@ -234,19 +235,22 @@ class BatchProcessor:
             is_badge = item is badge
             width = max(1, settings.size_percent if is_badge else settings.logo_size_percent) / 100
             alpha = (settings.opacity if is_badge else settings.logo_opacity) / 100
-            position = positions[settings.position if is_badge else "top-left"]
+            overlay_position = position(
+                settings.position if is_badge else "top-left",
+                settings.margin if is_badge else settings.logo_margin,
+            )
             mode = settings.video_mode if is_badge else settings.logo_mode
             if normalize_video_timing_mode(mode) != "permanent" and duration_seconds is None:
                 duration_seconds = video_duration_seconds(ffmpeg, source)
             label = f"ov{index}"
-            parts.append(f"[{index}:v]{current}scale2ref=w=main_w*{width}:h=ow/mdar[scaled{index}][base{index}];[scaled{index}]format=rgba,colorchannelmixer=aa={alpha}[{label}];[{current.strip('[]')}][{label}]overlay={position}:shortest=1{timing(mode)}[{label}out]")
+            parts.append(f"[{index}:v]{current}scale2ref=w=main_w*{width}:h=ow/mdar[scaled{index}][base{index}];[scaled{index}]format=rgba,colorchannelmixer=aa={alpha}[{label}];[base{index}][{label}]overlay={overlay_position}:shortest=1{timing(mode)}[{label}out]")
             current = f"[{label}out]"
         filter_graph = ";".join(parts)
         metadata = metadata or marker_metadata(overlay.name)
         base_command = [
             ffmpeg, "-y", "-i", str(source),
             *sum((["-loop", "1", "-i", str(item)] for item in inputs), []),
-            "-filter_complex", filter_graph, "-map", "[outv]", "-map", "0:a?",
+            "-filter_complex", filter_graph, "-map", current, "-map", "0:a?",
             "-c:v", "libx264", "-crf", "18", "-preset", "medium", "-c:a", "copy",
         ]
         metadata_options = [

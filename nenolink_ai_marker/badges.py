@@ -60,6 +60,24 @@ class BadgeRepository:
         info = self.metadata(name)
         return info.display_name if info else custom_badge_display_name(name)
 
+    def canonical_filename(self, selection: str) -> str | None:
+        """Resolve a displayed badge choice or canonical filename to a file name.
+
+        Workspace state stores badge filenames, while controls expose localized
+        display names. Keep that translation at the repository boundary so it
+        does not depend on the Badges tool having been mounted first.
+        """
+        value = str(selection or "")
+        if not value:
+            return None
+        if self.find(value) is not None:
+            return value
+        return next(
+            (path.name for path in self.display_badges()
+             if self.display_name(path.name) == value),
+            None,
+        )
+
     def find(self, name: str) -> Path | None:
         return next((path for path in self.list_badges() if path.name == name), None)
 

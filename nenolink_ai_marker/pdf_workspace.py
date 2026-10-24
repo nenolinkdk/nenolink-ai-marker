@@ -234,7 +234,9 @@ class PdfWorkspace:
         self.set_badge(enabled=bool(self.state.badge.enabled) if enabled is None else bool(enabled))
 
     def select_badge(self, display_name: str) -> None:
-        badge_id = self.app.badge_display_to_file.get(display_name, display_name)
+        badge_id = self.app.badges.canonical_filename(display_name)
+        if badge_id is None:
+            return
         self.set_badge(badge_id=badge_id, enabled=bool(self.state.badge.enabled))
 
     def accept_file(self, path, info) -> None:

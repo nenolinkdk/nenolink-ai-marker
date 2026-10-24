@@ -247,7 +247,8 @@ def test_pptx_save_callback_writes_logo_only_to_selected_slide(tmp_path, monkeyp
     translator = SimpleNamespace(language="en", text=lambda key, **values: key.format(**values))
     app = SimpleNamespace(
         translator=translator,
-        badges=SimpleNamespace(find=lambda _name: None, display_name=lambda _name: ""),
+        badges=SimpleNamespace(find=lambda _name: None, display_name=lambda _name: "",
+                               canonical_filename=lambda _name: None),
         settings=lambda: MarkerSettings(), pptx_processor=PptxProcessor(),
         status_var=SimpleNamespace(set=messages.append),
     )

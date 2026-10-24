@@ -112,9 +112,11 @@ class ResourceAndBatchTests(unittest.TestCase):
         with patch("nenolink_ai_marker.batch.shutil.which",return_value="C:/ffmpeg.exe"), patch("nenolink_ai_marker.batch.subprocess.run",return_value=completed) as run:
             BatchProcessor.process_video(Path("input.mp4"),Path("badge.png"),Path("output.mp4"),MarkerSettings())
         command=run.call_args.args[0]
-        self.assertIn("-loop",command); self.assertIn("[outv]",command)
-        self.assertEqual(command[command.index("-map")+1],"[outv]")
-        self.assertIn("shortest=1",command[command.index("-filter_complex")+1])
+        self.assertIn("-loop",command)
+        graph=command[command.index("-filter_complex")+1]
+        self.assertIn("[base1][ov1]overlay=",graph)
+        self.assertEqual(command[command.index("-map")+1],"[ov1out]")
+        self.assertIn("shortest=1",graph)
 
     def test_windows_ffmpeg_process_is_hidden(self):
         options=hidden_subprocess_kwargs("nt")

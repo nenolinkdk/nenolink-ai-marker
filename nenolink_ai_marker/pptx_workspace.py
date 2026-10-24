@@ -109,7 +109,7 @@ class PptxWorkspace:
         self.scope_var = self.scope_control.mode_var; self.scope_menu = self.scope_control.menu; self.scope_input_var = self.scope_control.input_var; self.scope_input = self.scope_control.input; self.scope_update = self.scope_control.update; self.scope_status = self.scope_control.status
         self._scope_display = {"all": t("pptx.scope.all"), "first": t("pptx.scope.first"), "selected": t("pptx.scope.selected"), "range": t("pptx.scope.range")}; self._scope_value = {v: k for k, v in self._scope_display.items()}
         badge_section = ctk.CTkFrame(controls, fg_color="transparent"); self.control_panel.add_section("AI_BADGE", badge_section)
-        self.badge_control = BadgeControl(badge_section, on_enabled_changed=lambda value: self._dispatch(PptxEvent.BADGE_ENABLE, value), on_badge_selected=lambda value: self._dispatch(PptxEvent.BADGE_SELECT, value), heading_label=t("section.ai_badge"))
+        self.badge_control = BadgeControl(badge_section, on_enabled_changed=lambda value: self._dispatch(PptxEvent.BADGE_ENABLE, value), on_badge_selected=self._select_badge, heading_label=t("section.ai_badge"))
         self.badge_control.frame.grid(row=0, column=0, sticky="ew")
         self.enabled_var = self.badge_control.enabled_var; self.badge_var = self.badge_control.selector_var
         self.badge_enable = self.badge_control.enabled_widget; self.badge_menu = self.badge_control.selector_widget; self.badge_visual = self.badge_control.graphic_widget; self.badge_image = self.badge_visual; self.badge_name = self.badge_visual
@@ -321,6 +321,12 @@ class PptxWorkspace:
             self.logo_control.project(LogoProjection(enabled=self.state.logo.enabled, filename=self.state.logo.path.name if self.state.logo.path else "", position=self.state.logo.position, size=self.state.logo.size, margin=self.state.logo.margin, opacity=self.state.logo.opacity, labels=self._logo_labels()))
         self._render_preview()
 
+    def _select_badge(self, displayed):
+        """Store the repository's canonical badge filename in workspace state."""
+        badge_id = self.app.badges.canonical_filename(displayed)
+        if badge_id is not None:
+            self._dispatch(PptxEvent.BADGE_SELECT, badge_id)
+
     def _save_as(self):
         """Save through the authoritative workspace state and PPTX processor."""
         self.receipts.record({"layer": "pptx", "event": "PPTX_SAVE_CLICK"})
@@ -344,7 +350,8 @@ class PptxWorkspace:
         if destination.resolve() == self.state.path.resolve():
             messagebox.showwarning(self.app.translator.text("button.save"), self.app.translator.text("error.choose_different_output"))
             return
-        badge = self.app.badges.find(self.state.badge.badge_id) if self.state.badge.enabled else None
+        badge_id = self.app.badges.canonical_filename(self.state.badge.badge_id)
+        badge = self.app.badges.find(badge_id) if self.state.badge.enabled and badge_id else None
         label = self.app.badges.display_name(self.state.badge.badge_id) if badge else ""
         settings = replace(
             self.app.settings(), position=self.state.badge.position,
