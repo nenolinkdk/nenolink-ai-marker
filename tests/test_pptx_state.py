@@ -20,6 +20,25 @@ def test_pptx_state_clear_is_unconditional():
     assert state.scope_mode == "all" and state.active_scope == ()
 
 
+def test_pptx_reset_to_defaults_restores_workspace_owned_visual_and_scope_defaults():
+    state = PptxWorkspaceState(Path("deck.pptx"), 3, 2, "selected", (2,), "2")
+    state.badge.size = 45; state.logo.enabled = True; state.logo.path = Path("logo.png")
+    owner = id(state)
+    apply_pptx_event(state, PptxEvent.RESET_TO_DEFAULTS)
+    assert id(state) == owner
+    assert state == PptxWorkspaceState()
+
+
+def test_pptx_workspace_enter_clean_dispatches_local_reset_event():
+    from nenolink_ai_marker.pptx_workspace import PptxWorkspace
+
+    workspace = PptxWorkspace()
+    workspace.state.path = Path("old.pptx"); workspace.state.slide_count = 4
+    workspace.state.badge.size = 46; workspace.state.logo.enabled = True
+    workspace.enter_clean()
+    assert workspace.state == PptxWorkspaceState()
+
+
 @pytest.mark.parametrize("spec", PPTX_TRANSITION_TABLE)
 def test_transition_table_declares_effects(spec):
     assert spec.event in PptxEvent

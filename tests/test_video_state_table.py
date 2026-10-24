@@ -31,6 +31,7 @@ def test_every_video_table_transition_executes(spec):
         VideoEvent.LOGO_MARGIN_CHANGED: {"margin": 12},
         VideoEvent.LOGO_OPACITY_CHANGED: {"opacity": 80},
         VideoEvent.CLEAR_RUNTIME: {},
+        VideoEvent.RESET_TO_DEFAULTS: {},
     }[spec.event]
     assert apply_video_event(state, spec.event, payload) is state
     if spec.event is VideoEvent.BADGE_CHANGED:
@@ -60,6 +61,23 @@ def test_video_clear_preserves_visual_preferences():
     state.badge.badge_id = "AI Assisted"
     apply_video_event(state, VideoEvent.CLEAR_RUNTIME)
     assert state.path is None and state.badge.badge_id == "AI Assisted"
+
+
+def test_video_reset_to_defaults_restores_its_own_mode_and_visual_defaults():
+    state = VideoWorkspaceState(path=Path("clip.mp4"), mode="end", duration=12)
+    state.badge.size = 48; state.logo.enabled = True; state.logo.path = Path("logo.png")
+    apply_video_event(state, VideoEvent.RESET_TO_DEFAULTS)
+    assert state == VideoWorkspaceState()
+
+
+def test_video_workspace_enter_clean_dispatches_local_reset_event():
+    workspace = VideoWorkspace.__new__(VideoWorkspace)
+    workspace.state = VideoWorkspaceState(path=Path("old.mp4"), mode="end", duration=17)
+    workspace.state.logo.enabled = True
+    workspace.preview_photo = object()
+    workspace.enter_clean()
+    assert workspace.state == VideoWorkspaceState()
+    assert workspace.preview_photo is None
 
 def test_video_workspace_actions_are_table_backed():
     from pathlib import Path

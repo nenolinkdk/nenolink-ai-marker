@@ -10,6 +10,14 @@ from typing import Any, Protocol
 import re
 
 
+def reset_workspace_state(state):
+    """Reset one local FSM state object to its workspace-specific defaults."""
+    defaults = type(state)()
+    state.__dict__.clear()
+    state.__dict__.update(defaults.__dict__)
+    return state
+
+
 class WorkspaceEvent(str, Enum):
     FILE_SELECTED = "file_selected"
     BADGE_ENABLED_CHANGED = "badge_enabled_changed"
@@ -93,6 +101,7 @@ class ImageEvent(str, Enum):
     LOGO_CHANGED = "logo_changed"
     VISUAL_CHANGED = "visual_changed"
     CLEAR_RUNTIME = "clear_runtime"
+    RESET_TO_DEFAULTS = "reset_to_defaults"
 
 
 @dataclass(frozen=True)
@@ -108,6 +117,7 @@ IMAGE_TRANSITION_TABLE: tuple[ImageTransition, ...] = (
     ImageTransition(ImageEvent.LOGO_CHANGED, ("logo",), ("selected_files", "path", "badge")),
     ImageTransition(ImageEvent.VISUAL_CHANGED, ("badge", "logo"), ("selected_files", "path")),
     ImageTransition(ImageEvent.CLEAR_RUNTIME, ("selected_files", "path", "preview_image", "output_status"), ("badge", "logo")),
+    ImageTransition(ImageEvent.RESET_TO_DEFAULTS, ("path", "selected_files", "preview_image", "badge", "logo", "output_status"), ()),
 )
 
 
@@ -141,6 +151,8 @@ def apply_image_event(state: ImageWorkspaceState, event: ImageEvent | str, paylo
                 setattr(state.logo, key, Path(value) if key == "path" and value else value)
     elif event is ImageEvent.CLEAR_RUNTIME:
         state.clear_runtime_state()
+    elif event is ImageEvent.RESET_TO_DEFAULTS:
+        reset_workspace_state(state)
     return state
 
 
@@ -167,6 +179,7 @@ class VideoEvent(str, Enum):
     LOGO_MARGIN_CHANGED = "logo_margin_changed"
     LOGO_OPACITY_CHANGED = "logo_opacity_changed"
     CLEAR_RUNTIME = "clear_runtime"
+    RESET_TO_DEFAULTS = "reset_to_defaults"
 
 
 @dataclass(frozen=True)
@@ -189,6 +202,7 @@ VIDEO_TRANSITION_TABLE: tuple[VideoTransition, ...] = (
     VideoTransition(VideoEvent.LOGO_MARGIN_CHANGED, ("logo",), ("path", "mode", "duration", "badge")),
     VideoTransition(VideoEvent.LOGO_OPACITY_CHANGED, ("logo",), ("path", "mode", "duration", "badge")),
     VideoTransition(VideoEvent.CLEAR_RUNTIME, ("path", "output_status"), ("mode", "duration", "badge", "logo")),
+    VideoTransition(VideoEvent.RESET_TO_DEFAULTS, ("path", "mode", "duration", "badge", "logo", "output_status"), ()),
 )
 
 
@@ -227,6 +241,8 @@ def apply_video_event(state: VideoWorkspaceState, event: VideoEvent | str, paylo
         if "opacity" in payload: state.logo.opacity = int(payload["opacity"])
     elif event is VideoEvent.CLEAR_RUNTIME:
         state.clear_runtime_state()
+    elif event is VideoEvent.RESET_TO_DEFAULTS:
+        reset_workspace_state(state)
     return state
 
 
@@ -239,6 +255,10 @@ class PdfWorkspaceState(WorkspaceRuntimeState):
     scope_input: str = ""
     active_scope: tuple[int, ...] = ()
     preview_image: Any = None
+
+    def __post_init__(self) -> None:
+        if self.badge.enabled and not self.badge.badge_id:
+            self.badge.badge_id = "ai-assisted.png"
 
 
 class PdfEvent(str, Enum):
@@ -253,6 +273,7 @@ class PdfEvent(str, Enum):
     LOGO_CHANGED = "logo_changed"
     VISUAL_CHANGED = "visual_changed"
     CLEAR_RUNTIME = "clear_runtime"
+    RESET_TO_DEFAULTS = "reset_to_defaults"
 
 
 @dataclass(frozen=True)
@@ -274,6 +295,7 @@ PDF_TRANSITION_TABLE: tuple[PdfTransition, ...] = (
     PdfTransition(PdfEvent.LOGO_CHANGED, ("logo",), ("path", "page_count", "active_scope", "scope_input", "current_page", "badge")),
     PdfTransition(PdfEvent.VISUAL_CHANGED, ("badge", "logo"), ("path", "page_count", "active_scope", "scope_input", "current_page")),
     PdfTransition(PdfEvent.CLEAR_RUNTIME, ("path", "page_count", "current_page", "scope_mode", "scope_input", "active_scope", "preview_image"), ("badge", "logo")),
+    PdfTransition(PdfEvent.RESET_TO_DEFAULTS, ("path", "page_count", "current_page", "scope_mode", "scope_input", "active_scope", "preview_image", "badge", "logo", "output_status"), ()),
 )
 
 
@@ -299,6 +321,8 @@ def _pdf_values(value, page_count: int, mode: str) -> tuple[int, ...]:
             ends = tuple(int(item) for item in token.split("-"))
             if len(ends) == 2 and ends[0] > ends[1]:
                 raise ValueError("PDF page range must be ascending")
+            if any(item < 1 or item > page_count for item in ends):
+                raise ValueError("PDF scope is outside the document")
             if mode == "range" and len(ends) != 2:
                 raise ValueError("PDF range requires page intervals")
             selected.update(range(ends[0], ends[-1] + 1))
@@ -346,6 +370,8 @@ def apply_pdf_event(state: PdfWorkspaceState, event: PdfEvent | str, payload=Non
             setattr(target, key.removeprefix("logo_"), value)
     elif event is PdfEvent.CLEAR_RUNTIME:
         state.clear_runtime_state(); state.page_count = 0; state.current_page = 0; state.scope_mode = "all"; state.scope_input = ""; state.active_scope = (); state.preview_image = None
+    elif event is PdfEvent.RESET_TO_DEFAULTS:
+        reset_workspace_state(state)
     return state
 
 

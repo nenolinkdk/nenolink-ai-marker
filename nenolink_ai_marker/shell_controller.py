@@ -120,9 +120,11 @@ def shell_transition_spec(source: str, tool: str | None, event: str, active_work
         return ShellTransitionSpec(src, src_tool, ev, False, (ShellAction.PRESERVE_SOURCE, ShellAction.PROJECT_DESTINATION), src, ToolState.NONE, True, decision)
     if active_work and decision == "cancel":
         return ShellTransitionSpec(src, src_tool, ev, True, (ShellAction.PRESERVE_SOURCE,), src, src_tool, True, decision)
-    actions = ((ShellAction.CLEAR_SOURCE, ShellAction.UNMOUNT_SOURCE, ShellAction.CLEAN_DESTINATION, ShellAction.MOUNT_DESTINATION, ShellAction.PROJECT_DESTINATION)
-               if active_work else
-               (ShellAction.UNMOUNT_SOURCE, ShellAction.CLEAN_DESTINATION, ShellAction.MOUNT_DESTINATION, ShellAction.PROJECT_DESTINATION))
+    # Leaving content always resets that workspace through its own local FSM;
+    # active work controls confirmation, not whether preferences are reset.
+    actions = (ShellAction.CLEAR_SOURCE, ShellAction.UNMOUNT_SOURCE,
+               ShellAction.CLEAN_DESTINATION, ShellAction.MOUNT_DESTINATION,
+               ShellAction.PROJECT_DESTINATION)
     return ShellTransitionSpec(src, src_tool, ev, active_work, actions, dest, ToolState.NONE, False, decision)
 
 SHELL_TRANSITION_TABLE = {

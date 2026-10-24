@@ -80,12 +80,14 @@ class _ShellRuntimeAdapter:
         self.cleared_workspaces = []
         self.clear_failures = []
     def preserve_source(self): return None
-    def clear_source(self, source): self.app._workspace_registry[source].clear_runtime_state()
+    def clear_source(self, source): self.app._workspace_registry[source].enter_clean()
     def clean_destination(self, destination): self.app._workspace_registry[destination].enter_clean()
     def clear_all_workspaces(self):
         for source in DESTINATIONS:
             try:
-                self.app._workspace_registry[source].clear_runtime_state()
+                workspace = self.app._workspace_registry[source]
+                workspace.enter_clean()
+                workspace.unmount()
                 self.cleared_workspaces.append(source)
             except Exception as error:
                 self.clear_failures.append(f"{source}: {type(error).__name__}: {error}")

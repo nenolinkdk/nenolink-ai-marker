@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 
 from nenolink_ai_marker.app import MarkerApp
 from nenolink_ai_marker.shell_controller import (
@@ -52,13 +53,14 @@ def test_active_cross_content_cancel_preserves_source_and_receipt_policy(source,
     assert MarkerApp.request_content_transition(app, source)
     destination_workspace = app._workspace_registry[destination]
     destination_unmounted_before = destination_workspace.unmounted
+    destination_cleaned_before = destination_workspace.cleaned
     app._format_has_active_work = lambda _kind: True
     app._confirm_format_switch.return_value = False
     assert not MarkerApp.request_content_transition(app, destination)
     workspace = app._workspace_registry[source]
     assert workspace.cleared == 0
     assert workspace.unmounted == 0
-    assert destination_workspace.cleaned == 0
+    assert destination_workspace.cleaned == destination_cleaned_before
     assert destination_workspace.unmounted == destination_unmounted_before
     assert app.shell_controller.active_content_type == source
     assert app.last_shell_spec.decision == "cancel"
@@ -69,13 +71,16 @@ def test_active_cross_content_cancel_preserves_source_and_receipt_policy(source,
 def test_active_cross_content_continue_clears_only_source_and_matches_spec(source, destination):
     app = _app()
     assert MarkerApp.request_content_transition(app, source)
+    source_cleaned_before = app._workspace_registry[source].cleaned
+    destination_cleaned_before = app._workspace_registry[destination].cleaned
     app._format_has_active_work = lambda kind: kind == source
     app._confirm_format_switch.return_value = True
     assert MarkerApp.request_content_transition(app, destination)
     source_workspace = app._workspace_registry[source]
-    assert source_workspace.cleared == 1
-    assert app._workspace_registry[destination].cleaned == 1
-    assert all(workspace.cleared == 0 for kind, workspace in app._workspace_registry.items() if kind != source)
+    assert source_workspace.cleared == 0
+    assert source_workspace.cleaned == source_cleaned_before + 1
+    assert app._workspace_registry[destination].cleaned == destination_cleaned_before + 1
+    assert all(workspace.cleared == 0 for workspace in app._workspace_registry.values())
     receipt = app.last_shell_receipt
     expected = shell_transition_spec(source, None, destination, True, "continue")
     assert receipt.source == source
@@ -98,3 +103,63 @@ def test_warning_policy_is_active_only_for_different_content(source):
 def test_transition_table_covers_complete_four_by_four_matrix():
     assert len(SHELL_TRANSITION_TABLE) == 16
     assert {(source.value, event.value) for source, event in SHELL_TRANSITION_TABLE} == set(PAIRS)
+
+
+@pytest.mark.parametrize("kind", CONTENT)
+def test_navigation_uses_each_workspace_local_clean_event(kind):
+    from types import SimpleNamespace
+    from nenolink_ai_marker.app import _ShellRuntimeAdapter
+    from nenolink_ai_marker.shell_controller import ShellController, ShellTransitionExecutor
+    from nenolink_ai_marker.workspace_state import (
+        ImageWorkspaceState, ImageEvent, apply_image_event,
+        VideoWorkspaceState, VideoEvent, apply_video_event,
+        PdfWorkspaceState, PdfEvent, apply_pdf_event,
+    )
+    from nenolink_ai_marker.pptx_state import PptxWorkspaceState, PptxEvent, apply_pptx_event
+
+    state_types = {
+        "image": (ImageWorkspaceState, ImageEvent.RESET_TO_DEFAULTS, apply_image_event),
+        "video": (VideoWorkspaceState, VideoEvent.RESET_TO_DEFAULTS, apply_video_event),
+        "pdf": (PdfWorkspaceState, PdfEvent.RESET_TO_DEFAULTS, apply_pdf_event),
+        "pptx": (PptxWorkspaceState, PptxEvent.RESET_TO_DEFAULTS, apply_pptx_event),
+    }
+
+    class Workspace:
+        def __init__(self, name):
+            state_type, event, reducer = state_types[name]
+            self.state = state_type()
+            self.event, self.reducer = event, reducer
+            self.name = name
+            self.cleaned = 0
+        def has_active_work(self): return False
+        def enter_clean(self):
+            self.cleaned += 1
+            self.reducer(self.state, self.event)
+        def clear_runtime_state(self): raise AssertionError("navigation must use local clean event")
+        def unmount(self): pass
+        def mount(self, _host): pass
+        def project(self): pass
+
+    destination = next(value for value in CONTENT if value != kind)
+    registry = {name: Workspace(name) for name in CONTENT}
+    source = registry[kind]
+    source.state.path = Path("source")
+    source.state.badge.size = 53
+    source.state.logo.enabled = True
+    source.state.logo.path = Path("logo.png")
+    if kind == "pdf":
+        source.state.page_count = 3; source.state.scope_mode = "selected"; source.state.active_scope = (2,)
+    elif kind == "pptx":
+        source.state.slide_count = 3; source.state.scope_mode = "selected"; source.state.active_scope = (2,)
+    elif kind == "image":
+        source.state.selected_files = (Path("source"),)
+    controller = ShellController(); controller.active_content_type = kind
+    app = SimpleNamespace(_workspace_registry=registry, shell_controller=controller,
+                          content_host=object(), mounted_view="", last_shell_receipt=None)
+    runtime = _ShellRuntimeAdapter(app)
+    spec = shell_transition_spec(kind, None, destination, True, "continue")
+    ShellTransitionExecutor().execute(spec, runtime)
+    assert source.state == type(source.state)()
+    assert source.cleaned == 1
+    assert registry[destination].state == type(registry[destination].state)()
+    assert registry[destination].cleaned == 1

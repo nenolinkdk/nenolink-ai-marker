@@ -30,6 +30,9 @@ class Workspace:
             raise RuntimeError("injected clear failure")
         self.active = False
 
+    def enter_clean(self):
+        self.clear_runtime_state()
+
     def unmount(self):
         self.unmount_calls += 1
 
@@ -62,6 +65,7 @@ def test_confirmed_reset_clears_every_workspace_through_registry_and_receipt():
     ShellTransitionExecutor().execute(spec, runtime)
 
     assert all(not workspace.active for workspace in workspaces.values())
+    assert all(workspace.unmount_calls == 1 for workspace in workspaces.values())
     assert runtime.cleared_workspaces == list(DESTINATIONS)
     assert runtime.clear_failures == []
     assert runtime.app.shell_controller.active_tool is None

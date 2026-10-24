@@ -421,9 +421,21 @@ class PptxWorkspace:
     def _project_scope(self):
         if hasattr(self, "scope_var"):
             t = getattr(getattr(self.app, "translator", None), "text", lambda key, **v: key)
-            self.scope_var.set(getattr(self, "_scope_display", {}).get(self.state.scope_mode, self.state.scope_mode.title()))
-            self.scope_input_var.set(self.state.scope_input)
-            self.scope_status.configure(text=t("pptx.selected_count", count=len(self.state.active_scope)))
+            mode = getattr(self, "_scope_display", {}).get(self.state.scope_mode, self.state.scope_mode.title())
+            status = t("pptx.selected_count", count=len(self.state.active_scope))
+            if getattr(self, "scope_control", None) is not None:
+                self.scope_control.project(
+                    mode=mode, draft=self.state.scope_input, status=status,
+                    input_enabled=self.state.scope_mode in {"selected", "range"},
+                )
+            else:
+                self.scope_var.set(mode)
+                enabled = self.state.scope_mode in {"selected", "range"}
+                self.scope_input_var.set(self.state.scope_input if enabled else "—")
+                input_widget = getattr(self, "scope_input", None)
+                if input_widget is not None:
+                    input_widget.configure(state="normal" if enabled else "disabled")
+                self.scope_status.configure(text=status)
 
     def _project_badge(self):
         if hasattr(self, "badge_control"):
@@ -472,4 +484,4 @@ class PptxWorkspace:
         return apply_pptx_event(self.state, event, value)
 
     def enter_clean(self):
-        return self.dispatch(PptxEvent.CLEAR_RUNTIME)
+        return self.dispatch(PptxEvent.RESET_TO_DEFAULTS)

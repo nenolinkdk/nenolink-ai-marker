@@ -76,7 +76,7 @@ class ImageWorkspace:
         return apply_image_event(self.state, event, payload)
 
     def enter_clean(self):
-        return self.dispatch(ImageEvent.CLEAR_RUNTIME)
+        return self.dispatch(ImageEvent.RESET_TO_DEFAULTS)
 
     def project(self):
         """Project authoritative state through the current Image presentation."""

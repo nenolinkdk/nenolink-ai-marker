@@ -9,8 +9,11 @@ class DocumentScopeControl:
         self.input_var = ctk.StringVar(value=""); self.input = ctk.CTkEntry(self.frame, textvariable=self.input_var, placeholder_text=placeholder, width=190); self.input.grid(row=1, column=0, pady=2, sticky="w"); self.input.bind("<KeyRelease>", lambda _e: on_text(self.input_var.get()))
         self.update = ctk.CTkButton(self.frame, text=update_label, command=on_update, width=90); self.update.grid(row=2, column=0, sticky="w")
         self.status = ctk.CTkLabel(self.frame, text="", anchor="w"); self.status.grid(row=3, column=0, sticky="w")
-    def project(self, *, mode, draft, status=""):
-        self.mode_var.set(mode); self.input_var.set(draft); self.status.configure(text=status)
+    def project(self, *, mode, draft, status="", input_enabled=True):
+        self.mode_var.set(mode)
+        self.input_var.set(draft if input_enabled else "—")
+        self.input.configure(state="normal" if input_enabled else "disabled")
+        self.status.configure(text=status)
 
 class PhysicalNavigationControl:
     def __init__(self, parent, *, on_previous, on_next, status_template="{current} / {total}"):

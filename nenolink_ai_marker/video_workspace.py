@@ -165,7 +165,8 @@ class VideoWorkspace:
         return apply_video_event(self.state, event, payload)
 
     def enter_clean(self):
-        return self.dispatch(VideoEvent.CLEAR_RUNTIME)
+        self.preview_photo = None
+        return self.dispatch(VideoEvent.RESET_TO_DEFAULTS)
 
     def choose_video(self):
         from tkinter import filedialog

@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any
 import re
 
-
 @dataclass
 class PptxBadgeState:
     enabled: bool = True
@@ -180,6 +179,7 @@ class PptxEvent(str, Enum):
     PREVIEW_PREVIOUS = "preview_previous"
     PREVIEW_NEXT = "preview_next"
     CLEAR_RUNTIME = "clear_runtime"
+    RESET_TO_DEFAULTS = "reset_to_defaults"
 
 
 @dataclass(frozen=True)
@@ -221,6 +221,7 @@ PPTX_TRANSITION_TABLE: tuple[PptxTransition, ...] = (
     PptxTransition(PptxEvent.PREVIEW_PREVIOUS, mutates=("current_slide",), preserves=("path", "active_scope", "badge", "logo"), rerender=True),
     PptxTransition(PptxEvent.PREVIEW_NEXT, mutates=("current_slide",), preserves=("path", "active_scope", "badge", "logo"), rerender=True),
     PptxTransition(PptxEvent.CLEAR_RUNTIME, mutates=("path", "slide_count", "current_slide", "scope_mode", "active_scope", "scope_input", "output_status"), preserves=("badge", "logo")),
+    PptxTransition(PptxEvent.RESET_TO_DEFAULTS, mutates=("path", "slide_count", "current_slide", "scope_mode", "active_scope", "scope_input", "badge", "logo", "output_status"), preserves=()),
 )
 
 
@@ -261,6 +262,11 @@ def apply_pptx_event(state: PptxWorkspaceState, event: PptxEvent | str, value=No
     if event is PptxEvent.CLEAR_RUNTIME:
         state.path = None; state.slide_count = 0; state.current_slide = 1
         state.scope_mode = "all"; state.active_scope = (); state.scope_input = ""; state.output_status = ""
+        return state
+    if event is PptxEvent.RESET_TO_DEFAULTS:
+        defaults = type(state)()
+        state.__dict__.clear()
+        state.__dict__.update(defaults.__dict__)
         return state
     if event in {PptxEvent.SCOPE_MODE, PptxEvent.SCOPE_TEXT_CHANGED, PptxEvent.SCOPE_UPDATE,
                  PptxEvent.PREVIEW_PREVIOUS, PptxEvent.PREVIEW_NEXT}:

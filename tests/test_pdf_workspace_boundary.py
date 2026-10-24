@@ -321,6 +321,7 @@ def test_constructed_pdf_badge_callbacks_dispatch_project_and_build_save_request
     workspace.mount(Widget())
     workspace.refresh_preview = lambda: None
     workspace.project()
+    assert workspace.scope_control.projection["input_enabled"] is False
 
     # These are the actual callables supplied to the constructed Tk controls.
     workspace.badge_position_menu.options["command"]("position.top_left")
@@ -352,7 +353,11 @@ def test_constructed_pdf_badge_callbacks_dispatch_project_and_build_save_request
     # valid drafts through the event/table path and preserve the last valid
     # selection when an invalid draft is submitted.
     scope = workspace.scope_control.options
+    scope["on_mode"]("pdf.scope.first")
+    assert state.active_scope == (1,)
+    assert workspace.scope_control.projection["input_enabled"] is False
     scope["on_mode"]("pdf.scope.selected")
+    assert workspace.scope_control.projection["input_enabled"] is True
     scope["on_text"]("2-3")
     scope["on_update"]()
     assert state.scope_mode == "selected"

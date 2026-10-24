@@ -22,6 +22,7 @@ def test_every_pdf_table_transition_executes(spec):
         PdfEvent.LOGO_CHANGED: {"enabled": True, "path": Path("logo.png")},
         PdfEvent.VISUAL_CHANGED: {"size": 35, "logo_size": 25},
         PdfEvent.CLEAR_RUNTIME: {},
+        PdfEvent.RESET_TO_DEFAULTS: {},
     }
     apply_pdf_event(state, spec.event, payloads[spec.event])
     assert state is not None
@@ -87,3 +88,100 @@ def test_pdf_file_replacement_resets_document_scope_preserves_visuals():
     apply_pdf_event(state, PdfEvent.FILE_SELECTED, {"path": Path("new.pdf"), "page_count": 3})
     assert state.path == Path("new.pdf") and state.page_count == 3 and state.current_page == 1
     assert state.active_scope == (1, 2, 3) and state.badge.badge_id == "AI Assisted"
+
+
+def test_pdf_reset_to_defaults_restores_local_scope_and_visual_state():
+    state = PdfWorkspaceState(path=Path("doc.pdf"), page_count=3, current_page=2,
+                              scope_mode="selected", scope_input="2", active_scope=(2,))
+    state.badge.size = 44; state.logo.enabled = True; state.logo.path = Path("logo.png")
+    owner = id(state)
+    apply_pdf_event(state, PdfEvent.RESET_TO_DEFAULTS)
+    assert id(state) == owner
+    assert state == PdfWorkspaceState()
+
+
+def test_pdf_workspace_enter_clean_uses_pdf_defaults_not_saved_global_badge(tmp_path):
+    from types import SimpleNamespace
+    from nenolink_ai_marker.pdf_workspace import PdfWorkspace
+
+    default_badge = Path("ai-assisted.png")
+    app = SimpleNamespace(
+        badges=SimpleNamespace(
+            find=lambda badge_id: default_badge if badge_id == default_badge.name else None,
+            display_badges=lambda: (default_badge,),
+        ),
+        _saved_settings=SimpleNamespace(badge_name="different-global-selection"),
+    )
+    state = PdfWorkspaceState(path=tmp_path / "old.pdf", page_count=3, current_page=2,
+                              scope_mode="selected", scope_input="2", active_scope=(2,))
+    state.badge.badge_id = "other-badge.png"; state.logo.enabled = True
+    workspace = PdfWorkspace(app, state)
+    workspace.enter_clean()
+    assert state == PdfWorkspaceState()
+    assert state.badge.badge_id == "ai-assisted.png"
+
+
+def test_pdf_clean_uses_first_repository_badge_if_own_default_is_unavailable():
+    from types import SimpleNamespace
+    from nenolink_ai_marker.pdf_workspace import PdfWorkspace
+
+    available = Path("human-reviewed.png")
+    app = SimpleNamespace(badges=SimpleNamespace(
+        find=lambda badge_id: available if badge_id == available.name else None,
+        display_badges=lambda: (available,),
+    ))
+    workspace = PdfWorkspace(app, PdfWorkspaceState())
+    workspace.enter_clean()
+    assert workspace.state.badge.badge_id == available.name
+
+
+def test_pdf_scope_validation_uses_actual_three_page_document(tmp_path):
+    from pypdf import PdfWriter
+    from nenolink_ai_marker.pdf_processor import PdfProcessor
+
+    source = tmp_path / "three-pages.pdf"
+    writer = PdfWriter()
+    for _ in range(3):
+        writer.add_blank_page(width=200, height=300)
+    with source.open("wb") as stream:
+        writer.write(stream)
+    page_count = PdfProcessor.inspect(source).metrics.item_count
+    assert page_count == 3
+
+    state = PdfWorkspaceState()
+    apply_pdf_event(state, PdfEvent.FILE_SELECTED, {"path": source, "page_count": page_count})
+    apply_pdf_event(state, PdfEvent.SCOPE_MODE, {"mode": "selected"})
+    apply_pdf_event(state, PdfEvent.SCOPE_TEXT_CHANGED, {"text": "2-3"})
+    apply_pdf_event(state, PdfEvent.SCOPE_UPDATE, {"text": state.scope_input})
+    assert state.active_scope == (2, 3) and state.current_page == 2
+
+    for invalid in ("0", "4", "2-4", "3-1", ""):
+        apply_pdf_event(state, PdfEvent.SCOPE_TEXT_CHANGED, {"text": invalid})
+        before = (state.active_scope, state.current_page)
+        with pytest.raises(ValueError):
+            apply_pdf_event(state, PdfEvent.SCOPE_UPDATE, {"text": state.scope_input})
+        assert (state.active_scope, state.current_page) == before
+
+
+@pytest.mark.parametrize("locale", ["en", "da", "de", "fr", "es", "it", "pt", "nl", "sv", "no", "pl", "cs"])
+def test_pdf_invalid_scope_feedback_is_localized_in_each_supported_locale(locale):
+    import json
+    from nenolink_ai_marker.i18n import DEFAULT_ENGLISH, Translator
+    from nenolink_ai_marker.paths import locale_directory
+    from nenolink_ai_marker.pdf_workspace import PdfWorkspace
+
+    class Status:
+        def configure(self, **kwargs): self.text = kwargs["text"]
+
+    workspace = PdfWorkspace.__new__(PdfWorkspace)
+    directory = locale_directory()
+    locale_data = json.loads((directory / f"{locale}.json").read_text(encoding="utf-8"))
+    translator = Translator(directory, locale)
+    assert locale_data["document.scope_invalid"].strip()
+    if locale != "en":
+        assert locale_data["document.scope_invalid"] != DEFAULT_ENGLISH["document.scope_invalid"]
+    workspace.app = type("App", (), {"translator": translator})()
+    workspace.root = None
+    workspace.scope_control = type("Control", (), {"status": Status()})()
+    workspace._show_scope_error()
+    assert workspace.scope_control.status.text == locale_data["document.scope_invalid"]

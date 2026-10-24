@@ -124,7 +124,7 @@ class PdfWorkspace:
         if getattr(self, "logo_control", None) is not None:
             self.logo_control.project(LogoProjection(enabled=state.logo.enabled, filename=state.logo.path.name if state.logo.path else "", position=state.logo.position, size=state.logo.size, margin=state.logo.margin, opacity=state.logo.opacity, labels=self._logo_labels()))
         if getattr(self, "scope_control", None) is not None:
-            self.scope_control.project(mode=self._scope_display.get(state.scope_mode, state.scope_mode), draft=state.scope_input, status=str(len(state.active_scope)) if state.path else "")
+            self.scope_control.project(mode=self._scope_display.get(state.scope_mode, state.scope_mode), draft=state.scope_input, status=str(len(state.active_scope)) if state.path else "", input_enabled=state.scope_mode in {"selected", "range"})
         if getattr(self, "navigation_control", None) is not None:
             self.navigation_control.project(current=state.current_page, total=state.page_count if state.path else 0)
         if state.path and getattr(app, "pdf_info", None) is not None:
@@ -137,15 +137,12 @@ class PdfWorkspace:
     def _ensure_badge_selection(self) -> None:
         """Seed a valid default badge through the PDF event boundary."""
         state = self.state
-        if state.badge.badge_id:
-            return
         app = self.app
         badges = getattr(app, "badges", None)
-        preferred = getattr(getattr(app, "_saved_settings", None), "badge_name", "")
-        candidate = preferred if badges is not None and badges.find(preferred) else ""
-        if not candidate:
-            paths = tuple(badges.display_badges()) if badges is not None else ()
-            candidate = paths[0].name if paths else ""
+        if state.badge.badge_id and badges is not None and badges.find(state.badge.badge_id):
+            return
+        paths = tuple(badges.display_badges()) if badges is not None else ()
+        candidate = paths[0].name if paths else ""
         if candidate:
             apply_pdf_event(state, PdfEvent.BADGE_CHANGED, {"badge_id": candidate})
 
@@ -171,6 +168,12 @@ class PdfWorkspace:
         self._scope_value = {label: value for value, label in self._scope_display.items()}
         self.scope_control.menu.configure(values=list(self._scope_display.values()))
         self.scope_control.input.configure(placeholder_text=t("pdf.selected_hint")); self.scope_control.update.configure(text=t("document.scope_update"))
+        self.scope_control.project(
+            mode=self._scope_display[self.state.scope_mode],
+            draft=self.state.scope_input,
+            status=str(len(self.state.active_scope)) if self.state.path else "",
+            input_enabled=self.state.scope_mode in {"selected", "range"},
+        )
         self.navigation_control.set_status_template(t("pdf.page_status"))
         self.navigation_control.project(current=self.state.current_page, total=self.state.page_count if self.state.path else 0)
         self._position_display = self._badge_position_display()
@@ -407,8 +410,11 @@ class PdfWorkspace:
         return apply_pdf_event(self.state, event, payload)
 
     def enter_clean(self):
-        result = self.dispatch(PdfEvent.CLEAR_RUNTIME)
+        result = self.dispatch(PdfEvent.RESET_TO_DEFAULTS)
         self._ensure_badge_selection()
+        clear = getattr(self.app, "_clear_pdf_runtime_compat", None)
+        if callable(clear):
+            clear()
         # A clean lifecycle transition is complete only after its state has
         # been projected; file selection must not be required to populate the
         # default badge visual.
