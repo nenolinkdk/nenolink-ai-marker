@@ -68,7 +68,7 @@ def test_signed_pdf_is_detected_for_ui_warning(tmp_path):
 
 def test_signed_pdf_requires_explicit_ui_acknowledgement(monkeypatch,tmp_path):
     calls=[]; monkeypatch.setattr("nenolink_ai_marker.app.messagebox.askokcancel",lambda *args:calls.append(args) or False)
-    app=SimpleNamespace(pdf_path=tmp_path/"signed.pdf",pdf_info=SimpleNamespace(signed=True,metrics=SimpleNamespace(size_bytes=42)),_pdf_signature_approved=None,translator=SimpleNamespace(text=lambda key:key))
+    app=SimpleNamespace(pdf_info=SimpleNamespace(signed=True,metrics=SimpleNamespace(size_bytes=42)),_pdf_signature_approved=None,translator=SimpleNamespace(text=lambda key:key))
     assert not MarkerApp._confirm_pdf_signature(app)
     assert calls and calls[0][0]=="pdf.signature_title"
 

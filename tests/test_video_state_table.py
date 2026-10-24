@@ -46,14 +46,30 @@ def test_real_video_callback_seam_dispatches_reducer():
     state = VideoWorkspaceState(path=Path("clip.mp4"))
     app = SimpleNamespace(
         video_mode_display_to_value={"End": "end"},
-        _update_video_duration_visibility=lambda: None,
-        _save_image_settings=lambda: None,
     )
     workspace = VideoWorkspace.__new__(VideoWorkspace)
     workspace.app = app; workspace.state = state
     workspace.project = lambda: None
     workspace.change_mode("End")
     assert state.mode == "end" and state.path == Path("clip.mp4")
+
+
+def test_video_workspace_changes_do_not_require_or_write_global_settings():
+    state = VideoWorkspaceState(path=Path("clip.mp4"))
+    app = SimpleNamespace(
+        video_mode_display_to_value={"End": "end"},
+    )
+    workspace = VideoWorkspace.__new__(VideoWorkspace)
+    workspace.app = app
+    workspace.state = state
+    workspace.project = lambda: None
+    workspace.refresh_preview = lambda: None
+
+    workspace.change_mode("End")
+    workspace.change_badge_parameter("margin", 73)
+
+    assert state.mode == "end" and state.badge.margin == 73
+    assert not hasattr(app, "_save_image_settings")
 
 
 def test_video_clear_preserves_visual_preferences():

@@ -13,8 +13,7 @@ def snapshot(state):
     return {"path": state.path, "slide_count": state.slide_count,
             "current_slide": state.current_slide, "scope_mode": state.scope_mode,
             "active_scope": state.active_scope, "scope_input": state.scope_input,
-            "badge": deepcopy(state.badge.__dict__), "logo": deepcopy(state.logo.__dict__),
-            "output_status": state.output_status}
+            "badge": deepcopy(state.badge.__dict__), "logo": deepcopy(state.logo.__dict__)}
 
 
 @pytest.fixture
@@ -69,7 +68,7 @@ def test_file_projection_and_hard_reset(loaded):
     assert project_file(loaded)["filename"] == "other.pptx"
     loaded.clear()
     assert loaded.path is None and loaded.slide_count == 0 and loaded.current_slide == 1
-    assert loaded.active_scope == () and loaded.scope_input == "" and loaded.output_status == ""
+    assert loaded.active_scope == () and loaded.scope_input == ""
 
 
 def test_visual_projection_is_authoritative(loaded):

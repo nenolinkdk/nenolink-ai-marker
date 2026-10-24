@@ -89,7 +89,10 @@ def test_missing_persisted_logo_is_disabled_without_losing_path(tmp_path):
 
 
 def test_video_command_never_uses_configured_logo(tmp_path):
-    completed=type("Completed",(),{"returncode":0,"stderr":""})(); logo=tmp_path/"private-logo.png"
-    with patch("nenolink_ai_marker.batch.find_ffmpeg",return_value="ffmpeg.exe"),patch("nenolink_ai_marker.batch.subprocess.run",return_value=completed) as run:
-        BatchProcessor.process_video(Path("source.mp4"),Path("badge.png"),Path("target.mp4"),MarkerSettings(logo_enabled=True,logo_path=str(logo)))
+    from PIL import Image
+    from nenolink_ai_marker.batch import VideoProcessReceipt
+    completed=VideoProcessReceipt(("ffmpeg",),42,0,"",0.1); logo=tmp_path/"private-logo.png"
+    badge=tmp_path/"badge.png"; Image.new("RGBA",(80,40)).save(badge)
+    with patch("nenolink_ai_marker.batch.find_ffmpeg",return_value="ffmpeg.exe"),patch("nenolink_ai_marker.batch.extract_video_frame",return_value=Image.new("RGBA",(320,240))),patch("nenolink_ai_marker.batch.run_ffmpeg_with_receipt",return_value=completed) as run:
+        BatchProcessor.process_video(Path("source.mp4"),badge,Path("target.mp4"),MarkerSettings(logo_enabled=True,logo_path=str(logo)))
     assert str(logo) not in " ".join(map(str,run.call_args.args[0]))

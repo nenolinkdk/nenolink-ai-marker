@@ -28,6 +28,13 @@ def test_every_pdf_table_transition_executes(spec):
     assert state is not None
 
 
+def test_pdf_preview_cache_is_not_part_of_authoritative_workspace_state():
+    state = PdfWorkspaceState()
+    assert not hasattr(state, "preview_image")
+    assert all("preview_image" not in spec.mutates for spec in PDF_TRANSITION_TABLE)
+    assert all("preview_image" not in spec.preserves for spec in PDF_TRANSITION_TABLE)
+
+
 def test_pdf_draft_edit_does_not_change_effective_scope():
     state = PdfWorkspaceState(path=Path("doc.pdf"), page_count=6, current_page=2, scope_mode="selected", scope_input="2", active_scope=(2,))
     apply_pdf_event(state, PdfEvent.SCOPE_TEXT_CHANGED, {"text": "3,5"})

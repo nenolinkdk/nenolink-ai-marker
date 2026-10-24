@@ -25,7 +25,7 @@ def test_video_badge_callback_does_not_fallback_to_global_badge_authority():
     state = VideoWorkspaceState(path=Path("clip.mp4"))
     state.badge.enabled = False
     workspace = VideoWorkspace.__new__(VideoWorkspace)
-    workspace.app = SimpleNamespace(_save_image_settings=lambda: None)
+    workspace.app = SimpleNamespace()
     workspace.state = state
     workspace.project = lambda: None
     workspace.refresh_preview = lambda: None

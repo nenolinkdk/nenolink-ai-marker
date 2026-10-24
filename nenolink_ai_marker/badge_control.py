@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Iterable, Optional
 import customtkinter as ctk
 from PIL import Image
-from .workspace_control_panel import BADGE_PREVIEW_PADY
+from .workspace_control_panel import BADGE_PREVIEW_PADY, BADGE_SELECTOR_PADY, PARAM_PADX
 
 @dataclass(frozen=True)
 class BadgeProjection:
@@ -54,9 +54,9 @@ class BadgeControl:
             heading_kwargs["font"] = heading_font
         self.heading_widget = ctk.CTkLabel(self.frame, **heading_kwargs)
         self.heading_widget.grid(row=0, column=0, sticky="w")
-        self.enabled_widget.grid(row=1, column=0, sticky="w")
-        self.selector_widget.grid(row=2, column=0, sticky="ew")
-        self.graphic_widget.grid(row=3, column=0, pady=BADGE_PREVIEW_PADY, sticky="w")
+        self.enabled_widget.grid(row=1, column=0, padx=PARAM_PADX, sticky="w")
+        self.selector_widget.grid(row=2, column=0, padx=PARAM_PADX, pady=BADGE_SELECTOR_PADY, sticky="ew")
+        self.graphic_widget.grid(row=3, column=0, padx=PARAM_PADX, pady=BADGE_PREVIEW_PADY, sticky="w")
 
     def _enabled(self):
         if self._on_enabled_changed: self._on_enabled_changed(bool(self.enabled_var.get()))

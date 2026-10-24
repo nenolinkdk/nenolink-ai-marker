@@ -25,7 +25,7 @@ from .image_output import ImageProcessingRequest
 from .document_limits import DocumentMetrics, assess_document
 from .guide import open_user_guide
 from .i18n import LANGUAGES, Translator
-from .inspection import INSPECT_EXTENSIONS, InspectionResult, human_file_size, inspect_file
+from .inspection import INSPECT_EXTENSIONS, InspectionError, InspectionResult, human_file_size, inspect_file
 from .metadata import marker_metadata
 from .models import MarkerSettings
 from .paths import badge_directory, locale_directory, localized_user_guide_path, welcome_image_path
@@ -161,6 +161,7 @@ class MarkerApp(ctk.CTk):
 
     def __init__(self) -> None:
         super().__init__()
+        self.title("Nenolink AI-marker")
         self._boot = _runtime_boot_logger()
         self._boot('PDF_DIAGNOSTIC ' + json.dumps({'event': 'app_runtime_ready', 'app_id': id(self)}, sort_keys=True))
         self.geometry("1280x720"); self.minsize(980, 680)
@@ -310,6 +311,9 @@ class MarkerApp(ctk.CTk):
         workspace = self._workspace_registry[format_type]
         workspace.clear_runtime_state()
         workspace.unmount()
+        if format_type == "image":
+            # Keep decoded source memory bounded at the active Shell lifecycle boundary.
+            self.preview_renderer.clear()
 
     def reset_shell(self) -> None:
         source = self.shell_controller.active_content_type
@@ -342,8 +346,7 @@ class MarkerApp(ctk.CTk):
         if format_type == "image": return self.image_workspace_owner.has_active_work()
         if format_type == "video": return self.video_workspace_owner.has_active_work()
         if format_type == "pdf":
-            workspace = getattr(self, "pdf_workspace_owner", None)
-            return workspace.has_active_work() if workspace is not None else self.pdf_path is not None
+            return self.pdf_workspace_owner.has_active_work()
         if format_type == "pptx":
             workspace = getattr(self, "pptx_workspace_state", None)
             if workspace is not None:
@@ -440,14 +443,9 @@ class MarkerApp(ctk.CTk):
         self.translator = Translator(locale_directory(), "en")
         self.badge_sources = BadgeSourceManager(badge_directory())
         self.badges = self.badge_sources.repository(saved.badge_source, saved.custom_badge_folder)
-        self.sources: list[Path] = []
-        # Compatibility projection for legacy consumers; workspace state remains authoritative.
-        self.media_sources = {"image": [], "video": []}
         self.image_state = ImageWorkspaceState()
         self.video_state = VideoWorkspaceState()
         self.pdf_state = PdfWorkspaceState()
-        self.preview_photo = self.preview_image = self.badge_photo = self.single_badge_photo = None
-        self.welcome_photo = self.welcome_image = None
         self.badge_display_to_file = {}
         self.badge_var = ctk.StringVar(value=saved.badge_name); self.badge_display_var = ctk.StringVar()
         self.badge_enabled_var = ctk.BooleanVar(value=True)
@@ -461,25 +459,17 @@ class MarkerApp(ctk.CTk):
         self.position_display_to_value = {"Top left": "top-left", "Top right": "top-right", "Bottom left": "bottom-left", "Bottom right": "bottom-right", "Center": "center"}
         self.position_display_var.set(next((k for k,v in self.position_display_to_value.items() if v == self.position_var.get()), "Bottom right"))
         self.badge_source_var = ctk.StringVar(value=saved.badge_source); self.custom_badge_var = ctk.StringVar(value=saved.custom_badge_folder)
-        self.pdf_path = None; self.pdf_info = None; self.pdf_processor = PdfProcessor(); self.pdf_preview_renderer = PdfPreviewRenderer(self.processor); self.pdf_current_page = 0; self.pdf_preview_photo = None
-        self.pdf_scope_mode = "all"; self.pdf_active_scope: tuple[int, ...] = (); self.pdf_scope_input = ""
-        self.pdf_badge_enabled_var = ctk.BooleanVar(value=True)
-        self.pptx_path = None; self.pptx_metrics = None; self.pptx_processor = PptxProcessor(); self.pptx_preview_renderer = PptxPreviewRenderer(self.processor); self.pptx_current_slide = 0; self.pptx_preview_photo = None
-        self.pptx_scope_mode = "all"; self.pptx_active_scope: tuple[int, ...] = (); self.pptx_scope_input = ""
+        self.pdf_info = None; self.pdf_processor = PdfProcessor(); self.pdf_preview_renderer = PdfPreviewRenderer(self.processor)
+        self.pptx_processor = PptxProcessor(); self.pptx_preview_renderer = PptxPreviewRenderer(self.processor)
 
     def _clear_content_host(self) -> None:
         for child in self.content_host.winfo_children():
             child.destroy()
         self.image_workspace = self.video_workspace = self.pdf_workspace = self.pptx_workspace = self.tool_workspace = None
 
-    def _clear_pdf_runtime_compat(self) -> None:
-        """B1 compatibility cleanup; removed once PDF state owns file events."""
-        self.pdf_path = self.pdf_info = None
-        self.pdf_current_page = 0
-        self.pdf_preview_photo = None
-        self.pdf_scope_mode = "all"
-        self.pdf_active_scope = ()
-        self.pdf_scope_input = ""
+    def _clear_pdf_document_info(self) -> None:
+        """Discard inspected PDF metadata when its workspace session is cleared."""
+        self.pdf_info = None
 
 
 
@@ -521,18 +511,6 @@ class MarkerApp(ctk.CTk):
         self._mounted_tool_name = None
         for name in ("tool_back_button", "tool_badge_source_heading", "tool_badge_standard_radio", "tool_badge_custom_radio", "tool_badge_choose_folder", "tool_badge_refresh", "tool_inspect_heading", "tool_inspect_choose", "tool_inspect_result"):
             setattr(self, name, None)
-
-    def _unmount_image_workspace(self) -> None:
-        self.image_workspace_owner.clear_runtime_state()
-        self.image_workspace_owner.unmount()
-        self.sources = []
-        self.image_state.preview_image = None
-        self.preview_renderer.clear(); self.preview_photo = self.preview_image = None
-
-    def _update_video_duration_visibility(self) -> None:
-        if not getattr(self, "video_duration_entry", None): return
-        visible = self.video_mode_var.get() in {"beginning", "end"}
-        (self.video_duration_label.grid if visible else self.video_duration_label.grid_remove)(); (self.video_duration_entry.grid if visible else self.video_duration_entry.grid_remove)()
 
     def _build_badges_tool(self) -> None:
         panel = ctk.CTkFrame(self.tool_workspace); panel.grid(row=1, column=0, padx=16, pady=6, sticky="nsew"); panel.grid_columnconfigure(0, weight=1); panel.grid_rowconfigure(4, weight=1)
@@ -593,15 +571,20 @@ class MarkerApp(ctk.CTk):
         self.tool_inspect_result = ctk.CTkLabel(panel, text=self.translator.text("inspect.none"), justify="left", anchor="w"); self.tool_inspect_result.grid(row=2, column=0, padx=12, pady=8, sticky="ew")
 
     def _tool_choose_inspection(self) -> None:
-        selected = filedialog.askopenfilename(title=self.translator.text("inspect.choose"), filetypes=[(self.translator.text("files.all"), "*.*")]);
+        supported = " ".join(f"*{extension}" for extension in sorted(INSPECT_EXTENSIONS))
+        selected = filedialog.askopenfilename(
+            title=self.translator.text("inspect.choose"),
+            filetypes=[(self.translator.text("inspect.supported"), supported),
+                       (self.translator.text("files.all"), "*.*")],
+        )
         if not selected: return
         path = Path(selected)
-        if path.suffix.lower() in {".pdf", ".pptx"}:
-            self._tool_inspection_projection = ("unsupported", None); self._project_inspection_result(); return
         try:
             result = inspect_file(path); self._tool_inspection_projection = ("result", (path, result)); self._project_inspection_result()
-        except (OSError, ValueError) as error:
-            self._tool_inspection_projection = ("error", str(error)); self._project_inspection_result()
+        except InspectionError as error:
+            self._tool_inspection_projection = ("error", error.code); self._project_inspection_result()
+        except (OSError, ValueError):
+            self._tool_inspection_projection = ("error", "invalid_file"); self._project_inspection_result()
 
     def _project_inspection_result(self) -> None:
         if getattr(self, "tool_inspect_result", None) is None:
@@ -610,15 +593,38 @@ class MarkerApp(ctk.CTk):
         projection = getattr(self, "_tool_inspection_projection", None)
         if projection is None:
             text = t("inspect.none")
-        elif projection[0] == "unsupported":
-            text = t("inspect.document_unsupported")
         elif projection[0] == "error":
-            text = t("inspect.error_message", reason=projection[1])
+            reason_key = {
+                "unsupported_type": "inspect.unsupported_type",
+                "missing_file": "inspect.invalid_file",
+                "protected_pdf": "pdf.encrypted",
+                "pdf_limit": "document.pdf_hard",
+                "pptx_limit": "document.pptx_hard",
+                "document_limit": "document.docx_hard",
+                "invalid_file": "inspect.invalid_file",
+                "video_unavailable": "error.video_component_missing",
+            }.get(projection[1], "inspect.invalid_file")
+            text = t("inspect.error_message", reason=t(reason_key))
         else:
             path, result = projection[1]
             label = result.ai_label or t("inspect.not_available")
             status = t("inspect.found") if result.found else t("inspect.not_found")
-            text = f"{path.name}\n{t('inspect.status')} {status}\n{t('inspect.ai_label')} {label}"
+            lines = [
+                f"{t('inspect.file')} {path.name}",
+                f"{t('inspect.format_size')} {result.media_format} · {human_file_size(result.size)}",
+                f"{t('inspect.status')} {status}",
+            ]
+            if result.found:
+                lines.extend((
+                    f"{t('inspect.software')} {result.software or t('inspect.not_available')}",
+                    f"{t('inspect.ai_label')} {label}",
+                    f"{t('inspect.marker_version')} {result.marker_version or t('inspect.not_available')}",
+                ))
+                if result.disclosure_language:
+                    lines.append(f"{t('pptx.output_language')}: {result.disclosure_language}")
+            else:
+                lines.extend((t("inspect.not_found_message"), t("inspect.no_ai_warning")))
+            text = "\n".join(lines)
         self.tool_inspect_result.configure(text=text)
 
     def _project_tool_language(self) -> None:
@@ -719,16 +725,26 @@ class MarkerApp(ctk.CTk):
 
 
     def settings(self) -> MarkerSettings:
+        """Return effective processing settings with current UI preferences.
+
+        Workspace commands override format-specific badge/logo values from
+        their own state before building preview or output requests. Persisted
+        workspace visual fields are retained only for legacy config reading.
+        """
         return replace(self._saved_settings, badge_name=self.badge_var.get(), position=self.position_var.get(), size_percent=self.size_var.get(), margin=self.margin_var.get(), opacity=self.opacity_var.get(), language=self.translator.language, badge_source=self.badge_source_var.get(), custom_badge_folder=self.custom_badge_var.get(), logo_enabled=self.logo_enabled_var.get(), logo_path=self.logo_path_var.get(), logo_position=self.logo_position_var.get(), logo_size_percent=self.logo_size_var.get(), logo_margin=self.logo_margin_var.get(), logo_opacity=self.logo_opacity_var.get()).validated()
 
     def _save(self) -> None:
         try:
-            self._saved_settings = self.settings(); self.config_store.save(self._saved_settings)
+            # Only global preferences are persisted here. Workspace file,
+            # badge/logo, timing and scope values belong to local FSMs.
+            self._saved_settings = replace(
+                self._saved_settings,
+                language=self.translator.language,
+                badge_source=self.badge_source_var.get(),
+                custom_badge_folder=self.custom_badge_var.get(),
+            ).validated()
+            self.config_store.save(self._saved_settings)
         except OSError: pass
-
-    def _save_image_settings(self) -> None:
-        """Persist shared preferences without letting Video own shell state."""
-        self._save()
 
 
 def run():

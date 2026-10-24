@@ -231,6 +231,7 @@ def test_pptx_preview_logo_all_default_is_independent_from_badge_scope(tmp_path,
 
 
 def test_pptx_save_callback_keeps_default_all_logo_scope_independent(tmp_path, monkeypatch):
+    from copy import deepcopy
     import nenolink_ai_marker.pptx_workspace as module
     from nenolink_ai_marker.pptx_processor import P, PptxProcessor
     from test_pptx_processor import _create_pptx, _picture_count
@@ -254,6 +255,7 @@ def test_pptx_save_callback_keeps_default_all_logo_scope_independent(tmp_path, m
     )
     workspace = PptxWorkspace(app)
     workspace.state = state
+    before_save = deepcopy(state)
     workspace.scope_status = SimpleNamespace(configure=lambda **_kwargs: None)
     monkeypatch.setattr(module.filedialog, "asksaveasfilename", lambda **_kwargs: str(output))
     monkeypatch.setattr("tkinter.messagebox.showerror", lambda *_args: None)
@@ -261,6 +263,7 @@ def test_pptx_save_callback_keeps_default_all_logo_scope_independent(tmp_path, m
 
     workspace._save_as()
 
+    assert state == before_save  # Save is a command; it does not transition PPTX state.
     assert output.is_file()
     with ZipFile(output) as archive:
         assert [_picture_count(archive, page) for page in range(1, 4)] == [1, 1, 1]

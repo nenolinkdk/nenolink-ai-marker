@@ -18,7 +18,7 @@ class _State:
 
 def test_pdf_workspace_exposes_common_lifecycle_and_uses_existing_state():
     state = _State("legacy.pdf")
-    app = SimpleNamespace(pdf_path="legacy.pdf")
+    app = SimpleNamespace()
     workspace = PdfWorkspace(app, state)
 
     assert workspace.state is state
@@ -41,26 +41,27 @@ def test_pdf_unmount_does_not_clear_session():
     assert state.path == "selected.pdf"
 
 
-def test_pdf_clear_is_distinct_from_unmount_and_clears_compatibility_state():
+def test_pdf_clear_is_distinct_from_unmount_and_clears_document_metadata():
     state = _State("selected.pdf")
-    app = SimpleNamespace(pdf_path="selected.pdf", pdf_info="info")
+    app = SimpleNamespace(pdf_info="info")
     workspace = PdfWorkspace(app, state)
 
-    def clear_compat():
-        app.pdf_path = None
+    def clear_document_info():
         app.pdf_info = None
 
-    app._clear_pdf_runtime_compat = clear_compat
+    app._clear_pdf_document_info = clear_document_info
     workspace.clear_runtime_state()
     assert state.cleared is True
-    assert app.pdf_path is None and app.pdf_info is None
+    assert app.pdf_info is None
 
 
-def test_pdf_project_uses_temporary_existing_sync_boundary():
+def test_pdf_project_does_not_create_legacy_state_mirrors():
     state = PdfWorkspaceState()
     app = SimpleNamespace()
     PdfWorkspace(app, state).project()
-    assert app.pdf_path is None and app.pdf_current_page == 0
+    for name in ("pdf_path", "pdf_current_page", "pdf_scope_mode", "pdf_scope_input",
+                 "pdf_active_scope", "pdf_preview_photo"):
+        assert not hasattr(app, name)
 
 
 def test_pdf_file_event_writes_workspace_state_before_projection():
@@ -76,7 +77,7 @@ def test_pdf_file_event_writes_workspace_state_before_projection():
     assert state.page_count == 3
     assert state.active_scope == (1, 2, 3)
     assert projected and projected[0] == ("document.pdf", 3)
-    assert app.pdf_path == "document.pdf"
+    assert not hasattr(app, "pdf_path")
 
 
 def test_pdf_source_control_projection_keeps_long_filename_and_localized_metadata(tmp_path):
@@ -314,7 +315,6 @@ def test_constructed_pdf_badge_callbacks_dispatch_project_and_build_save_request
             find=lambda _name: badge_path,
         ),
         settings=lambda: MarkerSettings(),
-        pdf_badge_enabled_var=Variable(False),
         pdf_info=None,
     )
     workspace = PdfWorkspace(app, state)

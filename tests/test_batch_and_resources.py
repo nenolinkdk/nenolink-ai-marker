@@ -108,13 +108,17 @@ class ResourceAndBatchTests(unittest.TestCase):
         self.assertTrue(str(found).endswith("tools\\ffmpeg\\ffmpeg.exe"))
 
     def test_video_processing_maps_filtered_video_and_loops_badge(self):
-        completed=type("Completed",(),{"returncode":0,"stderr":""})()
-        with patch("nenolink_ai_marker.batch.shutil.which",return_value="C:/ffmpeg.exe"), patch("nenolink_ai_marker.batch.subprocess.run",return_value=completed) as run:
-            BatchProcessor.process_video(Path("input.mp4"),Path("badge.png"),Path("output.mp4"),MarkerSettings())
+        from PIL import Image
+        from nenolink_ai_marker.batch import VideoProcessReceipt
+        completed=VideoProcessReceipt(("ffmpeg",),42,0,"",0.1)
+        with tempfile.TemporaryDirectory() as folder:
+            badge=Path(folder)/"badge.png"; Image.new("RGBA",(80,40)).save(badge)
+            with patch("nenolink_ai_marker.batch.shutil.which",return_value="C:/ffmpeg.exe"), patch("nenolink_ai_marker.batch.extract_video_frame",return_value=Image.new("RGBA",(320,240))), patch("nenolink_ai_marker.batch.run_ffmpeg_with_receipt",return_value=completed) as run:
+                BatchProcessor.process_video(Path("input.mp4"),badge,Path(folder)/"output.mp4",MarkerSettings())
         command=run.call_args.args[0]
         self.assertIn("-loop",command)
         graph=command[command.index("-filter_complex")+1]
-        self.assertIn("[base1][ov1]overlay=",graph)
+        self.assertIn("[0:v][ov1]overlay=",graph)
         self.assertEqual(command[command.index("-map")+1],"[ov1out]")
         self.assertIn("shortest=1",graph)
 
@@ -131,11 +135,14 @@ class ResourceAndBatchTests(unittest.TestCase):
         self.assertEqual(video_enable_expression("end",90,60),":enable='gte(t\\,0)'")
 
     def test_batch_video_uses_end_mode(self):
-        probe=type("Completed",(),{"returncode":1,"stderr":"Duration: 00:01:00.00"})()
-        encoded=type("Completed",(),{"returncode":0,"stderr":""})()
-        with patch("nenolink_ai_marker.batch.find_ffmpeg",return_value="C:/ffmpeg.exe"), patch("nenolink_ai_marker.batch.subprocess.run",side_effect=[probe,encoded]) as run:
-            BatchProcessor.process_video(Path("input.mp4"),Path("badge.png"),Path("output.mp4"),MarkerSettings(video_mode="end",video_duration=5))
-        command=run.call_args_list[1].args[0]
+        from PIL import Image
+        from nenolink_ai_marker.batch import VideoProcessReceipt
+        encoded=VideoProcessReceipt(("ffmpeg",),42,0,"",0.1)
+        with tempfile.TemporaryDirectory() as folder:
+            badge=Path(folder)/"badge.png"; Image.new("RGBA",(80,40)).save(badge)
+            with patch("nenolink_ai_marker.batch.find_ffmpeg",return_value="C:/ffmpeg.exe"), patch("nenolink_ai_marker.batch.extract_video_frame",return_value=Image.new("RGBA",(320,240))), patch("nenolink_ai_marker.batch.video_duration_seconds",return_value=60), patch("nenolink_ai_marker.batch.run_ffmpeg_with_receipt",return_value=encoded) as run:
+                BatchProcessor.process_video(Path("input.mp4"),badge,Path(folder)/"output.mp4",MarkerSettings(video_mode="end",video_duration=5))
+        command=run.call_args_list[0].args[0]
         self.assertIn(":enable='gte(t\\,55)'",command[command.index("-filter_complex")+1])
 
 

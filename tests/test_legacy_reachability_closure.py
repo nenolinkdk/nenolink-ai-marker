@@ -1,4 +1,5 @@
 import inspect
+import importlib.util
 
 from nenolink_ai_marker.app import MarkerApp
 
@@ -23,3 +24,10 @@ def test_shell_registry_is_the_only_workspace_mount_route():
     assert "workspace.project()" in route_source
     for name in ("_mount_image_workspace", "_mount_video_workspace", "_mount_pdf_workspace", "_mount_pptx_workspace"):
         assert not hasattr(MarkerApp, name)
+
+
+def test_retired_shell_wrappers_and_placeholder_workspace_are_absent():
+    assert not hasattr(MarkerApp, "_unmount_image_workspace")
+    assert not hasattr(MarkerApp, "_update_video_duration_visibility")
+    assert importlib.util.find_spec("nenolink_ai_marker.pp_workspace") is None
+    assert hasattr(MarkerApp, "_clear_pdf_document_info")

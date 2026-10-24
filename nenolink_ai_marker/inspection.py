@@ -4,17 +4,24 @@ from dataclasses import dataclass
 from pathlib import Path
 import re
 import subprocess
+from zipfile import BadZipFile
+from xml.etree import ElementTree
 from xml.etree import ElementTree
 
 from PIL import Image, UnidentifiedImageError
 
 from .batch import find_ffmpeg, hidden_subprocess_kwargs
 from .docx_processor import DocxProcessor
+from .document_limits import DocumentHardLimitError, enforce_hard_limit
+from .pdf_processor import PasswordProtectedPdfError, PdfProcessor
+from .pptx_processor import PptxProcessor
 
 INSPECT_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
-INSPECT_VIDEO_EXTENSIONS = {".mp4", ".mov"}
+INSPECT_VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".webm"}
+INSPECT_PDF_EXTENSIONS = {".pdf"}
+INSPECT_PPTX_EXTENSIONS = {".pptx"}
 INSPECT_DOCUMENT_EXTENSIONS = {".docx"}
-INSPECT_EXTENSIONS = INSPECT_IMAGE_EXTENSIONS | INSPECT_VIDEO_EXTENSIONS | INSPECT_DOCUMENT_EXTENSIONS
+INSPECT_EXTENSIONS = INSPECT_IMAGE_EXTENSIONS | INSPECT_VIDEO_EXTENSIONS | INSPECT_PDF_EXTENSIONS | INSPECT_PPTX_EXTENSIONS | INSPECT_DOCUMENT_EXTENSIONS
 NENOLINK_XMP_NAMESPACE = "https://nenolink.com/ns/ai-marker/1.0/"
 
 
@@ -27,6 +34,15 @@ class InspectionResult:
     software: str | None = None
     ai_label: str | None = None
     marker_version: str | None = None
+    disclosure_language: str | None = None
+
+
+class InspectionError(ValueError):
+    """Inspection failure with a stable, localizable category."""
+    def __init__(self, code: str, detail: str = "") -> None:
+        self.code = code
+        self.detail = detail
+        super().__init__(detail or code)
 
 
 def human_file_size(size: int) -> str:
@@ -42,7 +58,7 @@ def human_file_size(size: int) -> str:
 
 
 def _format_name(path: Path) -> str:
-    return {".jpg": "JPEG", ".jpeg": "JPEG", ".png": "PNG", ".webp": "WebP", ".mp4": "MP4", ".mov": "MOV", ".docx": "DOCX"}[path.suffix.lower()]
+    return {".jpg": "JPEG", ".jpeg": "JPEG", ".png": "PNG", ".webp": "WebP", ".mp4": "MP4", ".mov": "MOV", ".mkv": "MKV", ".avi": "AVI", ".webm": "WebM", ".pdf": "PDF", ".pptx": "PowerPoint", ".docx": "DOCX"}[path.suffix.lower()]
 
 
 def _description_values(description: object) -> tuple[str | None, str | None]:
@@ -133,6 +149,8 @@ def inspect_video(path: Path) -> InspectionResult:
 
 
 def inspect_docx(path: Path) -> InspectionResult:
+    info = DocxProcessor.inspect(path)
+    enforce_hard_limit("docx", info.metrics)
     values = DocxProcessor.read_metadata(path)
     software = values.get("Software")
     label = values.get("AI Label")
@@ -143,18 +161,77 @@ def inspect_docx(path: Path) -> InspectionResult:
     return InspectionResult(
         path, _format_name(path), path.stat().st_size, found,
         software if found else None, label if found else None,
-        version if found else None,
+        version if found else None, values.get("Disclosure Language") if found else None,
+    )
+
+
+def inspect_pdf(path: Path) -> InspectionResult:
+    info = PdfProcessor.inspect(path)
+    enforce_hard_limit("pdf", info.metrics)
+    values = PdfProcessor.read_metadata(path)
+    software = values.get("Software")
+    label = values.get("AILabel")
+    version = values.get("MarkerVersion")
+    found = _is_recognized(
+        values.get("NenolinkAIMarker") == "1", software, label, version, False,
+    )
+    return InspectionResult(
+        path, _format_name(path), path.stat().st_size, found,
+        software if found else None, label if found else None,
+        version if found else None, values.get("DisclosureLanguage") if found else None,
+    )
+
+
+def inspect_pptx(path: Path) -> InspectionResult:
+    # The metadata reader intentionally treats a missing custom-properties
+    # part as an ordinary unmarked deck. Validate the package first so a
+    # corrupt/non-PowerPoint ZIP is reported as an invalid file instead.
+    try:
+        metrics = PptxProcessor.document_metrics(path)
+        enforce_hard_limit("pptx", metrics)
+    except DocumentHardLimitError:
+        raise
+    except (BadZipFile, KeyError, OSError, ElementTree.ParseError, ValueError) as error:
+        raise ValueError(f"Could not read PowerPoint file: {error}") from error
+    values = PptxProcessor.read_metadata(path)
+    software = values.get("Software")
+    label = values.get("AI Label")
+    version = values.get("Marker Version")
+    found = _is_recognized(
+        values.get("Nenolink AI Marker") == "1", software, label, version, False,
+    )
+    return InspectionResult(
+        path, _format_name(path), path.stat().st_size, found,
+        software if found else None, label if found else None,
+        version if found else None, values.get("Disclosure Language") if found else None,
     )
 
 
 def inspect_file(path: Path) -> InspectionResult:
     path = Path(path)
     if path.suffix.lower() not in INSPECT_EXTENSIONS:
-        raise ValueError(f"Unsupported file type: {path.suffix or 'no extension'}")
+        raise InspectionError("unsupported_type", f"Unsupported file type: {path.suffix or 'no extension'}")
     if not path.is_file():
-        raise ValueError("The selected file no longer exists or cannot be read")
-    if path.suffix.lower() in INSPECT_IMAGE_EXTENSIONS:
-        return inspect_image(path)
-    if path.suffix.lower() in INSPECT_VIDEO_EXTENSIONS:
-        return inspect_video(path)
-    return inspect_docx(path)
+        raise InspectionError("missing_file")
+    suffix = path.suffix.lower()
+    try:
+        if suffix in INSPECT_IMAGE_EXTENSIONS:
+            return inspect_image(path)
+        if suffix in INSPECT_VIDEO_EXTENSIONS:
+            return inspect_video(path)
+        if suffix in INSPECT_PDF_EXTENSIONS:
+            return inspect_pdf(path)
+        if suffix in INSPECT_PPTX_EXTENSIONS:
+            return inspect_pptx(path)
+        return inspect_docx(path)
+    except PasswordProtectedPdfError as error:
+        raise InspectionError("protected_pdf", str(error)) from error
+    except DocumentHardLimitError as error:
+        code = "pdf_limit" if suffix in INSPECT_PDF_EXTENSIONS else "pptx_limit" if suffix in INSPECT_PPTX_EXTENSIONS else "document_limit"
+        raise InspectionError(code, str(error)) from error
+    except InspectionError:
+        raise
+    except (OSError, ValueError, BadZipFile, ElementTree.ParseError) as error:
+        if suffix in INSPECT_VIDEO_EXTENSIONS and "video component could not be found" in str(error).lower():
+            raise InspectionError("video_unavailable", str(error)) from error
+        raise InspectionError("invalid_file", str(error)) from error

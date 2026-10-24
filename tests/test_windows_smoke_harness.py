@@ -56,6 +56,9 @@ def test_smoke_script_uses_process_owned_window_gate_and_keeps_both_build_modes(
     assert "interactive_session = $interactiveSession" in smoke
     assert "root_process_session_id = $rootSessionId" in smoke
     assert "startup_seconds=$startupSeconds" in smoke
+    assert "$expectedWindowTitle = 'Nenolink AI-marker'" in smoke
+    assert "-ExpectedWindowTitle $expectedWindowTitle" in smoke
+    assert "window-title-mismatch" in smoke
     assert "root_pid=$($rootProcess.Id)" in smoke
     assert "window_pid=$($decision.Window.ProcessId)" in smoke
     assert "diagnostics.json" in smoke
@@ -83,6 +86,16 @@ def test_smoke_script_uses_process_owned_window_gate_and_keeps_both_build_modes(
         check=False,
     )
     assert parsed.returncode == 0, f"PowerShell parse failed:\n{parsed.stdout}\n{parsed.stderr}"
+
+
+def test_smoke_window_gate_requires_exact_nonblank_product_title():
+    module = MODULE.read_text(encoding="utf-8")
+    checks = PS_TEST.read_text(encoding="utf-8")
+    assert "ExpectedWindowTitle = 'Nenolink AI-marker'" in module
+    assert "StringComparison]::Ordinal" in module
+    assert "Title = 'CTk'" in checks
+    assert "Title = ''" in checks
+    assert "window-title-mismatch" in checks
 
 
 def test_native_process_snapshot_contains_current_powershell_process():

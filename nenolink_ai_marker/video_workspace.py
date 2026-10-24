@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from queue import Queue, Empty
+from threading import Thread
+from time import perf_counter
 from PIL import Image
 import customtkinter as ctk
 
-from .batch import extract_video_frame, find_ffmpeg, video_duration_seconds, video_overlay_visible_at
+from .batch import extract_video_frame, find_ffmpeg, video_duration_seconds, video_overlay_visible_at, VideoProcessReceipt
 from .models import MarkerSettings
 from .metadata import marker_metadata
 from .workspace_state import VideoEvent, apply_video_event
@@ -30,6 +33,14 @@ class VideoProcessingRequest:
     settings: MarkerSettings
 
 
+@dataclass(frozen=True, slots=True)
+class VideoSaveResult:
+    request: VideoProcessingRequest
+    error: str | None
+    receipts: tuple[VideoProcessReceipt, ...]
+    elapsed_seconds: float
+
+
 class VideoWorkspace:
     # The preview is a representative frame at one second, not playback state.
     PREVIEW_TIMESTAMP_SECONDS = 1.0
@@ -39,6 +50,10 @@ class VideoWorkspace:
         self.preview_photo = None
         self.root = None
         self.presentation_generation = 0
+        self._save_in_progress = False
+        self._save_results: Queue[VideoSaveResult] = Queue()
+        self._save_thread: Thread | None = None
+        self.last_save_result: VideoSaveResult | None = None
 
     def _dispose_view(self):
         root = self.root
@@ -72,13 +87,21 @@ class VideoWorkspace:
         if self.root is not None and self.root.winfo_exists():
             self.apply_translations()
             loaded = self.state.path is not None
-            self.app.video_sources = [self.state.path] if loaded else []
-            self.app.media_sources["video"] = list(self.app.video_sources)
             if loaded:
                 self.refresh_preview()
             else:
                 self.app.video_preview_label.configure(image=None, text=self.app.translator.text("video.preview"))
-                self.preview_photo = None; self.app.video_preview_photo = None
+                self.preview_photo = None
+            self.project_duration_visibility()
+
+    def project_duration_visibility(self):
+        """Project timing-control visibility from authoritative Video state."""
+        if getattr(self.app, "video_duration_entry", None) is None:
+            return
+        visible = self.state.mode in {"beginning", "end"}
+        action = "grid" if visible else "grid_remove"
+        getattr(self.app.video_duration_label, action)()
+        getattr(self.app.video_duration_entry, action)()
 
     def _project_controls(self):
         app = self.app
@@ -159,7 +182,8 @@ class VideoWorkspace:
         return self.state.path is not None
 
     def clear_runtime_state(self):
-        self.state.clear_runtime_state(); self.preview_photo = None
+        apply_video_event(self.state, VideoEvent.CLEAR_RUNTIME)
+        self.preview_photo = None
 
     def dispatch(self, event, payload=None):
         return apply_video_event(self.state, event, payload)
@@ -177,43 +201,43 @@ class VideoWorkspace:
 
     def change_mode(self, label):
         apply_video_event(self.state, VideoEvent.MODE_CHANGED, {"mode": self.app.video_mode_display_to_value[label]})
-        self.project(); self.app._update_video_duration_visibility(); self.app._save_image_settings()
+        self.project()
 
     def change_duration(self, value=None):
         try: value = int(self.app.video_duration_var.get() if value is None else value)
         except (TypeError, ValueError): value = self.state.duration
         apply_video_event(self.state, VideoEvent.DURATION_CHANGED, {"duration": value})
-        self.project(); self.app._update_video_duration_visibility(); self.app._save_image_settings()
+        self.project()
 
     def change_badge(self, label):
         badge_id = self.app.badges.canonical_filename(label)
         if badge_id is None:
             return
         apply_video_event(self.state, VideoEvent.BADGE_CHANGED, {"badge_id": badge_id})
-        self.project(); self.refresh_preview(); self.app._save_image_settings()
+        self.project()
 
     def change_visual(self, enabled=None, *_args):
         payload = {"enabled": enabled} if isinstance(enabled, bool) else {}
         apply_video_event(self.state, VideoEvent.VISUAL_CHANGED, payload)
-        self.project(); self.refresh_preview(); self.app._save_image_settings()
+        self.project()
 
     def change_badge_parameter(self, field, value):
         if field not in {"size", "margin", "opacity"}:
             raise ValueError(f"Unsupported badge parameter: {field}")
         apply_video_event(self.state, VideoEvent.VISUAL_CHANGED, {field: int(float(value))})
-        self.project(); self.refresh_preview(); self.app._save_image_settings()
+        self.project()
 
     def change_badge_position(self, label):
         value = self.video_position_display_to_value.get(label, label)
         apply_video_event(self.state, VideoEvent.VISUAL_CHANGED, {"position": value})
-        self.project(); self.refresh_preview(); self.app._save_image_settings()
+        self.project()
 
     def choose_logo(self):
         from tkinter import filedialog
         selected = filedialog.askopenfilename(title=self.app.translator.text("dialog.open_logo"), filetypes=[(self.app.translator.text("files.supported_images"), "*.png *.jpg *.jpeg *.webp"), (self.app.translator.text("files.all"), "*.*")])
         if selected:
             apply_video_event(self.state, VideoEvent.LOGO_FILE_CHANGED, {"path": selected, "enabled": True})
-            self.project(); self.refresh_preview()
+            self.project()
 
     def change_logo(self, enabled=None, *, size=None, margin=None, opacity=None):
         if enabled is not None:
@@ -225,11 +249,11 @@ class VideoWorkspace:
         ):
             if value is not None:
                 apply_video_event(self.state, event, {field: int(value)})
-        self.project(); self.refresh_preview()
+        self.project()
 
     def change_logo_mode(self, mode):
         apply_video_event(self.state, VideoEvent.LOGO_MODE_CHANGED, {"mode": self.logo_mode_display_to_value.get(mode, mode)})
-        self.project(); self.refresh_preview()
+        self.project()
 
     def _build_ui(self, workspace):
         app = self.app
@@ -248,7 +272,7 @@ class VideoWorkspace:
         self.badge_control.frame.grid(row=0, column=0, sticky="ew")
         app.video_badge_enable = self.badge_control.enabled_widget; app.video_badge_menu = self.badge_control.selector_widget; app.video_badge_var = self.badge_control.selector_var; app.video_badge_preview_label = self.badge_control.graphic_widget; app.video_badge_name_label = self.badge_control.graphic_widget
         self.video_position_display_var = ctk.StringVar(value=app.translator.text("position.bottom_right")); self.video_position_display_to_value = {app.translator.text("position.top_left"):"top-left", app.translator.text("position.top_right"):"top-right", app.translator.text("position.bottom_left"):"bottom-left", app.translator.text("position.bottom_right"):"bottom-right", app.translator.text("position.center"):"center"}
-        self.video_position_label = ctk.CTkLabel(app.video_badge_group, text=app.translator.text("position"), width=PARAM_LABEL_WIDTH); self.video_position_label.grid(row=1, column=0, padx=8, pady=(2, 0), sticky="w"); app.video_position_label=self.video_position_label; app.video_position_menu = ctk.CTkOptionMenu(app.video_badge_group, variable=self.video_position_display_var, values=list(self.video_position_display_to_value), command=self.change_badge_position, width=PARAM_DROPDOWN_WIDTH); self.video_position_menu=app.video_position_menu; app.video_position_menu.grid(row=2, column=0, padx=8, pady=(0, 2), sticky="w")
+        self.video_position_label = ctk.CTkLabel(app.video_badge_group, text=app.translator.text("position"), width=PARAM_LABEL_WIDTH, anchor="w"); self.video_position_label.grid(row=1, column=0, padx=8, pady=(2, 0), sticky="w"); app.video_position_label=self.video_position_label; app.video_position_menu = ctk.CTkOptionMenu(app.video_badge_group, variable=self.video_position_display_var, values=list(self.video_position_display_to_value), command=self.change_badge_position, width=PARAM_DROPDOWN_WIDTH); self.video_position_menu=app.video_position_menu; app.video_position_menu.grid(row=2, column=0, padx=8, pady=(0, 2), sticky="w")
         app.video_size_var = ctk.IntVar(value=self.state.badge.size); app.video_margin_var = ctk.IntVar(value=self.state.badge.margin); app.video_opacity_var = ctk.IntVar(value=self.state.badge.opacity)
         self.badge_parameter_rows = {}
         for index, (field, key, low, high, variable) in enumerate((
@@ -269,6 +293,7 @@ class VideoWorkspace:
         self.video_mode_label = ctk.CTkLabel(options_section, text=app.translator.text("video.badge_mode")); self.video_mode_label.grid(row=1, column=0, padx=2, pady=1, sticky="w"); app.video_mode_label=self.video_mode_label; self.video_mode_menu = ctk.CTkOptionMenu(options_section, variable=app.video_mode_display_var, values=list(app.video_mode_display_to_value), command=self.change_mode); app.video_mode_menu=self.video_mode_menu; self.video_mode_menu.grid(row=2, column=0, padx=2, pady=2, sticky="ew")
         app.video_duration_var = ctk.IntVar(value=5); self.video_duration_label = ctk.CTkLabel(options_section, text=app.translator.text("video.duration")); app.video_duration_label=self.video_duration_label; app.video_duration_entry = ctk.CTkEntry(options_section, textvariable=app.video_duration_var); self.video_seconds_label = ctk.CTkLabel(options_section, text=app.translator.text("video.seconds")); app.video_seconds_label=self.video_seconds_label; self.video_duration_label.grid(row=3, column=0, padx=2, pady=1, sticky="w"); app.video_duration_entry.grid(row=4, column=0, padx=2, pady=2, sticky="ew"); app.video_duration_entry.bind("<FocusOut>", lambda _event: self.change_duration())
         self.save_control = SaveControl(self.source_control.action_row, label=app.translator.text("dialog.save_as_generic"), command=self.save); self.source_control.place_save_control(self.save_control); app.video_save_control = self.save_control; app.video_process_button = self.save_control.button
+        self.save_control.set_enabled(not self._save_in_progress)
         app.video_preview_label = ctk.CTkLabel(right, text=app.translator.text("video.preview")); app.video_preview_label.grid(row=0, column=0, padx=20, pady=20)
         self.apply_translations()
 
@@ -297,7 +322,9 @@ class VideoWorkspace:
                 if actual_duration is not None else self.PREVIEW_TIMESTAMP_SECONDS
             )
             frame = extract_video_frame(ffmpeg, path, timestamp=preview_timestamp)
+            source_width = frame.width
             frame.thumbnail((720, 600), Image.Resampling.LANCZOS)
+            preview_scale = frame.width / max(1, source_width)
             duration = actual_duration if actual_duration is not None else max(1.0, preview_timestamp)
             badge_path = self._badge_path() if self.state.badge.enabled else None
             badge_active = bool(badge_path) and video_overlay_visible_at(
@@ -331,17 +358,23 @@ class VideoWorkspace:
                 logo_margin=self.state.logo.margin,
                 logo_opacity=self.state.logo.opacity,
             )
-            frame = app.processor.compose(frame, badge_image, settings, logo_image)
+            preview_settings = replace(
+                settings,
+                margin=round(settings.margin * preview_scale),
+                logo_margin=round(settings.logo_margin * preview_scale),
+            )
+            frame = app.processor.compose(frame, badge_image, preview_settings, logo_image)
             self.preview_photo = ctk.CTkImage(light_image=frame, dark_image=frame, size=frame.size)
             label.configure(image=self.preview_photo, text="")
             label.image = self.preview_photo
-            app.video_preview_photo = self.preview_photo  # compatibility UI-resource alias
         except (OSError, ValueError) as error:
             self.preview_photo = None
             label.configure(image=None, text=app.translator.text("error.preview", error=error))
 
     def save(self):
         app = self.app
+        if getattr(self, "_save_in_progress", False):
+            return
         source = self.state.path
         if source is None:
             from tkinter import messagebox
@@ -361,9 +394,60 @@ class VideoWorkspace:
         request = VideoProcessingRequest(source, destination, badge, logo, settings)
         try:
             if not find_ffmpeg(): raise ValueError(app.translator.text("error.video_component_missing"))
-            from .batch import BatchProcessor
-            BatchProcessor(app.processor).process_video(request.source, request.badge, request.destination, request.settings, marker_metadata(request.badge.name if request.badge else "", app.badges.display_name(request.badge.name) if request.badge else ""), logo=request.logo)
-            app.status_var.set(app.translator.text("video.saved_name", name=destination.name))
+            self._save_in_progress = True
+            if getattr(self, "save_control", None) is not None:
+                self.save_control.set_enabled(False)
+            app.status_var.set(app.translator.text("video.saving"))
+            self._save_thread = Thread(
+                target=self._run_video_save, args=(request,),
+                name="video-save-worker", daemon=True,
+            )
+            self._save_thread.start()
+            app.after(100, self._poll_video_save)
         except (OSError, ValueError) as error:
+            self._save_in_progress = False
+            if getattr(self, "save_control", None) is not None:
+                self.save_control.set_enabled(True)
             messagebox.showerror(app.translator.text("error.title"), str(error))
+
+    def _run_video_save(self, request: VideoProcessingRequest) -> None:
+        """Process a snapshot off the Tk thread and publish a plain result."""
+        from .batch import BatchProcessor
+
+        started = perf_counter()
+        receipts: list[VideoProcessReceipt] = []
+        error = None
+        try:
+            badge_name = request.badge.name if request.badge else ""
+            badge_display = self.app.badges.display_name(badge_name) if badge_name else ""
+            BatchProcessor(self.app.processor).process_video(
+                request.source, request.badge, request.destination, request.settings,
+                marker_metadata(badge_name, badge_display), logo=request.logo,
+                on_process=receipts.append,
+            )
+        except Exception as failure:
+            error = str(failure)
+        self._save_results.put(VideoSaveResult(
+            request, error, tuple(receipts), perf_counter() - started,
+        ))
+
+    def _poll_video_save(self) -> None:
+        """Apply worker completion to Tk widgets on the application thread."""
+        try:
+            result = self._save_results.get_nowait()
+        except Empty:
+            if getattr(self, "_save_in_progress", False):
+                self.app.after(100, self._poll_video_save)
+            return
+        self.last_save_result = result
+        self._save_in_progress = False
+        if getattr(self, "save_control", None) is not None:
+            self.save_control.set_enabled(True)
+        if result.error is None:
+            self.app.status_var.set(self.app.translator.text(
+                "video.saved_name", name=result.request.destination.name,
+            ))
+        else:
+            from tkinter import messagebox
+            messagebox.showerror(self.app.translator.text("error.title"), result.error)
 

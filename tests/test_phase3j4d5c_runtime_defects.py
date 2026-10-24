@@ -33,6 +33,10 @@ def _image_app():
         _project_image_visual_state=lambda: None,
         badges=SimpleNamespace(
             display_badges=lambda: [Path("ai-assisted.png"), Path("ai-translation.png")],
+            canonical_filename=lambda selection: {
+                "AI Assisted": "ai-assisted.png", "ai-assisted.png": "ai-assisted.png",
+                "AI Translation": "ai-translation.png", "ai-translation.png": "ai-translation.png",
+            }.get(selection),
             display_name=lambda badge_id: {
                 "ai-assisted.png": "AI Assisted",
                 "ai-translation.png": "AI Translation",

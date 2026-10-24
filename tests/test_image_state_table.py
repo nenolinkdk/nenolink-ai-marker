@@ -20,6 +20,7 @@ def snapshot(state):
 @pytest.mark.parametrize("spec", IMAGE_TRANSITION_TABLE)
 def test_every_image_table_transition_executes(spec):
     assert image_transition(spec.event) is spec
+    assert "preview_image" not in spec.mutates
     state = ImageWorkspaceState(path=Path("one.png"), selected_files=(Path("one.png"),))
     before = snapshot(state)
     payload = {
@@ -50,11 +51,12 @@ def test_file_event_preserves_visual_state():
 
 def test_real_image_callback_seam_dispatches_reducer(monkeypatch):
     state = ImageWorkspaceState(path=Path("one.png"), selected_files=(Path("one.png"),))
-    badge_path = Path("AI Translation")
+    badge_path = Path("ai-translation.png")
     app = SimpleNamespace(
         badges=SimpleNamespace(
             display_badges=lambda: [badge_path],
-            display_name=lambda badge_id: badge_id,
+            display_name=lambda badge_id: "AI Translation" if badge_id == badge_path.name else badge_id,
+            canonical_filename=lambda selection: badge_path.name if selection == "AI Translation" else None,
         ),
     )
     workspace = ImageWorkspace.__new__(ImageWorkspace)
@@ -64,7 +66,7 @@ def test_real_image_callback_seam_dispatches_reducer(monkeypatch):
     workspace.root = None
     workspace.refresh_preview = lambda: None
     workspace.badge_changed()
-    assert state.badge.badge_id == "AI Translation"
+    assert state.badge.badge_id == "ai-translation.png"
     assert state.path == Path("one.png")
 
 

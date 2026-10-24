@@ -7,6 +7,7 @@ import subprocess
 import os
 import sys
 import re
+import time
 from typing import Callable
 from PIL import Image
 from io import BytesIO
@@ -46,6 +47,29 @@ class BatchResult:
     errors: list[str] = field(default_factory=list)
     metadata_warnings: list[str] = field(default_factory=list)
     cancelled: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class VideoProcessReceipt:
+    """Observable result for one FFmpeg encode attempt."""
+    command: tuple[str, ...]
+    pid: int
+    returncode: int
+    stderr: str
+    elapsed_seconds: float
+
+
+def run_ffmpeg_with_receipt(command: list[str]) -> VideoProcessReceipt:
+    started = time.perf_counter()
+    process = subprocess.Popen(
+        command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, text=True, **hidden_subprocess_kwargs(),
+    )
+    _stdout, stderr = process.communicate()
+    return VideoProcessReceipt(
+        tuple(str(part) for part in command), int(process.pid),
+        int(process.returncode), stderr or "", time.perf_counter() - started,
+    )
 
 
 def scan_folder(root: Path, recursive: bool = False) -> FolderScan:
@@ -207,6 +231,7 @@ class BatchProcessor:
     def process_video(
         source: Path, badge: Path | None, target: Path, settings: MarkerSettings,
         metadata: MarkerMetadata | None = None, logo: Path | None = None,
+        *, on_process: Callable[[VideoProcessReceipt], None] | None = None,
     ) -> bool:
         ffmpeg = find_ffmpeg()
         if not ffmpeg:
@@ -229,6 +254,11 @@ class BatchProcessor:
             normalized = normalize_video_timing_mode(mode)
             return "" if normalized == "permanent" else video_enable_expression(normalized, settings.video_duration, duration_seconds)
         inputs = [badge, logo] if badge and logo else [overlay]
+        # Resolve dimensions from a decoded source frame once. Chaining
+        # scale2ref against the already-composited stream can deadlock when
+        # two still-image overlays are connected to a looping video graph.
+        source_frame = extract_video_frame(ffmpeg, source, timestamp=0.0)
+        source_width = source_frame.width
         parts = []
         current = "[0:v]"
         for index, item in enumerate(inputs, start=1):
@@ -243,7 +273,11 @@ class BatchProcessor:
             if normalize_video_timing_mode(mode) != "permanent" and duration_seconds is None:
                 duration_seconds = video_duration_seconds(ffmpeg, source)
             label = f"ov{index}"
-            parts.append(f"[{index}:v]{current}scale2ref=w=main_w*{width}:h=ow/mdar[scaled{index}][base{index}];[scaled{index}]format=rgba,colorchannelmixer=aa={alpha}[{label}];[base{index}][{label}]overlay={overlay_position}:shortest=1{timing(mode)}[{label}out]")
+            with Image.open(item) as image:
+                image_width, image_height = image.size
+            rendered_width = max(1, round(source_width * width))
+            rendered_height = max(1, round(rendered_width * image_height / max(1, image_width)))
+            parts.append(f"[{index}:v]scale={rendered_width}:{rendered_height},format=rgba,colorchannelmixer=aa={alpha}[{label}];{current}[{label}]overlay={overlay_position}:shortest=1{timing(mode)}[{label}out]")
             current = f"[{label}out]"
         filter_graph = ";".join(parts)
         metadata = metadata or marker_metadata(overlay.name)
@@ -262,15 +296,15 @@ class BatchProcessor:
         ]
         if target.suffix.lower() in {".mp4", ".mov"}:
             metadata_options += ["-movflags", "use_metadata_tags"]
-        completed = subprocess.run(
-            base_command + metadata_options + [str(target)], capture_output=True, text=True,
-            **hidden_subprocess_kwargs(),
-        )
+        def run(command: list[str]) -> VideoProcessReceipt:
+            receipt = run_ffmpeg_with_receipt(command)
+            if on_process is not None:
+                on_process(receipt)
+            return receipt
+
+        completed = run(base_command + metadata_options + [str(target)])
         if completed.returncode:
-            retry = subprocess.run(
-                base_command + [str(target)], capture_output=True, text=True,
-                **hidden_subprocess_kwargs(),
-            )
+            retry = run(base_command + [str(target)])
             if not retry.returncode:
                 return False
             completed = retry

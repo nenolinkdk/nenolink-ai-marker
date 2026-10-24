@@ -13,7 +13,7 @@ import re
 @dataclass
 class PptxBadgeState:
     enabled: bool = True
-    badge_id: str = "AI Assisted"
+    badge_id: str = "ai-assisted.png"
     position: str = "bottom-right"
     size: int = 20
     margin: int = 20
@@ -41,7 +41,6 @@ class PptxWorkspaceState:
     scope_input: str = ""
     badge: PptxBadgeState = field(default_factory=PptxBadgeState)
     logo: PptxLogoState = field(default_factory=PptxLogoState)
-    output_status: str = ""
 
     @property
     def loaded(self) -> bool:
@@ -58,7 +57,7 @@ class PptxWorkspaceState:
 
     def clear(self) -> None:
         self.path = None; self.slide_count = 0; self.current_slide = 1
-        self.scope_mode = "all"; self.active_scope = (); self.scope_input = ""; self.output_status = ""
+        self.scope_mode = "all"; self.active_scope = (); self.scope_input = ""
 
     def visual_projection(self) -> dict[str, Any]:
         """Immutable-style snapshot consumed by preview and output adapters."""
@@ -119,7 +118,10 @@ def apply_pptx_scope_event(state: PptxWorkspaceState, event: "PptxEvent", value=
         mode = str(value).lower()
         if mode not in {"all", "first", "selected", "range"}:
             raise ValueError("Unknown slide scope")
+        previous_mode = state.scope_mode
         state.scope_mode = mode
+        if previous_mode != mode and previous_mode in {"selected", "range"} and mode in {"selected", "range"}:
+            state.scope_input = ""
         if mode in {"all", "first"}:
             state.active_scope = normalize_scope(mode, state.scope_input, state.slide_count)
             state.current_slide = state.active_scope[0]
@@ -152,7 +154,7 @@ def project_file(state: PptxWorkspaceState, translate=None) -> dict[str, Any]:
     return {"status": t("pptx.selected", name=state.display_filename), "filename": state.display_filename, "details": t("document.summary.slides", size=f"{value:.1f} {unit}", count=state.slide_count)}
 
 def project_badge(state: PptxWorkspaceState, repository) -> dict[str, Any]:
-    badge_id = state.badge.badge_id or "AI Assisted"; asset = None
+    badge_id = state.badge.badge_id or "ai-assisted.png"; asset = None
     candidates = repository.display_badges() if hasattr(repository, "display_badges") else repository.all()
     for candidate in candidates:
         if candidate.name == badge_id or repository.display_name(candidate.name) == badge_id: asset = candidate; break
@@ -161,7 +163,6 @@ def project_badge(state: PptxWorkspaceState, repository) -> dict[str, Any]:
 
 class PptxEvent(str, Enum):
     CHOOSE_FILE = "choose_file"
-    SAVE_AS = "save_as"
     BADGE_ENABLE = "badge_enable"
     BADGE_SELECT = "badge_select"
     BADGE_POSITION = "badge_position"
@@ -202,13 +203,11 @@ class PptxTransition:
     mutates: tuple[str, ...] = ()
     preserves: tuple[str, ...] = ("path", "current_slide", "active_scope", "badge", "logo")
     rerender: bool = False
-    output: bool = False
     remount: bool = False
 
 
 PPTX_TRANSITION_TABLE: tuple[PptxTransition, ...] = (
     PptxTransition(PptxEvent.CHOOSE_FILE, mutates=("path", "slide_count", "current_slide", "active_scope")),
-    PptxTransition(PptxEvent.SAVE_AS, output=True),
     *(PptxTransition(event, mutates=(f"badge.{field}",), preserves=("path", "current_slide", "active_scope", "logo"), rerender=True)
       for event, field in ((PptxEvent.BADGE_ENABLE, "enabled"), (PptxEvent.BADGE_SELECT, "badge_id"),
                            (PptxEvent.BADGE_POSITION, "position"), (PptxEvent.BADGE_SIZE, "size"),
@@ -218,13 +217,13 @@ PPTX_TRANSITION_TABLE: tuple[PptxTransition, ...] = (
                            (PptxEvent.LOGO_POSITION, "position"), (PptxEvent.LOGO_SIZE, "size"),
                            (PptxEvent.LOGO_MARGIN, "margin"), (PptxEvent.LOGO_OPACITY, "opacity"))),
     PptxTransition(PptxEvent.LOGO_SCOPE_MODE, mutates=("logo.scope_mode",), preserves=("path", "current_slide", "active_scope", "badge"), rerender=True),
-    PptxTransition(PptxEvent.SCOPE_MODE, mutates=("scope_mode",), rerender=True),
+    PptxTransition(PptxEvent.SCOPE_MODE, mutates=("scope_mode", "scope_input", "active_scope", "current_slide"), preserves=("path", "badge", "logo"), rerender=True),
     PptxTransition(PptxEvent.SCOPE_TEXT_CHANGED, mutates=("scope_input",)),
     PptxTransition(PptxEvent.SCOPE_UPDATE, mutates=("scope_mode", "active_scope", "current_slide"), rerender=True),
     PptxTransition(PptxEvent.PREVIEW_PREVIOUS, mutates=("current_slide",), preserves=("path", "active_scope", "badge", "logo"), rerender=True),
     PptxTransition(PptxEvent.PREVIEW_NEXT, mutates=("current_slide",), preserves=("path", "active_scope", "badge", "logo"), rerender=True),
-    PptxTransition(PptxEvent.CLEAR_RUNTIME, mutates=("path", "slide_count", "current_slide", "scope_mode", "active_scope", "scope_input", "output_status"), preserves=("badge", "logo")),
-    PptxTransition(PptxEvent.RESET_TO_DEFAULTS, mutates=("path", "slide_count", "current_slide", "scope_mode", "active_scope", "scope_input", "badge", "logo", "output_status"), preserves=()),
+    PptxTransition(PptxEvent.CLEAR_RUNTIME, mutates=("path", "slide_count", "current_slide", "scope_mode", "active_scope", "scope_input"), preserves=("badge", "logo")),
+    PptxTransition(PptxEvent.RESET_TO_DEFAULTS, mutates=("path", "slide_count", "current_slide", "scope_mode", "active_scope", "scope_input", "badge", "logo"), preserves=()),
 )
 
 
@@ -267,11 +266,9 @@ def apply_pptx_event(state: PptxWorkspaceState, event: PptxEvent | str, value=No
     if event is PptxEvent.CHOOSE_FILE:
         path, count = value
         return choose_file_success(state, Path(path), int(count))
-    if event is PptxEvent.SAVE_AS:
-        return state
     if event is PptxEvent.CLEAR_RUNTIME:
         state.path = None; state.slide_count = 0; state.current_slide = 1
-        state.scope_mode = "all"; state.active_scope = (); state.scope_input = ""; state.output_status = ""
+        state.scope_mode = "all"; state.active_scope = (); state.scope_input = ""
         return state
     if event is PptxEvent.RESET_TO_DEFAULTS:
         defaults = type(state)()

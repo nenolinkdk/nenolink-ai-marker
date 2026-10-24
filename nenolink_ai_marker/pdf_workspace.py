@@ -60,6 +60,9 @@ class PdfWorkspace:
         app = self.app; t = app.translator.text
         self.root = ctk.CTkFrame(host, fg_color="transparent"); self.root.grid(row=0, column=0, sticky="nsew")
         self.presentation_generation += 1
+        # Initialize authoritative badge selection through its event path
+        # before the first projection; project() stays read-only.
+        self._ensure_badge_selection()
         self.root.grid_columnconfigure(0, weight=0, minsize=320); self.root.grid_columnconfigure(1, weight=1); self.root.grid_rowconfigure(0, weight=1)
         self.control_panel = WorkspaceControlPanel(self.root, width=320)
         for section in ("FILE", "PAGES", "AI_BADGE", "OWN_LOGO"):
@@ -81,7 +84,7 @@ class PdfWorkspace:
         self.badge_control = BadgeControl(badge_section, on_enabled_changed=self.visual_changed, on_badge_selected=self.select_badge, heading_label=t("section.ai_badge"))
         self.badge_control.frame.grid(row=0, column=0, sticky="ew")
         app.pdf_badge_enable = self.badge_control.enabled_widget; app.pdf_badge_menu = self.badge_control.selector_widget; app.badge_display_var = self.badge_control.selector_var; app.pdf_badge_visual = self.badge_control.graphic_widget; app.pdf_badge_image_label=app.pdf_badge_visual; app.pdf_badge_name_label=app.pdf_badge_visual
-        self.badge_position_label = ctk.CTkLabel(badge_section, text=t("position"), width=PARAM_LABEL_WIDTH); self.badge_position_label.grid(row=1, column=0, padx=8, pady=(2, 0), sticky="w")
+        self.badge_position_label = ctk.CTkLabel(badge_section, text=t("position"), width=PARAM_LABEL_WIDTH, anchor="w"); self.badge_position_label.grid(row=1, column=0, padx=8, pady=(2, 0), sticky="w")
         self._position_display = self._badge_position_display()
         self._position_value = {label: value for value, label in self._position_display.items()}
         self.badge_position_var = ctk.StringVar(value=self._position_display.get(self.state.badge.position, ""))
@@ -109,29 +112,21 @@ class PdfWorkspace:
     def project(self) -> None:
         app = self.app; state = self.state
         self.apply_translations()
-        # Keep the authoritative badge state explicit at the projection boundary.
-        _authoritative_badge = self.state.badge
-        self._ensure_badge_selection()
-        app.pdf_path = state.path
-        app.pdf_current_page = state.current_page
-        app.pdf_scope_mode = state.scope_mode
-        app.pdf_scope_input = state.scope_input
-        app.pdf_active_scope = tuple(state.active_scope)
-        if state.path is None: app.pdf_info = None
-        for name, value in (("pdf_badge_enabled_var", state.badge.enabled), ("badge_var", state.badge.badge_id), ("position_var", state.badge.position), ("size_var", state.badge.size), ("margin_var", state.badge.margin), ("opacity_var", state.badge.opacity), ("logo_enabled_var", state.logo.enabled), ("logo_path_var", str(state.logo.path or "")), ("logo_position_var", state.logo.position), ("logo_size_var", state.logo.size), ("logo_margin_var", state.logo.margin), ("logo_opacity_var", state.logo.opacity)):
+        for name, value in (("badge_var", state.badge.badge_id), ("position_var", state.badge.position), ("size_var", state.badge.size), ("margin_var", state.badge.margin), ("opacity_var", state.badge.opacity), ("logo_enabled_var", state.logo.enabled), ("logo_path_var", str(state.logo.path or "")), ("logo_position_var", state.logo.position), ("logo_size_var", state.logo.size), ("logo_margin_var", state.logo.margin), ("logo_opacity_var", state.logo.opacity)):
             variable = getattr(app, name, None)
             if variable is not None: variable.set(value)
         if getattr(self, "logo_control", None) is not None:
             self.logo_control.project(LogoProjection(enabled=state.logo.enabled, filename=state.logo.path.name if state.logo.path else "", position=state.logo.position, size=state.logo.size, margin=state.logo.margin, opacity=state.logo.opacity, labels=self._logo_labels()))
         if getattr(self, "scope_control", None) is not None:
-            self.scope_control.project(mode=self._scope_display.get(state.scope_mode, state.scope_mode), draft=state.scope_input, status=str(len(state.active_scope)) if state.path else "", input_enabled=state.scope_mode in {"selected", "range"})
+            scope_status = app.translator.text("pdf.selected_count", count=len(state.active_scope)) if state.path else ""
+            self.scope_control.project(mode=self._scope_display.get(state.scope_mode, state.scope_mode), draft=state.scope_input, status=scope_status, input_enabled=state.scope_mode in {"selected", "range"})
         if getattr(self, "navigation_control", None) is not None:
             self.navigation_control.project(current=state.current_page, total=state.page_count if state.path else 0)
         if state.path and getattr(app, "pdf_info", None) is not None:
             self.refresh_preview()
         else:
             if getattr(app, "pdf_preview_label", None) is not None: app.pdf_preview_label.configure(image=None, text=app.translator.text("pdf.preview_hint"))
-            self.preview_photo = None; app.pdf_preview_photo = None
+            self.preview_photo = None
         self._project_badge_controls()
 
     def _ensure_badge_selection(self) -> None:
@@ -171,7 +166,7 @@ class PdfWorkspace:
         self.scope_control.project(
             mode=self._scope_display[self.state.scope_mode],
             draft=self.state.scope_input,
-            status=str(len(self.state.active_scope)) if self.state.path else "",
+            status=t("pdf.selected_count", count=len(self.state.active_scope)) if self.state.path else "",
             input_enabled=self.state.scope_mode in {"selected", "range"},
         )
         self.navigation_control.set_status_template(t("pdf.page_status"))
@@ -223,7 +218,6 @@ class PdfWorkspace:
             if row is not None:
                 value = getattr(state.badge, field)
                 row.project(text=app.translator.text(key, value=value), value=value)
-        app.pdf_badge_enabled_var.set(state.badge.enabled)
 
     def _badge_position_display(self):
         t = self.app.translator.text
@@ -253,7 +247,6 @@ class PdfWorkspace:
     def set_badge(self, **changes) -> None:
         apply_pdf_event(self.state, PdfEvent.BADGE_CHANGED, changes)
         self.project()
-        self.refresh_preview()
 
     def choose_logo(self) -> None:
         from tkinter import filedialog
@@ -264,7 +257,6 @@ class PdfWorkspace:
     def set_logo(self, **changes) -> None:
         apply_pdf_event(self.state, PdfEvent.LOGO_CHANGED, changes)
         self.project()
-        self.refresh_preview()
 
     def set_scope(self, mode: str, values: tuple[int, ...], text: str = "") -> None:
         apply_pdf_event(self.state, PdfEvent.SCOPE_MODE, {"mode": mode})
@@ -343,7 +335,6 @@ class PdfWorkspace:
             result = app.pdf_preview_renderer.render(state.path, current, badge, settings, logo, max_size=max_size)
             self.preview_photo = ctk.CTkImage(light_image=result.image, dark_image=result.image, size=result.image.size)
             app.pdf_preview_label.configure(image=self.preview_photo, text="")
-            app.pdf_preview_photo = self.preview_photo
             self.navigation_control.project(current=state.current_page, total=state.page_count)
             self.geometry_receipt = geometry
             app._boot(f"PDF_HOST={geometry.actual_available_width}x{geometry.actual_available_height} PDF_EFFECTIVE={geometry.effective_width}x{geometry.effective_height} PDF_MAX={geometry.canonical_max_width}x{geometry.canonical_max_height} PDF_FIT={max_size[0]}x{max_size[1]} PDF_RENDER={result.image.width}x{result.image.height} PDF_MEASURED={geometry.measured_fraction:.4f} PDF_LIMIT={geometry.limiting_dimension}")
@@ -400,9 +391,9 @@ class PdfWorkspace:
             apply_pdf_event(self.state, PdfEvent.CLEAR_RUNTIME)
         else:
             self.state.clear()
-        # B1 intentionally performs dual cleanup so existing Reset semantics
-        # remain unchanged.  These fields/resources are removed in B2/B3.
-        clear = getattr(self.app, "_clear_pdf_runtime_compat", None)
+        # PDF metadata is held by MarkerApp's processor/security integration;
+        # discard it when this authoritative workspace document is cleared.
+        clear = getattr(self.app, "_clear_pdf_document_info", None)
         if callable(clear):
             clear()
 
@@ -412,7 +403,7 @@ class PdfWorkspace:
     def enter_clean(self):
         result = self.dispatch(PdfEvent.RESET_TO_DEFAULTS)
         self._ensure_badge_selection()
-        clear = getattr(self.app, "_clear_pdf_runtime_compat", None)
+        clear = getattr(self.app, "_clear_pdf_document_info", None)
         if callable(clear):
             clear()
         # A clean lifecycle transition is complete only after its state has

@@ -36,6 +36,7 @@ class ImageWorkspace:
         self.scrollable_frame_cls = scrollable_frame_cls
         self.root = None
         self.presentation_generation = 0
+        self.preview_photo = None
 
     def _dispose_view(self):
         root = self.root
@@ -46,6 +47,7 @@ class ImageWorkspace:
             except Exception:
                 pass
         self.root = None
+        self.preview_photo = None
         self.badge_control = None
         self.source_control = None
         for name in ("image_workspace", "image_controls", "file_label", "preview_label", "welcome_frame", "process_button", "process_save_control", "badge_enable", "badge_menu", "single_badge_preview_label", "single_badge_name_label"):
@@ -91,8 +93,6 @@ class ImageWorkspace:
             self.badge_control.project(BadgeProjection(bool(self.state.badge.enabled), self.app.badges.display_name(self.state.badge.badge_id), tuple(self.app.badges.display_name(p.name) for p in self.app.badges.display_badges()), badge_path, self.state.badge.position, self.state.badge.size, self.state.badge.margin, self.state.badge.opacity, self.app.translator.text("pdf.add_badge"), self.app.translator.text("section.ai_badge")))
             if getattr(self, "logo_control", None):
                 self.logo_control.project(LogoProjection(enabled=self.state.logo.enabled, filename=self.state.logo.path.name if self.state.logo.path else "", position=self.state.logo.position, size=self.state.logo.size, margin=self.state.logo.margin, opacity=self.state.logo.opacity, labels=self._logo_labels()))
-            self.app.sources = list(files)
-            self.app.media_sources["image"] = list(files)
             self.refresh_preview()
 
     def apply_translations(self):
@@ -172,8 +172,7 @@ class ImageWorkspace:
         app = self.app
         files = self.state.selected_files
         if not files:
-            self.state.preview_image = None
-            app.preview_photo = app.preview_image = None
+            self.preview_photo = None
             self._show_welcome()
             return
         badge = app.badges.find(self.state.badge.badge_id) if self.state.badge.enabled else None
@@ -182,11 +181,10 @@ class ImageWorkspace:
         self._show_preview()
         try:
             image = app.preview_renderer.render(files[0], badge, settings, logo)
-            self.state.preview_image = image.copy()
-            app.preview_image = self.state.preview_image
-            app.preview_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
-            self.preview_label.configure(image=app.preview_photo, text=""); self.preview_label.image = app.preview_photo
+            self.preview_photo = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
+            self.preview_label.configure(image=self.preview_photo, text=""); self.preview_label.image = self.preview_photo
         except (OSError, ValueError) as error:
+            self.preview_photo = None
             self.preview_label.configure(image=None, text=app.translator.text("error.preview", error=error))
 
     def save(self):
@@ -233,17 +231,16 @@ class ImageWorkspace:
             displayed = self.badge_control.selector_var.get()
         if displayed is None:
             return
-        badge_id = next((path.name for path in self.app.badges.display_badges()
-                         if self.app.badges.display_name(path.name) == displayed), displayed)
+        badge_id = self.app.badges.canonical_filename(displayed)
+        if badge_id is None:
+            return
         apply_image_event(self.state, ImageEvent.BADGE_CHANGED, {"badge_id": badge_id})
         if getattr(self, "root", None) is not None: self.project()
-        self.refresh_preview()
 
     def position_changed(self, label):
         value = self.position_display_to_value.get(label, label)
         apply_image_event(self.state, ImageEvent.VISUAL_CHANGED, {"position": value})
         if getattr(self, "root", None) is not None: self.project()
-        self.refresh_preview()
 
     def badge_parameter_changed(self, field, value):
         """Dispatch only the badge parameter changed by its slider."""
@@ -251,7 +248,6 @@ class ImageWorkspace:
             raise ValueError(f"Unsupported badge parameter: {field}")
         apply_image_event(self.state, ImageEvent.VISUAL_CHANGED, {field: int(float(value))})
         if getattr(self, "root", None) is not None: self.project()
-        self.refresh_preview()
 
     def choose_logo(self):
         selected = filedialog.askopenfilename(title=self.app.translator.text("dialog.open_logo"), filetypes=[(self.app.translator.text("files.supported_images"), "*.png *.jpg *.jpeg *.webp"), (self.app.translator.text("files.all"), "*.*")])
@@ -272,7 +268,6 @@ class ImageWorkspace:
                 payload[field] = value
         apply_image_event(self.state, ImageEvent.LOGO_CHANGED, payload)
         if getattr(self, "root", None) is not None: self.project()
-        self.refresh_preview()
 
     def visual_changed(self, enabled=None, *_args):
         # BadgeControl's checkbox passes bool. A numeric slider callback must
@@ -280,7 +275,6 @@ class ImageWorkspace:
         payload = {"enabled": enabled} if isinstance(enabled, bool) else {}
         apply_image_event(self.state, ImageEvent.VISUAL_CHANGED, payload)
         if getattr(self, "root", None) is not None: self.project()
-        self.refresh_preview()
 
     def _slider(self, parent, variable, start, end, row, label_key):
         value = int(variable.get())
@@ -329,7 +323,7 @@ class ImageWorkspace:
         self.badge_control.frame.grid(row=0, column=0, sticky="ew")
         app.badge_enable = self.badge_control.enabled_widget; app.badge_menu = self.badge_control.selector_widget
         app.single_badge_preview_label = self.badge_control.graphic_widget; app.single_badge_name_label = self.badge_control.graphic_widget
-        app.position_label = ctk.CTkLabel(app.image_badge_group, width=PARAM_LABEL_WIDTH)
+        app.position_label = ctk.CTkLabel(app.image_badge_group, width=PARAM_LABEL_WIDTH, anchor="w")
         app.position_label.grid(row=1, column=0, padx=8, pady=(2, 0), sticky="w")
         self.position_label = app.position_label
         self.position_display_var = ctk.StringVar(value="")

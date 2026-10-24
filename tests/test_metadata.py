@@ -86,14 +86,19 @@ def test_metadata_encoder_failure_retries_visible_output(tmp_path):
         assert output.size == (32, 24)
 
 
-def test_video_command_contains_selected_badge_and_version():
-    completed = type("Completed", (), {"returncode": 0, "stderr": ""})()
+def test_video_command_contains_selected_badge_and_version(tmp_path):
+    from PIL import Image
+    from nenolink_ai_marker.batch import VideoProcessReceipt
+    completed = VideoProcessReceipt(("ffmpeg",), 42, 0, "", 0.1)
     metadata = marker_metadata("ai-generated.png")
+    badge = tmp_path / "ai-generated.png"
+    Image.new("RGBA", (80, 40)).save(badge)
     with patch("nenolink_ai_marker.batch.find_ffmpeg", return_value="C:/ffmpeg.exe"), patch(
-        "nenolink_ai_marker.batch.subprocess.run", return_value=completed
+        "nenolink_ai_marker.batch.extract_video_frame", return_value=Image.new("RGBA", (320, 240))
+    ), patch("nenolink_ai_marker.batch.run_ffmpeg_with_receipt", return_value=completed
     ) as run:
         assert BatchProcessor.process_video(
-            Path("input.mp4"), Path("ai-generated.png"), Path("output.mp4"),
+            Path("input.mp4"), badge, tmp_path / "output.mp4",
             MarkerSettings(), metadata,
         )
     command = run.call_args.args[0]
@@ -103,14 +108,19 @@ def test_video_command_contains_selected_badge_and_version():
     assert "use_metadata_tags" in command
 
 
-def test_video_metadata_failure_retries_without_metadata():
-    failed = type("Completed", (), {"returncode": 1, "stderr": "metadata rejected"})()
-    succeeded = type("Completed", (), {"returncode": 0, "stderr": ""})()
+def test_video_metadata_failure_retries_without_metadata(tmp_path):
+    from PIL import Image
+    from nenolink_ai_marker.batch import VideoProcessReceipt
+    failed = VideoProcessReceipt(("ffmpeg",), 42, 1, "metadata rejected", 0.1)
+    succeeded = VideoProcessReceipt(("ffmpeg",), 43, 0, "", 0.1)
+    badge = tmp_path / "ai-generated.png"
+    Image.new("RGBA", (80, 40)).save(badge)
     with patch("nenolink_ai_marker.batch.find_ffmpeg", return_value="C:/ffmpeg.exe"), patch(
-        "nenolink_ai_marker.batch.subprocess.run", side_effect=[failed, succeeded]
+        "nenolink_ai_marker.batch.extract_video_frame", return_value=Image.new("RGBA", (320, 240))
+    ), patch("nenolink_ai_marker.batch.run_ffmpeg_with_receipt", side_effect=[failed, succeeded]
     ) as run:
         assert not BatchProcessor.process_video(
-            Path("input.mp4"), Path("ai-generated.png"), Path("output.mp4"), MarkerSettings()
+            Path("input.mp4"), badge, tmp_path / "output.mp4", MarkerSettings()
         )
     assert len(run.call_args_list) == 2
     assert "-metadata" in run.call_args_list[0].args[0]

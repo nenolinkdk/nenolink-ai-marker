@@ -36,7 +36,6 @@ def _app():
     app.image_workspace = None
     app.video_workspace = None
     app._clear_content_host = lambda: app.content_host.clear()
-    app._unmount_image_workspace = lambda: app.content_host.clear()
     app._unmount_video_workspace = lambda: app.content_host.clear()
     app._clear_workspace_runtime = lambda _kind: app.content_host.clear()
 
@@ -60,12 +59,7 @@ def _app():
             self.unmounted += 1
 
     app._workspace_registry = {kind: Workspace(kind) for kind in CONTENT}
-    app.pdf_path = app.pdf_info = app.pptx_path = app.pptx_metrics = None
-    app.pdf_current_page = app.pptx_current_slide = 0
-    app.pdf_preview_photo = app.pptx_preview_photo = None
-    app.pdf_scope_mode = app.pptx_scope_mode = "all"
-    app.pdf_active_scope = app.pptx_active_scope = ()
-    app.pdf_scope_input = app.pptx_scope_input = ""
+    app.pdf_info = None
     return app
 
 

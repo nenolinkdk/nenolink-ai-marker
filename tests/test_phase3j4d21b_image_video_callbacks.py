@@ -56,6 +56,9 @@ def test_image_badge_selection_keeps_logo_authority_and_save_uses_state(tmp_path
         def display_name(self, badge_id):
             return "Human Reviewed" if badge_id == badge.name else badge_id
 
+        def canonical_filename(self, selection):
+            return badge.name if selection in {badge.name, "Human Reviewed"} else None
+
         def find(self, badge_id):
             return badge if badge_id == badge.name else None
 
@@ -105,6 +108,54 @@ def test_image_badge_selection_keeps_logo_authority_and_save_uses_state(tmp_path
     assert captured["destination"] == tmp_path / "output.png"
 
 
+def test_image_badge_callback_rejects_unknown_display_value():
+    state = ImageWorkspaceState()
+
+    class Badges:
+        def canonical_filename(self, _selection):
+            return None
+
+    workspace = ImageWorkspace.__new__(ImageWorkspace)
+    workspace.app = SimpleNamespace(badges=Badges())
+    workspace.state = state
+    workspace.root = None
+    workspace.badge_control = SimpleNamespace(selector_var=SimpleNamespace(get=lambda: "Unknown"))
+
+    workspace.badge_changed("Unknown")
+
+    assert state.badge.badge_id == "ai-assisted.png"
+
+
+def test_image_callbacks_render_once_through_projection():
+    state = ImageWorkspaceState()
+    state.badge.enabled = True
+    state.badge.badge_id = "ai-assisted.png"
+    workspace = ImageWorkspace.__new__(ImageWorkspace)
+    workspace.app = SimpleNamespace(badges=SimpleNamespace(
+        canonical_filename=lambda value: "ai-assisted.png" if value == "AI Assisted" else None,
+    ))
+    workspace.state = state
+    workspace.root = object()
+    render_count = 0
+
+    def project_once():
+        nonlocal render_count
+        render_count += 1
+        workspace.refresh_preview()
+
+    workspace.project = project_once
+    workspace.refresh_preview = lambda: None
+    workspace.position_display_to_value = {"Top left": "top-left"}
+
+    workspace.badge_changed("AI Assisted")
+    workspace.position_changed("Top left")
+    workspace.badge_parameter_changed("opacity", 65)
+    workspace.visual_changed(False)
+    workspace.logo_changed(enabled=True)
+
+    assert render_count == 5
+
+
 def test_image_event_state_drives_concrete_preview_and_saved_pixels(tmp_path, monkeypatch):
     source = _png(tmp_path / "source.png", (20, 20, 20, 255), size=(100, 80))
     badge = _png(tmp_path / "ai-assisted.png", (255, 0, 0, 255))
@@ -149,7 +200,7 @@ def test_image_event_state_drives_concrete_preview_and_saved_pixels(tmp_path, mo
             or ImageProcessor().process(image, selected_badge, settings, selected_logo)
         )),
         translator=SimpleNamespace(text=lambda key, **kwargs: key.format(**kwargs)),
-        preview_photo=None, preview_image=None, status_var=SimpleNamespace(set=lambda _value: None),
+        status_var=SimpleNamespace(set=lambda _value: None),
     )
     workspace = ImageWorkspace.__new__(ImageWorkspace)
     workspace.app = app
@@ -164,7 +215,7 @@ def test_image_event_state_drives_concrete_preview_and_saved_pixels(tmp_path, mo
     preview_source, preview_badge, preview_settings, preview_logo = captured["preview"]
     assert preview_source == source and preview_badge == badge and preview_logo == logo
     assert preview_settings.opacity == 60 and preview_settings.logo_enabled
-    assert app.preview_photo.image.getpixel((0, 0))[:3] == (0, 0, 255)
+    assert workspace.preview_photo.image.getpixel((0, 0))[:3] == (0, 0, 255)
 
     import tkinter.filedialog as filedialog
     import tkinter.messagebox as messagebox
@@ -274,20 +325,27 @@ def test_video_save_request_uses_independent_authoritative_badge_logo_state(tmp_
     state.logo.opacity = 73
     state.duration = 7
     state.mode = "beginning"
-    workspace = VideoWorkspace.__new__(VideoWorkspace)
-    workspace.app = SimpleNamespace(
+    scheduled = []
+    workspace_app = SimpleNamespace(
         badges=Badges(), processor=object(),
         translator=SimpleNamespace(text=lambda key, **kwargs: key.format(**kwargs)),
         status_var=SimpleNamespace(set=lambda _value: None),
+        after=lambda _delay, callback: scheduled.append(callback),
     )
-    workspace.state = state
+    workspace = VideoWorkspace(workspace_app, state)
 
     import tkinter.filedialog as filedialog
     monkeypatch.setattr(filedialog, "asksaveasfilename", lambda **_kwargs: str(tmp_path / "output.mp4"))
     monkeypatch.setattr(video_module, "find_ffmpeg", lambda: "ffmpeg")
     recorded = {}
-    monkeypatch.setattr(BatchProcessor, "process_video", lambda *args, **kwargs: recorded.update(args=args, kwargs=kwargs))
+    main_thread = __import__("threading").get_ident()
+    def record_process(*args, **kwargs):
+        recorded.update(args=args, kwargs=kwargs, thread=__import__("threading").get_ident())
+    monkeypatch.setattr(BatchProcessor, "process_video", record_process)
     workspace.save()
+    workspace._save_thread.join(timeout=5)
+    assert not workspace._save_thread.is_alive()
+    scheduled.pop(0)()
     args = recorded["args"]
     # The monkeypatched instance method receives BatchProcessor as self.
     settings = args[4]
@@ -296,6 +354,8 @@ def test_video_save_request_uses_independent_authoritative_badge_logo_state(tmp_
     assert settings.logo_mode == "back" and settings.logo_enabled
     assert settings.logo_size_percent == 26 and settings.logo_margin == 9 and settings.logo_opacity == 73
     assert settings.size_percent == 37 and settings.position == "bottom-left"
+    assert recorded["thread"] != main_thread
+    assert not workspace._save_in_progress
 
 
 def test_video_slider_and_checkbox_callbacks_do_not_read_legacy_app_values(tmp_path):
@@ -305,7 +365,7 @@ def test_video_slider_and_checkbox_callbacks_do_not_read_legacy_app_values(tmp_p
     state.logo.enabled = True
     state.logo.path = logo
     workspace = VideoWorkspace.__new__(VideoWorkspace)
-    workspace.app = SimpleNamespace(_save_image_settings=lambda: None)
+    workspace.app = SimpleNamespace()
     workspace.state = state
     workspace.project = lambda: None
     workspace.refresh_preview = lambda: None
@@ -330,13 +390,14 @@ def test_video_front_back_saved_filter_uses_shared_beginning_end_semantics(monke
     logo = _png(tmp_path / "logo.png", (0, 0, 255, 255))
     commands = []
 
-    class Completed:
-        returncode = 0
-        stderr = ""
+    from PIL import Image
+    from nenolink_ai_marker.batch import VideoProcessReceipt
+    completed = VideoProcessReceipt(("ffmpeg",), 42, 0, "", 0.1)
 
     monkeypatch.setattr("nenolink_ai_marker.batch.find_ffmpeg", lambda: "ffmpeg")
     monkeypatch.setattr("nenolink_ai_marker.batch.video_duration_seconds", lambda *_args: 20.0)
-    monkeypatch.setattr("nenolink_ai_marker.batch.subprocess.run", lambda command, **_kwargs: commands.append(command) or Completed())
+    monkeypatch.setattr("nenolink_ai_marker.batch.extract_video_frame", lambda *_args, **_kwargs: Image.new("RGBA", (320, 240)))
+    monkeypatch.setattr("nenolink_ai_marker.batch.run_ffmpeg_with_receipt", lambda command: commands.append(command) or completed)
     settings = MarkerSettings(logo_enabled=True, logo_path=str(logo), logo_mode="front", video_duration=5)
     BatchProcessor.process_video(source, None, tmp_path / "front.mp4", settings, logo=logo)
     assert "between(t\\,0\\,5)" in commands[-1][commands[-1].index("-filter_complex") + 1]

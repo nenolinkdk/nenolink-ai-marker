@@ -83,6 +83,7 @@ class PptxWorkspace:
         self.root.grid(row=0, column=0, sticky="nsew")
         self.root.grid_columnconfigure(0, weight=0, minsize=320)
         self.root.grid_columnconfigure(1, weight=1)
+        self.root.grid_rowconfigure(0, weight=1)
         t = getattr(getattr(self.app, "translator", None), "text", lambda key: key)
         self.mount_token_reached = True
         self.construction_receipt = PptxConstructionReceipt()
@@ -139,7 +140,7 @@ class PptxWorkspace:
     def _build_visual_controls(self, controls, logo_host=None):
         row = 1
         t = getattr(getattr(self.app, "translator", None), "text", lambda key: key)
-        self.badge_position_label = ctk.CTkLabel(controls, text=t("position"), width=PARAM_LABEL_WIDTH); self.badge_position_label.grid(row=row, column=0, padx=8, pady=(2, 0), sticky="w")
+        self.badge_position_label = ctk.CTkLabel(controls, text=t("position"), width=PARAM_LABEL_WIDTH, anchor="w"); self.badge_position_label.grid(row=row, column=0, padx=8, pady=(2, 0), sticky="w")
         positions = ["top-left", "top-right", "bottom-left", "bottom-right", "center"]
         self._position_display = {p: t("position." + p.replace("-", "_")) for p in positions}; self._position_value = {v: k for k, v in self._position_display.items()}
         self.badge_position_var = ctk.StringVar(value=self._position_display.get(self.state.badge.position, self.state.badge.position))
@@ -356,7 +357,11 @@ class PptxWorkspace:
             self._dispatch(PptxEvent.BADGE_SELECT, badge_id)
 
     def _save_as(self):
-        """Save through the authoritative workspace state and PPTX processor."""
+        """Run a state-neutral Save command using authoritative workspace state.
+
+        Completion/failure is reported through receipts and the Shell status
+        label; Save does not dispatch a PPTX state event.
+        """
         self.receipts.record({"layer": "pptx", "event": "PPTX_SAVE_CLICK"})
         self.receipts.record({"layer": "pptx", "event": "PPTX_SAVE_AS_ENTER"})
         if not self.state.path or not Path(self.state.path).is_file():
@@ -402,7 +407,6 @@ class PptxWorkspace:
             logo_items = (1,) if self.state.logo.scope_mode == "first" else tuple(range(1, self.state.slide_count + 1))
             logo_selection = ItemSelection("selected", logo_items)
             self.app.pptx_processor.process(request, badge_selection, logo_selection=logo_selection)
-            self.state.output_status = str(destination)
             self.receipts.record({"layer": "pptx", "event": "PPTX_SAVE_COMPLETED", "destination": str(destination)})
             self.app.status_var.set(self.app.translator.text("pptx.saved", name=destination.name, count=len(self.state.active_scope)))
         except (OSError, ValueError) as error:

@@ -20,6 +20,26 @@ def test_pptx_state_clear_is_unconditional():
     assert state.scope_mode == "all" and state.active_scope == ()
 
 
+def test_pptx_default_badge_uses_canonical_repository_id(tmp_path):
+    from types import SimpleNamespace
+    from nenolink_ai_marker.pptx_state import project_badge
+
+    badge = tmp_path / "ai-assisted.png"
+    badge.touch()
+    repository = SimpleNamespace(
+        display_badges=lambda: [badge],
+        display_name=lambda filename: "AI Assisted" if filename == badge.name else filename,
+    )
+
+    state = PptxWorkspaceState()
+    projected = project_badge(state, repository)
+
+    assert state.badge.badge_id == "ai-assisted.png"
+    assert projected["badge_id"] == "ai-assisted.png"
+    assert projected["display_name"] == "AI Assisted"
+    assert projected["asset"] == badge
+
+
 def test_pptx_reset_to_defaults_restores_workspace_owned_visual_and_scope_defaults():
     state = PptxWorkspaceState(Path("deck.pptx"), 3, 2, "selected", (2,), "2")
     state.badge.size = 45; state.logo.enabled = True; state.logo.path = Path("logo.png")
@@ -47,6 +67,14 @@ def test_transition_table_declares_effects(spec):
         assert all("logo" not in field for field in spec.mutates)
     if spec.event.name.startswith("LOGO_"):
         assert all("badge" not in field for field in spec.mutates)
+
+
+def test_save_is_a_state_neutral_command_not_a_pptx_state_event():
+    assert not hasattr(PptxEvent, "SAVE_AS")
+    assert not hasattr(PptxWorkspaceState(), "output_status")
+    assert all(not hasattr(spec, "output") for spec in PPTX_TRANSITION_TABLE)
+    assert all("output_status" not in field for spec in PPTX_TRANSITION_TABLE
+               for field in spec.mutates)
 
 
 @pytest.mark.parametrize("event,value,field", [

@@ -21,10 +21,18 @@ $rows = @(
 $owned = @(Select-SmokeOwnedProcesses -RootProcessId 101 -ExecutablePath $exe -RootStartTime $now -ProcessRows $rows)
 Assert-Equal (($owned.ProcessId | Sort-Object) -join ',') '101,102' 'Process identity/tree filtering failed'
 
-$visible = [pscustomobject]@{ Handle = 9001L; ProcessId = 102; Visible = $true; TopLevel = $true; Title = 'CTk' }
+$visible = [pscustomobject]@{ Handle = 9001L; ProcessId = 102; Visible = $true; TopLevel = $true; Title = 'Nenolink AI-marker' }
 $success = Get-SmokeStartupDecision -OwnedProcesses $owned -Windows @($visible)
-Assert-Equal $success.Status 'visible-window-detected' 'A visible owned window with a non-product title must pass'
-Assert-Equal $success.Window.Title 'CTk' 'Window title should be retained as diagnostic data'
+Assert-Equal $success.Status 'visible-window-detected' 'A visible owned window with the expected product title must pass'
+Assert-Equal $success.Window.Title 'Nenolink AI-marker' 'The exact product title should be retained'
+
+$wrongTitle = [pscustomobject]@{ Handle = 9006L; ProcessId = 102; Visible = $true; TopLevel = $true; Title = 'CTk' }
+$wrongTitleDecision = Get-SmokeStartupDecision -OwnedProcesses $owned -Windows @($wrongTitle)
+Assert-Equal $wrongTitleDecision.Status 'window-title-mismatch' 'A wrong visible app title must not pass'
+Assert-Equal $wrongTitleDecision.Window.Title 'CTk' 'Wrong title should be retained for diagnostics'
+$blankTitle = [pscustomobject]@{ Handle = 9007L; ProcessId = 102; Visible = $true; TopLevel = $true; Title = '' }
+$blankTitleDecision = Get-SmokeStartupDecision -OwnedProcesses $owned -Windows @($blankTitle)
+Assert-Equal $blankTitleDecision.Status 'window-title-mismatch' 'A blank visible app title must not pass'
 
 $startFailed = Get-SmokeStartupDecision -ProcessStartFailed $true
 Assert-Equal $startFailed.Status 'process-start-failed' 'Start failure classification failed'
@@ -34,7 +42,7 @@ Assert-Equal $earlyExit.Status 'process-exited-before-gui' 'Early exit classific
 $probeFailure = Get-SmokeStartupDecision -ProcessTreeProbeFailed $true -RootProcessExited $true -OwnedProcesses @() -Windows @()
 Assert-Equal $probeFailure.Status 'process-tree-probe-failed' 'A process query error must not be misreported as an early app exit'
 $rootReceipt = [pscustomobject]@{ ProcessId = 101 }
-$rootWindow = [pscustomobject]@{ Handle = 9005L; ProcessId = 101; Visible = $true; TopLevel = $true; Title = 'Application' }
+$rootWindow = [pscustomobject]@{ Handle = 9005L; ProcessId = 101; Visible = $true; TopLevel = $true; Title = 'Nenolink AI-marker' }
 $verifiedRootWindow = Get-SmokeStartupDecision -ProcessTreeProbeFailed $true -OwnedProcesses @($rootReceipt) -Windows @($rootWindow)
 Assert-Equal $verifiedRootWindow.Status 'visible-window-detected' 'An actual visible window owned by the exact launched PID may pass despite child-enumeration errors'
 $accessDeniedWithoutWindow = Get-SmokeStartupDecision -ProcessTreeProbeFailed $true -OwnedProcesses @($rootReceipt) -Windows @()

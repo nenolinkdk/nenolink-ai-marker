@@ -159,7 +159,8 @@ function Get-SmokeStartupDecision {
         [bool]$RootProcessExited = $false,
         [object[]]$OwnedProcesses = @(),
         [object[]]$Windows = @(),
-        [bool]$TimedOut = $false
+        [bool]$TimedOut = $false,
+        [string]$ExpectedWindowTitle = 'Nenolink AI-marker'
     )
 
     if ($ProcessStartFailed) {
@@ -167,14 +168,24 @@ function Get-SmokeStartupDecision {
     }
 
     $ownedIds = @($OwnedProcesses | ForEach-Object { [int]$_.ProcessId })
-    $window = $Windows | Where-Object {
+    $visibleOwnedWindows = @($Windows | Where-Object {
         [long]$_.Handle -ne 0 -and
         $_.Visible -and
         $_.TopLevel -and
         $ownedIds -contains [int]$_.ProcessId
+    })
+    $window = $visibleOwnedWindows | Where-Object {
+        [string]::Equals([string]$_.Title, $ExpectedWindowTitle, [System.StringComparison]::Ordinal)
     } | Select-Object -First 1
     if ($window) {
         return [pscustomobject]@{ Status = 'visible-window-detected'; Window = $window }
+    }
+    if ($visibleOwnedWindows.Count -gt 0) {
+        return [pscustomobject]@{
+            Status = 'window-title-mismatch'
+            Window = $visibleOwnedWindows[0]
+            ExpectedWindowTitle = $ExpectedWindowTitle
+        }
     }
 
     if ($ProcessTreeProbeFailed) {

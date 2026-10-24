@@ -76,7 +76,6 @@ class WorkspaceRuntimeState:
 @dataclass
 class ImageWorkspaceState(WorkspaceRuntimeState):
     """Image reference workspace state; image has no document scope."""
-    preview_image: Any = None
     selected_files: tuple[Path, ...] = ()
 
     def __post_init__(self) -> None:
@@ -92,7 +91,6 @@ class ImageWorkspaceState(WorkspaceRuntimeState):
     def clear_runtime_state(self) -> None:
         super().clear_runtime_state()
         self.selected_files = ()
-        self.preview_image = None
 
 
 class ImageEvent(str, Enum):
@@ -116,8 +114,8 @@ IMAGE_TRANSITION_TABLE: tuple[ImageTransition, ...] = (
     ImageTransition(ImageEvent.BADGE_CHANGED, ("badge",), ("selected_files", "path", "logo")),
     ImageTransition(ImageEvent.LOGO_CHANGED, ("logo",), ("selected_files", "path", "badge")),
     ImageTransition(ImageEvent.VISUAL_CHANGED, ("badge", "logo"), ("selected_files", "path")),
-    ImageTransition(ImageEvent.CLEAR_RUNTIME, ("selected_files", "path", "preview_image", "output_status"), ("badge", "logo")),
-    ImageTransition(ImageEvent.RESET_TO_DEFAULTS, ("path", "selected_files", "preview_image", "badge", "logo", "output_status"), ()),
+    ImageTransition(ImageEvent.CLEAR_RUNTIME, ("selected_files", "path", "output_status"), ("badge", "logo")),
+    ImageTransition(ImageEvent.RESET_TO_DEFAULTS, ("path", "selected_files", "badge", "logo", "output_status"), ()),
 )
 
 
@@ -254,7 +252,6 @@ class PdfWorkspaceState(WorkspaceRuntimeState):
     scope_mode: str = "all"
     scope_input: str = ""
     active_scope: tuple[int, ...] = ()
-    preview_image: Any = None
 
     def __post_init__(self) -> None:
         if self.badge.enabled and not self.badge.badge_id:
@@ -285,7 +282,7 @@ class PdfTransition:
 
 PDF_TRANSITION_TABLE: tuple[PdfTransition, ...] = (
     PdfTransition(PdfEvent.FILE_SELECTED, ("path", "page_count", "current_page", "scope_mode", "scope_input", "active_scope"), ("badge", "logo")),
-    PdfTransition(PdfEvent.SCOPE_MODE, ("scope_mode", "active_scope", "current_page"), ("path", "page_count", "badge", "logo")),
+    PdfTransition(PdfEvent.SCOPE_MODE, ("scope_mode", "scope_input", "active_scope", "current_page"), ("path", "page_count", "badge", "logo")),
     PdfTransition(PdfEvent.SCOPE_TEXT_CHANGED, ("scope_input",), ("path", "page_count", "active_scope", "current_page", "badge", "logo")),
     PdfTransition(PdfEvent.SCOPE_UPDATE, ("active_scope", "current_page", "scope_input"), ("path", "page_count", "badge", "logo")),
     PdfTransition(PdfEvent.PREVIEW_PREVIOUS, ("current_page",), ("path", "page_count", "active_scope", "scope_input", "badge", "logo")),
@@ -294,8 +291,8 @@ PDF_TRANSITION_TABLE: tuple[PdfTransition, ...] = (
     PdfTransition(PdfEvent.BADGE_CHANGED, ("badge",), ("path", "page_count", "active_scope", "scope_input", "current_page", "logo")),
     PdfTransition(PdfEvent.LOGO_CHANGED, ("logo",), ("path", "page_count", "active_scope", "scope_input", "current_page", "badge")),
     PdfTransition(PdfEvent.VISUAL_CHANGED, ("badge", "logo"), ("path", "page_count", "active_scope", "scope_input", "current_page")),
-    PdfTransition(PdfEvent.CLEAR_RUNTIME, ("path", "page_count", "current_page", "scope_mode", "scope_input", "active_scope", "preview_image"), ("badge", "logo")),
-    PdfTransition(PdfEvent.RESET_TO_DEFAULTS, ("path", "page_count", "current_page", "scope_mode", "scope_input", "active_scope", "preview_image", "badge", "logo", "output_status"), ()),
+    PdfTransition(PdfEvent.CLEAR_RUNTIME, ("path", "page_count", "current_page", "scope_mode", "scope_input", "active_scope"), ("badge", "logo")),
+    PdfTransition(PdfEvent.RESET_TO_DEFAULTS, ("path", "page_count", "current_page", "scope_mode", "scope_input", "active_scope", "badge", "logo", "output_status"), ()),
 )
 
 
@@ -339,13 +336,16 @@ def apply_pdf_event(state: PdfWorkspaceState, event: PdfEvent | str, payload=Non
     if event is PdfEvent.FILE_SELECTED:
         state.path = payload["path"]; state.page_count = int(payload["page_count"])
         state.current_page = 1; state.scope_mode = "all"; state.scope_input = ""
-        state.active_scope = tuple(range(1, state.page_count + 1)); state.preview_image = None
+        state.active_scope = tuple(range(1, state.page_count + 1))
     elif event is PdfEvent.SCOPE_MODE:
         mode = str(payload["mode"])
         if mode not in {"all", "first", "selected", "range"}:
             raise ValueError("Unknown PDF scope")
+        previous_mode = state.scope_mode
         values = _pdf_values((), state.page_count, mode) if mode in {"all", "first"} else None
         state.scope_mode = mode
+        if previous_mode != mode and previous_mode in {"selected", "range"} and mode in {"selected", "range"}:
+            state.scope_input = ""
         if mode in {"all", "first"}:
             state.active_scope = values; state.current_page = values[0] if values else 0
     elif event is PdfEvent.SCOPE_TEXT_CHANGED:
@@ -369,7 +369,7 @@ def apply_pdf_event(state: PdfWorkspaceState, event: PdfEvent | str, payload=Non
             target = state.logo if key.startswith("logo_") else state.badge
             setattr(target, key.removeprefix("logo_"), value)
     elif event is PdfEvent.CLEAR_RUNTIME:
-        state.clear_runtime_state(); state.page_count = 0; state.current_page = 0; state.scope_mode = "all"; state.scope_input = ""; state.active_scope = (); state.preview_image = None
+        state.clear_runtime_state(); state.page_count = 0; state.current_page = 0; state.scope_mode = "all"; state.scope_input = ""; state.active_scope = ()
     elif event is PdfEvent.RESET_TO_DEFAULTS:
         reset_workspace_state(state)
     return state

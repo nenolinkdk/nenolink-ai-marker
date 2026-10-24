@@ -130,6 +130,7 @@ function Stop-SmokeLaunchedProcesses {
 $resolvedExe = (Resolve-Path -LiteralPath $ExePath -ErrorAction Stop).Path
 $installRoot = Split-Path -Parent $resolvedExe
 $processName = [System.IO.Path]::GetFileNameWithoutExtension($resolvedExe)
+$expectedWindowTitle = 'Nenolink AI-marker'
 $runId = [Guid]::NewGuid().ToString("N")
 $bootLog = Join-Path $WorkingDirectory "Nenolink-AI-Marker-Smoke-$runId.boot.log"
 $diagnosticReport = Join-Path $WorkingDirectory "Nenolink-AI-Marker-Smoke-$runId.diagnostics.json"
@@ -208,7 +209,7 @@ try {
             $owned = @($rootRecord)
             try {
                 $windows = @(Get-SmokeVisibleTopLevelWindows -ProcessIds ([int[]]@([int]$rootProcess.Id)))
-                $decision = Get-SmokeStartupDecision -OwnedProcesses $owned -Windows $windows
+                $decision = Get-SmokeStartupDecision -OwnedProcesses $owned -Windows $windows -ExpectedWindowTitle $expectedWindowTitle
             } catch { $windowProbeError = $_.Exception.Message }
         }
 
@@ -232,7 +233,7 @@ try {
             $rootProcess.Refresh()
             $rootExited = $rootProcess.HasExited
             if ($rootExited) { try { $exitCode = $rootProcess.ExitCode } catch { } }
-            $decision = Get-SmokeStartupDecision -ProcessTreeProbeFailed ($null -ne $processProbeError) -RootProcessExited $rootExited -OwnedProcesses $owned -Windows $windows
+            $decision = Get-SmokeStartupDecision -ProcessTreeProbeFailed ($null -ne $processProbeError) -RootProcessExited $rootExited -OwnedProcesses $owned -Windows $windows -ExpectedWindowTitle $expectedWindowTitle
         }
         $now = [DateTime]::UtcNow
         if ($decision.Status -eq "process-exited-before-gui") {
@@ -243,6 +244,7 @@ try {
         $lastObservation = [pscustomobject]@{
             observed_at_utc = $now.ToString("o")
             status = $decision.Status
+            expected_window_title = $expectedWindowTitle
             root_process_id = [int]$rootProcess.Id
             smoke_session_id = $smokeSessionId
             root_process_session_id = $rootSessionId
@@ -276,6 +278,10 @@ try {
     }
 
     if (-not $succeeded) {
+        if ($lastObservation -and $lastObservation.status -eq "window-title-mismatch") {
+            $failureStatus = "window-title-mismatch"
+            throw "A visible owned window was detected with title '$($lastObservation.visible_windows[0].title)' instead of '$expectedWindowTitle'."
+        }
         if ($lastObservation -and $lastObservation.status -eq "process-tree-probe-failed") {
             $failureStatus = "process-tree-probe-failed"
             throw "Process-tree inspection failed; no verified visible window was detected. $($lastObservation.process_probe_error)"
@@ -291,6 +297,7 @@ try {
         status = $failureStatus
         executable = $resolvedExe
         process_name = $processName
+        expected_window_title = $expectedWindowTitle
         timeout_seconds = $TimeoutSeconds
         root_process_id = if ($rootProcess) { [int]$rootProcess.Id } else { $null }
         smoke_session_id = $smokeSessionId
