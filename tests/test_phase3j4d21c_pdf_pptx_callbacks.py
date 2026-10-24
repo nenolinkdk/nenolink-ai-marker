@@ -180,7 +180,7 @@ def test_pptx_logo_picker_dispatches_selection_and_enable_events(tmp_path, monke
     assert workspace.state.logo.enabled is True
 
 
-def test_pptx_preview_only_receives_logo_when_current_slide_is_in_scope(tmp_path, monkeypatch):
+def test_pptx_preview_logo_all_default_is_independent_from_badge_scope(tmp_path, monkeypatch):
     import nenolink_ai_marker.pptx_workspace as module
 
     source = tmp_path / "deck.pptx"
@@ -221,7 +221,7 @@ def test_pptx_preview_only_receives_logo_when_current_slide_is_in_scope(tmp_path
 
     workspace._render_preview()
     assert calls[-1][0] == 1
-    assert calls[-1][3] is None and calls[-1][2].logo_enabled is False
+    assert calls[-1][3] == logo and calls[-1][2].logo_enabled is True
 
     workspace._change_slide(1)
     assert state.current_slide == 2
@@ -230,7 +230,7 @@ def test_pptx_preview_only_receives_logo_when_current_slide_is_in_scope(tmp_path
     assert calls[-1][3] == logo and calls[-1][2].logo_enabled is True
 
 
-def test_pptx_save_callback_writes_logo_only_to_selected_slide(tmp_path, monkeypatch):
+def test_pptx_save_callback_keeps_default_all_logo_scope_independent(tmp_path, monkeypatch):
     import nenolink_ai_marker.pptx_workspace as module
     from nenolink_ai_marker.pptx_processor import P, PptxProcessor
     from test_pptx_processor import _create_pptx, _picture_count
@@ -263,7 +263,7 @@ def test_pptx_save_callback_writes_logo_only_to_selected_slide(tmp_path, monkeyp
 
     assert output.is_file()
     with ZipFile(output) as archive:
-        assert [_picture_count(archive, page) for page in range(1, 4)] == [0, 1, 0]
+        assert [_picture_count(archive, page) for page in range(1, 4)] == [1, 1, 1]
         slide = ET.fromstring(archive.read("ppt/slides/slide2.xml"))
         assert len(slide.findall(f".//{{{P}}}pic")) == 1
     assert messages and messages[-1] == "pptx.saved"

@@ -295,5 +295,6 @@
   "pptx.file_heading": "DATEI",
   "pptx.slides_heading": "FOLIEN",
   "pptx.logo_none": "Kein Logo ausgewählt",
+  "pptx.logo_scope": "Logo anwenden auf",
   "pptx.update": "Aktualisieren"
 }

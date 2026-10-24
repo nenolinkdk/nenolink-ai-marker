@@ -23,7 +23,7 @@ from .preview_shell import PreviewShell
 from .document_controls import PhysicalNavigationControl, DocumentScopeControl
 from .workspace_control_panel import (
     WorkspaceControlPanel, ParameterRow, PARAM_ROW_PADY,
-    PARAM_LABEL_WIDTH, PARAM_DROPDOWN_WIDTH,
+    PARAM_LABEL_WIDTH, PARAM_DROPDOWN_WIDTH, PARAM_PADX,
 )
 from .document_processing import ItemSelection, ProcessingRequest, settings_for_documents
 from .metadata import marker_metadata
@@ -151,6 +151,16 @@ class PptxWorkspace:
         logo_host = logo_host or controls
         self.logo_control = LogoControl(logo_host, on_enabled=lambda value: self._dispatch(PptxEvent.LOGO_ENABLE, value), on_choose=self._choose_logo, on_size=lambda value: self._dispatch(PptxEvent.LOGO_SIZE, round(value)), on_margin=lambda value: self._dispatch(PptxEvent.LOGO_MARGIN, round(value)), on_opacity=lambda value: self._dispatch(PptxEvent.LOGO_OPACITY, round(value)), labels=self._logo_labels())
         self.logo_control.frame.grid(row=0, column=0, sticky="ew")
+        self.logo_scope_label = ctk.CTkLabel(logo_host, text=t("pptx.logo_scope"), anchor="w")
+        self.logo_scope_label.grid(row=1, column=0, padx=PARAM_PADX, pady=(4, 0), sticky="w")
+        self._logo_scope_display = {"first": t("pptx.scope.first"), "all": t("pptx.scope.all")}
+        self._logo_scope_value = {label: mode for mode, label in self._logo_scope_display.items()}
+        self.logo_scope_var = ctk.StringVar(value=self._logo_scope_display[self.state.logo.scope_mode])
+        self.logo_scope_menu = ctk.CTkOptionMenu(
+            logo_host, variable=self.logo_scope_var, values=list(self._logo_scope_display.values()),
+            command=self._logo_scope_changed, width=PARAM_DROPDOWN_WIDTH,
+        )
+        self.logo_scope_menu.grid(row=2, column=0, padx=PARAM_PADX, pady=(1, 4), sticky="w")
         self.logo_enabled_var = self.logo_control.enabled_var; self.logo_choose_button = self.logo_control.choose_button; self.logo_label = self.logo_control.filename_label; self.logo_position_var = ctk.StringVar(value="Top left")
 
     def _logo_labels(self):
@@ -231,6 +241,12 @@ class PptxWorkspace:
         if hasattr(self, "scope_menu"):
             self._scope_display = {"all": translator.text("pptx.scope.all"), "first": translator.text("pptx.scope.first"), "selected": translator.text("pptx.scope.selected"), "range": translator.text("pptx.scope.range")}; self._scope_value = {v: k for k, v in self._scope_display.items()}
             self.scope_menu.configure(values=list(self._scope_display.values()))
+        if hasattr(self, "logo_scope_menu"):
+            self.logo_scope_label.configure(text=translator.text("pptx.logo_scope"))
+            self._logo_scope_display = {"first": translator.text("pptx.scope.first"), "all": translator.text("pptx.scope.all")}
+            self._logo_scope_value = {label: mode for mode, label in self._logo_scope_display.items()}
+            self.logo_scope_menu.configure(values=list(self._logo_scope_display.values()))
+            self._project_logo_scope()
         if hasattr(self, "navigation_control"):
             self.navigation_control.set_status_template(translator.text("pptx.slide_status"))
         if hasattr(self, "source_control"): self._project_file()
@@ -238,6 +254,7 @@ class PptxWorkspace:
         if hasattr(self, "badge_visual"): self._project_badge()
         if hasattr(self, "logo_control"):
             self.logo_control.project(LogoProjection(enabled=self.state.logo.enabled, filename=self.state.logo.path.name if self.state.logo.path else "", position=self.state.logo.position, size=self.state.logo.size, margin=self.state.logo.margin, opacity=self.state.logo.opacity, labels=self._logo_labels()))
+        self._project_logo_scope()
         self.save_button.configure(text=translator.text("dialog.save_as_generic"))
         self.preview_label.configure(text=translator.text("pptx.preview_hint") if not self.state.loaded else "")
 
@@ -249,9 +266,10 @@ class PptxWorkspace:
         if not renderer or not repository:
             return
         try:
-            in_scope = self.state.current_slide in self.state.active_scope
-            badge = project_badge(self.state, repository).get("asset") if self.state.badge.enabled and in_scope else None
-            logo = self.state.logo.path if self.state.logo.enabled and in_scope else None
+            badge_in_scope = self.state.current_slide in self.state.active_scope
+            logo_in_scope = self.state.logo.scope_mode == "all" or self.state.current_slide == 1
+            badge = project_badge(self.state, repository).get("asset") if self.state.badge.enabled and badge_in_scope else None
+            logo = self.state.logo.path if self.state.logo.enabled and logo_in_scope else None
             settings = MarkerSettings(badge_name=self.state.badge.badge_id, position=self.state.badge.position, size_percent=self.state.badge.size, margin=self.state.badge.margin, opacity=self.state.badge.opacity, logo_enabled=bool(logo), logo_path=str(logo or ""), logo_position=self.state.logo.position, logo_size_percent=self.state.logo.size, logo_margin=self.state.logo.margin, logo_opacity=self.state.logo.opacity)
             # Use the fixed viewport's interior, not the source slide's size.
             if hasattr(self.preview_viewport, "update_idletasks"):
@@ -319,7 +337,17 @@ class PptxWorkspace:
         self._project_badge()
         if getattr(self, "logo_control", None):
             self.logo_control.project(LogoProjection(enabled=self.state.logo.enabled, filename=self.state.logo.path.name if self.state.logo.path else "", position=self.state.logo.position, size=self.state.logo.size, margin=self.state.logo.margin, opacity=self.state.logo.opacity, labels=self._logo_labels()))
+        self._project_logo_scope()
         self._render_preview()
+
+    def _logo_scope_changed(self, displayed):
+        mode = self._logo_scope_value.get(str(displayed))
+        if mode is not None:
+            self._dispatch(PptxEvent.LOGO_SCOPE_MODE, mode)
+
+    def _project_logo_scope(self):
+        if getattr(self, "logo_scope_var", None) is not None:
+            self.logo_scope_var.set(self._logo_scope_display[self.state.logo.scope_mode])
 
     def _select_badge(self, displayed):
         """Store the repository's canonical badge filename in workspace state."""
@@ -370,7 +398,10 @@ class PptxWorkspace:
             logo=logo, metadata=marker_metadata(disclosure.badge_name, disclosure.label),
         )
         try:
-            self.app.pptx_processor.process(request, ItemSelection("selected", tuple(self.state.active_scope)))
+            badge_selection = ItemSelection("selected", tuple(self.state.active_scope))
+            logo_items = (1,) if self.state.logo.scope_mode == "first" else tuple(range(1, self.state.slide_count + 1))
+            logo_selection = ItemSelection("selected", logo_items)
+            self.app.pptx_processor.process(request, badge_selection, logo_selection=logo_selection)
             self.state.output_status = str(destination)
             self.receipts.record({"layer": "pptx", "event": "PPTX_SAVE_COMPLETED", "destination": str(destination)})
             self.app.status_var.set(self.app.translator.text("pptx.saved", name=destination.name, count=len(self.state.active_scope)))
@@ -465,6 +496,7 @@ class PptxWorkspace:
         self._project_file()
         self._project_scope()
         self._project_badge()
+        self._project_logo_scope()
         if self.state.loaded:
             self._render_preview()
         else:

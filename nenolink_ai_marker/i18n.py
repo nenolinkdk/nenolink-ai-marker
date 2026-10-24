@@ -32,7 +32,7 @@ DEFAULT_ENGLISH = {
     "content.planned_message": "{format} support is being implemented incrementally. No file will be changed until this workflow is ready.",
     "pptx.choose": "Choose PowerPoint file", "pptx.no_file": "No PowerPoint file selected",
     "pptx.file_heading": "FILE", "pptx.slides_heading": "SLIDES", "pptx.badge_enable": "Add AI badge",
-    "pptx.update": "Update", "pptx.logo_none": "No logo selected", "pptx.selected_count": "{count} slide(s) selected",
+    "pptx.update": "Update", "pptx.logo_none": "No logo selected", "pptx.logo_scope": "Apply logo to", "pptx.selected_count": "{count} slide(s) selected",
     "pptx.selected": "PowerPoint selected: {name}", "pptx.scope": "Apply to slides",
     "pptx.scope.first": "First slide", "pptx.scope.selected": "Selected slides", "pptx.range_hint": "Slide ranges (for example 5-7,10-12)",
     "pptx.scope.range": "Slide range", "pptx.scope.all": "All slides",

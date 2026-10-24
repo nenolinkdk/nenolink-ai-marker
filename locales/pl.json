@@ -295,5 +295,6 @@
   "pptx.file_heading": "PLIK",
   "pptx.slides_heading": "SLAJDY",
   "pptx.logo_none": "Nie wybrano logo",
+  "pptx.logo_scope": "Zastosuj logo do",
   "pptx.update": "Aktualizuj"
 }

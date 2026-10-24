@@ -80,8 +80,8 @@ def test_pptx_default_display_badge_is_resolved_for_save_request(tmp_path, monke
     processed = []
 
     class Processor:
-        def process(self, request, selection):
-            processed.append((request, selection))
+        def process(self, request, selection, *, logo_selection=None):
+            processed.append((request, selection, logo_selection))
 
     translator = SimpleNamespace(language="en", text=lambda key, **_values: key)
     app = SimpleNamespace(
@@ -100,9 +100,10 @@ def test_pptx_default_display_badge_is_resolved_for_save_request(tmp_path, monke
 
     assert workspace.state.badge.badge_id == "AI Assisted"  # workspace default is preserved
     assert len(processed) == 1
-    request, _selection = processed[0]
+    request, _selection, logo_selection = processed[0]
     assert request.badge_path == repository.find("ai-assisted.png")
     assert request.disclosure.badge_name == "ai-assisted.png"
+    assert logo_selection.items == (1,)
 
 
 def test_pptx_badge_control_selection_stores_canonical_repository_id():

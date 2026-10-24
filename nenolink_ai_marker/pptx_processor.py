@@ -71,6 +71,8 @@ class PptxProcessor(DocumentProcessor):
         self,
         request: ProcessingRequest,
         selection: ItemSelection | None = None,
+        *,
+        logo_selection: ItemSelection | None = None,
     ) -> PptxResult:
         request = request.validated()
         if not self.capabilities.supports(request.source):
@@ -94,6 +96,7 @@ class PptxProcessor(DocumentProcessor):
                 slides = self._ordered_slides(presentation, presentation_rels)
                 enforce_hard_limit("pptx", DocumentMetrics(request.source.stat().st_size, len(slides)))
                 selected = (selection or ItemSelection()).resolve(len(slides))
+                selected_logo = (logo_selection or selection or ItemSelection()).resolve(len(slides))
                 slide_size = self._slide_size(presentation)
                 badge_data = self._png_bytes(badge_path) if badge_path else None
                 logo_data = self._png_bytes(logo_path) if logo_path else None
@@ -121,12 +124,12 @@ class PptxProcessor(DocumentProcessor):
                 if logo_data and logo_media:
                     replacements[logo_media] = logo_data[0]
                 badge_shapes = logo_shapes = 0
-                for ordinal in selected:
+                for ordinal in sorted(set(selected) | set(selected_logo)):
                     slide_path = slides[ordinal - 1]
                     slide_xml = source_zip.read(slide_path)
                     rels_path = self._rels_path(slide_path)
                     rels_xml = source_zip.read(rels_path) if rels_path in names else None
-                    if badge_data and badge_media:
+                    if badge_data and badge_media and ordinal in selected:
                         slide_xml, rels_xml = self._add_overlay(
                             slide_xml, rels_xml, slide_size, badge_data[1],
                             request.disclosure.position, request.disclosure.size_percent,
@@ -134,7 +137,7 @@ class PptxProcessor(DocumentProcessor):
                             slide_path, badge_media, "Nenolink AI Marker badge",
                         )
                         badge_shapes += 1
-                    if logo_data and logo_media:
+                    if logo_data and logo_media and ordinal in selected_logo:
                         slide_xml, rels_xml = self._add_overlay(
                             slide_xml, rels_xml, slide_size, logo_data[1],
                             request.logo.position, request.logo.size_percent,

@@ -28,6 +28,7 @@ class PptxLogoState:
     size: int = 15
     margin: int = 20
     opacity: int = 100
+    scope_mode: str = "all"
 
 
 @dataclass
@@ -173,6 +174,7 @@ class PptxEvent(str, Enum):
     LOGO_SIZE = "logo_size"
     LOGO_MARGIN = "logo_margin"
     LOGO_OPACITY = "logo_opacity"
+    LOGO_SCOPE_MODE = "logo_scope_mode"
     SCOPE_MODE = "scope_mode"
     SCOPE_TEXT_CHANGED = "scope_text_changed"
     SCOPE_UPDATE = "scope_update"
@@ -215,6 +217,7 @@ PPTX_TRANSITION_TABLE: tuple[PptxTransition, ...] = (
       for event, field in ((PptxEvent.LOGO_ENABLE, "enabled"), (PptxEvent.LOGO_CHOOSE, "path"),
                            (PptxEvent.LOGO_POSITION, "position"), (PptxEvent.LOGO_SIZE, "size"),
                            (PptxEvent.LOGO_MARGIN, "margin"), (PptxEvent.LOGO_OPACITY, "opacity"))),
+    PptxTransition(PptxEvent.LOGO_SCOPE_MODE, mutates=("logo.scope_mode",), preserves=("path", "current_slide", "active_scope", "badge"), rerender=True),
     PptxTransition(PptxEvent.SCOPE_MODE, mutates=("scope_mode",), rerender=True),
     PptxTransition(PptxEvent.SCOPE_TEXT_CHANGED, mutates=("scope_input",)),
     PptxTransition(PptxEvent.SCOPE_UPDATE, mutates=("scope_mode", "active_scope", "current_slide"), rerender=True),
@@ -231,6 +234,13 @@ def pptx_transition(event: PptxEvent) -> PptxTransition:
 
 def apply_pptx_visual_event(state: PptxWorkspaceState, event: PptxEvent, value):
     """Apply one validated visual event; unrelated state is untouched."""
+    event = PptxEvent(event)
+    if event is PptxEvent.LOGO_SCOPE_MODE:
+        mode = str(value).lower()
+        if mode not in {"first", "all"}:
+            raise ValueError("Unknown PPTX logo scope")
+        state.logo.scope_mode = mode
+        return state
     mapping = {
         PptxEvent.BADGE_ENABLE: (state.badge, "enabled", bool),
         PptxEvent.BADGE_SELECT: (state.badge, "badge_id", str),

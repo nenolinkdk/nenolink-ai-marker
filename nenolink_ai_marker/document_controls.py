@@ -4,11 +4,20 @@ import customtkinter as ctk
 class DocumentScopeControl:
     def __init__(self, parent, *, on_mode, on_text, on_update, values, placeholder="", update_label="Update"):
         self.frame = ctk.CTkFrame(parent, fg_color="transparent")
+        self.frame.grid_columnconfigure(0, weight=1)
         self.mode_var = ctk.StringVar(value=values[0] if values else "All")
         self.menu = ctk.CTkOptionMenu(self.frame, variable=self.mode_var, values=list(values), command=on_mode, width=190); self.menu.grid(row=0, column=0, sticky="w")
         self.input_var = ctk.StringVar(value=""); self.input = ctk.CTkEntry(self.frame, textvariable=self.input_var, placeholder_text=placeholder, width=190); self.input.grid(row=1, column=0, pady=2, sticky="w"); self.input.bind("<KeyRelease>", lambda _e: on_text(self.input_var.get()))
         self.update = ctk.CTkButton(self.frame, text=update_label, command=on_update, width=90); self.update.grid(row=2, column=0, sticky="w")
-        self.status = ctk.CTkLabel(self.frame, text="", anchor="w"); self.status.grid(row=3, column=0, sticky="w")
+        self.status = ctk.CTkLabel(self.frame, text="", anchor="w", wraplength=190)
+        self.status.grid(row=3, column=0, sticky="ew")
+        self.frame.bind("<Configure>", self._resize_status_wrap, add="+")
+
+    def _resize_status_wrap(self, event=None):
+        """Keep localized validation text within the current panel width."""
+        width = getattr(event, "width", 0) or self.frame.winfo_width()
+        self.status.configure(wraplength=max(1, int(width) - 4))
+
     def project(self, *, mode, draft, status="", input_enabled=True):
         self.mode_var.set(mode)
         self.input_var.set(draft if input_enabled else "—")

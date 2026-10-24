@@ -295,5 +295,6 @@
   "pptx.file_heading": "FILE",
   "pptx.slides_heading": "SLIDES",
   "pptx.logo_none": "No logo selected",
+  "pptx.logo_scope": "Apply logo to",
   "pptx.update": "Update"
 }

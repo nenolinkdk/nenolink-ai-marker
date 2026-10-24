@@ -295,5 +295,6 @@
   "pptx.file_heading": "FIL",
   "pptx.slides_heading": "BILDER",
   "pptx.logo_none": "Ingen logotyp vald",
+  "pptx.logo_scope": "Använd logotyp på",
   "pptx.update": "Uppdatera"
 }

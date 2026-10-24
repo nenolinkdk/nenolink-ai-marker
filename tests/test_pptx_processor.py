@@ -161,6 +161,34 @@ def test_pptx_without_badge_or_logo_is_valid_metadata_only_output(tmp_path):
         assert _picture_count(archive, 1) == 0
 
 
+@pytest.mark.parametrize(
+    ("badge_items", "logo_items"),
+    [
+        ((1, 2, 3), (1,)), ((1, 2, 3), (1, 2, 3)),
+        ((1,), (1,)), ((1,), (1, 2, 3)),
+        ((2,), (1,)), ((2,), (1, 2, 3)),
+        ((2, 3), (1,)), ((2, 3), (1, 2, 3)),
+    ],
+)
+def test_pptx_badge_and_independent_logo_scopes_produce_expected_slides(tmp_path, badge_items, logo_items):
+    request, source = _request(tmp_path, logo=True)
+    _create_pptx(source, 3)
+
+    result = PptxProcessor().process(
+        request,
+        ItemSelection("selected", badge_items),
+        logo_selection=ItemSelection("selected", logo_items),
+    )
+
+    assert result.selected_slides == badge_items
+    assert result.badge_shapes == len(badge_items)
+    assert result.logo_shapes == len(logo_items)
+    with ZipFile(result.destination) as archive:
+        for slide in range(1, 4):
+            expected = int(slide in badge_items) + int(slide in logo_items)
+            assert _picture_count(archive, slide) == expected
+
+
 def test_pptx_preserves_unselected_package_parts_and_unicode_paths(tmp_path):
     request, source = _request(tmp_path, unicode_names=True)
     with ZipFile(source) as archive:

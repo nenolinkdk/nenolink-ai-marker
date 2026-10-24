@@ -270,6 +270,7 @@
   "pptx.badge_enable": "Aggiungi badge IA",
   "pptx.update": "Aggiorna",
   "pptx.logo_none": "Nessun logo selezionato",
+  "pptx.logo_scope": "Applica il logo a",
   "pptx.selected_count": "{count} diapositiva/e selezionata/e",
   "section.file": "FILE",
   "section.pages": "PAGINE",

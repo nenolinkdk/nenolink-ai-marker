@@ -295,5 +295,6 @@
   "pptx.file_heading": "FICHEIRO",
   "pptx.slides_heading": "DIAPOSITIVOS",
   "pptx.logo_none": "Nenhum logótipo selecionado",
+  "pptx.logo_scope": "Aplicar logótipo a",
   "pptx.update": "Atualizar"
 }

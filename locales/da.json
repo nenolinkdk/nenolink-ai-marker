@@ -270,6 +270,7 @@
   "pptx.badge_enable": "Tilføj AI-mærke",
   "pptx.update": "Opdater",
   "pptx.logo_none": "Intet logo valgt",
+  "pptx.logo_scope": "Anvend logo på",
   "pptx.selected_count": "{count} dias valgt",
   "section.file": "FIL",
   "section.pages": "SIDER",

@@ -295,5 +295,6 @@
   "pptx.file_heading": "ARCHIVO",
   "pptx.slides_heading": "DIAPOSITIVAS",
   "pptx.logo_none": "No se ha seleccionado ningún logotipo",
+  "pptx.logo_scope": "Aplicar logotipo a",
   "pptx.update": "Actualizar"
 }
