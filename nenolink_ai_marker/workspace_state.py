@@ -7,6 +7,7 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 from pathlib import Path
 from typing import Any, Protocol
+import re
 
 
 class WorkspaceEvent(str, Enum):
@@ -284,7 +285,26 @@ def pdf_transition(event: PdfEvent | str) -> PdfTransition:
 def _pdf_values(value, page_count: int, mode: str) -> tuple[int, ...]:
     if mode == "all": return tuple(range(1, page_count + 1))
     if mode == "first": return (1,) if page_count else ()
-    values = tuple(sorted(set(int(v) for v in value)))
+    if mode not in {"selected", "range"}:
+        raise ValueError("Unknown PDF scope")
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            raise ValueError("PDF scope selection is empty")
+        selected: set[int] = set()
+        for part in raw.split(","):
+            token = part.strip()
+            if not re.fullmatch(r"\d+(?:-\d+)?", token):
+                raise ValueError("Invalid PDF scope selection")
+            ends = tuple(int(item) for item in token.split("-"))
+            if len(ends) == 2 and ends[0] > ends[1]:
+                raise ValueError("PDF page range must be ascending")
+            if mode == "range" and len(ends) != 2:
+                raise ValueError("PDF range requires page intervals")
+            selected.update(range(ends[0], ends[-1] + 1))
+        values = tuple(sorted(selected))
+    else:
+        values = tuple(sorted(set(int(v) for v in value)))
     if not values or any(v < 1 or v > page_count for v in values):
         raise ValueError("PDF scope is outside the document")
     return values
@@ -297,13 +317,18 @@ def apply_pdf_event(state: PdfWorkspaceState, event: PdfEvent | str, payload=Non
         state.current_page = 1; state.scope_mode = "all"; state.scope_input = ""
         state.active_scope = tuple(range(1, state.page_count + 1)); state.preview_image = None
     elif event is PdfEvent.SCOPE_MODE:
-        mode = str(payload["mode"]); state.scope_mode = mode
+        mode = str(payload["mode"])
+        if mode not in {"all", "first", "selected", "range"}:
+            raise ValueError("Unknown PDF scope")
+        values = _pdf_values((), state.page_count, mode) if mode in {"all", "first"} else None
+        state.scope_mode = mode
         if mode in {"all", "first"}:
-            state.active_scope = _pdf_values((), state.page_count, mode); state.current_page = state.active_scope[0] if state.active_scope else 0
+            state.active_scope = values; state.current_page = values[0] if values else 0
     elif event is PdfEvent.SCOPE_TEXT_CHANGED:
         state.scope_input = str(payload.get("text", ""))
     elif event is PdfEvent.SCOPE_UPDATE:
-        values = _pdf_values(payload.get("values", ()), state.page_count, state.scope_mode)
+        selection = payload.get("text") or payload.get("values", ())
+        values = _pdf_values(selection, state.page_count, state.scope_mode)
         state.active_scope = values; state.current_page = values[0] if values else state.current_page
         state.scope_input = str(payload.get("text", state.scope_input))
     elif event in {PdfEvent.PREVIEW_PREVIOUS, PdfEvent.PREVIEW_NEXT}:

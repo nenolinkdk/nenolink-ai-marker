@@ -135,7 +135,30 @@ def extract_video_frame(ffmpeg: str, source: Path, timestamp: float = 1.0) -> Im
         return opened.convert("RGBA")
 
 
+def normalize_video_timing_mode(mode: str) -> str:
+    """Map independent Video badge/logo labels to the shared timing model."""
+    return {
+        "front": "beginning", "beginning": "beginning",
+        "entire": "permanent", "permanent": "permanent",
+        "back": "end", "end": "end",
+    }.get(str(mode).lower(), str(mode).lower())
+
+
+def video_overlay_visible_at(mode: str, requested: int, actual: float, timestamp: float) -> bool:
+    """Whether an overlay is present at a timestamp under the Save semantics."""
+    normalized = normalize_video_timing_mode(mode)
+    if normalized == "permanent":
+        return True
+    duration = min(max(1, int(requested)), max(0.0, float(actual)))
+    if normalized == "beginning":
+        return 0 <= timestamp <= duration
+    if normalized == "end":
+        return max(0.0, actual - duration) <= timestamp <= actual
+    raise ValueError(f"Unsupported video overlay timing mode: {mode}")
+
+
 def video_enable_expression(mode: str, requested: int, actual: float) -> str:
+    mode = normalize_video_timing_mode(mode)
     duration = min(max(1, requested), actual)
     if mode == "beginning":
         return f":enable='between(t\\,0\\,{duration:g})'"
@@ -202,7 +225,8 @@ class BatchProcessor:
         duration_seconds = None
         def timing(mode: str) -> str:
             nonlocal duration_seconds
-            return "" if mode == "entire" or mode == "permanent" else video_enable_expression(mode, settings.video_duration, duration_seconds)
+            normalized = normalize_video_timing_mode(mode)
+            return "" if normalized == "permanent" else video_enable_expression(normalized, settings.video_duration, duration_seconds)
         inputs = [badge, logo] if badge and logo else [overlay]
         parts = []
         current = "[0:v]"
@@ -212,7 +236,7 @@ class BatchProcessor:
             alpha = (settings.opacity if is_badge else settings.logo_opacity) / 100
             position = positions[settings.position if is_badge else "top-left"]
             mode = settings.video_mode if is_badge else settings.logo_mode
-            if mode not in {"entire", "permanent"} and duration_seconds is None:
+            if normalize_video_timing_mode(mode) != "permanent" and duration_seconds is None:
                 duration_seconds = video_duration_seconds(ffmpeg, source)
             label = f"ov{index}"
             parts.append(f"[{index}:v]{current}scale2ref=w=main_w*{width}:h=ow/mdar[scaled{index}][base{index}];[scaled{index}]format=rgba,colorchannelmixer=aa={alpha}[{label}];[{current.strip('[]')}][{label}]overlay={position}:shortest=1{timing(mode)}[{label}out]")

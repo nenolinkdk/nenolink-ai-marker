@@ -184,10 +184,12 @@ class PptxWorkspace:
 
     def _choose_logo(self):
         t = self.app.translator.text
-        path = filedialog.askopenfilename(title=t("dialog.open_logo"), filetypes=[(t("files.supported_images"), "*.png;*.jpg;*.jpeg"), (t("files.all"), "*.*")])
+        path = filedialog.askopenfilename(title=t("dialog.open_logo"), filetypes=[(t("files.supported_images"), "*.png *.jpg *.jpeg *.webp"), (t("files.all"), "*.*")])
         if path:
             self._dispatch(PptxEvent.LOGO_CHOOSE, path)
-            self.logo_label.configure(text=Path(path).name)
+            # Choosing a file implies enabling it; both transitions stay in
+            # the authoritative event/table path and projection owns the UI.
+            self._dispatch(PptxEvent.LOGO_ENABLE, True)
 
     def _change_slide(self, delta):
         event = PptxEvent.PREVIEW_NEXT if delta > 0 else PptxEvent.PREVIEW_PREVIOUS
@@ -247,8 +249,10 @@ class PptxWorkspace:
         if not renderer or not repository:
             return
         try:
-            badge = project_badge(self.state, repository).get("asset") if self.state.badge.enabled and self.state.current_slide in self.state.active_scope else None
-            settings = MarkerSettings(badge_name=self.state.badge.badge_id, position=self.state.badge.position, size_percent=self.state.badge.size, margin=self.state.badge.margin, opacity=self.state.badge.opacity, logo_enabled=self.state.logo.enabled, logo_position=self.state.logo.position, logo_size_percent=self.state.logo.size, logo_margin=self.state.logo.margin, logo_opacity=self.state.logo.opacity)
+            in_scope = self.state.current_slide in self.state.active_scope
+            badge = project_badge(self.state, repository).get("asset") if self.state.badge.enabled and in_scope else None
+            logo = self.state.logo.path if self.state.logo.enabled and in_scope else None
+            settings = MarkerSettings(badge_name=self.state.badge.badge_id, position=self.state.badge.position, size_percent=self.state.badge.size, margin=self.state.badge.margin, opacity=self.state.badge.opacity, logo_enabled=bool(logo), logo_path=str(logo or ""), logo_position=self.state.logo.position, logo_size_percent=self.state.logo.size, logo_margin=self.state.logo.margin, logo_opacity=self.state.logo.opacity)
             # Use the fixed viewport's interior, not the source slide's size.
             if hasattr(self.preview_viewport, "update_idletasks"):
                 self.preview_viewport.update_idletasks()
@@ -256,7 +260,7 @@ class PptxWorkspace:
             host_height = max(1, self.preview_viewport.winfo_height())
             geometry = self._preview_geometry()
             available_width, available_height = geometry.rendered_width, geometry.rendered_height
-            result = renderer.render(self.state.path, self.state.current_slide, badge, settings, self.state.logo.path if self.state.logo.enabled else None, max_size=(available_width, available_height))
+            result = renderer.render(self.state.path, self.state.current_slide, badge, settings, logo, max_size=(available_width, available_height))
             self.preview_photo = ctk.CTkImage(result.image, size=result.image.size)
             self.preview_label.configure(image=self.preview_photo, text="")
             if hasattr(self, "navigation_control"):
@@ -373,12 +377,12 @@ class PptxWorkspace:
             apply_pptx_event(self.state, PptxEvent.SCOPE_MODE, mode)
             self._scope_receipt(PptxEvent.SCOPE_MODE, mode)
             self._project_scope()
-        except ValueError as error:
-            self.scope_status.configure(text=str(error))
+        except ValueError:
+            self._project_scope()
+            self.scope_status.configure(text=self.app.translator.text("document.scope_invalid"))
 
     def _scope_update(self):
         value = self.scope_input_var.get()
-        before = self.state.active_scope
         try:
             apply_pptx_event(self.state, PptxEvent.SCOPE_TEXT_CHANGED, value)
             apply_pptx_event(self.state, PptxEvent.SCOPE_UPDATE, value)
@@ -388,9 +392,11 @@ class PptxWorkspace:
             # applicable slide; projection then renders that authoritative
             # state without remounting the workspace.
             self._render_preview()
-        except ValueError as error:
-            self.state.active_scope = before
-            self.scope_status.configure(text=str(error))
+        except ValueError:
+            # Reducer validation is transactional for active scope/page. Keep
+            # the user's draft but do not roll state back outside the table.
+            self._project_scope()
+            self.scope_status.configure(text=self.app.translator.text("document.scope_invalid"))
 
     def _scope_text_changed(self):
         value = self.scope_input_var.get()

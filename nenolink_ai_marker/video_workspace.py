@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from PIL import Image
 import customtkinter as ctk
 
-from .batch import extract_video_frame, find_ffmpeg
+from .batch import extract_video_frame, find_ffmpeg, video_duration_seconds, video_overlay_visible_at
 from .models import MarkerSettings
 from .metadata import marker_metadata
 from .workspace_state import VideoEvent, apply_video_event
@@ -31,6 +31,8 @@ class VideoProcessingRequest:
 
 
 class VideoWorkspace:
+    # The preview is a representative frame at one second, not playback state.
+    PREVIEW_TIMESTAMP_SECONDS = 1.0
     def __init__(self, app, state):
         self.app = app
         self.state = state
@@ -84,7 +86,6 @@ class VideoWorkspace:
         app.video_mode_display_var.set(next((label for label, value in app.video_mode_display_to_value.items() if value == self.state.mode), app.translator.text("video.mode.beginning")))
         app.video_duration_var.set(max(1, int(self.state.duration)))
         app.video_badge_var.set(app.badges.display_name(self.state.badge.badge_id))
-        app.video_position_var.set(self.state.badge.position)
         app.video_size_var.set(self.state.badge.size); app.video_margin_var.set(self.state.badge.margin); app.video_opacity_var.set(self.state.badge.opacity)
         names = [path.name for path in app.badges.display_badges()]
         displays = [app.badges.display_name(name) for name in names]
@@ -139,11 +140,11 @@ class VideoWorkspace:
             t("position.bottom_left"): "bottom-left", t("position.bottom_right"): "bottom-right",
             t("position.center"): "center",
         }
-        self.app.video_position_display_to_value = position_values
+        self.video_position_display_to_value = position_values
         if getattr(self, "video_position_menu", None):
             self.video_position_menu.configure(values=list(position_values))
             selected_position = next((label for label, value in position_values.items() if value == self.state.badge.position), "")
-            self.app.video_position_display_var.set(selected_position)
+            self.video_position_display_var.set(selected_position)
         displays = {t("video.mode.beginning"): "beginning", t("video.mode.permanent"): "permanent", t("video.mode.end"): "end"}
         self.app.video_mode_display_to_value = displays
         self.logo_mode_display_to_value = {t("logo.mode.front"): "front", t("logo.mode.entire"): "entire", t("logo.mode.back"): "back"}
@@ -188,10 +189,19 @@ class VideoWorkspace:
         self.project(); self.refresh_preview(); self.app._save_image_settings()
 
     def change_visual(self, enabled=None, *_args):
-        apply_video_event(self.state, VideoEvent.VISUAL_CHANGED, {
-            "enabled": bool(self.state.badge.enabled) if enabled is None else bool(enabled), "position": self.app.video_position_display_to_value.get(self.app.video_position_display_var.get(), self.app.video_position_display_var.get()), "size": int(self.app.video_size_var.get()),
-            "margin": int(self.app.video_margin_var.get()), "opacity": int(self.app.video_opacity_var.get()),
-        })
+        payload = {"enabled": enabled} if isinstance(enabled, bool) else {}
+        apply_video_event(self.state, VideoEvent.VISUAL_CHANGED, payload)
+        self.project(); self.refresh_preview(); self.app._save_image_settings()
+
+    def change_badge_parameter(self, field, value):
+        if field not in {"size", "margin", "opacity"}:
+            raise ValueError(f"Unsupported badge parameter: {field}")
+        apply_video_event(self.state, VideoEvent.VISUAL_CHANGED, {field: int(float(value))})
+        self.project(); self.refresh_preview(); self.app._save_image_settings()
+
+    def change_badge_position(self, label):
+        value = self.video_position_display_to_value.get(label, label)
+        apply_video_event(self.state, VideoEvent.VISUAL_CHANGED, {"position": value})
         self.project(); self.refresh_preview(); self.app._save_image_settings()
 
     def choose_logo(self):
@@ -233,8 +243,8 @@ class VideoWorkspace:
         self.badge_control = BadgeControl(app.video_badge_group, on_enabled_changed=self.change_visual, on_badge_selected=self.change_badge, heading_label=app.translator.text("section.ai_badge"))
         self.badge_control.frame.grid(row=0, column=0, sticky="ew")
         app.video_badge_enable = self.badge_control.enabled_widget; app.video_badge_menu = self.badge_control.selector_widget; app.video_badge_var = self.badge_control.selector_var; app.video_badge_preview_label = self.badge_control.graphic_widget; app.video_badge_name_label = self.badge_control.graphic_widget
-        app.video_position_var = ctk.StringVar(value="bottom-right"); app.video_position_display_var = ctk.StringVar(value=app.translator.text("position.bottom_right")); app.video_position_display_to_value = {app.translator.text("position.top_left"):"top-left", app.translator.text("position.top_right"):"top-right", app.translator.text("position.bottom_left"):"bottom-left", app.translator.text("position.bottom_right"):"bottom-right", app.translator.text("position.center"):"center"}
-        self.video_position_label = ctk.CTkLabel(app.video_badge_group, text=app.translator.text("position"), width=PARAM_LABEL_WIDTH); self.video_position_label.grid(row=1, column=0, padx=8, pady=(2, 0), sticky="w"); app.video_position_label=self.video_position_label; app.video_position_menu = ctk.CTkOptionMenu(app.video_badge_group, variable=app.video_position_display_var, values=list(app.video_position_display_to_value), command=lambda _label: self.change_visual(), width=PARAM_DROPDOWN_WIDTH); self.video_position_menu=app.video_position_menu; app.video_position_menu.grid(row=2, column=0, padx=8, pady=(0, 2), sticky="w")
+        self.video_position_display_var = ctk.StringVar(value=app.translator.text("position.bottom_right")); self.video_position_display_to_value = {app.translator.text("position.top_left"):"top-left", app.translator.text("position.top_right"):"top-right", app.translator.text("position.bottom_left"):"bottom-left", app.translator.text("position.bottom_right"):"bottom-right", app.translator.text("position.center"):"center"}
+        self.video_position_label = ctk.CTkLabel(app.video_badge_group, text=app.translator.text("position"), width=PARAM_LABEL_WIDTH); self.video_position_label.grid(row=1, column=0, padx=8, pady=(2, 0), sticky="w"); app.video_position_label=self.video_position_label; app.video_position_menu = ctk.CTkOptionMenu(app.video_badge_group, variable=self.video_position_display_var, values=list(self.video_position_display_to_value), command=self.change_badge_position, width=PARAM_DROPDOWN_WIDTH); self.video_position_menu=app.video_position_menu; app.video_position_menu.grid(row=2, column=0, padx=8, pady=(0, 2), sticky="w")
         app.video_size_var = ctk.IntVar(value=self.state.badge.size); app.video_margin_var = ctk.IntVar(value=self.state.badge.margin); app.video_opacity_var = ctk.IntVar(value=self.state.badge.opacity)
         self.badge_parameter_rows = {}
         for index, (field, key, low, high, variable) in enumerate((
@@ -242,12 +252,12 @@ class VideoWorkspace:
             ("margin", "margin.value", 0, 250, app.video_margin_var),
             ("opacity", "opacity.value", 0, 100, app.video_opacity_var),
         ), start=3):
-            row = ParameterRow(app.video_badge_group, text=app.translator.text(key, value=getattr(self.state.badge, field)), start=low, end=high, value=getattr(self.state.badge, field), variable=variable, command=self.change_visual)
+            row = ParameterRow(app.video_badge_group, text=app.translator.text(key, value=getattr(self.state.badge, field)), start=low, end=high, value=getattr(self.state.badge, field), variable=variable, command=lambda value, field=field: self.change_badge_parameter(field, value))
             row.frame.grid(row=index, column=0, pady=PARAM_ROW_PADY, sticky="ew")
             self.badge_parameter_rows[field] = row
             setattr(app, f"video_{field}_label", row.label)
         logo_section = ctk.CTkFrame(left, fg_color="transparent"); self.control_panel.add_section("OWN_LOGO", logo_section)
-        self.logo_control = LogoControl(logo_section, on_enabled=lambda value: self.change_logo(value), on_choose=self.choose_logo, on_mode=self.change_logo_mode, on_size=lambda value: self.change_logo(size=value), on_margin=lambda value: self.change_logo(margin=value), on_opacity=lambda value: self.change_logo(opacity=value), labels=self._logo_labels())
+        self.logo_control = LogoControl(logo_section, on_enabled=lambda value: self.change_logo(value), on_choose=self.choose_logo, on_mode=self.change_logo_mode, show_mode=True, on_size=lambda value: self.change_logo(size=value), on_margin=lambda value: self.change_logo(margin=value), on_opacity=lambda value: self.change_logo(opacity=value), labels=self._logo_labels())
         self.logo_control.frame.grid(row=0, column=0, sticky="ew")
         self.logo_enabled_var = self.logo_control.enabled_var; self.logo_mode_var = self.logo_control.mode_var; self.logo_file_label = self.logo_control.filename_label; self.logo_size_var = ctk.IntVar(value=15); self.logo_margin_var = ctk.IntVar(value=20); self.logo_opacity_var = ctk.IntVar(value=100)
         options_section = ctk.CTkFrame(left, fg_color="transparent"); self.control_panel.add_section("VIDEO_OPTIONS", options_section)
@@ -268,17 +278,56 @@ class VideoWorkspace:
             ffmpeg = find_ffmpeg()
             if not ffmpeg:
                 raise ValueError(app.translator.text("error.video_component_missing"))
-            frame = extract_video_frame(ffmpeg, path)
+            actual_duration = None
+            needs_duration = (
+                (self.state.badge.enabled and self.state.mode != "permanent")
+                or (self.state.logo.enabled and self.state.logo.path is not None and self.state.logo.mode != "entire")
+            )
+            if needs_duration:
+                actual_duration = video_duration_seconds(ffmpeg, path)
+            # The extractor falls back to t=0 for clips shorter than its
+            # requested timestamp. Choose the last valid in-clip instant for
+            # short timed clips so preview visibility matches that frame.
+            preview_timestamp = (
+                min(self.PREVIEW_TIMESTAMP_SECONDS, max(0.0, actual_duration - 0.001))
+                if actual_duration is not None else self.PREVIEW_TIMESTAMP_SECONDS
+            )
+            frame = extract_video_frame(ffmpeg, path, timestamp=preview_timestamp)
             frame.thumbnail((720, 600), Image.Resampling.LANCZOS)
-            badge = self._badge_path() if self.state.badge.enabled else None
-            logo = self.state.logo.path if self.state.logo.enabled and self.state.logo.path else None
-            if badge:
-                with Image.open(badge) as opened:
-                    frame = app.processor.compose(frame, opened.convert("RGBA"), MarkerSettings(
-                        badge_name=badge.name, position=self.state.badge.position,
-                        size_percent=self.state.badge.size, margin=self.state.badge.margin,
-                        opacity=self.state.badge.opacity,
-                    ), Image.open(logo).convert("RGBA") if logo else None)
+            duration = actual_duration if actual_duration is not None else max(1.0, preview_timestamp)
+            badge_path = self._badge_path() if self.state.badge.enabled else None
+            badge_active = bool(badge_path) and video_overlay_visible_at(
+                self.state.mode, self.state.duration, duration, preview_timestamp,
+            )
+            logo_path = self.state.logo.path if self.state.logo.enabled and self.state.logo.path else None
+            logo_active = bool(logo_path) and video_overlay_visible_at(
+                self.state.logo.mode, self.state.duration, duration, preview_timestamp,
+            )
+            badge_image = None
+            logo_image = None
+            if badge_active:
+                with Image.open(badge_path) as opened:
+                    badge_image = opened.convert("RGBA")
+            if logo_active:
+                with Image.open(logo_path) as opened:
+                    logo_image = opened.convert("RGBA")
+            settings = MarkerSettings(
+                badge_name=badge_path.name if badge_path else "",
+                position=self.state.badge.position,
+                size_percent=self.state.badge.size,
+                margin=self.state.badge.margin,
+                opacity=self.state.badge.opacity,
+                video_mode=self.state.mode,
+                video_duration=self.state.duration,
+                logo_mode=self.state.logo.mode,
+                logo_enabled=logo_active,
+                logo_path=str(logo_path or ""),
+                logo_position="top-left",
+                logo_size_percent=self.state.logo.size,
+                logo_margin=self.state.logo.margin,
+                logo_opacity=self.state.logo.opacity,
+            )
+            frame = app.processor.compose(frame, badge_image, settings, logo_image)
             self.preview_photo = ctk.CTkImage(light_image=frame, dark_image=frame, size=frame.size)
             label.configure(image=self.preview_photo, text="")
             label.image = self.preview_photo

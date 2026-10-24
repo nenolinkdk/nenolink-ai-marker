@@ -31,6 +31,13 @@ def _image_app():
         logo_size_var=_Var(20), logo_margin_var=_Var(20), logo_opacity_var=_Var(100),
         _logo_path=lambda: None,
         _project_image_visual_state=lambda: None,
+        badges=SimpleNamespace(
+            display_badges=lambda: [Path("ai-assisted.png"), Path("ai-translation.png")],
+            display_name=lambda badge_id: {
+                "ai-assisted.png": "AI Assisted",
+                "ai-translation.png": "AI Translation",
+            }.get(badge_id, badge_id),
+        ),
     )
 
 
@@ -38,16 +45,17 @@ def test_image_badge_checkbox_callback_updates_authoritative_enabled_state():
     app = _image_app(); state = ImageWorkspaceState(); workspace = ImageWorkspace.__new__(ImageWorkspace)
     workspace.app = app; workspace.state = state
     workspace.refresh_preview = lambda: None
-    app.badge_enabled_var.set(False)
-    workspace.visual_changed()
+    workspace.visual_changed(False)
+    assert state.badge.enabled is False
+    workspace.visual_changed(42)  # numeric slider values are never enabled flags
     assert state.badge.enabled is False
 
 
 def test_image_badge_selector_callback_uses_projected_selection():
     app = _image_app(); state = ImageWorkspaceState(); workspace = ImageWorkspace.__new__(ImageWorkspace)
     workspace.app = app; workspace.state = state
+    workspace.badge_control = SimpleNamespace(selector_var=_Var("AI Translation"))
     workspace.refresh_preview = lambda: None
-    app.badge_display_var.set("AI Translation")
     workspace.badge_changed()
     assert state.badge.badge_id == "ai-translation.png"
 
@@ -55,7 +63,7 @@ def test_image_badge_selector_callback_uses_projected_selection():
 def test_image_badge_change_reaches_preview_from_authoritative_state():
     app = _image_app(); state = ImageWorkspaceState(selected_files=(Path("photo.jpg"),))
     workspace = ImageWorkspace.__new__(ImageWorkspace); workspace.app = app; workspace.state = state
+    workspace.badge_control = SimpleNamespace(selector_var=_Var("AI Translation"))
     workspace.refresh_preview = lambda: None
-    app.badge_display_var.set("AI Translation")
     workspace.badge_changed()
     assert state.badge.badge_id == "ai-translation.png"

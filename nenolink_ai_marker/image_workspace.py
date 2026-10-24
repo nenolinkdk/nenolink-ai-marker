@@ -133,10 +133,9 @@ class ImageWorkspace:
         if getattr(self, "position_menu", None) is not None:
             mapping = {t("position.top_left"): "top-left", t("position.top_right"): "top-right", t("position.bottom_left"): "bottom-left", t("position.bottom_right"): "bottom-right", t("position.center"): "center"}
             self.position_display_to_value = mapping
-            self.app.position_display_to_value = mapping
             self.position_menu.configure(values=list(mapping))
             selected = next((label for label, value in mapping.items() if value == self.state.badge.position), "")
-            self.position_menu.set(selected)
+            self.position_display_var.set(selected)
         if self.logo_control is not None:
             self.logo_control.project(LogoProjection(enabled=self.state.logo.enabled, filename=self.state.logo.path.name if self.state.logo.path else "", position=self.state.logo.position, size=self.state.logo.size, margin=self.state.logo.margin, opacity=self.state.logo.opacity, labels=self._logo_labels()))
         for widget, key in ((getattr(self, "file_heading", None), "section.file"),):
@@ -230,16 +229,27 @@ class ImageWorkspace:
         (messagebox.showerror if failures else messagebox.showinfo)(app.translator.text("error.completed") if failures else app.translator.text("complete.title"), summary + ("\n\n" + "\n".join(failures[:8]) if failures else "") + warning)
 
     def badge_changed(self, displayed=None):
-        selector = getattr(self.app, "badge_display_var", None)
-        displayed = displayed if displayed is not None else (selector.get() if selector is not None else self.app.badge_var.get())
-        badge_id = getattr(self.app, "badge_display_to_file", {}).get(displayed, displayed)
+        if displayed is None and self.badge_control is not None:
+            displayed = self.badge_control.selector_var.get()
+        if displayed is None:
+            return
+        badge_id = next((path.name for path in self.app.badges.display_badges()
+                         if self.app.badges.display_name(path.name) == displayed), displayed)
         apply_image_event(self.state, ImageEvent.BADGE_CHANGED, {"badge_id": badge_id})
         if getattr(self, "root", None) is not None: self.project()
         self.refresh_preview()
 
     def position_changed(self, label):
-        value = getattr(self.app, "position_display_to_value", {}).get(label, label)
+        value = self.position_display_to_value.get(label, label)
         apply_image_event(self.state, ImageEvent.VISUAL_CHANGED, {"position": value})
+        if getattr(self, "root", None) is not None: self.project()
+        self.refresh_preview()
+
+    def badge_parameter_changed(self, field, value):
+        """Dispatch only the badge parameter changed by its slider."""
+        if field not in {"size", "margin", "opacity"}:
+            raise ValueError(f"Unsupported badge parameter: {field}")
+        apply_image_event(self.state, ImageEvent.VISUAL_CHANGED, {field: int(float(value))})
         if getattr(self, "root", None) is not None: self.project()
         self.refresh_preview()
 
@@ -250,7 +260,7 @@ class ImageWorkspace:
         self.logo_changed(path=Path(selected), enabled=True)
 
     def logo_position_changed(self, label):
-        value = getattr(self.app, "logo_position_display_to_value", {}).get(label, label)
+        value = self.logo_position_display_to_value.get(label, label)
         self.logo_changed(position=value)
     def logo_changed(self, *_args, **changes):
         payload = {}
@@ -265,14 +275,10 @@ class ImageWorkspace:
         self.refresh_preview()
 
     def visual_changed(self, enabled=None, *_args):
-        apply_image_event(self.state, ImageEvent.VISUAL_CHANGED, {
-            "enabled": bool(self.app.badge_enabled_var.get()) if enabled is None else bool(enabled),
-            "position": self.app.position_var.get(), "size": int(self.app.size_var.get()),
-            "margin": int(self.app.margin_var.get()), "opacity": int(self.app.opacity_var.get()),
-            "logo_enabled": bool(self.app.logo_enabled_var.get()), "logo_path": self.app._logo_path(),
-            "logo_position": self.app.logo_position_var.get(), "logo_size": int(self.app.logo_size_var.get()),
-            "logo_margin": int(self.app.logo_margin_var.get()), "logo_opacity": int(self.app.logo_opacity_var.get()),
-        })
+        # BadgeControl's checkbox passes bool. A numeric slider callback must
+        # never be interpreted as enabled state; sliders have their own route.
+        payload = {"enabled": enabled} if isinstance(enabled, bool) else {}
+        apply_image_event(self.state, ImageEvent.VISUAL_CHANGED, payload)
         if getattr(self, "root", None) is not None: self.project()
         self.refresh_preview()
 
@@ -281,7 +287,7 @@ class ImageWorkspace:
         control = ParameterRow(
             parent, text=self.app.translator.text(label_key, value=value),
             start=start, end=end, value=value, variable=variable,
-            command=self.visual_changed,
+            command=lambda value: self.badge_parameter_changed(label_key.split(".")[0], value),
         )
         control.frame.grid(row=row, column=0, pady=PARAM_ROW_PADY, sticky="ew")
         self.badge_parameter_rows[label_key.split(".")[0]] = control
@@ -326,16 +332,28 @@ class ImageWorkspace:
         app.position_label = ctk.CTkLabel(app.image_badge_group, width=PARAM_LABEL_WIDTH)
         app.position_label.grid(row=1, column=0, padx=8, pady=(2, 0), sticky="w")
         self.position_label = app.position_label
-        self.position_menu = ctk.CTkOptionMenu(app.image_badge_group, variable=app.position_display_var, values=["—"], command=self.position_changed)
+        self.position_display_var = ctk.StringVar(value="")
+        self.position_display_to_value = {}
+        self.position_menu = ctk.CTkOptionMenu(app.image_badge_group, variable=self.position_display_var, values=["—"], command=self.position_changed)
         self.position_menu.configure(width=PARAM_DROPDOWN_WIDTH)
         self.position_menu.grid(row=2, column=0, padx=8, pady=(0, 2), sticky="w")
         self.badge_parameter_rows = {}
-        app.size_label = self._slider(app.image_badge_group, app.size_var, 1, 100, 3, "size.value")
-        app.margin_label = self._slider(app.image_badge_group, app.margin_var, 0, 250, 4, "margin.value")
-        app.opacity_label = self._slider(app.image_badge_group, app.opacity_var, 0, 100, 5, "opacity.value")
+        self.badge_size_var = ctk.IntVar(value=self.state.badge.size)
+        self.badge_margin_var = ctk.IntVar(value=self.state.badge.margin)
+        self.badge_opacity_var = ctk.IntVar(value=self.state.badge.opacity)
+        app.size_label = self._slider(app.image_badge_group, self.badge_size_var, 1, 100, 3, "size.value")
+        app.margin_label = self._slider(app.image_badge_group, self.badge_margin_var, 0, 250, 4, "margin.value")
+        app.opacity_label = self._slider(app.image_badge_group, self.badge_opacity_var, 0, 100, 5, "opacity.value")
         logo_section = ctk.CTkFrame(left, fg_color="transparent"); self.control_panel.add_section("OWN_LOGO", logo_section)
         self.logo_control = LogoControl(logo_section, on_enabled=lambda value: self.logo_changed(enabled=value), on_choose=self.choose_logo, on_size=lambda value: self.logo_changed(size=value), on_margin=lambda value: self.logo_changed(margin=value), on_opacity=lambda value: self.logo_changed(opacity=value), labels=self._logo_labels())
         self.logo_control.frame.grid(row=0, column=0, sticky="ew")
+        self.logo_position_display_to_value = {
+            app.translator.text("position.top_left"): "top-left",
+            app.translator.text("position.top_right"): "top-right",
+            app.translator.text("position.bottom_left"): "bottom-left",
+            app.translator.text("position.bottom_right"): "bottom-right",
+            app.translator.text("position.center"): "center",
+        }
         app.logo_controls = self.logo_control.frame
         app.logo_heading = self.logo_control.heading; app.logo_enable = self.logo_control.enabled_widget; app.logo_choose = self.logo_control.choose_button; app.logo_filename = self.logo_control.filename_label; app.logo_position_label = self.logo_control.position_label; app.logo_size_slider = self.logo_control.size_widget; app.logo_margin_slider = self.logo_control.margin_widget; app.logo_opacity_slider = self.logo_control.opacity_widget
         app.process_save_control = SaveControl(self.source_control.action_row, label=app.translator.text("dialog.save_as_generic"), command=self.save)

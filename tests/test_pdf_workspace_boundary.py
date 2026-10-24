@@ -237,13 +237,15 @@ def test_constructed_pdf_badge_callbacks_dispatch_project_and_build_save_request
             self.heading = Widget()
 
     class Scope:
-        def __init__(self, *_args, **_kwargs):
+        def __init__(self, *_args, **kwargs):
+            self.options = kwargs
             self.frame = Widget()
             self.menu = Widget()
             self.input = Widget()
             self.update = Widget()
+            self.status = Widget()
 
-        def project(self, **_kwargs): pass
+        def project(self, **kwargs): self.projection = kwargs
 
     class Navigation:
         def __init__(self, *_args, **_kwargs):
@@ -345,6 +347,25 @@ def test_constructed_pdf_badge_callbacks_dispatch_project_and_build_save_request
             prepared.request.disclosure.margin, prepared.request.disclosure.opacity) == (
         state.badge.position, state.badge.size, state.badge.margin, state.badge.opacity,
     )
+
+    # The actual DocumentScopeControl callbacks supplied by mount must commit
+    # valid drafts through the event/table path and preserve the last valid
+    # selection when an invalid draft is submitted.
+    scope = workspace.scope_control.options
+    scope["on_mode"]("pdf.scope.selected")
+    scope["on_text"]("2-3")
+    scope["on_update"]()
+    assert state.scope_mode == "selected"
+    assert state.scope_input == "2-3"
+    assert state.active_scope == (2, 3) and state.current_page == 2
+    assert [event for event, _payload in events[-3:]] == [
+        PdfEvent.SCOPE_MODE, PdfEvent.SCOPE_TEXT_CHANGED, PdfEvent.SCOPE_UPDATE,
+    ]
+
+    scope["on_text"]("99")
+    scope["on_update"]()
+    assert state.active_scope == (2, 3) and state.current_page == 2
+    assert workspace.scope_control.status.configured["text"] == "document.scope_invalid"
 
 
 def test_pdf_registry_entry_is_workspace_instance():

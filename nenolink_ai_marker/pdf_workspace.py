@@ -73,7 +73,7 @@ class PdfWorkspace:
         self.source_control = SourceControl(file_section, choose_command=self.choose_file, choose_label=t("pdf.choose"), empty_label=t("pdf.no_file"), width=280, compact=True); self.source_control.frame.grid(row=1,column=0,padx=2,pady=(1,0),sticky="ew"); app.pdf_choose_button = self.source_control.choose_button
         pages_section = ctk.CTkFrame(controls, fg_color="transparent"); self.control_panel.add_section("PAGES", pages_section)
         self.pages_heading = ctk.CTkLabel(pages_section, text=t("section.pages"), font=ctk.CTkFont(weight="bold")); self.pages_heading.grid(row=0,column=0,padx=2,pady=(2,1),sticky="w")
-        self.scope_control = DocumentScopeControl(pages_section, on_mode=self.set_scope_mode, on_text=lambda text: apply_pdf_event(self.state, PdfEvent.SCOPE_TEXT_CHANGED, {"text": text}), on_update=lambda: self.project(), values=(t("pdf.scope.all"), t("pdf.scope.first"), t("pdf.scope.selected"), t("pdf.scope.range")), placeholder=t("pdf.selected_hint"), update_label=t("document.scope_update"))
+        self.scope_control = DocumentScopeControl(pages_section, on_mode=self.set_scope_mode, on_text=lambda text: apply_pdf_event(self.state, PdfEvent.SCOPE_TEXT_CHANGED, {"text": text}), on_update=self.update_scope, values=(t("pdf.scope.all"), t("pdf.scope.first"), t("pdf.scope.selected"), t("pdf.scope.range")), placeholder=t("pdf.selected_hint"), update_label=t("document.scope_update"))
         self._scope_display = {"all": t("pdf.scope.all"), "first": t("pdf.scope.first"), "selected": t("pdf.scope.selected"), "range": t("pdf.scope.range")}
         self._scope_value = {label: value for value, label in self._scope_display.items()}
         self.scope_control.frame.grid(row=1, column=0, padx=2, pady=2, sticky="ew")
@@ -269,8 +269,33 @@ class PdfWorkspace:
         self.project()
 
     def set_scope_mode(self, mode: str) -> None:
-        apply_pdf_event(self.state, PdfEvent.SCOPE_MODE, {"mode": self._scope_value.get(mode, mode)})
+        try:
+            apply_pdf_event(self.state, PdfEvent.SCOPE_MODE, {"mode": self._scope_value.get(mode, mode)})
+        except ValueError:
+            self._show_scope_error()
+            return
         self.project()
+
+    def update_scope(self) -> None:
+        """Commit the edited page selection through the PDF transition table."""
+        try:
+            apply_pdf_event(
+                self.state, PdfEvent.SCOPE_UPDATE,
+                {"text": self.state.scope_input},
+            )
+        except ValueError:
+            self._show_scope_error()
+            return
+        self.project()
+
+    def _show_scope_error(self) -> None:
+        """Keep the last valid scope and show localized validation feedback."""
+        if self.root is not None:
+            self.project()
+        if getattr(self, "scope_control", None) is not None:
+            self.scope_control.status.configure(
+                text=self.app.translator.text("document.scope_invalid")
+            )
 
     def refresh_preview(self) -> None:
         """Render the current physical page from authoritative workspace state."""
@@ -296,8 +321,21 @@ class PdfWorkspace:
                 source_width, source_height, aspect = 1.0, 1.0, 1.0
             geometry = fit_preview_geometry(width, height, source_width, source_height, target_fraction=0.8)
             max_size = (geometry.rendered_width, geometry.rendered_height)
-            result = app.pdf_preview_renderer.render(state.path, current, badge, app.settings(), logo, max_size=max_size)
-            state.current_page = result.page_number
+            settings = replace(
+                app.settings(),
+                badge_name=state.badge.badge_id,
+                position=state.badge.position,
+                size_percent=state.badge.size,
+                margin=state.badge.margin,
+                opacity=state.badge.opacity,
+                logo_enabled=bool(logo),
+                logo_path=str(logo or ""),
+                logo_position=state.logo.position,
+                logo_size_percent=state.logo.size,
+                logo_margin=state.logo.margin,
+                logo_opacity=state.logo.opacity,
+            )
+            result = app.pdf_preview_renderer.render(state.path, current, badge, settings, logo, max_size=max_size)
             self.preview_photo = ctk.CTkImage(light_image=result.image, dark_image=result.image, size=result.image.size)
             app.pdf_preview_label.configure(image=self.preview_photo, text="")
             app.pdf_preview_photo = self.preview_photo

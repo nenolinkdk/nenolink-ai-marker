@@ -40,6 +40,41 @@ def test_pdf_invalid_update_preserves_scope_and_page():
     assert state.active_scope == (2,) and state.current_page == 2
 
 
+@pytest.mark.parametrize(("mode", "text", "expected"), [
+    ("selected", "1,3-4", (1, 3, 4)),
+    ("range", "2-3,5-6", (2, 3, 5, 6)),
+])
+def test_pdf_scope_update_parses_ui_draft_through_table(mode, text, expected):
+    state = PdfWorkspaceState(path=Path("doc.pdf"), page_count=6, current_page=5, active_scope=(5,))
+    apply_pdf_event(state, PdfEvent.SCOPE_MODE, {"mode": mode})
+    apply_pdf_event(state, PdfEvent.SCOPE_TEXT_CHANGED, {"text": text})
+    apply_pdf_event(state, PdfEvent.SCOPE_UPDATE, {"text": state.scope_input})
+    assert state.active_scope == expected
+    assert state.current_page == expected[0]
+
+
+@pytest.mark.parametrize(("mode", "text"), [
+    ("selected", ""), ("selected", "0"), ("selected", "5-2"),
+    ("range", "2,4"), ("entire", "1-2"),
+])
+def test_pdf_invalid_scope_mode_or_draft_is_transactional(mode, text):
+    state = PdfWorkspaceState(path=Path("doc.pdf"), page_count=6, current_page=3,
+                              scope_mode="selected", scope_input="1,3", active_scope=(1, 3))
+    before = (state.scope_mode, state.active_scope, state.current_page)
+    if mode == "entire":
+        with pytest.raises(ValueError):
+            apply_pdf_event(state, PdfEvent.SCOPE_MODE, {"mode": mode})
+    else:
+        apply_pdf_event(state, PdfEvent.SCOPE_MODE, {"mode": mode})
+        with pytest.raises(ValueError):
+            apply_pdf_event(state, PdfEvent.SCOPE_UPDATE, {"text": text})
+    assert (state.active_scope, state.current_page) == before[1:]
+    if mode == "entire":
+        assert state.scope_mode == before[0]
+    else:
+        assert state.scope_mode == mode
+
+
 def test_pdf_physical_navigation_preserves_scope():
     state = PdfWorkspaceState(path=Path("doc.pdf"), page_count=10, current_page=2, active_scope=(2, 7))
     apply_pdf_event(state, PdfEvent.PREVIEW_NEXT)

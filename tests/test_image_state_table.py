@@ -49,13 +49,18 @@ def test_file_event_preserves_visual_state():
 
 def test_real_image_callback_seam_dispatches_reducer(monkeypatch):
     state = ImageWorkspaceState(path=Path("one.png"), selected_files=(Path("one.png"),))
+    badge_path = Path("AI Translation")
     app = SimpleNamespace(
-        badge_var=SimpleNamespace(get=lambda: "AI Translation"),
-        _project_image_visual_state=lambda: None,
+        badges=SimpleNamespace(
+            display_badges=lambda: [badge_path],
+            display_name=lambda badge_id: badge_id,
+        ),
     )
     workspace = ImageWorkspace.__new__(ImageWorkspace)
     workspace.app = app
     workspace.state = state
+    workspace.badge_control = SimpleNamespace(selector_var=SimpleNamespace(get=lambda: "AI Translation"))
+    workspace.root = None
     workspace.refresh_preview = lambda: None
     workspace.badge_changed()
     assert state.badge.badge_id == "AI Translation"
